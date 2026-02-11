@@ -69,7 +69,10 @@ export function EmailRenderer({
     if (!doc) return;
 
     doc.open();
-    const applyDarkStyles = isDark && isPlainText;
+    // Plain text: blend with app theme (dark text on light bg, light text on dark bg)
+    // HTML emails: always render on a light background since senders design for white/light
+    const plainTextDark = isDark && isPlainText;
+    const htmlDark = isDark && !isPlainText;
     doc.write(`<!DOCTYPE html>
 <html>
 <head>
@@ -80,19 +83,19 @@ export function EmailRenderer({
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       font-size: 14px;
       line-height: 1.6;
-      color: ${applyDarkStyles ? "#e5e7eb" : "#1f2937"};
-      background: transparent;
+      color: ${plainTextDark ? "#e5e7eb" : "#1f2937"};
+      background: ${htmlDark ? "#f8f9fa" : "transparent"};
       word-wrap: break-word;
       overflow-wrap: break-word;
       overflow: hidden;
     }
     img { max-width: 100%; height: auto; }
-    a { color: ${applyDarkStyles ? "#60a5fa" : "#3b82f6"}; }
+    a { color: ${plainTextDark ? "#60a5fa" : "#3b82f6"}; }
     blockquote {
-      border-left: 3px solid ${applyDarkStyles ? "#4b5563" : "#d1d5db"};
+      border-left: 3px solid ${plainTextDark ? "#4b5563" : "#d1d5db"};
       margin: 8px 0;
       padding: 4px 12px;
-      color: ${applyDarkStyles ? "#9ca3af" : "#6b7280"};
+      color: ${plainTextDark ? "#9ca3af" : "#6b7280"};
     }
     pre { overflow-x: auto; }
     table { max-width: 100%; }
@@ -176,7 +179,7 @@ export function EmailRenderer({
       <iframe
         ref={iframeRef}
         sandbox="allow-same-origin"
-        className="w-full border-0"
+        className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
         style={{ overflow: "hidden" }}
         title="Email content"
       />
