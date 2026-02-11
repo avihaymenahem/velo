@@ -1,0 +1,551 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CSSTransition } from "react-transition-group";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import Underline from "@tiptap/extension-underline";
+import Placeholder from "@tiptap/extension-placeholder";
+import Image from "@tiptap/extension-image";
+import { Clock } from "lucide-react";
+
+import { AddressInput } from "./AddressInput";
+import { EditorToolbar } from "./EditorToolbar";
+import { AiAssistPanel } from "./AiAssistPanel";
+import { AttachmentPicker } from "./AttachmentPicker";
+import { ScheduleSendDialog } from "./ScheduleSendDialog";
+import { SignatureSelector } from "./SignatureSelector";
+import { TemplatePicker } from "./TemplatePicker";
+import { useComposerStore } from "@/stores/composerStore";
+import { useAccountStore } from "@/stores/accountStore";
+import { getGmailClient } from "@/services/gmail/tokenManager";
+import { buildRawEmail } from "@/utils/emailBuilder";
+import { upsertContact } from "@/services/db/contacts";
+import { getSetting } from "@/services/db/settings";
+import { insertScheduledEmail } from "@/services/db/scheduledEmails";
+import { getDefaultSignature } from "@/services/db/signatures";
+import { startAutoSave, stopAutoSave } from "@/services/composer/draftAutoSave";
+import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
+import { readFileAsBase64 } from "@/utils/fileUtils";
+import { interpolateVariables } from "@/utils/templateVariables";
+
+export function Composer() {
+  const {
+    isOpen,
+    mode,
+    to,
+    cc,
+    bcc,
+    subject,
+    bodyHtml,
+    threadId,
+    inReplyToMessageId,
+    showCcBcc,
+    draftId,
+    attachments,
+    isSaving,
+    lastSavedAt,
+    signatureHtml,
+    closeComposer,
+    setTo,
+    setCc,
+    setBcc,
+    setSubject,
+    setBodyHtml,
+    setShowCcBcc,
+    setUndoSendTimer,
+    setUndoSendVisible,
+    setSignatureHtml,
+    setSignatureId,
+    addAttachment,
+  } = useComposerStore();
+
+  const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const accounts = useAccountStore((s) => s.accounts);
+  const activeAccount = accounts.find((a) => a.id === activeAccountId);
+  const sendingRef = useRef(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [showAiAssist, setShowAiAssist] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const templateShortcutsRef = useRef<DbTemplate[]>([]);
+  const dragCounterRef = useRef(0);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+      }),
+      Link.configure({ openOnClick: false }),
+      Underline,
+      Placeholder.configure({
+        placeholder: "Write your message...",
+      }),
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+      }),
+    ],
+    content: bodyHtml,
+    onUpdate: ({ editor: ed }) => {
+      setBodyHtml(ed.getHTML());
+
+      // Check for template shortcut triggers
+      const templates = templateShortcutsRef.current;
+      if (templates.length === 0) return;
+
+      const text = ed.state.doc.textContent;
+      for (const tmpl of templates) {
+        if (!tmpl.shortcut) continue;
+        if (text.endsWith(tmpl.shortcut)) {
+          // Delete the shortcut text and insert template body with variables resolved
+          const { from } = ed.state.selection;
+          const deleteFrom = from - tmpl.shortcut.length;
+          if (deleteFrom >= 0) {
+            const state = useComposerStore.getState();
+            const account = useAccountStore.getState().accounts.find(
+              (a) => a.id === useAccountStore.getState().activeAccountId,
+            );
+            interpolateVariables(tmpl.body_html, {
+              recipientEmail: state.to[0],
+              senderEmail: account?.email,
+              senderName: account?.displayName ?? undefined,
+              subject: state.subject || undefined,
+            }).then((resolved) => {
+              ed.chain()
+                .deleteRange({ from: deleteFrom, to: from })
+                .insertContent(resolved)
+                .run();
+            });
+            if (tmpl.subject && !state.subject) {
+              setSubject(tmpl.subject);
+            }
+          }
+          break;
+        }
+      }
+    },
+    editorProps: {
+      attributes: {
+        class:
+          "prose prose-sm max-w-none px-4 py-3 min-h-[200px] focus:outline-none text-text-primary",
+      },
+      handleDrop: (_view, event) => {
+        // Prevent TipTap from handling file drops as inline content.
+        // Returning true stops TipTap's Image extension from intercepting the drop,
+        // allowing the event to bubble up to the composer's onDrop for attachment handling.
+        if (event.dataTransfer?.files?.length) {
+          return true;
+        }
+        return false;
+      },
+    },
+  });
+
+  // Load default signature when composer opens
+  useEffect(() => {
+    if (!isOpen || !activeAccountId) return;
+    let cancelled = false;
+    getDefaultSignature(activeAccountId).then((sig) => {
+      if (cancelled || !sig) return;
+      setSignatureHtml(sig.body_html);
+      setSignatureId(sig.id);
+    });
+    return () => { cancelled = true; };
+  }, [isOpen, activeAccountId, setSignatureHtml, setSignatureId]);
+
+  // Start/stop draft auto-save
+  useEffect(() => {
+    if (!isOpen || !activeAccountId) return;
+    startAutoSave(activeAccountId);
+    return () => { stopAutoSave(); };
+  }, [isOpen, activeAccountId]);
+
+  // Load templates with shortcuts when composer opens
+  useEffect(() => {
+    if (!isOpen || !activeAccountId) return;
+    let cancelled = false;
+    getTemplatesForAccount(activeAccountId).then((templates) => {
+      if (cancelled) return;
+      templateShortcutsRef.current = templates.filter((t) => t.shortcut);
+    });
+    return () => { cancelled = true; };
+  }, [isOpen, activeAccountId]);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    for (const file of Array.from(files)) {
+      const content = await readFileAsBase64(file);
+      addAttachment({
+        id: crypto.randomUUID(),
+        file,
+        filename: file.name,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+        content,
+      });
+    }
+  }, [addAttachment]);
+
+  const getFullHtml = useCallback(() => {
+    const editorHtml = editor?.getHTML() ?? "";
+    if (!signatureHtml) return editorHtml;
+    return `${editorHtml}<div style="margin-top:16px;border-top:1px solid #e5e5e5;padding-top:12px">${signatureHtml}</div>`;
+  }, [editor, signatureHtml]);
+
+  const handleSend = useCallback(async () => {
+    if (!activeAccountId || !activeAccount || sendingRef.current) return;
+    if (to.length === 0) return;
+
+    sendingRef.current = true;
+    stopAutoSave();
+
+    const html = getFullHtml();
+    const raw = buildRawEmail({
+      from: activeAccount.email,
+      to,
+      cc: cc.length > 0 ? cc : undefined,
+      bcc: bcc.length > 0 ? bcc : undefined,
+      subject,
+      htmlBody: html,
+      inReplyTo: inReplyToMessageId ?? undefined,
+      threadId: threadId ?? undefined,
+      attachments: attachments.length > 0
+        ? attachments.map((a) => ({
+            filename: a.filename,
+            mimeType: a.mimeType,
+            content: a.content,
+          }))
+        : undefined,
+    });
+
+    // Get undo send delay
+    const delaySetting = await getSetting("undo_send_delay_seconds");
+    const delay = parseInt(delaySetting ?? "5", 10) * 1000;
+    const currentDraftId = draftId;
+
+    // Show undo send UI
+    setUndoSendVisible(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const client = await getGmailClient(activeAccountId);
+        await client.sendMessage(raw, threadId ?? undefined);
+
+        // Delete draft if it was saved
+        if (currentDraftId) {
+          try { await client.deleteDraft(currentDraftId); } catch { /* ignore */ }
+        }
+
+        // Update contacts frequency
+        for (const addr of [...to, ...cc, ...bcc]) {
+          await upsertContact(addr, null);
+        }
+      } catch (err) {
+        console.error("Failed to send email:", err);
+      } finally {
+        setUndoSendVisible(false);
+        sendingRef.current = false;
+      }
+    }, delay);
+
+    setUndoSendTimer(timer);
+    closeComposer();
+  }, [
+    activeAccountId,
+    activeAccount,
+    to,
+    cc,
+    bcc,
+    subject,
+    editor,
+    threadId,
+    inReplyToMessageId,
+    attachments,
+    draftId,
+    signatureHtml,
+    closeComposer,
+    setUndoSendTimer,
+    setUndoSendVisible,
+    getFullHtml,
+  ]);
+
+  const handleSchedule = useCallback(async (scheduledAt: number) => {
+    if (!activeAccountId || !activeAccount) return;
+    if (to.length === 0) return;
+
+    const html = getFullHtml();
+
+    const attachmentData = attachments.length > 0
+      ? JSON.stringify(attachments.map((a) => ({
+          filename: a.filename,
+          mimeType: a.mimeType,
+          content: a.content,
+        })))
+      : null;
+
+    await insertScheduledEmail({
+      accountId: activeAccountId,
+      toAddresses: to.join(", "),
+      ccAddresses: cc.length > 0 ? cc.join(", ") : null,
+      bccAddresses: bcc.length > 0 ? bcc.join(", ") : null,
+      subject,
+      bodyHtml: html,
+      replyToMessageId: inReplyToMessageId,
+      threadId,
+      scheduledAt,
+      signatureId: null,
+    });
+
+    // Store attachment data if present
+    if (attachmentData) {
+      // The insertScheduledEmail doesn't have an attachmentPaths param,
+      // so we update it separately via the existing column
+      const { getDb } = await import("@/services/db/connection");
+      const db = await getDb();
+      // Get the most recently inserted scheduled email for this account
+      const rows = await db.select<{ id: string }[]>(
+        "SELECT id FROM scheduled_emails WHERE account_id = $1 ORDER BY created_at DESC LIMIT 1",
+        [activeAccountId],
+      );
+      if (rows[0]) {
+        await db.execute(
+          "UPDATE scheduled_emails SET attachment_paths = $1 WHERE id = $2",
+          [attachmentData, rows[0].id],
+        );
+      }
+    }
+
+    stopAutoSave();
+    // Delete the draft if exists
+    if (draftId) {
+      try {
+        const client = await getGmailClient(activeAccountId);
+        await client.deleteDraft(draftId);
+      } catch { /* ignore */ }
+    }
+
+    setShowSchedule(false);
+    closeComposer();
+  }, [
+    activeAccountId,
+    activeAccount,
+    to,
+    cc,
+    bcc,
+    subject,
+    threadId,
+    inReplyToMessageId,
+    attachments,
+    draftId,
+    closeComposer,
+    getFullHtml,
+  ]);
+
+  const handleDiscard = useCallback(async () => {
+    stopAutoSave();
+    // Delete the draft if it was saved
+    if (draftId && activeAccountId) {
+      try {
+        const client = await getGmailClient(activeAccountId);
+        await client.deleteDraft(draftId);
+      } catch { /* ignore */ }
+    }
+    closeComposer();
+  }, [draftId, activeAccountId, closeComposer]);
+
+  const modeLabel =
+    mode === "reply"
+      ? "Reply"
+      : mode === "replyAll"
+        ? "Reply All"
+        : mode === "forward"
+          ? "Forward"
+          : "New Message";
+
+  const savedLabel = isSaving
+    ? "Saving..."
+    : lastSavedAt
+      ? "Draft saved"
+      : null;
+
+  return (
+    <CSSTransition nodeRef={overlayRef} in={isOpen} timeout={200} classNames="slide-up" unmountOnExit>
+    <div ref={overlayRef} className="fixed inset-0 z-50 flex items-end justify-center pb-4 pointer-events-none">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/20 pointer-events-auto glass-backdrop"
+        onClick={closeComposer}
+      />
+
+      {/* Composer window */}
+      <div
+        className={`relative bg-bg-primary border rounded-lg glass-modal w-full max-w-2xl pointer-events-auto flex flex-col max-h-[80vh] slide-up-panel ${
+          isDragging ? "border-accent border-2" : "border-border-primary"
+        }`}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {isDragging && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-accent/10 rounded-lg pointer-events-none">
+            <span className="text-sm font-medium text-accent">Drop files to attach</span>
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border-primary bg-bg-secondary rounded-t-lg">
+          <span className="text-sm font-medium text-text-primary">
+            {modeLabel}
+          </span>
+          <button
+            onClick={closeComposer}
+            className="text-text-tertiary hover:text-text-primary text-lg leading-none"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Address fields */}
+        <div className="px-3 py-2 space-y-1.5 border-b border-border-secondary">
+          <AddressInput label="To" addresses={to} onChange={setTo} />
+          {showCcBcc ? (
+            <>
+              <AddressInput label="Cc" addresses={cc} onChange={setCc} />
+              <AddressInput label="Bcc" addresses={bcc} onChange={setBcc} />
+            </>
+          ) : (
+            <button
+              onClick={() => setShowCcBcc(true)}
+              className="text-xs text-accent hover:text-accent-hover ml-10"
+            >
+              Cc / Bcc
+            </button>
+          )}
+        </div>
+
+        {/* Subject */}
+        <div className="px-3 py-1.5 border-b border-border-secondary">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-tertiary w-8 shrink-0">
+              Sub
+            </span>
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Subject"
+              className="flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-tertiary"
+            />
+          </div>
+        </div>
+
+        {/* Editor toolbar */}
+        <EditorToolbar
+          editor={editor}
+          onToggleAiAssist={() => setShowAiAssist(!showAiAssist)}
+          aiAssistOpen={showAiAssist}
+        />
+
+        {/* AI Assist Panel */}
+        {showAiAssist && (
+          <AiAssistPanel
+            editor={editor}
+            isReplyMode={mode === "reply" || mode === "replyAll"}
+          />
+        )}
+
+        {/* Editor */}
+        <div className="flex-1 overflow-y-auto">
+          <EditorContent editor={editor} />
+          {signatureHtml && (
+            <div
+              className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary"
+              dangerouslySetInnerHTML={{ __html: signatureHtml }}
+            />
+          )}
+        </div>
+
+        {/* Attachments */}
+        <div className="border-t border-border-secondary">
+          <AttachmentPicker />
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-4 py-2.5 border-t border-border-primary bg-bg-secondary rounded-b-lg">
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-text-tertiary">
+              {activeAccount?.email ?? "No account"}
+            </div>
+            {savedLabel && (
+              <span className={`text-xs text-text-tertiary italic transition-opacity duration-200 ${isSaving ? "animate-pulse" : ""}`}>
+                {savedLabel}
+              </span>
+            )}
+            <SignatureSelector />
+            <TemplatePicker editor={editor} />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDiscard}
+              className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors"
+            >
+              Discard
+            </button>
+            <div className="flex items-center">
+              <button
+                onClick={handleSend}
+                disabled={to.length === 0}
+                className="px-4 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-l-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Send
+              </button>
+              <button
+                onClick={() => setShowSchedule(true)}
+                disabled={to.length === 0}
+                className="px-2 py-1.5 text-white bg-accent hover:bg-accent-hover border-l border-white/20 rounded-r-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Schedule send"
+              >
+                <Clock size={12} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showSchedule && (
+        <ScheduleSendDialog
+          onSchedule={handleSchedule}
+          onClose={() => setShowSchedule(false)}
+        />
+      )}
+    </div>
+    </CSSTransition>
+  );
+}

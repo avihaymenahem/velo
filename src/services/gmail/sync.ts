@@ -1,0 +1,338 @@
+import { GmailClient } from "./client";
+import { parseGmailMessage, type ParsedMessage } from "./messageParser";
+import { upsertLabel } from "../db/labels";
+import { upsertThread, setThreadLabels } from "../db/threads";
+import { upsertMessage } from "../db/messages";
+import { upsertAttachment } from "../db/attachments";
+import { updateAccountSyncState } from "../db/accounts";
+import { queueNewEmailNotification } from "../notifications/notificationManager";
+import { applyFiltersToMessages } from "../filters/filterEngine";
+
+export interface SyncProgress {
+  phase: "labels" | "threads" | "messages" | "done";
+  current: number;
+  total: number;
+}
+
+export type SyncProgressCallback = (progress: SyncProgress) => void;
+
+/**
+ * Store a fetched thread's data (messages, labels, attachments) into the local DB.
+ */
+async function processAndStoreThread(
+  thread: { id: string },
+  accountId: string,
+  parsedMessages: ParsedMessage[],
+): Promise<void> {
+  const lastMessage = parsedMessages[parsedMessages.length - 1]!;
+  const firstMessage = parsedMessages[0]!;
+
+  const allLabelIds = new Set<string>();
+  for (const msg of parsedMessages) {
+    for (const lid of msg.labelIds) {
+      allLabelIds.add(lid);
+    }
+  }
+
+  const isRead = parsedMessages.every((m) => m.isRead);
+  const isStarred = parsedMessages.some((m) => m.isStarred);
+  const isImportant = allLabelIds.has("IMPORTANT");
+  const hasAttachments = parsedMessages.some((m) => m.hasAttachments);
+
+  await upsertThread({
+    id: thread.id,
+    accountId,
+    subject: firstMessage.subject,
+    snippet: lastMessage.snippet,
+    lastMessageAt: lastMessage.date,
+    messageCount: parsedMessages.length,
+    isRead,
+    isStarred,
+    isImportant,
+    hasAttachments,
+  });
+
+  await setThreadLabels(accountId, thread.id, [...allLabelIds]);
+
+  for (const parsed of parsedMessages) {
+    await upsertMessage({
+      id: parsed.id,
+      accountId,
+      threadId: parsed.threadId,
+      fromAddress: parsed.fromAddress,
+      fromName: parsed.fromName,
+      toAddresses: parsed.toAddresses,
+      ccAddresses: parsed.ccAddresses,
+      bccAddresses: parsed.bccAddresses,
+      replyTo: parsed.replyTo,
+      subject: parsed.subject,
+      snippet: parsed.snippet,
+      date: parsed.date,
+      isRead: parsed.isRead,
+      isStarred: parsed.isStarred,
+      bodyHtml: parsed.bodyHtml,
+      bodyText: parsed.bodyText,
+      rawSize: parsed.rawSize,
+      internalDate: parsed.internalDate,
+      listUnsubscribe: parsed.listUnsubscribe,
+    });
+
+    for (const att of parsed.attachments) {
+      await upsertAttachment({
+        id: `${parsed.id}_${att.gmailAttachmentId}`,
+        messageId: parsed.id,
+        accountId,
+        filename: att.filename,
+        mimeType: att.mimeType,
+        size: att.size,
+        gmailAttachmentId: att.gmailAttachmentId,
+        contentId: att.contentId,
+        isInline: att.isInline,
+      });
+    }
+  }
+}
+
+/**
+ * Sync all labels for an account.
+ */
+export async function syncLabels(
+  client: GmailClient,
+  accountId: string,
+): Promise<void> {
+  const response = await client.listLabels();
+  for (const label of response.labels) {
+    await upsertLabel({
+      id: label.id,
+      accountId,
+      name: label.name,
+      type: label.type,
+      colorBg: label.color?.backgroundColor ?? null,
+      colorFg: label.color?.textColor ?? null,
+    });
+  }
+}
+
+/**
+ * Perform an initial full sync: fetch all threads from the last N days.
+ */
+export async function initialSync(
+  client: GmailClient,
+  accountId: string,
+  daysBack = 365,
+  onProgress?: SyncProgressCallback,
+): Promise<void> {
+  // Phase 1: Sync labels
+  onProgress?.({ phase: "labels", current: 0, total: 1 });
+  await syncLabels(client, accountId);
+  onProgress?.({ phase: "labels", current: 1, total: 1 });
+
+  // Phase 2: Fetch thread list
+  const afterDate = new Date();
+  afterDate.setDate(afterDate.getDate() - daysBack);
+  const afterStr = `${afterDate.getFullYear()}/${afterDate.getMonth() + 1}/${afterDate.getDate()}`;
+
+  const threadStubs: { id: string }[] = [];
+  let pageToken: string | undefined;
+
+  onProgress?.({ phase: "threads", current: 0, total: 0 });
+
+  do {
+    const response = await client.listThreads({
+      maxResults: 100,
+      pageToken,
+      q: `after:${afterStr}`,
+    });
+
+    if (response.threads) {
+      threadStubs.push(...response.threads.map((t) => ({ id: t.id })));
+    }
+
+    pageToken = response.nextPageToken;
+    onProgress?.({
+      phase: "threads",
+      current: threadStubs.length,
+      total: threadStubs.length + (pageToken ? 100 : 0), // estimate
+    });
+  } while (pageToken);
+
+  // Phase 3: Fetch and store each thread's details
+  let historyId = "0";
+
+  for (let i = 0; i < threadStubs.length; i++) {
+    const stub = threadStubs[i]!;
+    onProgress?.({
+      phase: "messages",
+      current: i + 1,
+      total: threadStubs.length,
+    });
+
+    try {
+      const thread = await client.getThread(stub.id, "full");
+
+      if (
+        BigInt(thread.historyId) > BigInt(historyId)
+      ) {
+        historyId = thread.historyId;
+      }
+
+      if (!thread.messages || thread.messages.length === 0) continue;
+
+      const parsedMessages = thread.messages.map(parseGmailMessage);
+      await processAndStoreThread(thread, accountId, parsedMessages);
+    } catch (err) {
+      console.error(`Failed to sync thread ${stub.id}:`, err);
+      // Continue with next thread
+    }
+  }
+
+  // Store the latest history ID for delta sync
+  await updateAccountSyncState(accountId, historyId);
+
+  onProgress?.({
+    phase: "done",
+    current: threadStubs.length,
+    total: threadStubs.length,
+  });
+}
+
+/**
+ * Delta sync: fetch only changes since last sync using history API.
+ */
+/**
+ * Process a batch of promises with limited concurrency.
+ */
+async function parallelLimit<T>(
+  tasks: (() => Promise<T>)[],
+  limit: number,
+): Promise<T[]> {
+  const results: T[] = [];
+  let index = 0;
+
+  async function next(): Promise<void> {
+    while (index < tasks.length) {
+      const i = index++;
+      results[i] = await tasks[i]!();
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, () => next());
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * Delta sync: fetch only changes since last sync using history API.
+ */
+export async function deltaSync(
+  client: GmailClient,
+  accountId: string,
+  lastHistoryId: string,
+): Promise<void> {
+  try {
+    // Paginate through all history pages
+    const affectedThreadIds = new Set<string>();
+    const newInboxMessageIds = new Set<string>();
+    let latestHistoryId = lastHistoryId;
+    let pageToken: string | undefined;
+
+    do {
+      const response = await client.getHistory(lastHistoryId, undefined, pageToken);
+      latestHistoryId = response.historyId;
+
+      if (response.history) {
+        for (const item of response.history) {
+          if (item.messagesAdded) {
+            for (const added of item.messagesAdded) {
+              affectedThreadIds.add(added.message.threadId);
+              // Track new unread inbox messages for notifications
+              const labels = added.message.labelIds ?? [];
+              if (labels.includes("INBOX") && labels.includes("UNREAD")) {
+                newInboxMessageIds.add(added.message.id);
+              }
+            }
+          }
+          if (item.messagesDeleted) {
+            for (const deleted of item.messagesDeleted) {
+              affectedThreadIds.add(deleted.message.threadId);
+            }
+          }
+          if (item.labelsAdded) {
+            for (const labeled of item.labelsAdded) {
+              affectedThreadIds.add(labeled.message.threadId);
+            }
+          }
+          if (item.labelsRemoved) {
+            for (const unlabeled of item.labelsRemoved) {
+              affectedThreadIds.add(unlabeled.message.threadId);
+            }
+          }
+        }
+      }
+
+      pageToken = response.nextPageToken;
+    } while (pageToken);
+
+    if (affectedThreadIds.size === 0) {
+      await updateAccountSyncState(accountId, latestHistoryId);
+      return;
+    }
+
+    // Re-fetch affected threads in parallel (max 5 concurrent)
+    const threadIds = [...affectedThreadIds];
+    await parallelLimit(
+      threadIds.map((threadId) => async () => {
+        try {
+          const thread = await client.getThread(threadId, "full");
+
+          if (!thread.messages || thread.messages.length === 0) return;
+
+          const parsedMessages = thread.messages.map(parseGmailMessage);
+          await processAndStoreThread(thread, accountId, parsedMessages);
+
+          // Send desktop notifications for new unread inbox messages
+          for (const parsed of parsedMessages) {
+            if (newInboxMessageIds.has(parsed.id)) {
+              const sender = parsed.fromName ?? parsed.fromAddress ?? "Unknown";
+              queueNewEmailNotification(
+                sender,
+                parsed.subject ?? "",
+                parsed.threadId,
+                accountId,
+                parsed.fromAddress ?? undefined,
+              );
+            }
+          }
+
+          // Apply filters to new inbox messages in this thread
+          const newMessages = parsedMessages.filter((m) => newInboxMessageIds.has(m.id));
+          if (newMessages.length > 0) {
+            try {
+              await applyFiltersToMessages(accountId, newMessages, client);
+            } catch (err) {
+              console.error(`Failed to apply filters to thread ${threadId}:`, err);
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to re-sync thread ${threadId}:`, err);
+        }
+      }),
+      5,
+    );
+
+    await updateAccountSyncState(accountId, latestHistoryId);
+
+    // Fire-and-forget AI categorization for new threads
+    import("@/services/ai/categorizationManager")
+      .then(({ categorizeNewThreads }) => categorizeNewThreads(accountId))
+      .catch((err) => console.error("Categorization error:", err));
+  } catch (err) {
+    // historyId might be too old — need full re-sync
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("404") || message.includes("historyId")) {
+      console.warn("History ID expired, triggering full re-sync");
+      throw new Error("HISTORY_EXPIRED");
+    }
+    throw err;
+  }
+}

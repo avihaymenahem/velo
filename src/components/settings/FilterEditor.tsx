@@ -1,0 +1,324 @@
+import { useState, useEffect, useCallback } from "react";
+import { Trash2, Pencil } from "lucide-react";
+import { useAccountStore } from "@/stores/accountStore";
+import { getLabelsForAccount, type DbLabel } from "@/services/db/labels";
+import {
+  getFiltersForAccount,
+  insertFilter,
+  updateFilter,
+  deleteFilter,
+  type DbFilterRule,
+  type FilterCriteria,
+  type FilterActions,
+} from "@/services/db/filters";
+
+export function FilterEditor() {
+  const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const [filters, setFilters] = useState<DbFilterRule[]>([]);
+  const [labels, setLabels] = useState<DbLabel[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  // Form state
+  const [name, setName] = useState("");
+  const [criteriaFrom, setCriteriaFrom] = useState("");
+  const [criteriaTo, setCriteriaTo] = useState("");
+  const [criteriaSubject, setCriteriaSubject] = useState("");
+  const [criteriaBody, setCriteriaBody] = useState("");
+  const [criteriaHasAttachment, setCriteriaHasAttachment] = useState(false);
+  const [actionLabel, setActionLabel] = useState("");
+  const [actionArchive, setActionArchive] = useState(false);
+  const [actionStar, setActionStar] = useState(false);
+  const [actionMarkRead, setActionMarkRead] = useState(false);
+  const [actionTrash, setActionTrash] = useState(false);
+
+  const loadFilters = useCallback(async () => {
+    if (!activeAccountId) return;
+    const f = await getFiltersForAccount(activeAccountId);
+    setFilters(f);
+  }, [activeAccountId]);
+
+  const loadLabels = useCallback(async () => {
+    if (!activeAccountId) return;
+    const l = await getLabelsForAccount(activeAccountId);
+    setLabels(l.filter((lb) => lb.type === "user"));
+  }, [activeAccountId]);
+
+  useEffect(() => {
+    loadFilters();
+    loadLabels();
+  }, [loadFilters, loadLabels]);
+
+  const resetForm = useCallback(() => {
+    setName("");
+    setCriteriaFrom("");
+    setCriteriaTo("");
+    setCriteriaSubject("");
+    setCriteriaBody("");
+    setCriteriaHasAttachment(false);
+    setActionLabel("");
+    setActionArchive(false);
+    setActionStar(false);
+    setActionMarkRead(false);
+    setActionTrash(false);
+    setEditingId(null);
+    setShowForm(false);
+  }, []);
+
+  const buildCriteria = (): FilterCriteria => {
+    const c: FilterCriteria = {};
+    if (criteriaFrom.trim()) c.from = criteriaFrom.trim();
+    if (criteriaTo.trim()) c.to = criteriaTo.trim();
+    if (criteriaSubject.trim()) c.subject = criteriaSubject.trim();
+    if (criteriaBody.trim()) c.body = criteriaBody.trim();
+    if (criteriaHasAttachment) c.hasAttachment = true;
+    return c;
+  };
+
+  const buildActions = (): FilterActions => {
+    const a: FilterActions = {};
+    if (actionLabel) a.applyLabel = actionLabel;
+    if (actionArchive) a.archive = true;
+    if (actionStar) a.star = true;
+    if (actionMarkRead) a.markRead = true;
+    if (actionTrash) a.trash = true;
+    return a;
+  };
+
+  const handleSave = useCallback(async () => {
+    if (!activeAccountId || !name.trim()) return;
+    const criteria = buildCriteria();
+    const actions = buildActions();
+
+    if (editingId) {
+      await updateFilter(editingId, { name: name.trim(), criteria, actions });
+    } else {
+      await insertFilter({
+        accountId: activeAccountId,
+        name: name.trim(),
+        criteria,
+        actions,
+      });
+    }
+
+    resetForm();
+    await loadFilters();
+  }, [activeAccountId, name, editingId, resetForm, loadFilters, criteriaFrom, criteriaTo, criteriaSubject, criteriaBody, criteriaHasAttachment, actionLabel, actionArchive, actionStar, actionMarkRead, actionTrash]);
+
+  const handleEdit = useCallback((filter: DbFilterRule) => {
+    setEditingId(filter.id);
+    setName(filter.name);
+
+    let criteria: FilterCriteria = {};
+    let actions: FilterActions = {};
+    try { criteria = JSON.parse(filter.criteria_json); } catch { /* empty */ }
+    try { actions = JSON.parse(filter.actions_json); } catch { /* empty */ }
+
+    setCriteriaFrom(criteria.from ?? "");
+    setCriteriaTo(criteria.to ?? "");
+    setCriteriaSubject(criteria.subject ?? "");
+    setCriteriaBody(criteria.body ?? "");
+    setCriteriaHasAttachment(criteria.hasAttachment ?? false);
+    setActionLabel(actions.applyLabel ?? "");
+    setActionArchive(actions.archive ?? false);
+    setActionStar(actions.star ?? false);
+    setActionMarkRead(actions.markRead ?? false);
+    setActionTrash(actions.trash ?? false);
+    setShowForm(true);
+  }, []);
+
+  const handleDelete = useCallback(async (id: string) => {
+    await deleteFilter(id);
+    if (editingId === id) resetForm();
+    await loadFilters();
+  }, [editingId, resetForm, loadFilters]);
+
+  const handleToggleEnabled = useCallback(async (filter: DbFilterRule) => {
+    await updateFilter(filter.id, { isEnabled: filter.is_enabled !== 1 });
+    await loadFilters();
+  }, [loadFilters]);
+
+  const describeCriteria = (json: string): string => {
+    try {
+      const c = JSON.parse(json) as FilterCriteria;
+      const parts: string[] = [];
+      if (c.from) parts.push(`from: ${c.from}`);
+      if (c.to) parts.push(`to: ${c.to}`);
+      if (c.subject) parts.push(`subject: ${c.subject}`);
+      if (c.body) parts.push(`body: ${c.body}`);
+      if (c.hasAttachment) parts.push("has attachment");
+      return parts.join(", ") || "No criteria";
+    } catch {
+      return "Invalid criteria";
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {filters.map((filter) => (
+        <div
+          key={filter.id}
+          className="flex items-center justify-between py-2 px-3 bg-bg-secondary rounded-md"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-text-primary flex items-center gap-2">
+              {filter.name}
+              {filter.is_enabled !== 1 && (
+                <span className="text-[10px] bg-bg-tertiary text-text-tertiary px-1.5 py-0.5 rounded">
+                  Disabled
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-text-tertiary truncate">
+              {describeCriteria(filter.criteria_json)}
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => handleToggleEnabled(filter)}
+              className={`w-8 h-4 rounded-full transition-colors relative ${
+                filter.is_enabled === 1 ? "bg-accent" : "bg-bg-tertiary"
+              }`}
+              title={filter.is_enabled === 1 ? "Disable" : "Enable"}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform shadow ${
+                  filter.is_enabled === 1 ? "translate-x-4" : ""
+                }`}
+              />
+            </button>
+            <button
+              onClick={() => handleEdit(filter)}
+              className="p-1 text-text-tertiary hover:text-text-primary"
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              onClick={() => handleDelete(filter.id)}
+              className="p-1 text-text-tertiary hover:text-danger"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {showForm ? (
+        <div className="border border-border-primary rounded-md p-3 space-y-3">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Filter name"
+            className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
+          />
+
+          <div>
+            <div className="text-xs font-medium text-text-secondary mb-1.5">Match criteria</div>
+            <div className="space-y-1.5">
+              <input
+                type="text"
+                value={criteriaFrom}
+                onChange={(e) => setCriteriaFrom(e.target.value)}
+                placeholder="From contains..."
+                className="w-full px-3 py-1 bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary outline-none focus:border-accent"
+              />
+              <input
+                type="text"
+                value={criteriaTo}
+                onChange={(e) => setCriteriaTo(e.target.value)}
+                placeholder="To contains..."
+                className="w-full px-3 py-1 bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary outline-none focus:border-accent"
+              />
+              <input
+                type="text"
+                value={criteriaSubject}
+                onChange={(e) => setCriteriaSubject(e.target.value)}
+                placeholder="Subject contains..."
+                className="w-full px-3 py-1 bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary outline-none focus:border-accent"
+              />
+              <input
+                type="text"
+                value={criteriaBody}
+                onChange={(e) => setCriteriaBody(e.target.value)}
+                placeholder="Body contains..."
+                className="w-full px-3 py-1 bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary outline-none focus:border-accent"
+              />
+              <label className="flex items-center gap-1.5 text-xs text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={criteriaHasAttachment}
+                  onChange={(e) => setCriteriaHasAttachment(e.target.checked)}
+                  className="rounded"
+                />
+                Has attachment
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs font-medium text-text-secondary mb-1.5">Actions</div>
+            <div className="space-y-1.5">
+              {labels.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-text-secondary w-20">Apply label</span>
+                  <select
+                    value={actionLabel}
+                    onChange={(e) => setActionLabel(e.target.value)}
+                    className="flex-1 bg-bg-tertiary text-text-primary text-xs px-2 py-1 rounded border border-border-primary"
+                  >
+                    <option value="">None</option>
+                    {labels.map((l) => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-3">
+                <label className="flex items-center gap-1.5 text-xs text-text-secondary">
+                  <input type="checkbox" checked={actionArchive} onChange={(e) => setActionArchive(e.target.checked)} className="rounded" />
+                  Archive
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-text-secondary">
+                  <input type="checkbox" checked={actionStar} onChange={(e) => setActionStar(e.target.checked)} className="rounded" />
+                  Star
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-text-secondary">
+                  <input type="checkbox" checked={actionMarkRead} onChange={(e) => setActionMarkRead(e.target.checked)} className="rounded" />
+                  Mark as read
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-text-secondary">
+                  <input type="checkbox" checked={actionTrash} onChange={(e) => setActionTrash(e.target.checked)} className="rounded" />
+                  Trash
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={!name.trim()}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
+            >
+              {editingId ? "Update" : "Save"}
+            </button>
+            <button
+              onClick={resetForm}
+              className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary rounded-md transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowForm(true)}
+          className="text-xs text-accent hover:text-accent-hover"
+        >
+          + Add filter
+        </button>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Velo",
+  "version": "0.1.0",
+  "identifier": "com.velomail.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Velo",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "visible": false
+      },
+      {
+        "label": "splashscreen",
+        "url": "splashscreen.html",
+        "width": 400,
+        "height": 300,
+        "decorations": false,
+        "resizable": false,
+        "center": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://oauth2.googleapis.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://www.gravatar.com; img-src 'self' data: https://www.gravatar.com https://lh3.googleusercontent.com https://*.googleusercontent.com; font-src 'self' data:; frame-src 'self'"
+    },
+    "trayIcon": null
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    "sql": {
+      "preload": ["sqlite:velo.db"]
+    },
+    "deep-link": {
+      "mobile": [],
+      "desktop": {
+        "schemes": ["mailto"]
+      }
+    }
+  }
+}

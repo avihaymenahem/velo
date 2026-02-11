@@ -1,0 +1,403 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: rgba(250, 250, 249, 0.82);
+  --color-bg-secondary: rgba(245, 245, 244, 0.78);
+  --color-bg-tertiary: rgba(231, 229, 228, 0.8);
+  --color-bg-hover: rgba(231, 229, 228, 0.55);
+  --color-bg-selected: rgba(224, 231, 255, 0.65);
+
+  --color-text-primary: #1c1917;
+  --color-text-secondary: #57534e;
+  --color-text-tertiary: #78716c;
+
+  --color-border-primary: rgba(0, 0, 0, 0.08);
+  --color-border-secondary: rgba(0, 0, 0, 0.04);
+
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
+  --color-accent-light: #e0e7ff;
+
+  --color-danger: #dc2626;
+  --color-warning: #d97706;
+  --color-success: #059669;
+
+  --color-sidebar-bg: rgba(245, 245, 244, 0.92);
+  --color-sidebar-text: #1c1917;
+  --color-sidebar-hover: rgba(231, 229, 228, 0.7);
+  --color-sidebar-active: #4f46e5;
+
+  --glass-blur: 20px;
+  --glass-blur-heavy: 24px;
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --glass-shadow-elevated: 0 16px 48px rgba(0, 0, 0, 0.14);
+  --glass-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.4);
+  --backdrop-blur-overlay: 8px;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Dark mode overrides — applied when <html class="dark">
+ */
+.dark {
+  --color-bg-primary: rgba(15, 23, 42, 0.75);
+  --color-bg-secondary: rgba(30, 41, 59, 0.65);
+  --color-bg-tertiary: rgba(51, 65, 85, 0.6);
+  --color-bg-hover: rgba(51, 65, 85, 0.45);
+  --color-bg-selected: rgba(30, 58, 95, 0.55);
+
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-tertiary: #94a3b8;
+
+  --color-border-primary: rgba(255, 255, 255, 0.1);
+  --color-border-secondary: rgba(255, 255, 255, 0.06);
+
+  --color-accent: #818cf8;
+  --color-accent-hover: #6366f1;
+  --color-accent-light: #312e81;
+
+  --color-sidebar-bg: rgba(15, 23, 42, 0.7);
+  --color-sidebar-text: #e2e8f0;
+  --color-sidebar-hover: rgba(30, 41, 59, 0.55);
+
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  --glass-shadow-elevated: 0 16px 48px rgba(0, 0, 0, 0.3);
+  --glass-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Base styles */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  background: linear-gradient(135deg, #f5f0eb 0%, #ede4f5 30%, #fce7f3 60%, #fef3e2 80%, #e8eff8 100%);
+  background-attachment: fixed;
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+.dark body {
+  background: linear-gradient(135deg, #0c1222 0%, #151030 35%, #1a0a2e 65%, #0f172a 100%);
+  background-attachment: fixed;
+}
+
+/* Animated gradient blobs behind content */
+.animated-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.animated-bg .blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  animation: blobMove 20s ease-in-out infinite alternate;
+}
+
+.animated-bg .blob:nth-child(1) {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, #c7d2fe 0%, #a5b4fc 50%, transparent 70%);
+  top: -10%;
+  left: -5%;
+  animation-duration: 22s;
+}
+
+.animated-bg .blob:nth-child(2) {
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, #ddd6fe 0%, #c4b5fd 50%, transparent 70%);
+  top: 30%;
+  right: -10%;
+  animation-duration: 18s;
+  animation-delay: -5s;
+}
+
+.animated-bg .blob:nth-child(3) {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, #fecdd3 0%, #fda4af 50%, transparent 70%);
+  bottom: -5%;
+  left: 30%;
+  animation-duration: 25s;
+  animation-delay: -10s;
+}
+
+.animated-bg .blob:nth-child(4) {
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, #d9c8ae 0%, #c4a882 50%, transparent 70%);
+  bottom: 20%;
+  left: -8%;
+  animation-duration: 20s;
+  animation-delay: -3s;
+}
+
+.animated-bg .blob:nth-child(5) {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, #fde68a 0%, #fbbf24 50%, transparent 70%);
+  top: 10%;
+  left: 50%;
+  animation-duration: 24s;
+  animation-delay: -8s;
+}
+
+@keyframes blobMove {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(60px, -40px) scale(1.1);
+  }
+  50% {
+    transform: translate(-30px, 50px) scale(0.95);
+  }
+  75% {
+    transform: translate(40px, 30px) scale(1.05);
+  }
+  100% {
+    transform: translate(-20px, -60px) scale(1);
+  }
+}
+
+/* Dark mode blobs */
+.dark .animated-bg .blob:nth-child(1) {
+  background: radial-gradient(circle, #1e40af 0%, #1d4ed8 50%, transparent 70%);
+  opacity: 0.3;
+}
+
+.dark .animated-bg .blob:nth-child(2) {
+  background: radial-gradient(circle, #5b21b6 0%, #6d28d9 50%, transparent 70%);
+  opacity: 0.25;
+}
+
+.dark .animated-bg .blob:nth-child(3) {
+  background: radial-gradient(circle, #9d174d 0%, #be185d 50%, transparent 70%);
+  opacity: 0.2;
+}
+
+.dark .animated-bg .blob:nth-child(4) {
+  background: radial-gradient(circle, #065f46 0%, #047857 50%, transparent 70%);
+  opacity: 0.25;
+}
+
+.dark .animated-bg .blob:nth-child(5) {
+  background: radial-gradient(circle, #92400e 0%, #b45309 50%, transparent 70%);
+  opacity: 0.2;
+}
+
+/* Prevent text selection on UI chrome (not email content) */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Glass utility classes */
+.glass-panel {
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--glass-shadow), var(--glass-highlight);
+}
+
+.glass-modal {
+  backdrop-filter: blur(var(--glass-blur-heavy));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
+  box-shadow: var(--glass-shadow-elevated), var(--glass-highlight);
+}
+
+.glass-backdrop {
+  backdrop-filter: blur(var(--backdrop-blur-overlay));
+  -webkit-backdrop-filter: blur(var(--backdrop-blur-overlay));
+}
+
+/* Hide scrollbar utility — still scrollable via trackpad/wheel */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-text-tertiary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-secondary);
+}
+
+/* ============================================
+ * Animation System
+ * ============================================ */
+
+/* Timing custom properties */
+:root {
+  --anim-fast: 150ms;
+  --anim-normal: 200ms;
+  --anim-slow: 300ms;
+}
+
+/* Keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(16px); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-16px); }
+  to { transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes scaleOut {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(0.95); opacity: 0; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes countdownBar {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+@keyframes starPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+/* CSSTransition: modal (scale + fade overlay, scale panel) */
+.modal-enter { opacity: 0; }
+.modal-enter .modal-panel { transform: scale(0.95); }
+.modal-enter-active { opacity: 1; transition: opacity var(--anim-normal) ease-out; }
+.modal-enter-active .modal-panel { transform: scale(1); transition: transform var(--anim-normal) ease-out; }
+.modal-exit { opacity: 1; }
+.modal-exit-active { opacity: 0; transition: opacity var(--anim-fast) ease-in; }
+.modal-exit-active .modal-panel { transform: scale(0.95); transition: transform var(--anim-fast) ease-in; }
+
+/* CSSTransition: slide-up (fade overlay + slide-up panel) */
+.slide-up-enter { opacity: 0; }
+.slide-up-enter .slide-up-panel { transform: translateY(16px); }
+.slide-up-enter-active { opacity: 1; transition: opacity var(--anim-normal) ease-out; }
+.slide-up-enter-active .slide-up-panel { transform: translateY(0); transition: transform var(--anim-normal) ease-out; }
+.slide-up-exit { opacity: 1; }
+.slide-up-exit-active { opacity: 0; transition: opacity var(--anim-fast) ease-in; }
+.slide-up-exit-active .slide-up-panel { transform: translateY(16px); transition: transform var(--anim-fast) ease-in; }
+
+/* CSSTransition: slide-down (multi-select bar) */
+.slide-down-enter { opacity: 0; max-height: 0; overflow: hidden; }
+.slide-down-enter-active { opacity: 1; max-height: 60px; transition: all var(--anim-fast) ease-out; }
+.slide-down-exit { opacity: 1; max-height: 60px; }
+.slide-down-exit-active { opacity: 0; max-height: 0; overflow: hidden; transition: all var(--anim-fast) ease-in; }
+
+/* CSSTransition: toast (slide up from bottom + fade) */
+.toast-enter { opacity: 0; transform: translateY(16px); }
+.toast-enter-active { opacity: 1; transform: translateY(0); transition: all var(--anim-normal) ease-out; }
+.toast-exit { opacity: 1; transform: translateY(0); }
+.toast-exit-active { opacity: 0; transform: translateY(16px); transition: all var(--anim-normal) ease-in; }
+
+/* Utility: hover lift — includes color transitions so it can replace transition-colors */
+.hover-lift {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, transform, box-shadow;
+  transition-duration: var(--anim-fast);
+  transition-timing-function: ease;
+}
+.hover-lift:hover:not(:active) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Utility: press scale */
+.press-scale:active {
+  transform: scale(0.97);
+}
+
+/* Utility: interactive button (hover lift + press scale) */
+.interactive-btn {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, transform, box-shadow;
+  transition-duration: var(--anim-fast);
+  transition-timing-function: ease;
+}
+.interactive-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.interactive-btn:active {
+  transform: scale(0.97);
+  box-shadow: none;
+}
+
+/* Utility: star pop animation */
+.star-animate {
+  animation: starPop var(--anim-slow) ease-out;
+}
+
+/* Utility: stagger-in for list items */
+.stagger-in {
+  animation: fadeIn var(--anim-normal) ease-out both;
+}
+
+/* Accessibility: respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
