@@ -5,6 +5,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useUIStore } from "@/stores/uiStore";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb } from "@/services/db/threads";
+import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { SnoozeDialog } from "./SnoozeDialog";
 import { FollowUpDialog } from "./FollowUpDialog";
@@ -86,6 +87,7 @@ export function ActionBar({ thread, messages }: ActionBarProps) {
   const handleDelete = async () => {
     if (!activeAccountId) return;
     const isTrashView = activeLabel === "trash";
+    const isDraftsView = activeLabel === "drafts";
     // Optimistic: remove from UI immediately
     removeThread(thread.id);
     try {
@@ -93,6 +95,8 @@ export function ActionBar({ thread, messages }: ActionBarProps) {
       if (isTrashView) {
         await client.deleteThread(thread.id);
         await deleteThreadFromDb(activeAccountId, thread.id);
+      } else if (isDraftsView) {
+        await deleteDraftsForThread(client, activeAccountId, thread.id);
       } else {
         await client.modifyThread(thread.id, ["TRASH"], ["INBOX"]);
       }

@@ -41,6 +41,7 @@ async function handlePopOut(thread: Thread) {
       width: 800,
       height: 700,
       center: true,
+      dragDropEnabled: false,
     });
 
     win.once("tauri://error", (e) => {

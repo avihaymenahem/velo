@@ -8,6 +8,7 @@ import { useComposerStore } from "@/stores/composerStore";
 import { useLabelStore } from "@/stores/labelStore";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb } from "@/services/db/threads";
+import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
 import { getMessagesForThread } from "@/services/db/messages";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { SnoozeDialog } from "../email/SnoozeDialog";
@@ -164,6 +165,7 @@ function ThreadMenu({
   }
 
   const isTrashView = activeLabel === "trash";
+  const isDraftsView = activeLabel === "drafts";
   const isSpamView = activeLabel === "spam";
 
   // For single thread: show current state. For multi: be generic
@@ -242,6 +244,8 @@ function ThreadMenu({
       if (isTrashView) {
         await client.deleteThread(id);
         await deleteThreadFromDb(activeAccountId, id);
+      } else if (isDraftsView) {
+        await deleteDraftsForThread(client, activeAccountId, id);
       } else {
         await client.modifyThread(id, ["TRASH"], ["INBOX"]);
       }
@@ -325,6 +329,7 @@ function ThreadMenu({
         width: 800,
         height: 700,
         center: true,
+        dragDropEnabled: false,
       });
       win.once("tauri://error", (e) => {
         console.error("Failed to create pop-out window:", e);

@@ -7,6 +7,7 @@ import { useShortcutStore } from "@/stores/shortcutStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb } from "@/services/db/threads";
+import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
 import { getMessagesForThread } from "@/services/db/messages";
 import { parseUnsubscribeUrl } from "@/components/email/MessageItem";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -264,7 +265,9 @@ async function executeAction(actionId: string): Promise<void> {
       break;
     }
     case "action.delete": {
-      const isTrashView = useUIStore.getState().activeLabel === "trash";
+      const activeLabel = useUIStore.getState().activeLabel;
+      const isTrashView = activeLabel === "trash";
+      const isDraftsView = activeLabel === "drafts";
       const multiDeleteIds = useThreadStore.getState().selectedThreadIds;
       if (multiDeleteIds.size > 0 && activeAccountId) {
         try {
@@ -274,6 +277,8 @@ async function executeAction(actionId: string): Promise<void> {
             if (isTrashView) {
               await client.deleteThread(id);
               await deleteThreadFromDb(activeAccountId, id);
+            } else if (isDraftsView) {
+              await deleteDraftsForThread(client, activeAccountId, id);
             } else {
               await client.modifyThread(id, ["TRASH"], ["INBOX"]);
             }
@@ -288,6 +293,8 @@ async function executeAction(actionId: string): Promise<void> {
           if (isTrashView) {
             await client.deleteThread(selectedId);
             await deleteThreadFromDb(activeAccountId, selectedId);
+          } else if (isDraftsView) {
+            await deleteDraftsForThread(client, activeAccountId, selectedId);
           } else {
             await client.modifyThread(selectedId, ["TRASH"], ["INBOX"]);
           }
