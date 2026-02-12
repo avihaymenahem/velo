@@ -331,6 +331,86 @@ const MIGRATIONS = [
         ('calendar_enabled', 'false');
     `,
   },
+  {
+    version: 6,
+    description: "Follow-up reminders, smart notifications, unsubscribe manager, newsletter bundling",
+    sql: `
+      -- Follow-up reminders (Feature 1)
+      CREATE TABLE IF NOT EXISTS follow_up_reminders (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        thread_id TEXT NOT NULL,
+        message_id TEXT NOT NULL,
+        remind_at INTEGER NOT NULL,
+        status TEXT DEFAULT 'pending',
+        created_at INTEGER DEFAULT (unixepoch()),
+        FOREIGN KEY (account_id, thread_id) REFERENCES threads(account_id, id) ON DELETE CASCADE
+      );
+      CREATE INDEX idx_followup_status ON follow_up_reminders(status, remind_at);
+      CREATE INDEX idx_followup_thread ON follow_up_reminders(account_id, thread_id);
+
+      -- VIP notification senders (Feature 2)
+      CREATE TABLE IF NOT EXISTS notification_vips (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        email_address TEXT NOT NULL,
+        display_name TEXT,
+        created_at INTEGER DEFAULT (unixepoch()),
+        UNIQUE(account_id, email_address)
+      );
+      CREATE INDEX idx_notification_vips ON notification_vips(account_id, email_address);
+
+      -- Unsubscribe tracking (Feature 3)
+      CREATE TABLE IF NOT EXISTS unsubscribe_actions (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        thread_id TEXT NOT NULL,
+        from_address TEXT NOT NULL,
+        from_name TEXT,
+        method TEXT NOT NULL,
+        unsubscribe_url TEXT NOT NULL,
+        status TEXT DEFAULT 'subscribed',
+        unsubscribed_at INTEGER,
+        created_at INTEGER DEFAULT (unixepoch()),
+        UNIQUE(account_id, from_address)
+      );
+      CREATE INDEX idx_unsub_account ON unsubscribe_actions(account_id, status);
+
+      -- Bundle rules (Feature 4)
+      CREATE TABLE IF NOT EXISTS bundle_rules (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        category TEXT NOT NULL,
+        is_bundled INTEGER DEFAULT 1,
+        delivery_enabled INTEGER DEFAULT 0,
+        delivery_schedule TEXT,
+        last_delivered_at INTEGER,
+        created_at INTEGER DEFAULT (unixepoch()),
+        UNIQUE(account_id, category)
+      );
+      CREATE INDEX idx_bundle_rules_account ON bundle_rules(account_id);
+
+      -- Held threads for delivery schedules (Feature 4)
+      CREATE TABLE IF NOT EXISTS bundled_threads (
+        account_id TEXT NOT NULL,
+        thread_id TEXT NOT NULL,
+        category TEXT NOT NULL,
+        held_until INTEGER,
+        PRIMARY KEY (account_id, thread_id),
+        FOREIGN KEY (account_id, thread_id) REFERENCES threads(account_id, id) ON DELETE CASCADE
+      );
+      CREATE INDEX idx_bundled_held ON bundled_threads(held_until);
+
+      -- List-Unsubscribe-Post header (Feature 3)
+      ALTER TABLE messages ADD COLUMN list_unsubscribe_post TEXT;
+
+      -- New settings
+      INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('smart_notifications', 'true'),
+        ('notify_categories', 'Primary'),
+        ('auto_archive_after_unsubscribe', 'true');
+    `,
+  },
 ];
 
 /**
