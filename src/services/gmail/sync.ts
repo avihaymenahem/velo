@@ -5,9 +5,11 @@ import { upsertThread, setThreadLabels } from "../db/threads";
 import { upsertMessage } from "../db/messages";
 import { upsertAttachment } from "../db/attachments";
 import { updateAccountSyncState } from "../db/accounts";
-import { queueNewEmailNotification } from "../notifications/notificationManager";
+import { shouldNotifyForMessage, queueNewEmailNotification } from "../notifications/notificationManager";
 import { applyFiltersToMessages } from "../filters/filterEngine";
 import { getSetting } from "../db/settings";
+import { getThreadCategory } from "../db/threadCategories";
+import { getVipSenders } from "../db/notificationVips";
 
 async function loadAutoArchiveCategories(): Promise<Set<string>> {
   const raw = await getSetting("auto_archive_categories");
@@ -318,8 +320,13 @@ export async function deltaSync(
       return;
     }
 
-    // Load auto-archive categories once for the whole sync
+    // Load settings once for the whole sync cycle
     const autoArchiveCategories = await loadAutoArchiveCategories();
+    const smartNotifications = (await getSetting("smart_notifications")) !== "false";
+    const notifyCategories = new Set(
+      ((await getSetting("notify_categories")) ?? "Primary").split(",").map((s) => s.trim()).filter(Boolean),
+    );
+    const vipSenders = smartNotifications ? await getVipSenders(accountId) : new Set<string>();
 
     // Re-fetch affected threads in parallel (max 5 concurrent)
     const threadIds = [...affectedThreadIds];
@@ -333,17 +340,20 @@ export async function deltaSync(
           const parsedMessages = thread.messages.map(parseGmailMessage);
           await processAndStoreThread(thread, accountId, parsedMessages, client, autoArchiveCategories);
 
-          // Send desktop notifications for new unread inbox messages
+          // Send desktop notifications for new unread inbox messages (smart-filtered)
           for (const parsed of parsedMessages) {
             if (newInboxMessageIds.has(parsed.id)) {
-              const sender = parsed.fromName ?? parsed.fromAddress ?? "Unknown";
-              queueNewEmailNotification(
-                sender,
-                parsed.subject ?? "",
-                parsed.threadId,
-                accountId,
-                parsed.fromAddress ?? undefined,
-              );
+              const fromAddr = parsed.fromAddress ?? undefined;
+              if (shouldNotifyForMessage(smartNotifications, notifyCategories, vipSenders, await getThreadCategory(accountId, threadId), fromAddr)) {
+                const sender = parsed.fromName ?? parsed.fromAddress ?? "Unknown";
+                queueNewEmailNotification(
+                  sender,
+                  parsed.subject ?? "",
+                  parsed.threadId,
+                  accountId,
+                  fromAddr,
+                );
+              }
             }
           }
 

@@ -151,6 +151,42 @@ export function queueNewEmailNotification(
 }
 
 /**
+ * Determine if a new email should trigger a notification based on smart notification settings.
+ * Pure function — no I/O, all config is passed in from the sync cycle.
+ */
+export function shouldNotifyForMessage(
+  smartEnabled: boolean,
+  allowedCategories: Set<string>,
+  vipSenders: Set<string>,
+  threadCategory: string | null,
+  fromAddress?: string,
+): boolean {
+  if (!smartEnabled) return true; // Smart notifications off → notify everything
+  if (fromAddress && vipSenders.has(fromAddress.toLowerCase())) return true; // VIP always notifies
+  const category = threadCategory ?? "Primary"; // uncategorized defaults to Primary
+  return allowedCategories.has(category);
+}
+
+/**
+ * Show a notification for a follow-up reminder that fired.
+ */
+export function notifyFollowUpDue(
+  subject: string,
+  threadId?: string,
+  accountId?: string,
+): void {
+  if (!notificationsEnabled) return;
+  const ctx = { threadId, accountId, subject };
+  lastNotificationContext = ctx;
+  if (threadId) recentContexts.set(threadId, ctx);
+  sendNotification({
+    title: "Follow up needed",
+    body: subject || "(No subject)",
+    actionTypeId: "email",
+  });
+}
+
+/**
  * Show a notification for a snoozed email returning.
  */
 export function notifySnoozeReturn(subject: string): void {
