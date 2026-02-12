@@ -30,6 +30,10 @@ import {
   startScheduledSendChecker,
   stopScheduledSendChecker,
 } from "./services/snooze/scheduledSendManager";
+import {
+  startFollowUpChecker,
+  stopFollowUpChecker,
+} from "./services/followup/followupManager";
 import { initNotifications } from "./services/notifications/notificationManager";
 import {
   initGlobalShortcut,
@@ -210,9 +214,10 @@ export default function App() {
           startBackgroundSync(activeIds);
         }
 
-        // Start snooze and scheduled send checkers
+        // Start snooze, scheduled send, and follow-up checkers
         startSnoozeChecker();
         startScheduledSendChecker();
+        startFollowUpChecker();
 
         // Initialize notifications
         await initNotifications();
@@ -239,6 +244,7 @@ export default function App() {
       stopBackgroundSync();
       stopSnoozeChecker();
       stopScheduledSendChecker();
+      stopFollowUpChecker();
       unregisterComposeShortcut();
       deepLinkCleanupRef?.();
     };

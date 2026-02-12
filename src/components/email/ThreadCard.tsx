@@ -3,7 +3,7 @@ import type { Thread } from "@/stores/threadStore";
 import { useThreadStore } from "@/stores/threadStore";
 import { useUIStore } from "@/stores/uiStore";
 import { formatRelativeDate } from "@/utils/date";
-import { Paperclip, Star, Check, Pin } from "lucide-react";
+import { Paperclip, Star, Check, Pin, BellRing } from "lucide-react";
 import type { DragData } from "@/components/dnd/DndProvider";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -20,9 +20,10 @@ interface ThreadCardProps {
   onContextMenu?: (e: React.MouseEvent) => void;
   category?: string;
   showCategoryBadge?: boolean;
+  hasFollowUp?: boolean;
 }
 
-export function ThreadCard({ thread, isSelected, onClick, onContextMenu, category, showCategoryBadge }: ThreadCardProps) {
+export function ThreadCard({ thread, isSelected, onClick, onContextMenu, category, showCategoryBadge, hasFollowUp }: ThreadCardProps) {
   const isMultiSelected = useThreadStore((s) => s.selectedThreadIds.has(thread.id));
   const hasMultiSelect = useThreadStore((s) => s.selectedThreadIds.size > 0);
   const selectedThreadIds = useThreadStore((s) => s.selectedThreadIds);
@@ -128,6 +129,11 @@ export function ThreadCard({ thread, isSelected, onClick, onContextMenu, categor
             {showCategoryBadge && category && category !== "Primary" && CATEGORY_COLORS[category] && (
               <span className={`shrink-0 text-[10px] px-1.5 rounded-full leading-normal ${CATEGORY_COLORS[category]}`}>
                 {category}
+              </span>
+            )}
+            {hasFollowUp && (
+              <span className="shrink-0 text-accent" title="Follow-up reminder set">
+                <BellRing size={12} />
               </span>
             )}
             {thread.isPinned && (

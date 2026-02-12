@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Thread } from "@/stores/threadStore";
 import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
@@ -8,9 +8,11 @@ import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThre
 import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { parseUnsubscribeUrl } from "./MessageItem";
 import { SnoozeDialog } from "./SnoozeDialog";
-import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus } from "lucide-react";
+import { FollowUpDialog } from "./FollowUpDialog";
+import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { DbMessage } from "@/services/db/messages";
+import { insertFollowUpReminder, getFollowUpForThread, cancelFollowUpForThread } from "@/services/db/followUpReminders";
 
 interface ActionBarProps {
   thread: Thread;
@@ -23,7 +25,17 @@ export function ActionBar({ thread, messages }: ActionBarProps) {
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const activeLabel = useUIStore((s) => s.activeLabel);
   const [showSnooze, setShowSnooze] = useState(false);
+  const [showFollowUp, setShowFollowUp] = useState(false);
+  const [hasFollowUp, setHasFollowUp] = useState(false);
   const isSpamView = activeLabel === "spam";
+
+  // Check if thread has an active follow-up reminder
+  useEffect(() => {
+    if (!activeAccountId) return;
+    getFollowUpForThread(activeAccountId, thread.id)
+      .then((r) => setHasFollowUp(r !== null))
+      .catch(() => setHasFollowUp(false));
+  }, [activeAccountId, thread.id]);
 
   const handleToggleRead = async () => {
     if (!activeAccountId) return;
@@ -154,6 +166,28 @@ export function ActionBar({ thread, messages }: ActionBarProps) {
     }
   };
 
+  const handleFollowUp = async (remindAt: number) => {
+    if (!activeAccountId || !messages || messages.length === 0) return;
+    setShowFollowUp(false);
+    const lastMsg = messages[messages.length - 1]!;
+    try {
+      await insertFollowUpReminder(activeAccountId, thread.id, lastMsg.id, remindAt);
+      setHasFollowUp(true);
+    } catch (err) {
+      console.error("Failed to set follow-up reminder:", err);
+    }
+  };
+
+  const handleCancelFollowUp = async () => {
+    if (!activeAccountId) return;
+    try {
+      await cancelFollowUpForThread(activeAccountId, thread.id);
+      setHasFollowUp(false);
+    } catch (err) {
+      console.error("Failed to cancel follow-up:", err);
+    }
+  };
+
   return (
     <>
       <div className="flex items-center gap-1 px-4 py-2 border-b border-border-secondary bg-bg-secondary">
@@ -201,6 +235,22 @@ export function ActionBar({ thread, messages }: ActionBarProps) {
           label={thread.isPinned ? "Unpin" : "Pin"}
           className={thread.isPinned ? "text-accent" : ""}
         />
+        {hasFollowUp ? (
+          <ActionButton
+            onClick={handleCancelFollowUp}
+            title="Cancel follow-up reminder"
+            icon={<BellRing size={14} className="fill-current" />}
+            label="Following up"
+            className="text-accent"
+          />
+        ) : (
+          <ActionButton
+            onClick={() => setShowFollowUp(true)}
+            title="Remind me if no reply"
+            icon={<BellRing size={14} />}
+            label="Follow up"
+          />
+        )}
         {unsubscribeUrl && (
           <ActionButton
             onClick={handleUnsubscribe}
@@ -215,6 +265,11 @@ export function ActionBar({ thread, messages }: ActionBarProps) {
         isOpen={showSnooze}
         onSnooze={handleSnooze}
         onClose={() => setShowSnooze(false)}
+      />
+      <FollowUpDialog
+        isOpen={showFollowUp}
+        onSetReminder={handleFollowUp}
+        onClose={() => setShowFollowUp(false)}
       />
     </>
   );

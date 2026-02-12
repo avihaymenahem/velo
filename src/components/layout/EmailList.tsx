@@ -8,6 +8,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useUIStore } from "@/stores/uiStore";
 import { getThreadsForAccount, getThreadsForCategory, getThreadLabelIds, deleteThread as deleteThreadFromDb } from "@/services/db/threads";
 import { getCategoriesForThreads, getCategoryUnreadCounts, ALL_CATEGORIES } from "@/services/db/threadCategories";
+import { getActiveFollowUpThreadIds } from "@/services/db/followUpReminders";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { useLabelStore } from "@/stores/labelStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
@@ -52,6 +53,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [categoryMap, setCategoryMap] = useState<Map<string, string>>(new Map());
   const [categoryUnreadCounts, setCategoryUnreadCounts] = useState<Map<string, number>>(new Map());
+  const [followUpThreadIds, setFollowUpThreadIds] = useState<Set<string>>(new Set());
 
   const openMenu = useContextMenuStore((s) => s.openMenu);
   const multiSelectCount = selectedThreadIds.size;
@@ -295,6 +297,17 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
       .catch(console.error);
   }, [threads, activeLabel, activeAccountId]);
 
+  // Load follow-up reminder indicators
+  useEffect(() => {
+    if (threads.length === 0 || !activeAccountId) {
+      setFollowUpThreadIds(new Set());
+      return;
+    }
+    getActiveFollowUpThreadIds(activeAccountId, threads.map((t) => t.id))
+      .then(setFollowUpThreadIds)
+      .catch(() => setFollowUpThreadIds(new Set()));
+  }, [threads, activeAccountId]);
+
   // Reset category tab when leaving inbox
   useEffect(() => {
     if (activeLabel !== "inbox") setActiveCategory("All");
@@ -458,6 +471,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
                     onContextMenu={(e) => handleThreadContextMenu(e, thread.id)}
                     category={categoryMap.get(thread.id)}
                     showCategoryBadge={activeLabel === "inbox" && activeCategory === "All"}
+                    hasFollowUp={followUpThreadIds.has(thread.id)}
                   />
                 </div>
               );
