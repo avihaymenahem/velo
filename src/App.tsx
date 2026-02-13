@@ -301,8 +301,9 @@ export default function App() {
   }, [setAccounts, setTheme, setSidebarCollapsed, setContactSidebarVisible, setReadingPanePosition, setReadFilter, setEmailListWidth, setEmailDensity, setDefaultReplyMode, setMarkAsReadBehavior, setSendAndArchive, setFontScale, setColorTheme]);
 
   // Listen for sync status updates
+  const backfillDoneRef = useRef(false);
   useEffect(() => {
-    const unsub = onSyncStatus((_accountId, status, progress) => {
+    const unsub = onSyncStatus((accountId, status, progress) => {
       if (status === "syncing" && progress) {
         if (progress.phase === "messages") {
           setSyncStatus(
@@ -317,6 +318,14 @@ export default function App() {
         setSyncStatus(null);
         window.dispatchEvent(new Event("velo-sync-done"));
         updateBadgeCount();
+
+        // Backfill uncategorized threads after first successful sync
+        if (!backfillDoneRef.current) {
+          backfillDoneRef.current = true;
+          import("./services/categorization/backfillService")
+            .then(({ backfillUncategorizedThreads }) => backfillUncategorizedThreads(accountId))
+            .catch((err) => console.error("Backfill error:", err));
+        }
       } else if (status === "error") {
         setSyncStatus(null);
       }
