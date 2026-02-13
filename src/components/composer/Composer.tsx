@@ -15,6 +15,7 @@ import { AttachmentPicker } from "./AttachmentPicker";
 import { ScheduleSendDialog } from "./ScheduleSendDialog";
 import { SignatureSelector } from "./SignatureSelector";
 import { TemplatePicker } from "./TemplatePicker";
+import { FromSelector } from "./FromSelector";
 import { useComposerStore } from "@/stores/composerStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -24,6 +25,8 @@ import { upsertContact } from "@/services/db/contacts";
 import { getSetting } from "@/services/db/settings";
 import { insertScheduledEmail } from "@/services/db/scheduledEmails";
 import { getDefaultSignature } from "@/services/db/signatures";
+import { getAliasesForAccount, mapDbAlias, type SendAsAlias } from "@/services/db/sendAsAliases";
+import { resolveFromAddress } from "@/utils/resolveFromAddress";
 import { startAutoSave, stopAutoSave } from "@/services/composer/draftAutoSave";
 import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
 import { readFileAsBase64 } from "@/utils/fileUtils";
@@ -45,6 +48,7 @@ export function Composer() {
     attachments,
     isSaving,
     lastSavedAt,
+    fromEmail,
     signatureHtml,
     closeComposer,
     setTo,
@@ -55,6 +59,7 @@ export function Composer() {
     setShowCcBcc,
     setUndoSendTimer,
     setUndoSendVisible,
+    setFromEmail,
     setSignatureHtml,
     setSignatureId,
     addAttachment,
@@ -67,6 +72,7 @@ export function Composer() {
   const [showSchedule, setShowSchedule] = useState(false);
   const [showAiAssist, setShowAiAssist] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [aliases, setAliases] = useState<SendAsAlias[]>([]);
   const templateShortcutsRef = useRef<DbTemplate[]>([]);
   const dragCounterRef = useRef(0);
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -154,6 +160,32 @@ export function Composer() {
     return () => { cancelled = true; };
   }, [isOpen, activeAccountId, setSignatureHtml, setSignatureId]);
 
+  // Load send-as aliases when composer opens and resolve fromEmail for replies
+  useEffect(() => {
+    if (!isOpen || !activeAccountId) return;
+    let cancelled = false;
+    getAliasesForAccount(activeAccountId).then((dbAliases) => {
+      if (cancelled) return;
+      const mapped = dbAliases.map(mapDbAlias);
+      setAliases(mapped);
+
+      // If no fromEmail is set yet, resolve it
+      if (!fromEmail && mapped.length > 0) {
+        const { mode: currentMode, to: currentTo, cc: currentCc } = useComposerStore.getState();
+        if (currentMode === "reply" || currentMode === "replyAll" || currentMode === "forward") {
+          // For replies, resolve based on To/CC of original message
+          const resolved = resolveFromAddress(mapped, currentTo.join(", "), currentCc.join(", "));
+          if (resolved) setFromEmail(resolved.email);
+        } else {
+          // For new compose, use default/primary alias
+          const defaultAlias = mapped.find((a) => a.isDefault) ?? mapped.find((a) => a.isPrimary) ?? mapped[0];
+          if (defaultAlias) setFromEmail(defaultAlias.email);
+        }
+      }
+    });
+    return () => { cancelled = true; };
+  }, [isOpen, activeAccountId, fromEmail, setFromEmail]);
+
   // Start/stop draft auto-save
   useEffect(() => {
     if (!isOpen || !activeAccountId) return;
@@ -227,8 +259,9 @@ export function Composer() {
     stopAutoSave();
 
     const html = getFullHtml();
+    const senderEmail = fromEmail ?? activeAccount.email;
     const raw = buildRawEmail({
-      from: activeAccount.email,
+      from: senderEmail,
       to,
       cc: cc.length > 0 ? cc : undefined,
       bcc: bcc.length > 0 ? bcc : undefined,
@@ -294,6 +327,7 @@ export function Composer() {
     inReplyToMessageId,
     attachments,
     draftId,
+    fromEmail,
     signatureHtml,
     closeComposer,
     setUndoSendTimer,
@@ -440,6 +474,11 @@ export function Composer() {
 
         {/* Address fields */}
         <div className="px-3 py-2 space-y-1.5 border-b border-border-secondary">
+          <FromSelector
+            aliases={aliases}
+            selectedEmail={fromEmail ?? activeAccount?.email ?? ""}
+            onChange={(alias) => setFromEmail(alias.email)}
+          />
           <AddressInput label="To" addresses={to} onChange={setTo} />
           {showCcBcc ? (
             <>
@@ -507,7 +546,7 @@ export function Composer() {
         <div className="flex items-center justify-between px-4 py-2.5 border-t border-border-primary bg-bg-secondary rounded-b-lg">
           <div className="flex items-center gap-3">
             <div className="text-xs text-text-tertiary">
-              {activeAccount?.email ?? "No account"}
+              {fromEmail ?? activeAccount?.email ?? "No account"}
             </div>
             {savedLabel && (
               <span className={`text-xs text-text-tertiary italic transition-opacity duration-200 ${isSaving ? "animate-pulse" : ""}`}>

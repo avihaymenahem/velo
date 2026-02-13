@@ -411,6 +411,27 @@ const MIGRATIONS = [
         ('auto_archive_after_unsubscribe', 'true');
     `,
   },
+  {
+    version: 7,
+    description: "Send-as aliases",
+    sql: `
+      CREATE TABLE IF NOT EXISTS send_as_aliases (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        email TEXT NOT NULL,
+        display_name TEXT,
+        reply_to_address TEXT,
+        signature_id TEXT,
+        is_primary INTEGER DEFAULT 0,
+        is_default INTEGER DEFAULT 0,
+        treat_as_alias INTEGER DEFAULT 1,
+        verification_status TEXT DEFAULT 'accepted',
+        created_at INTEGER DEFAULT (unixepoch()),
+        UNIQUE(account_id, email)
+      );
+      CREATE INDEX idx_send_as_account ON send_as_aliases(account_id);
+    `,
+  },
 ];
 
 /**

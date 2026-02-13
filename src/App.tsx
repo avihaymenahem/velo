@@ -45,6 +45,8 @@ import {
 } from "./services/globalShortcut";
 import { initDeepLinkHandler } from "./services/deepLinkHandler";
 import { updateBadgeCount } from "./services/badgeManager";
+import { fetchSendAsAliases } from "./services/gmail/sendAs";
+import { getGmailClient } from "./services/gmail/tokenManager";
 import { invoke } from "@tauri-apps/api/core";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { CalendarPage } from "./components/calendar/CalendarPage";
@@ -256,8 +258,18 @@ export default function App() {
         // Initialize Gmail clients for existing accounts
         await initializeClients();
 
-        // Start background sync for active accounts
+        // Fetch send-as aliases for each active account
         const activeIds = mapped.filter((a) => a.isActive).map((a) => a.id);
+        for (const accountId of activeIds) {
+          try {
+            const client = await getGmailClient(accountId);
+            await fetchSendAsAliases(client, accountId);
+          } catch (err) {
+            console.warn(`Failed to fetch send-as aliases for ${accountId}:`, err);
+          }
+        }
+
+        // Start background sync for active accounts
         if (activeIds.length > 0) {
           startBackgroundSync(activeIds);
         }
@@ -411,9 +423,16 @@ export default function App() {
     const activeIds = mapped.filter((a) => a.isActive).map((a) => a.id);
     startBackgroundSync(activeIds);
 
-    // Trigger immediate sync for the latest account
+    // Fetch send-as aliases for the new account
     const newest = mapped[mapped.length - 1];
     if (newest) {
+      try {
+        const client = await getGmailClient(newest.id);
+        await fetchSendAsAliases(client, newest.id);
+      } catch (err) {
+        console.warn(`Failed to fetch send-as aliases for new account:`, err);
+      }
+      // Trigger immediate sync for the latest account
       syncAccount(newest.id);
     }
   }, [setAccounts]);

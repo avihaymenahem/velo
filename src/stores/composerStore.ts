@@ -28,6 +28,7 @@ export interface ComposerState {
   attachments: ComposerAttachment[];
   lastSavedAt: number | null;
   isSaving: boolean;
+  fromEmail: string | null;
   signatureHtml: string;
   signatureId: string | null;
 
@@ -57,6 +58,7 @@ export interface ComposerState {
   clearAttachments: () => void;
   setLastSavedAt: (ts: number | null) => void;
   setIsSaving: (saving: boolean) => void;
+  setFromEmail: (email: string | null) => void;
   setSignatureHtml: (html: string) => void;
   setSignatureId: (id: string | null) => void;
 }
@@ -76,6 +78,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
   undoSendTimer: null,
   undoSendVisible: false,
   attachments: [],
+  fromEmail: null,
   lastSavedAt: null,
   isSaving: false,
   signatureHtml: "",
@@ -94,6 +97,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
       inReplyToMessageId: opts?.inReplyToMessageId ?? null,
       showCcBcc: (opts?.cc?.length ?? 0) > 0 || (opts?.bcc?.length ?? 0) > 0,
       draftId: opts?.draftId ?? null,
+      fromEmail: null,
       attachments: [],
       lastSavedAt: null,
       isSaving: false,
@@ -113,6 +117,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
       inReplyToMessageId: null,
       showCcBcc: false,
       draftId: null,
+      fromEmail: null,
       attachments: [],
       lastSavedAt: null,
       isSaving: false,
@@ -137,6 +142,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
   clearAttachments: () => set({ attachments: [] }),
   setLastSavedAt: (lastSavedAt) => set({ lastSavedAt }),
   setIsSaving: (isSaving) => set({ isSaving }),
+  setFromEmail: (fromEmail) => set({ fromEmail }),
   setSignatureHtml: (signatureHtml) => set({ signatureHtml }),
   setSignatureId: (signatureId) => set({ signatureId }),
 }));

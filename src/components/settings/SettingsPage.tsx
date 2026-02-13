@@ -24,6 +24,7 @@ import {
   MailMinus,
   Code,
   Check,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 import { SignatureEditor } from "./SignatureEditor";
@@ -35,6 +36,12 @@ import { SubscriptionManager } from "./SubscriptionManager";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
+import {
+  getAliasesForAccount,
+  setDefaultAlias,
+  mapDbAlias,
+  type SendAsAlias,
+} from "@/services/db/sendAsAliases";
 
 type SettingsTab = "general" | "composing" | "labels" | "filters" | "contacts" | "accounts" | "sync" | "shortcuts" | "ai" | "subscriptions" | "developer";
 
@@ -716,6 +723,8 @@ export function SettingsPage() {
                     )}
                   </Section>
 
+                  <SendAsAliasesSection />
+
                   <Section title="Google API">
                     <div className="space-y-3">
                       <div>
@@ -1018,6 +1027,91 @@ export function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function SendAsAliasesSection() {
+  const { accounts } = useAccountStore();
+  const [aliases, setAliases] = useState<SendAsAlias[]>([]);
+
+  useEffect(() => {
+    const activeAccount = accounts.find((a) => a.isActive);
+    if (!activeAccount) return;
+    let cancelled = false;
+    getAliasesForAccount(activeAccount.id).then((dbAliases) => {
+      if (cancelled) return;
+      setAliases(dbAliases.map(mapDbAlias));
+    });
+    return () => { cancelled = true; };
+  }, [accounts]);
+
+  const activeAccount = accounts.find((a) => a.isActive);
+
+  const handleSetDefault = async (alias: SendAsAlias) => {
+    if (!activeAccount) return;
+    await setDefaultAlias(activeAccount.id, alias.id);
+    setAliases((prev) =>
+      prev.map((a) => ({
+        ...a,
+        isDefault: a.id === alias.id,
+      })),
+    );
+  };
+
+  return (
+    <Section title="Send-As Aliases">
+      <p className="text-xs text-text-tertiary mb-3">
+        These aliases are synced from your Gmail settings. You can select which alias to use as the default sender.
+      </p>
+      {aliases.length === 0 ? (
+        <p className="text-sm text-text-tertiary">
+          No aliases found. Aliases are fetched from Gmail on startup.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {aliases.map((alias) => (
+            <div
+              key={alias.id}
+              className="flex items-center justify-between py-2.5 px-4 bg-bg-secondary rounded-lg"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <Mail size={15} className="text-text-tertiary shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-text-primary truncate">
+                    {alias.displayName ? `${alias.displayName} <${alias.email}>` : alias.email}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {alias.isPrimary && (
+                      <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 py-0.5 rounded-full">
+                        Primary
+                      </span>
+                    )}
+                    {alias.isDefault && (
+                      <span className="text-[0.625rem] bg-success/15 text-success px-1.5 py-0.5 rounded-full">
+                        Default
+                      </span>
+                    )}
+                    {alias.verificationStatus !== "accepted" && (
+                      <span className="text-[0.625rem] bg-warning/15 text-warning px-1.5 py-0.5 rounded-full">
+                        {alias.verificationStatus}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {!alias.isDefault && (
+                <button
+                  onClick={() => handleSetDefault(alias)}
+                  className="text-xs text-accent hover:text-accent-hover transition-colors shrink-0 ml-3"
+                >
+                  Set as default
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
   );
 }
 
