@@ -514,6 +514,11 @@ const MIGRATIONS = [
       CREATE INDEX idx_quick_steps_account ON quick_steps(account_id);
     `,
   },
+  {
+    version: 13,
+    description: "Contact notes",
+    sql: `ALTER TABLE contacts ADD COLUMN notes TEXT;`,
+  },
 ];
 
 /**

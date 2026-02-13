@@ -8,6 +8,20 @@ export interface DbContact {
   avatar_url: string | null;
   frequency: number;
   last_contacted_at: number | null;
+  notes: string | null;
+}
+
+export interface ContactAttachment {
+  filename: string;
+  mime_type: string | null;
+  size: number | null;
+  date: number;
+}
+
+export interface SameDomainContact {
+  email: string;
+  display_name: string | null;
+  avatar_url: string | null;
 }
 
 /**
@@ -144,4 +158,85 @@ export async function updateContactAvatar(
     "UPDATE contacts SET avatar_url = $1, updated_at = unixepoch() WHERE email = $2",
     [avatarUrl, normalizeEmail(email)],
   );
+}
+
+/**
+ * Update a contact's notes by email.
+ */
+export async function updateContactNotes(
+  email: string,
+  notes: string | null,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE contacts SET notes = $1, updated_at = unixepoch() WHERE email = $2",
+    [notes || null, normalizeEmail(email)],
+  );
+}
+
+/**
+ * Get recent non-inline attachments from a contact.
+ */
+export async function getAttachmentsFromContact(
+  email: string,
+  limit = 5,
+): Promise<ContactAttachment[]> {
+  const db = await getDb();
+  return db.select<ContactAttachment[]>(
+    `SELECT a.filename, a.mime_type, a.size, m.date
+     FROM attachments a
+     INNER JOIN messages m ON m.account_id = a.account_id AND m.id = a.message_id
+     WHERE m.from_address = $1 AND a.is_inline = 0 AND a.filename IS NOT NULL
+     ORDER BY m.date DESC
+     LIMIT $2`,
+    [normalizeEmail(email), limit],
+  );
+}
+
+const PUBLIC_DOMAINS = new Set([
+  "gmail.com", "googlemail.com", "outlook.com", "hotmail.com",
+  "live.com", "yahoo.com", "yahoo.co.uk", "aol.com", "icloud.com",
+  "me.com", "mac.com", "protonmail.com", "proton.me", "mail.com",
+  "zoho.com", "yandex.com", "gmx.com", "gmx.net",
+]);
+
+/**
+ * Get other contacts from the same email domain (e.g., colleagues).
+ * Skips public email providers.
+ */
+export async function getContactsFromSameDomain(
+  email: string,
+  limit = 5,
+): Promise<SameDomainContact[]> {
+  const normalized = normalizeEmail(email);
+  const atIdx = normalized.indexOf("@");
+  if (atIdx === -1) return [];
+
+  const domain = normalized.slice(atIdx + 1);
+  if (PUBLIC_DOMAINS.has(domain)) return [];
+
+  const db = await getDb();
+  return db.select<SameDomainContact[]>(
+    `SELECT email, display_name, avatar_url FROM contacts
+     WHERE email LIKE $1 AND email != $2
+     ORDER BY frequency DESC
+     LIMIT $3`,
+    [`%@${domain}`, normalized, limit],
+  );
+}
+
+/**
+ * Get the most recent auth_results JSON string for messages from this sender.
+ */
+export async function getLatestAuthResult(
+  email: string,
+): Promise<string | null> {
+  const db = await getDb();
+  const rows = await db.select<{ auth_results: string | null }[]>(
+    `SELECT auth_results FROM messages
+     WHERE from_address = $1 AND auth_results IS NOT NULL
+     ORDER BY date DESC LIMIT 1`,
+    [normalizeEmail(email)],
+  );
+  return rows[0]?.auth_results ?? null;
 }
