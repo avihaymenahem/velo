@@ -5,7 +5,8 @@
   "windows": [
     "main",
     "splashscreen",
-    "thread-*"
+    "thread-*",
+    "compose-*"
   ],
   "permissions": [
     "core:default",

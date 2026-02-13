@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 export type ComposerMode = "new" | "reply" | "replyAll" | "forward";
+export type ComposerViewMode = "modal" | "fullpage";
 
 export interface ComposerAttachment {
   id: string;
@@ -29,6 +30,7 @@ export interface ComposerState {
   lastSavedAt: number | null;
   isSaving: boolean;
   fromEmail: string | null;
+  viewMode: ComposerViewMode;
   signatureHtml: string;
   signatureId: string | null;
 
@@ -59,6 +61,7 @@ export interface ComposerState {
   setLastSavedAt: (ts: number | null) => void;
   setIsSaving: (saving: boolean) => void;
   setFromEmail: (email: string | null) => void;
+  setViewMode: (mode: ComposerViewMode) => void;
   setSignatureHtml: (html: string) => void;
   setSignatureId: (id: string | null) => void;
 }
@@ -78,6 +81,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
   undoSendTimer: null,
   undoSendVisible: false,
   attachments: [],
+  viewMode: "modal",
   fromEmail: null,
   lastSavedAt: null,
   isSaving: false,
@@ -97,6 +101,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
       inReplyToMessageId: opts?.inReplyToMessageId ?? null,
       showCcBcc: (opts?.cc?.length ?? 0) > 0 || (opts?.bcc?.length ?? 0) > 0,
       draftId: opts?.draftId ?? null,
+      viewMode: "modal",
       fromEmail: null,
       attachments: [],
       lastSavedAt: null,
@@ -117,6 +122,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
       inReplyToMessageId: null,
       showCcBcc: false,
       draftId: null,
+      viewMode: "modal",
       fromEmail: null,
       attachments: [],
       lastSavedAt: null,
@@ -143,6 +149,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
   setLastSavedAt: (lastSavedAt) => set({ lastSavedAt }),
   setIsSaving: (isSaving) => set({ isSaving }),
   setFromEmail: (fromEmail) => set({ fromEmail }),
+  setViewMode: (viewMode) => set({ viewMode }),
   setSignatureHtml: (signatureHtml) => set({ signatureHtml }),
   setSignatureId: (signatureId) => set({ signatureId }),
 }));

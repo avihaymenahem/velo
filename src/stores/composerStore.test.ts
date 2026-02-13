@@ -20,6 +20,7 @@ describe("composerStore", () => {
       attachments: [],
       lastSavedAt: null,
       isSaving: false,
+      viewMode: "modal",
       signatureHtml: "",
       signatureId: null,
     });
@@ -212,5 +213,29 @@ describe("composerStore", () => {
 
     useComposerStore.getState().setSignatureId("sig-1");
     expect(useComposerStore.getState().signatureId).toBe("sig-1");
+  });
+
+  it("viewMode defaults to modal", () => {
+    expect(useComposerStore.getState().viewMode).toBe("modal");
+  });
+
+  it("setViewMode updates viewMode", () => {
+    useComposerStore.getState().setViewMode("fullpage");
+    expect(useComposerStore.getState().viewMode).toBe("fullpage");
+
+    useComposerStore.getState().setViewMode("modal");
+    expect(useComposerStore.getState().viewMode).toBe("modal");
+  });
+
+  it("closeComposer resets viewMode to modal", () => {
+    useComposerStore.getState().setViewMode("fullpage");
+    useComposerStore.getState().closeComposer();
+    expect(useComposerStore.getState().viewMode).toBe("modal");
+  });
+
+  it("openComposer resets viewMode to modal", () => {
+    useComposerStore.getState().setViewMode("fullpage");
+    useComposerStore.getState().openComposer();
+    expect(useComposerStore.getState().viewMode).toBe("modal");
   });
 });
