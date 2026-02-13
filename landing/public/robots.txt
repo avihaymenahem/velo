@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://valomail.app/sitemap.xml
+Sitemap: https://velomail.app/sitemap.xml

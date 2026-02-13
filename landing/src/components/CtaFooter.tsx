@@ -79,7 +79,7 @@ export function CtaFooter() {
               <Mail size={14} className="text-white" />
             </div>
             <span className="font-semibold text-sm text-text-primary tracking-tight">Velo</span>
-            <span className="text-xs text-text-muted">by valomail.app</span>
+            <span className="text-xs text-text-muted">by velomail.app</span>
           </div>
 
           {/* Links */}
@@ -87,7 +87,7 @@ export function CtaFooter() {
             <a href="#features" className="hover:text-text-secondary transition-colors no-underline">Features</a>
             <a href="#security" className="hover:text-text-secondary transition-colors no-underline">Security</a>
             <a href="https://github.com/avihaymenahem/velo" target="_blank" rel="noopener noreferrer" className="hover:text-text-secondary transition-colors no-underline">GitHub</a>
-            <a href="mailto:hello@valomail.app" className="hover:text-text-secondary transition-colors no-underline">Contact</a>
+            <a href="mailto:info@velomail.app" className="hover:text-text-secondary transition-colors no-underline">Contact</a>
           </div>
 
           {/* Back to top */}

@@ -57,7 +57,7 @@
   </text>
 
   <!-- Domain -->
-  <text x="80" y="570" font-family="Inter, -apple-system, sans-serif" font-size="18" font-weight="500" fill="#6366F1">valomail.app</text>
+  <text x="80" y="570" font-family="Inter, -apple-system, sans-serif" font-size="18" font-weight="500" fill="#6366F1">velomail.app</text>
 
   <!-- Decorative inbox mockup hint (right side) -->
   <rect x="750" y="140" width="370" height="350" rx="16" fill="#12121C" stroke="#ffffff0f" stroke-width="1"/>
