@@ -6,7 +6,7 @@ import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
-import { Clock } from "lucide-react";
+import { Clock, Maximize2, Minimize2, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { AddressInput } from "./AddressInput";
@@ -50,6 +50,7 @@ export function Composer() {
     isSaving,
     lastSavedAt,
     fromEmail,
+    viewMode,
     signatureHtml,
     closeComposer,
     setTo,
@@ -61,6 +62,7 @@ export function Composer() {
     setUndoSendTimer,
     setUndoSendVisible,
     setFromEmail,
+    setViewMode,
     setSignatureHtml,
     setSignatureId,
     addAttachment,
@@ -420,6 +422,49 @@ export function Composer() {
     closeComposer();
   }, [draftId, activeAccountId, closeComposer]);
 
+  const handlePopOutComposer = useCallback(async () => {
+    try {
+      const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+      const state = useComposerStore.getState();
+      const params = new URLSearchParams();
+      params.set("compose", "true");
+      params.set("mode", state.mode);
+      if (state.to.length > 0) params.set("to", state.to.join(","));
+      if (state.cc.length > 0) params.set("cc", state.cc.join(","));
+      if (state.bcc.length > 0) params.set("bcc", state.bcc.join(","));
+      if (state.subject) params.set("subject", state.subject);
+      if (state.threadId) params.set("threadId", state.threadId);
+      if (state.inReplyToMessageId) params.set("inReplyToMessageId", state.inReplyToMessageId);
+      if (state.draftId) params.set("draftId", state.draftId);
+      if (state.fromEmail) params.set("fromEmail", state.fromEmail);
+      // Encode body as base64 to safely pass HTML
+      const bodyHtml = editor?.getHTML() ?? "";
+      if (bodyHtml) params.set("body", btoa(unescape(encodeURIComponent(bodyHtml))));
+
+      const windowLabel = `compose-${Date.now()}`;
+      const existing = await WebviewWindow.getByLabel(windowLabel);
+      if (existing) {
+        await existing.setFocus();
+        return;
+      }
+
+      new WebviewWindow(windowLabel, {
+        url: `index.html?${params.toString()}`,
+        title: state.subject || "New Message",
+        width: 700,
+        height: 650,
+        center: true,
+      });
+
+      stopAutoSave();
+      closeComposer();
+    } catch (err) {
+      console.error("Failed to pop out composer:", err);
+    }
+  }, [editor, closeComposer]);
+
+  const isFullpage = viewMode === "fullpage";
+
   const modeLabel =
     mode === "reply"
       ? "Reply"
@@ -437,18 +482,20 @@ export function Composer() {
 
   return (
     <CSSTransition nodeRef={overlayRef} in={isOpen} timeout={200} classNames="slide-up" unmountOnExit>
-    <div ref={overlayRef} className="fixed inset-0 z-50 flex items-end justify-center pb-4 pointer-events-none">
+    <div ref={overlayRef} className={`fixed inset-0 z-50 flex ${isFullpage ? "items-stretch justify-center p-4" : "items-end justify-center pb-4"} pointer-events-none`}>
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/20 pointer-events-auto glass-backdrop"
-        onClick={closeComposer}
-      />
+      {!isFullpage && (
+        <div
+          className="absolute inset-0 bg-black/20 pointer-events-auto glass-backdrop"
+          onClick={closeComposer}
+        />
+      )}
 
       {/* Composer window */}
       <div
-        className={`relative bg-bg-primary border rounded-lg glass-modal w-full max-w-2xl pointer-events-auto flex flex-col max-h-[80vh] slide-up-panel ${
-          isDragging ? "border-accent border-2" : "border-border-primary"
-        }`}
+        className={`relative bg-bg-primary border rounded-lg glass-modal pointer-events-auto flex flex-col slide-up-panel ${
+          isFullpage ? "w-full h-full max-w-5xl" : "w-full max-w-2xl max-h-[80vh]"
+        } ${isDragging ? "border-accent border-2" : "border-border-primary"}`}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -465,12 +512,28 @@ export function Composer() {
           <span className="text-sm font-medium text-text-primary">
             {modeLabel}
           </span>
-          <button
-            onClick={closeComposer}
-            className="text-text-tertiary hover:text-text-primary text-lg leading-none"
-          >
-            ×
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setViewMode(isFullpage ? "modal" : "fullpage")}
+              className="text-text-tertiary hover:text-text-primary p-1 rounded transition-colors"
+              title={isFullpage ? "Collapse" : "Expand"}
+            >
+              {isFullpage ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+            <button
+              onClick={handlePopOutComposer}
+              className="text-text-tertiary hover:text-text-primary p-1 rounded transition-colors"
+              title="Open in new window"
+            >
+              <ExternalLink size={14} />
+            </button>
+            <button
+              onClick={closeComposer}
+              className="text-text-tertiary hover:text-text-primary text-lg leading-none p-1"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {/* Address fields */}
