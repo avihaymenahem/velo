@@ -456,6 +456,11 @@ const MIGRATIONS = [
         ('sf-starred-recent', NULL, 'Starred This Week', 'is:starred after:__LAST_7_DAYS__', 'Star', 2, 1);
     `,
   },
+  {
+    version: 9,
+    description: "Email authentication results",
+    sql: `ALTER TABLE messages ADD COLUMN auth_results TEXT;`,
+  },
 ];
 
 /**

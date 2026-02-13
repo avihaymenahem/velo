@@ -1,4 +1,5 @@
 import type { GmailMessage, GmailMessagePart, GmailHeader } from "./client";
+import { parseAuthenticationResults } from "./authParser";
 
 export interface ParsedAttachment {
   filename: string;
@@ -32,6 +33,7 @@ export interface ParsedMessage {
   attachments: ParsedAttachment[];
   listUnsubscribe: string | null;
   listUnsubscribePost: string | null;
+  authResults: string | null;
 }
 
 export function parseGmailMessage(msg: GmailMessage): ParsedMessage {
@@ -42,6 +44,7 @@ export function parseGmailMessage(msg: GmailMessage): ParsedMessage {
   const bodyHtml = extractBody(msg.payload, "text/html");
   const bodyText = extractBody(msg.payload, "text/plain");
   const attachments = extractAttachments(msg.payload);
+  const authResult = parseAuthenticationResults(headers);
 
   return {
     id: msg.id,
@@ -66,6 +69,7 @@ export function parseGmailMessage(msg: GmailMessage): ParsedMessage {
     attachments,
     listUnsubscribe: getHeader(headers, "List-Unsubscribe"),
     listUnsubscribePost: getHeader(headers, "List-Unsubscribe-Post"),
+    authResults: authResult ? JSON.stringify(authResult) : null,
   };
 }
 

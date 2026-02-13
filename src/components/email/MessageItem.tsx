@@ -6,6 +6,8 @@ import { AttachmentList, getAttachmentsForMessage } from "./AttachmentList";
 import type { DbMessage } from "@/services/db/messages";
 import type { DbAttachment } from "@/services/db/attachments";
 import { MailMinus } from "lucide-react";
+import { AuthBadge } from "./AuthBadge";
+import { AuthWarningBanner } from "./AuthWarningBanner";
 
 interface MessageItemProps {
   message: DbMessage;
@@ -21,6 +23,7 @@ export function MessageItem({ message, isLast, blockImages, senderAllowlisted, a
   const [expanded, setExpanded] = useState(isLast);
   const [attachments, setAttachments] = useState<DbAttachment[]>([]);
   const [, setPreviewAttachment] = useState<DbAttachment | null>(null);
+  const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
   const attachmentsLoadedRef = useRef(false);
 
   const loadAttachments = async () => {
@@ -64,8 +67,9 @@ export function MessageItem({ message, isLast, blockImages, senderAllowlisted, a
               {fromDisplay[0]?.toUpperCase()}
             </div>
             <div className="min-w-0">
-              <span className="text-sm font-medium text-text-primary truncate block">
+              <span className="text-sm font-medium text-text-primary truncate flex items-center gap-1">
                 {fromDisplay}
+                <AuthBadge authResults={message.auth_results} />
               </span>
               {!expanded && (
                 <span className="text-xs text-text-tertiary truncate block">
@@ -90,6 +94,14 @@ export function MessageItem({ message, isLast, blockImages, senderAllowlisted, a
       {/* Body — shown when expanded and image setting resolved */}
       {expanded && (
         <div className="px-4 pb-4">
+          {!authBannerDismissed && (
+            <AuthWarningBanner
+              authResults={message.auth_results}
+              senderAddress={message.from_address}
+              onDismiss={() => setAuthBannerDismissed(true)}
+            />
+          )}
+
           {message.list_unsubscribe && (
             <UnsubscribeLink
               header={message.list_unsubscribe}

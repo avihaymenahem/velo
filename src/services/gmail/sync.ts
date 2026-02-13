@@ -130,6 +130,7 @@ async function processAndStoreThread(
       internalDate: parsed.internalDate,
       listUnsubscribe: parsed.listUnsubscribe,
       listUnsubscribePost: parsed.listUnsubscribePost,
+      authResults: parsed.authResults,
     });
 
     for (const att of parsed.attachments) {
