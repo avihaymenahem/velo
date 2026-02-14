@@ -102,7 +102,7 @@ export function AiSection() {
 
         {/* AI Provider Badges */}
         <motion.div
-          className="flex items-center justify-center gap-4 mb-16"
+          className="flex items-center justify-center gap-3 md:gap-4 mb-16 flex-wrap"
           initial={{ opacity: 0, y: 15 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
