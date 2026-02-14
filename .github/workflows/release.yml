@@ -68,21 +68,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: latest
-          releaseName: "Velo - Latest Build"
-          releaseBody: "Built from commit ${{ github.sha }} — ${{ github.event.head_commit.message }}"
+          tagName: v__VERSION__
+          releaseName: "Velo v__VERSION__"
+          releaseBody: "See the assets below to download for your platform."
           releaseDraft: false
-          prerelease: true
+          prerelease: false
           args: ${{ matrix.args }}
 
   build-macos:
     needs: test
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: aarch64-apple-darwin
-          - target: x86_64-apple-darwin
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +88,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -143,12 +137,12 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tagName: latest
-          releaseName: "Velo - Latest Build"
-          releaseBody: "Built from commit ${{ github.sha }} — ${{ github.event.head_commit.message }}"
+          tagName: v__VERSION__
+          releaseName: "Velo v__VERSION__"
+          releaseBody: "See the assets below to download for your platform."
           releaseDraft: false
-          prerelease: true
-          args: --target ${{ matrix.target }}
+          prerelease: false
+          args: --target universal-apple-darwin
 
       - name: Build and release (unsigned)
         if: steps.signing-check.outputs.has_signing != 'true'
@@ -156,10 +150,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: latest
-          releaseName: "Velo - Latest Build"
+          tagName: v__VERSION__
+          releaseName: "Velo v__VERSION__"
           releaseBody: |
-            Built from commit ${{ github.sha }}
+            See the assets below to download for your platform.
 
             > **macOS users**: This build is unsigned. After downloading, run:
             > ```
@@ -167,8 +161,8 @@ jobs:
             > ```
             > Or right-click the app and select "Open" on first launch.
           releaseDraft: false
-          prerelease: true
-          args: --target ${{ matrix.target }}
+          prerelease: false
+          args: --target universal-apple-darwin
 
       - name: Clean up keychain
         if: always() && steps.signing-check.outputs.has_signing == 'true'
