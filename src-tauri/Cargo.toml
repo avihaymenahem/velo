@@ -1,6 +1,6 @@
 [package]
 name = "velo"
-version = "0.1.0"
+version = "0.2.0"
 description = "Email at the speed of thought"
 authors = ["Avihay"]
 license = ""
