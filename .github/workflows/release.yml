@@ -102,7 +102,17 @@ jobs:
 
       - run: npm ci
 
+      - name: Check if Apple signing is configured
+        id: signing-check
+        run: |
+          if [ -n "${{ secrets.APPLE_CERTIFICATE }}" ]; then
+            echo "has_signing=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_signing=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Import Apple signing certificate
+        if: steps.signing-check.outputs.has_signing == 'true'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -123,7 +133,9 @@ jobs:
             -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
 
-      - uses: tauri-apps/tauri-action@v0
+      - name: Build and release (signed + notarized)
+        if: steps.signing-check.outputs.has_signing == 'true'
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -138,6 +150,26 @@ jobs:
           prerelease: true
           args: --target ${{ matrix.target }}
 
+      - name: Build and release (unsigned)
+        if: steps.signing-check.outputs.has_signing != 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: latest
+          releaseName: "Velo - Latest Build"
+          releaseBody: |
+            Built from commit ${{ github.sha }}
+
+            > **macOS users**: This build is unsigned. After downloading, run:
+            > ```
+            > xattr -cr /Applications/Velo.app
+            > ```
+            > Or right-click the app and select "Open" on first launch.
+          releaseDraft: false
+          prerelease: true
+          args: --target ${{ matrix.target }}
+
       - name: Clean up keychain
-        if: always()
+        if: always() && steps.signing-check.outputs.has_signing == 'true'
         run: security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
