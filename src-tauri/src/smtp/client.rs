@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use lettre::{
-    transport::smtp::authentication::Credentials, AsyncSmtpTransport, AsyncTransport,
-    Tokio1Executor,
+    transport::smtp::authentication::{Credentials, Mechanism},
+    AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
 };
 
 use super::types::{SmtpConfig, SmtpSendResult};
@@ -19,6 +19,13 @@ fn build_transport(
 ) -> Result<AsyncSmtpTransport<Tokio1Executor>, String> {
     let credentials = Credentials::new(config.username.clone(), config.password.clone());
 
+    // For OAuth2, force XOAUTH2 mechanism; for password, use default mechanisms
+    let auth_mechanisms = if config.auth_method == "oauth2" {
+        vec![Mechanism::Xoauth2]
+    } else {
+        vec![Mechanism::Plain, Mechanism::Login]
+    };
+
     let transport = match config.security.as_str() {
         "tls" => {
             // Implicit TLS (typically port 465)
@@ -26,6 +33,7 @@ fn build_transport(
                 .map_err(|e| format!("SMTP relay error: {}", e))?
                 .port(config.port)
                 .credentials(credentials)
+                .authentication(auth_mechanisms)
                 .build()
         }
         "starttls" => {
@@ -34,6 +42,7 @@ fn build_transport(
                 .map_err(|e| format!("SMTP STARTTLS error: {}", e))?
                 .port(config.port)
                 .credentials(credentials)
+                .authentication(auth_mechanisms)
                 .build()
         }
         _ => {
@@ -41,6 +50,7 @@ fn build_transport(
             AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&config.host)
                 .port(config.port)
                 .credentials(credentials)
+                .authentication(auth_mechanisms)
                 .build()
         }
     };

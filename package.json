@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "dev:landing": "npm run dev --prefix landing"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

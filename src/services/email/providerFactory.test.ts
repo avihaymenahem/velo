@@ -45,6 +45,9 @@ describe("providerFactory", () => {
       smtp_security: null,
       auth_method: "oauth",
       imap_password: null,
+      oauth_provider: null,
+      oauth_client_id: null,
+      oauth_client_secret: null,
     });
     vi.mocked(getGmailClient).mockResolvedValue({} as ReturnType<typeof getGmailClient> extends Promise<infer T> ? T : never);
 
@@ -78,6 +81,9 @@ describe("providerFactory", () => {
       smtp_security: "tls",
       auth_method: "password",
       imap_password: "secret",
+      oauth_provider: null,
+      oauth_client_id: null,
+      oauth_client_secret: null,
     });
 
     const provider = await getEmailProvider("acc-2");
@@ -110,6 +116,9 @@ describe("providerFactory", () => {
       smtp_security: "tls",
       auth_method: "password",
       imap_password: "secret",
+      oauth_provider: null,
+      oauth_client_id: null,
+      oauth_client_secret: null,
     });
 
     const first = await getEmailProvider("acc-3");
@@ -143,6 +152,9 @@ describe("providerFactory", () => {
       smtp_security: "tls",
       auth_method: "password",
       imap_password: "secret",
+      oauth_provider: null,
+      oauth_client_id: null,
+      oauth_client_secret: null,
     });
 
     const first = await getEmailProvider("acc-4");
@@ -176,6 +188,9 @@ describe("providerFactory", () => {
       smtp_security: "tls",
       auth_method: "password",
       imap_password: "secret",
+      oauth_provider: null,
+      oauth_client_id: null,
+      oauth_client_secret: null,
     });
 
     const first = await getEmailProvider("acc-5");

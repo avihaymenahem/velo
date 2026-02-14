@@ -154,11 +154,13 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "IMAP/SMTP account setup",
         summary: "Add a non-Gmail email account via IMAP and SMTP.",
         description:
-          "To add an IMAP/SMTP account, click 'Add IMAP Account' in the account switcher. The setup wizard has four steps: (1) enter your email, display name, and password; (2) configure IMAP server settings (host, port, security); (3) configure SMTP server settings; (4) test the connection. For popular providers like Outlook, Yahoo, iCloud, Fastmail, Zoho, AOL, and GMX, server settings are auto-discovered when you enter your email address. Your password is encrypted with AES-256-GCM before being stored locally. Some providers require an app-specific password instead of your regular password.",
+          "To add an IMAP/SMTP account, click 'Add IMAP Account' in the account switcher. The setup wizard has four steps: (1) enter your email, display name, and password or OAuth2 credentials; (2) configure IMAP server settings (host, port, security); (3) configure SMTP server settings; (4) test the connection. For popular providers like Outlook, Yahoo, iCloud, Fastmail, Zoho, AOL, and GMX, server settings are auto-discovered when you enter your email address. Outlook/Hotmail accounts require OAuth2 authentication (basic password auth is disabled by Microsoft). Yahoo supports both OAuth2 and app passwords. Your credentials are encrypted with AES-256-GCM before being stored locally.",
         tips: [
           { text: "Auto-discovery works for Outlook, Yahoo, iCloud, Fastmail, Zoho, AOL, and GMX." },
+          { text: "Outlook/Hotmail requires OAuth2 — register an app in Azure Portal to get a Client ID." },
+          { text: "Yahoo supports OAuth2 or app passwords — OAuth2 is recommended." },
+          { text: "For OAuth2, set the redirect URI to http://127.0.0.1:17248 in your app registration." },
           { text: "For other providers, check your email provider's help page for IMAP/SMTP settings." },
-          { text: "Some providers (Gmail, Yahoo) require an app-specific password." },
           { text: "Security options: SSL/TLS (most secure), STARTTLS, or None." },
           { text: "Both IMAP and SMTP connections are tested before saving." },
           { text: "IMAP folders are automatically mapped to labels in the sidebar." },

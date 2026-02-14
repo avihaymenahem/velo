@@ -54,6 +54,9 @@ function makeGmailAccount(overrides: Partial<DbAccount> = {}): DbAccount {
     smtp_security: null,
     auth_method: "oauth",
     imap_password: null,
+    oauth_provider: null,
+    oauth_client_id: null,
+    oauth_client_secret: null,
     ...overrides,
   };
 }
@@ -81,6 +84,9 @@ function makeImapAccount(overrides: Partial<DbAccount> = {}): DbAccount {
     smtp_security: "tls",
     auth_method: "password",
     imap_password: "enc:secret-password",
+    oauth_provider: null,
+    oauth_client_id: null,
+    oauth_client_secret: null,
     ...overrides,
   };
 }

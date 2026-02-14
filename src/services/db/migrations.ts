@@ -565,6 +565,15 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_messages_message_id ON messages(message_id_header);
     `,
   },
+  {
+    version: 15,
+    description: "OAuth2 provider support for IMAP/SMTP",
+    sql: `
+      ALTER TABLE accounts ADD COLUMN oauth_provider TEXT;
+      ALTER TABLE accounts ADD COLUMN oauth_client_id TEXT;
+      ALTER TABLE accounts ADD COLUMN oauth_client_secret TEXT;
+    `,
+  },
 ];
 
 /**

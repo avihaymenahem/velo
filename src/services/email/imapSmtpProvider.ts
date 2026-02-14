@@ -19,6 +19,7 @@ import {
 } from "../imap/tauriCommands";
 import { getAccount, type DbAccount } from "../db/accounts";
 import { findSpecialFolder } from "../imap/messageHelper";
+import { ensureFreshToken } from "../oauth/oauthTokenManager";
 
 /**
  * EmailProvider adapter for IMAP/SMTP accounts.
@@ -44,16 +45,25 @@ export class ImapSmtpProvider implements EmailProvider {
   }
 
   private async getImapConfig(): Promise<ImapConfig> {
+    const account = await this.getAccount();
+    if (account.auth_method === "oauth2") {
+      // OAuth accounts need a fresh token every time
+      const token = await ensureFreshToken(account);
+      return buildImapConfig(account, token);
+    }
     if (!this._imapConfig) {
-      const account = await this.getAccount();
       this._imapConfig = buildImapConfig(account);
     }
     return this._imapConfig;
   }
 
   private async getSmtpConfig(): Promise<SmtpConfig> {
+    const account = await this.getAccount();
+    if (account.auth_method === "oauth2") {
+      const token = await ensureFreshToken(account);
+      return buildSmtpConfig(account, token);
+    }
     if (!this._smtpConfig) {
-      const account = await this.getAccount();
       this._smtpConfig = buildSmtpConfig(account);
     }
     return this._smtpConfig;

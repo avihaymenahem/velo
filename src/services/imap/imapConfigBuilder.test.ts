@@ -25,6 +25,9 @@ function makeAccount(overrides: Partial<DbAccount> = {}): DbAccount {
     smtp_security: "starttls",
     auth_method: "password",
     imap_password: "secret123",
+    oauth_provider: null,
+    oauth_client_id: null,
+    oauth_client_secret: null,
     ...overrides,
   };
 }
@@ -80,6 +83,19 @@ describe("buildImapConfig", () => {
     expect(config.auth_method).toBe("oauth2");
   });
 
+  it("uses accessToken override for oauth2 accounts", () => {
+    const account = makeAccount({ auth_method: "oauth2", imap_password: "old" });
+    const config = buildImapConfig(account, "fresh-token");
+    expect(config.password).toBe("fresh-token");
+    expect(config.auth_method).toBe("oauth2");
+  });
+
+  it("ignores accessToken override for password accounts", () => {
+    const account = makeAccount({ auth_method: "password" });
+    const config = buildImapConfig(account, "should-not-use");
+    expect(config.password).toBe("secret123");
+  });
+
   it("throws when imap_host is missing", () => {
     const account = makeAccount({ imap_host: null });
     expect(() => buildImapConfig(account)).toThrow("no IMAP host configured");
@@ -122,5 +138,12 @@ describe("buildSmtpConfig", () => {
     const account = makeAccount({ smtp_security: "ssl" });
     const config = buildSmtpConfig(account);
     expect(config.security).toBe("tls");
+  });
+
+  it("uses accessToken override for oauth2 SMTP", () => {
+    const account = makeAccount({ auth_method: "oauth2" });
+    const config = buildSmtpConfig(account, "smtp-oauth-token");
+    expect(config.password).toBe("smtp-oauth-token");
+    expect(config.auth_method).toBe("oauth2");
   });
 });

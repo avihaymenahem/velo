@@ -39,6 +39,10 @@ vi.mock("../imap/messageHelper", () => ({
   findSpecialFolder: vi.fn(),
 }));
 
+vi.mock("../oauth/oauthTokenManager", () => ({
+  ensureFreshToken: vi.fn().mockResolvedValue("mock-oauth-token"),
+}));
+
 import { getAccount } from "../db/accounts";
 import { buildImapConfig, buildSmtpConfig } from "../imap/imapConfigBuilder";
 import { mapFolderToLabel, getSyncableFolders } from "../imap/folderMapper";
@@ -84,6 +88,9 @@ const mockAccount = {
   smtp_security: "starttls",
   auth_method: "password",
   imap_password: "secret",
+  oauth_provider: null,
+  oauth_client_id: null,
+  oauth_client_secret: null,
 };
 
 describe("ImapSmtpProvider", () => {

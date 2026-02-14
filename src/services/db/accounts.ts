@@ -23,6 +23,9 @@ export interface DbAccount {
   smtp_security: string | null;
   auth_method: string;
   imap_password: string | null;
+  oauth_provider: string | null;
+  oauth_client_id: string | null;
+  oauth_client_secret: string | null;
 }
 
 async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
@@ -45,6 +48,13 @@ async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
       account.imap_password = await decryptValue(account.imap_password);
     } catch (err) {
       console.warn("Failed to decrypt IMAP password, using raw value:", err);
+    }
+  }
+  if (account.oauth_client_secret && isEncrypted(account.oauth_client_secret)) {
+    try {
+      account.oauth_client_secret = await decryptValue(account.oauth_client_secret);
+    } catch (err) {
+      console.warn("Failed to decrypt OAuth client secret, using raw value:", err);
     }
   }
   return account;
@@ -187,6 +197,54 @@ export async function insertImapAccount(account: {
       account.smtpSecurity,
       account.authMethod,
       encPassword,
+    ],
+  );
+}
+
+export async function insertOAuthImapAccount(account: {
+  id: string;
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  imapHost: string;
+  imapPort: number;
+  imapSecurity: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecurity: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiresAt: number;
+  oauthProvider: string;
+  oauthClientId: string;
+  oauthClientSecret: string | null;
+}): Promise<void> {
+  const db = await getDb();
+  const encAccessToken = await encryptValue(account.accessToken);
+  const encRefreshToken = await encryptValue(account.refreshToken);
+  const encClientSecret = account.oauthClientSecret
+    ? await encryptValue(account.oauthClientSecret)
+    : null;
+  await db.execute(
+    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, token_expires_at, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password, oauth_provider, oauth_client_id, oauth_client_secret)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'imap', $8, $9, $10, $11, $12, $13, 'oauth2', NULL, $14, $15, $16)`,
+    [
+      account.id,
+      account.email,
+      account.displayName,
+      account.avatarUrl,
+      encAccessToken,
+      encRefreshToken,
+      account.tokenExpiresAt,
+      account.imapHost,
+      account.imapPort,
+      account.imapSecurity,
+      account.smtpHost,
+      account.smtpPort,
+      account.smtpSecurity,
+      account.oauthProvider,
+      account.oauthClientId,
+      encClientSecret,
     ],
   );
 }

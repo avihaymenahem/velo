@@ -1,4 +1,5 @@
 export type SecurityType = "ssl" | "starttls" | "none";
+export type AuthMethod = "password" | "oauth2";
 
 export interface ServerSettings {
   imapHost: string;
@@ -12,6 +13,10 @@ export interface ServerSettings {
 interface WellKnownProvider {
   domains: string[];
   settings: ServerSettings;
+  /** Supported authentication methods, in preference order */
+  authMethods: AuthMethod[];
+  /** OAuth provider ID (matches oauth/providers.ts registry) */
+  oauthProviderId?: string;
 }
 
 const wellKnownProviders: WellKnownProvider[] = [
@@ -32,6 +37,8 @@ const wellKnownProviders: WellKnownProvider[] = [
       smtpPort: 587,
       smtpSecurity: "starttls",
     },
+    authMethods: ["oauth2"],
+    oauthProviderId: "microsoft",
   },
   {
     domains: ["yahoo.com", "yahoo.co.uk", "yahoo.co.jp", "ymail.com"],
@@ -43,6 +50,8 @@ const wellKnownProviders: WellKnownProvider[] = [
       smtpPort: 465,
       smtpSecurity: "ssl",
     },
+    authMethods: ["oauth2", "password"],
+    oauthProviderId: "yahoo",
   },
   {
     domains: ["icloud.com", "me.com", "mac.com"],
@@ -54,6 +63,7 @@ const wellKnownProviders: WellKnownProvider[] = [
       smtpPort: 587,
       smtpSecurity: "starttls",
     },
+    authMethods: ["password"],
   },
   {
     domains: ["aol.com"],
@@ -65,6 +75,7 @@ const wellKnownProviders: WellKnownProvider[] = [
       smtpPort: 465,
       smtpSecurity: "ssl",
     },
+    authMethods: ["password"],
   },
   {
     domains: ["zoho.com", "zohomail.com"],
@@ -76,6 +87,7 @@ const wellKnownProviders: WellKnownProvider[] = [
       smtpPort: 465,
       smtpSecurity: "ssl",
     },
+    authMethods: ["password"],
   },
   {
     domains: ["fastmail.com", "fastmail.fm"],
@@ -87,6 +99,7 @@ const wellKnownProviders: WellKnownProvider[] = [
       smtpPort: 465,
       smtpSecurity: "ssl",
     },
+    authMethods: ["password"],
   },
   {
     domains: ["protonmail.com", "proton.me", "pm.me"],
@@ -98,6 +111,7 @@ const wellKnownProviders: WellKnownProvider[] = [
       smtpPort: 1025,
       smtpSecurity: "starttls",
     },
+    authMethods: ["password"],
   },
   {
     domains: ["gmx.com", "gmx.net", "gmx.de"],
@@ -109,6 +123,7 @@ const wellKnownProviders: WellKnownProvider[] = [
       smtpPort: 465,
       smtpSecurity: "ssl",
     },
+    authMethods: ["password"],
   },
   {
     domains: ["mail.ru", "inbox.ru", "list.ru", "bk.ru"],
@@ -120,6 +135,7 @@ const wellKnownProviders: WellKnownProvider[] = [
       smtpPort: 465,
       smtpSecurity: "ssl",
     },
+    authMethods: ["password"],
   },
 ];
 
@@ -134,17 +150,27 @@ export function extractDomain(email: string): string | null {
   return trimmed.slice(atIndex + 1);
 }
 
+export interface WellKnownProviderResult {
+  settings: ServerSettings;
+  authMethods: AuthMethod[];
+  oauthProviderId?: string;
+}
+
 /**
  * Look up a well-known provider by domain.
- * Returns the provider settings or null if not found.
+ * Returns the provider settings and auth info, or null if not found.
  */
 export function findWellKnownProvider(
   domain: string,
-): ServerSettings | null {
+): WellKnownProviderResult | null {
   const lower = domain.toLowerCase();
   for (const provider of wellKnownProviders) {
     if (provider.domains.includes(lower)) {
-      return { ...provider.settings };
+      return {
+        settings: { ...provider.settings },
+        authMethods: provider.authMethods,
+        oauthProviderId: provider.oauthProviderId,
+      };
     }
   }
   return null;
@@ -169,14 +195,17 @@ export function guessServerSettings(domain: string): ServerSettings {
  * First checks well-known providers, then falls back to common patterns.
  * Returns null if the email address is invalid.
  */
-export function discoverSettings(email: string): ServerSettings | null {
+export function discoverSettings(email: string): WellKnownProviderResult | null {
   const domain = extractDomain(email);
   if (!domain) return null;
 
   const wellKnown = findWellKnownProvider(domain);
   if (wellKnown) return wellKnown;
 
-  return guessServerSettings(domain);
+  return {
+    settings: guessServerSettings(domain),
+    authMethods: ["password"],
+  };
 }
 
 /**
