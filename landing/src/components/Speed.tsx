@@ -23,7 +23,7 @@ const SPEED_FEATURES = [
   },
   {
     title: 'Background Sync',
-    description: 'Delta sync via Gmail History API every 60 seconds. Full sync fallback if history expires.',
+    description: 'Delta sync every 60 seconds — Gmail History API or IMAP UID tracking. Full sync fallback when needed.',
     metric: '60s',
     metricLabel: 'sync interval',
   },

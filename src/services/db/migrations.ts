@@ -519,6 +519,52 @@ const MIGRATIONS = [
     description: "Contact notes",
     sql: `ALTER TABLE contacts ADD COLUMN notes TEXT;`,
   },
+  {
+    version: 14,
+    description: "IMAP/SMTP provider support",
+    sql: `
+      -- Accounts: provider and connection settings
+      ALTER TABLE accounts ADD COLUMN provider TEXT DEFAULT 'gmail_api';
+      ALTER TABLE accounts ADD COLUMN imap_host TEXT;
+      ALTER TABLE accounts ADD COLUMN imap_port INTEGER;
+      ALTER TABLE accounts ADD COLUMN imap_security TEXT;
+      ALTER TABLE accounts ADD COLUMN smtp_host TEXT;
+      ALTER TABLE accounts ADD COLUMN smtp_port INTEGER;
+      ALTER TABLE accounts ADD COLUMN smtp_security TEXT;
+      ALTER TABLE accounts ADD COLUMN auth_method TEXT DEFAULT 'oauth';
+      ALTER TABLE accounts ADD COLUMN imap_password TEXT;
+
+      -- Messages: RFC 2822 threading headers and IMAP identifiers
+      ALTER TABLE messages ADD COLUMN message_id_header TEXT;
+      ALTER TABLE messages ADD COLUMN references_header TEXT;
+      ALTER TABLE messages ADD COLUMN in_reply_to_header TEXT;
+      ALTER TABLE messages ADD COLUMN imap_uid INTEGER;
+      ALTER TABLE messages ADD COLUMN imap_folder TEXT;
+
+      -- Labels: IMAP folder mapping
+      ALTER TABLE labels ADD COLUMN imap_folder_path TEXT;
+      ALTER TABLE labels ADD COLUMN imap_special_use TEXT;
+
+      -- Attachments: IMAP MIME part identifier
+      ALTER TABLE attachments ADD COLUMN imap_part_id TEXT;
+
+      -- Folder sync state for IMAP accounts
+      CREATE TABLE IF NOT EXISTS folder_sync_state (
+        account_id TEXT NOT NULL,
+        folder_path TEXT NOT NULL,
+        uidvalidity INTEGER,
+        last_uid INTEGER DEFAULT 0,
+        modseq INTEGER,
+        last_sync_at INTEGER,
+        PRIMARY KEY (account_id, folder_path),
+        FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+      );
+
+      -- Indexes for IMAP message lookups
+      CREATE INDEX IF NOT EXISTS idx_messages_imap_uid ON messages(account_id, imap_folder, imap_uid);
+      CREATE INDEX IF NOT EXISTS idx_messages_message_id ON messages(message_id_header);
+    `,
+  },
 ];
 
 /**
@@ -596,11 +642,22 @@ export async function runMigrations(): Promise<void> {
     const statements = splitStatements(migration.sql);
 
     for (const statement of statements) {
-      await db.execute(statement);
+      try {
+        await db.execute(statement);
+      } catch (err) {
+        // Tolerate "duplicate column" errors from ALTER TABLE ADD COLUMN
+        // in case a migration was partially applied previously
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("duplicate column")) {
+          console.warn(`Skipping duplicate column in v${migration.version}: ${msg}`);
+        } else {
+          throw err;
+        }
+      }
     }
 
     await db.execute(
-      "INSERT INTO _migrations (version, description) VALUES ($1, $2)",
+      "INSERT OR IGNORE INTO _migrations (version, description) VALUES ($1, $2)",
       [migration.version, migration.description],
     );
   }

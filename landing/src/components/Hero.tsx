@@ -45,7 +45,7 @@ export function Hero() {
         >
           The free, open-source desktop email client.
           <br className="hidden sm:block" />
-          AI-powered. Keyboard-first. Privacy-focused. 122 features.
+          AI-powered. Keyboard-first. Privacy-focused. 130+ features.
         </motion.p>
 
         {/* CTAs */}

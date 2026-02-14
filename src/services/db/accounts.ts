@@ -14,6 +14,15 @@ export interface DbAccount {
   is_active: number;
   created_at: number;
   updated_at: number;
+  provider: string;
+  imap_host: string | null;
+  imap_port: number | null;
+  imap_security: string | null;
+  smtp_host: string | null;
+  smtp_port: number | null;
+  smtp_security: string | null;
+  auth_method: string;
+  imap_password: string | null;
 }
 
 async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
@@ -29,6 +38,13 @@ async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
       account.refresh_token = await decryptValue(account.refresh_token);
     } catch (err) {
       console.warn("Failed to decrypt refresh token, using raw value:", err);
+    }
+  }
+  if (account.imap_password && isEncrypted(account.imap_password)) {
+    try {
+      account.imap_password = await decryptValue(account.imap_password);
+    } catch (err) {
+      console.warn("Failed to decrypt IMAP password, using raw value:", err);
     }
   }
   return account;
@@ -137,4 +153,40 @@ export async function updateAccountAllTokens(
 export async function deleteAccount(id: string): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM accounts WHERE id = $1", [id]);
+}
+
+export async function insertImapAccount(account: {
+  id: string;
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  imapHost: string;
+  imapPort: number;
+  imapSecurity: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecurity: string;
+  authMethod: string;
+  password: string;
+}): Promise<void> {
+  const db = await getDb();
+  const encPassword = await encryptValue(account.password);
+  await db.execute(
+    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password)
+     VALUES ($1, $2, $3, $4, NULL, NULL, 'imap', $5, $6, $7, $8, $9, $10, $11, $12)`,
+    [
+      account.id,
+      account.email,
+      account.displayName,
+      account.avatarUrl,
+      account.imapHost,
+      account.imapPort,
+      account.imapSecurity,
+      account.smtpHost,
+      account.smtpPort,
+      account.smtpSecurity,
+      account.authMethod,
+      encPassword,
+    ],
+  );
 }

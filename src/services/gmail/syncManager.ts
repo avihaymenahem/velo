@@ -2,6 +2,7 @@ import { getGmailClient } from "./tokenManager";
 import { initialSync, deltaSync, type SyncProgress } from "./sync";
 import { getAccount, clearAccountHistoryId } from "../db/accounts";
 import { getSetting } from "../db/settings";
+import { imapInitialSync, imapDeltaSync } from "../imap/imapSync";
 
 const SYNC_INTERVAL_MS = 15_000; // 15 seconds — delta syncs are lightweight (single API call when idle)
 
@@ -26,41 +27,87 @@ export function onSyncStatus(cb: SyncStatusCallback): () => void {
 }
 
 /**
+ * Run a sync for a single Gmail API account (initial or delta).
+ */
+async function syncGmailAccount(accountId: string): Promise<void> {
+  const client = await getGmailClient(accountId);
+  const account = await getAccount(accountId);
+
+  if (!account) {
+    throw new Error("Account not found");
+  }
+
+  const syncPeriodStr = await getSetting("sync_period_days");
+  const syncDays = parseInt(syncPeriodStr ?? "365", 10) || 365;
+
+  if (account.history_id) {
+    // Delta sync
+    try {
+      await deltaSync(client, accountId, account.history_id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message === "HISTORY_EXPIRED") {
+        // Fallback to full sync
+        await initialSync(client, accountId, syncDays, (progress) => {
+          statusCallback?.(accountId, "syncing", progress);
+        });
+      } else {
+        throw err;
+      }
+    }
+  } else {
+    // First time — full initial sync
+    await initialSync(client, accountId, syncDays, (progress) => {
+      statusCallback?.(accountId, "syncing", progress);
+    });
+  }
+}
+
+/**
+ * Run a sync for a single IMAP account (initial or delta).
+ */
+async function syncImapAccount(accountId: string): Promise<void> {
+  const account = await getAccount(accountId);
+
+  if (!account) {
+    throw new Error("Account not found");
+  }
+
+  const syncPeriodStr = await getSetting("sync_period_days");
+  const syncDays = parseInt(syncPeriodStr ?? "365", 10) || 365;
+
+  if (account.history_id) {
+    // Delta sync — IMAP uses folder-level UID tracking
+    await imapDeltaSync(accountId);
+  } else {
+    // First time — full initial sync
+    await imapInitialSync(accountId, syncDays, (progress) => {
+      statusCallback?.(accountId, "syncing", {
+        phase: progress.phase === "folders" ? "labels" : progress.phase === "threading" ? "messages" : progress.phase as "labels" | "threads" | "messages" | "done",
+        current: progress.current,
+        total: progress.total,
+      });
+    });
+  }
+}
+
+/**
  * Run a sync for a single account (initial or delta).
+ * Routes to Gmail or IMAP sync based on account provider.
  */
 async function syncAccountInternal(accountId: string): Promise<void> {
   try {
     statusCallback?.(accountId, "syncing");
-    const client = await getGmailClient(accountId);
     const account = await getAccount(accountId);
 
     if (!account) {
       throw new Error("Account not found");
     }
 
-    const syncPeriodStr = await getSetting("sync_period_days");
-    const syncDays = parseInt(syncPeriodStr ?? "365", 10) || 365;
-
-    if (account.history_id) {
-      // Delta sync
-      try {
-        await deltaSync(client, accountId, account.history_id);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "";
-        if (message === "HISTORY_EXPIRED") {
-          // Fallback to full sync
-          await initialSync(client, accountId, syncDays, (progress) => {
-            statusCallback?.(accountId, "syncing", progress);
-          });
-        } else {
-          throw err;
-        }
-      }
+    if (account.provider === "imap") {
+      await syncImapAccount(accountId);
     } else {
-      // First time — full initial sync
-      await initialSync(client, accountId, syncDays, (progress) => {
-        statusCallback?.(accountId, "syncing", progress);
-      });
+      await syncGmailAccount(accountId);
     }
 
     statusCallback?.(accountId, "done");

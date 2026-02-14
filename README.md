@@ -45,7 +45,7 @@ Most email clients are slow, bloated, or send your data to someone else's server
 
 ### Email
 
-- Multi-account Gmail with instant switching
+- Multi-account support: Gmail (API) and IMAP/SMTP (Outlook, Yahoo, iCloud, Fastmail, and more) with instant switching
 - Threaded conversations with collapsible messages
 - Full-text search with Gmail-style operators (`from:`, `to:`, `subject:`, `has:attachment`, `label:`, etc.)
 - Command palette (`/` or `Ctrl+K`) for quick actions
@@ -98,7 +98,8 @@ Google Calendar sync with month, week, and day views. Create events without leav
 
 ### Privacy & Security
 
-- OAuth PKCE -- no client secret, no backend servers
+- OAuth PKCE for Gmail -- no client secret, no backend servers
+- Encrypted password/app-password storage for IMAP accounts (AES-256-GCM)
 - Remote image blocking with per-sender allowlist
 - Phishing link detection with 10 heuristic scoring rules
 - SPF/DKIM/DMARC authentication display with badges and warnings
@@ -126,6 +127,8 @@ npm run tauri dev
 
 **Gmail setup:** Create OAuth credentials in [Google Cloud Console](https://console.cloud.google.com/) (enable Gmail API + Calendar API), then enter your Client ID in Velo's Settings. No client secret needed (PKCE).
 
+**IMAP/SMTP setup:** Click "Add IMAP Account" in the account switcher. Enter your email and password -- Velo auto-discovers server settings for popular providers (Outlook, Yahoo, iCloud, Fastmail, etc.). For other providers, enter IMAP/SMTP server details manually. No Google Cloud project needed.
+
 **AI setup (optional):** Add an API key for [Anthropic](https://console.anthropic.com/), [OpenAI](https://platform.openai.com/), or [Google Gemini](https://aistudio.google.com/) in Settings.
 
 See [Development Guide](docs/development.md) for all commands, testing, and build instructions.
@@ -140,7 +143,8 @@ See [Development Guide](docs/development.md) for all commands, testing, and buil
 | **Styling** | Tailwind CSS v4 |
 | **State** | Zustand 5 (8 stores) |
 | **Editor** | TipTap v3 |
-| **Database** | SQLite + FTS5 (30 tables) |
+| **Email** | Gmail API, IMAP/SMTP (via async-imap + lettre in Rust) |
+| **Database** | SQLite + FTS5 (31 tables) |
 | **AI** | Claude, GPT, Gemini |
 | **Testing** | Vitest + Testing Library |
 

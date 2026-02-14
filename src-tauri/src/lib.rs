@@ -5,7 +5,10 @@ use tauri::{
 };
 use tauri_plugin_autostart::MacosLauncher;
 
+mod commands;
+mod imap;
 mod oauth;
+mod smtp;
 
 #[tauri::command]
 fn close_splashscreen(app: tauri::AppHandle) {
@@ -74,6 +77,19 @@ pub fn run() {
             set_tray_tooltip,
             close_splashscreen,
             open_devtools,
+            commands::imap_test_connection,
+            commands::imap_list_folders,
+            commands::imap_fetch_messages,
+            commands::imap_fetch_new_uids,
+            commands::imap_fetch_message_body,
+            commands::imap_set_flags,
+            commands::imap_move_messages,
+            commands::imap_delete_messages,
+            commands::imap_get_folder_status,
+            commands::imap_fetch_attachment,
+            commands::imap_append_message,
+            commands::smtp_send_email,
+            commands::smtp_test_connection,
         ])
         .setup(|app| {
             {
@@ -166,4 +182,6 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+
+    log::info!("Tauri application exited normally");
 }

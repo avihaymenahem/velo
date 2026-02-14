@@ -49,12 +49,12 @@ const SECURITY_FEATURES = [
   {
     icon: Database,
     title: 'Local-First Architecture',
-    description: 'All data stored in SQLite on your machine. 30 tables, zero cloud dependency. Your email never touches our servers.',
+    description: 'All data stored in SQLite on your machine. 31 tables, zero cloud dependency. Your email never touches our servers.',
   },
   {
     icon: Lock,
-    title: 'OAuth + PKCE',
-    description: 'No stored passwords. Secure OAuth flow with PKCE on localhost. Bring your own Google Cloud credentials for maximum control.',
+    title: 'Secure Authentication',
+    description: 'Gmail uses OAuth PKCE — no stored passwords. IMAP passwords encrypted with AES-256-GCM. Your credentials never leave your machine.',
   },
   {
     icon: Globe,

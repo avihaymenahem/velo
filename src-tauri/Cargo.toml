@@ -31,7 +31,14 @@ tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-deep-link = "2"
 tauri-plugin-http = "2"
-tokio = { version = "1", features = ["net", "io-util", "sync", "macros"] }
+tokio = { version = "1", features = ["net", "io-util", "sync", "macros", "rt", "time"] }
+futures = "0.3"
+async-imap = { version = "0.10", default-features = false, features = ["runtime-tokio"] }
+tokio-native-tls = "0.3"
+native-tls = "0.2"
+mail-parser = "0.9"
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "tokio1-native-tls", "builder"] }
+base64 = "0.22"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = ["Win32_UI_Shell"] }

@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import {
   Sparkles, Keyboard, Shield, Inbox, Tag, Clock,
   Search, Calendar, Bell, Mail, Zap, Layout,
-  Palette, Filter, BookOpen, BellRing,
+  Palette, Filter, BookOpen, BellRing, Server,
 } from 'lucide-react'
 import { SectionHeader } from './SectionHeader'
 
@@ -38,6 +38,11 @@ const HERO_FEATURES = [
 ]
 
 const FEATURES_GRID = [
+  {
+    icon: Server,
+    title: 'Multi-Provider',
+    description: 'Gmail API + IMAP/SMTP. Auto-discover Outlook, Yahoo, iCloud, Fastmail, and more.',
+  },
   {
     icon: Clock,
     title: 'Snooze & Schedule',
@@ -108,7 +113,7 @@ export function Features() {
           badge="Features"
           title="Everything you need."
           highlight="Nothing you don't."
-          description="122 features crafted for speed, privacy, and productivity. Here are the highlights."
+          description="130+ features crafted for speed, privacy, and productivity. Here are the highlights."
         />
 
         {/* Hero Feature Cards */}

@@ -49,6 +49,7 @@ import {
   ImageOff,
   LinkIcon,
   MailPlus,
+  Server,
 } from "lucide-react";
 
 // ---------- Types ----------
@@ -103,11 +104,12 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         id: "add-account",
         icon: MailPlus,
         title: "Add your email account",
-        summary: "Connect a Gmail account to start using the app.",
+        summary: "Connect a Gmail or IMAP/SMTP account to start using the app.",
         description:
-          "Click the account switcher at the top of the sidebar and follow the OAuth sign-in flow. The app connects directly to Gmail using your own Google Cloud credentials — no third-party server involved. You can add multiple accounts and switch between them instantly. Each account syncs independently with its own inbox, labels, and settings.",
+          "Click the account switcher at the top of the sidebar to add an account. For Gmail, follow the OAuth sign-in flow using your own Google Cloud credentials. For other providers (Outlook, Yahoo, iCloud, Fastmail, etc.), choose 'Add IMAP Account' and enter your email and password — server settings are auto-discovered for popular providers. You can add multiple accounts of any type and switch between them instantly. Each account syncs independently with its own inbox, labels, and settings.",
         tips: [
           { text: "The account switcher is always visible at the top of the sidebar." },
+          { text: "Gmail accounts use OAuth; IMAP accounts use password or app-password." },
           { text: "Each account has its own labels, filters, and sync state." },
           { text: "Remove or re-authorize accounts in Settings > Accounts." },
         ],
@@ -119,12 +121,13 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "Initial sync",
         summary: "First sync downloads your email history.",
         description:
-          "When you add a new account, the app performs an initial sync that downloads your last year of email (configurable). This builds a local database for fast offline search and browsing. Depending on your inbox size, this can take a few minutes. You can use the app normally while the sync runs in the background — read, compose, and send without waiting. After the initial sync, the app switches to delta sync (every 60 seconds) to fetch only new changes.",
+          "When you add a new account, the app performs an initial sync that downloads your last year of email (configurable). This builds a local database for fast offline search and browsing. Depending on your inbox size, this can take a few minutes. You can use the app normally while the sync runs in the background — read, compose, and send without waiting. After the initial sync, the app switches to delta sync (every 60 seconds) to fetch only new changes. Gmail uses the History API for delta sync; IMAP uses UID-based tracking.",
         tips: [
           { text: "Change the sync period (30 days to 1 year) in Settings > Sync." },
           { text: "The app is fully usable during the initial sync." },
           { text: "Delta sync runs every 60 seconds after the first sync completes." },
-          { text: "If sync history expires (~30 days offline), the app auto-falls back to a full sync." },
+          { text: "Gmail: if sync history expires (~30 days offline), the app auto-falls back to a full sync." },
+          { text: "IMAP: if folder UIDVALIDITY changes, the app resyncs that folder automatically." },
         ],
         relatedSettingsTab: "sync",
       },
@@ -132,17 +135,35 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         id: "client-id-setup",
         icon: Globe,
         title: "Google Client ID setup",
-        summary: "Set up your own Google Cloud OAuth credentials.",
+        summary: "Set up your own Google Cloud OAuth credentials (Gmail only).",
         description:
-          "The app uses your own Google Cloud project for OAuth authentication — this means your credentials stay on your device and are never shared. When you first add an account, a setup wizard guides you through creating a Google Cloud project, enabling the Gmail and Calendar APIs, and generating an OAuth Client ID. The process takes about 5 minutes. The app uses PKCE authentication, so no client secret is needed.",
+          "This step is only needed for Gmail accounts. The app uses your own Google Cloud project for OAuth authentication — this means your credentials stay on your device and are never shared. When you first add a Gmail account, a setup wizard guides you through creating a Google Cloud project, enabling the Gmail and Calendar APIs, and generating an OAuth Client ID. The process takes about 5 minutes. The app uses PKCE authentication, so no client secret is needed. IMAP/SMTP accounts do not require a Client ID.",
         tips: [
           { text: "Go to console.cloud.google.com to create your project." },
           { text: "Enable both the Gmail API and Google Calendar API." },
           { text: "Choose 'Desktop application' when creating OAuth credentials." },
           { text: "Your Client ID is stored locally — never sent to external servers." },
           { text: "Update your Client ID later in Settings > Developer." },
+          { text: "IMAP accounts skip this step entirely — no Google Cloud project needed." },
         ],
         relatedSettingsTab: "developer",
+      },
+      {
+        id: "imap-smtp-setup",
+        icon: Server,
+        title: "IMAP/SMTP account setup",
+        summary: "Add a non-Gmail email account via IMAP and SMTP.",
+        description:
+          "To add an IMAP/SMTP account, click 'Add IMAP Account' in the account switcher. The setup wizard has four steps: (1) enter your email, display name, and password; (2) configure IMAP server settings (host, port, security); (3) configure SMTP server settings; (4) test the connection. For popular providers like Outlook, Yahoo, iCloud, Fastmail, Zoho, AOL, and GMX, server settings are auto-discovered when you enter your email address. Your password is encrypted with AES-256-GCM before being stored locally. Some providers require an app-specific password instead of your regular password.",
+        tips: [
+          { text: "Auto-discovery works for Outlook, Yahoo, iCloud, Fastmail, Zoho, AOL, and GMX." },
+          { text: "For other providers, check your email provider's help page for IMAP/SMTP settings." },
+          { text: "Some providers (Gmail, Yahoo) require an app-specific password." },
+          { text: "Security options: SSL/TLS (most secure), STARTTLS, or None." },
+          { text: "Both IMAP and SMTP connections are tested before saving." },
+          { text: "IMAP folders are automatically mapped to labels in the sidebar." },
+        ],
+        relatedSettingsTab: "accounts",
       },
     ],
   },
@@ -311,12 +332,13 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "From aliases",
         summary: "Send from different email addresses.",
         description:
-          "If your Gmail account has send-as aliases configured (e.g., a work alias or department address), a \"From\" selector appears in the composer letting you choose which address to send from. Aliases are synced from Gmail's send-as settings when you add your account. The default alias is used for new compose; replies default to the address the original email was sent to.",
+          "If your Gmail account has send-as aliases configured (e.g., a work alias or department address), a \"From\" selector appears in the composer letting you choose which address to send from. Aliases are synced from Gmail's send-as settings when you add your account. The default alias is used for new compose; replies default to the address the original email was sent to. Send-as aliases are currently a Gmail-only feature.",
         tips: [
           { text: "Aliases are fetched from your Gmail send-as settings automatically." },
           { text: "The From selector only appears when your account has multiple aliases." },
           { text: "Replies default to the address the email was originally sent to." },
           { text: "Set a default alias in your Gmail account settings." },
+          { text: "Send-as aliases are currently available for Gmail accounts only." },
         ],
         relatedSettingsTab: "accounts",
       },
@@ -326,10 +348,10 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "Draft auto-save",
         summary: "Drafts saved automatically every 3 seconds.",
         description:
-          "As you compose, your draft is automatically saved every 3 seconds. If the app closes, your computer restarts, or you navigate away, your draft is preserved. Drafts are synced with Gmail, so you can continue editing on any device. The save happens silently in the background — you never have to manually save. Find your drafts in the Drafts folder in the sidebar.",
+          "As you compose, your draft is automatically saved every 3 seconds. If the app closes, your computer restarts, or you navigate away, your draft is preserved. For Gmail accounts, drafts sync across devices. For IMAP accounts, drafts are saved to the server's Drafts folder. The save happens silently in the background — you never have to manually save. Find your drafts in the Drafts folder in the sidebar.",
         tips: [
           { text: "Drafts save automatically every 3 seconds while composing." },
-          { text: "Drafts sync to Gmail and are accessible from other devices." },
+          { text: "Gmail drafts sync across devices; IMAP drafts save to the server's Drafts folder." },
           { text: "Navigate away safely — your draft is already saved." },
           { text: "Find saved drafts in the Drafts folder in the sidebar." },
         ],
@@ -404,13 +426,13 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "Labels",
         summary: "Color-coded tags to organize your email.",
         description:
-          "Labels work like tags — apply multiple labels to a single thread to categorize it in several ways. Create custom labels with colors to visually distinguish categories. Labels appear in the sidebar for quick filtering. You can create, edit, rename, change colors, and delete labels from the sidebar or from Settings. Labels sync with Gmail, so changes appear across devices.",
+          "Labels work like tags — apply multiple labels to a single thread to categorize it in several ways. Create custom labels with colors to visually distinguish categories. Labels appear in the sidebar for quick filtering. You can create, edit, rename, change colors, and delete labels from the sidebar or from Settings. For Gmail accounts, labels sync across devices. For IMAP accounts, server folders are automatically mapped to labels in the sidebar (e.g., Inbox, Sent, Drafts, Trash), and custom folders appear as user labels.",
         tips: [
           { text: "Drag and drop threads onto sidebar labels to apply them." },
           { text: "Right-click a label in the sidebar to edit or delete it." },
           { text: "Click the + button in the Labels section of the sidebar to create one." },
           { text: "A thread can have multiple labels simultaneously." },
-          { text: "Labels sync with Gmail — changes appear on all your devices." },
+          { text: "Gmail labels sync across devices; IMAP folders are mapped to labels automatically." },
         ],
         relatedSettingsTab: "labels",
       },
@@ -579,11 +601,12 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "Spam",
         summary: "Report spam or rescue legitimate emails.",
         description:
-          "Mark unwanted emails as spam to move them to the Spam folder and report them to Gmail. The action is context-aware: when viewing the Spam folder, the button changes to \"Not spam\" so you can rescue legitimate emails that were incorrectly flagged. Spam reporting syncs with Gmail, improving its spam filter over time.",
+          "Mark unwanted emails as spam to move them to the Spam folder. The action is context-aware: when viewing the Spam folder, the button changes to \"Not spam\" so you can rescue legitimate emails that were incorrectly flagged. For Gmail accounts, spam reports sync with Gmail to improve its spam filter. For IMAP accounts, messages are moved to the server's Junk/Spam folder.",
         tips: [
           { text: "Report spam / Not spam", shortcut: "!" },
           { text: "In the Spam folder, the shortcut marks threads as Not spam." },
-          { text: "Spam reports sync with Gmail to improve its spam filter." },
+          { text: "Gmail accounts: spam reports help improve Gmail's filter over time." },
+          { text: "IMAP accounts: messages are moved to the Junk/Spam folder on the server." },
         ],
       },
     ],
@@ -914,14 +937,15 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         id: "multi-account",
         icon: Users,
         title: "Multiple accounts",
-        summary: "Manage several Gmail accounts side by side.",
+        summary: "Manage Gmail and IMAP accounts side by side.",
         description:
-          "Add and manage multiple Gmail accounts. Each account has its own inbox, labels, filters, and sync state. Switch between accounts using the account switcher at the top of the sidebar. The active account's email is displayed in the main view. You can add, re-authorize, or remove accounts in Settings. Each account syncs independently on its own 60-second cycle.",
+          "Add and manage multiple email accounts — mix Gmail (OAuth) and IMAP/SMTP accounts freely. Each account has its own inbox, labels, filters, and sync state. Switch between accounts using the account switcher at the top of the sidebar. The active account's email is displayed in the main view. You can add, re-authorize, or remove accounts in Settings. Each account syncs independently on its own 60-second cycle.",
         tips: [
           { text: "Click the account switcher at the top of the sidebar to switch." },
+          { text: "Mix Gmail and IMAP accounts — they work side by side." },
           { text: "Each account has independent inbox, labels, and sync." },
           { text: "Add or remove accounts in Settings > Accounts." },
-          { text: "Re-authorize an account if the token expires." },
+          { text: "Re-authorize a Gmail account if the token expires." },
         ],
         relatedSettingsTab: "accounts",
       },

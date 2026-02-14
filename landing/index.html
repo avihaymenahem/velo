@@ -5,19 +5,19 @@
 
     <!-- Primary Meta -->
     <title>Velo — Email at the speed of thought | Open Source Desktop Email Client</title>
-    <meta name="description" content="Velo is a free, open-source desktop email client. AI-powered, keyboard-first, privacy-focused. 122 features, 30+ shortcuts, 3 AI providers, zero tracking. Built with Tauri for Windows, macOS & Linux." />
+    <meta name="description" content="Velo is a free, open-source desktop email client. Supports Gmail, Outlook, Yahoo, iCloud, Fastmail, and any IMAP/SMTP provider. AI-powered, keyboard-first, privacy-focused. 130+ features, 30+ shortcuts, 3 AI providers, zero tracking. Built with Tauri for Windows, macOS & Linux." />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0A0A0F" />
     <meta name="author" content="Velo" />
     <meta name="robots" content="index, follow" />
-    <meta name="keywords" content="email client, desktop email, open source email, AI email, keyboard shortcuts email, privacy email, Gmail client, Tauri app, free email client, smart inbox, phishing detection, email productivity" />
+    <meta name="keywords" content="email client, desktop email, open source email, AI email, keyboard shortcuts email, privacy email, Gmail client, IMAP email client, Outlook email client, Tauri app, free email client, smart inbox, phishing detection, email productivity" />
     <link rel="canonical" href="https://velomail.app/" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://velomail.app/" />
     <meta property="og:title" content="Velo — Email at the speed of thought" />
-    <meta property="og:description" content="Free & open-source desktop email client. AI-powered, keyboard-first, privacy-focused. 122 features, zero tracking. Available for Windows, macOS & Linux." />
+    <meta property="og:description" content="Free & open-source desktop email client. Supports Gmail, Outlook, Yahoo, iCloud & any IMAP provider. AI-powered, keyboard-first, privacy-focused. 130+ features, zero tracking. Available for Windows, macOS & Linux." />
     <meta property="og:image" content="https://velomail.app/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -29,7 +29,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://velomail.app/" />
     <meta name="twitter:title" content="Velo — Email at the speed of thought" />
-    <meta name="twitter:description" content="Free & open-source desktop email client. AI-powered, keyboard-first, privacy-focused. 122 features, zero tracking." />
+    <meta name="twitter:description" content="Free & open-source desktop email client. Supports Gmail, Outlook, Yahoo, iCloud & any IMAP provider. AI-powered, keyboard-first, privacy-focused. 130+ features, zero tracking." />
     <meta name="twitter:image" content="https://velomail.app/og-image.png" />
     <meta name="twitter:image:alt" content="Velo email client — Email at the speed of thought" />
 
@@ -68,7 +68,7 @@
       "license": "https://github.com/avihaymenahem/velo/blob/main/LICENSE",
       "downloadUrl": "https://github.com/avihaymenahem/velo/releases",
       "screenshot": "https://velomail.app/og-image.png",
-      "featureList": "AI-powered thread summaries, Smart replies, 30+ keyboard shortcuts, Phishing detection, Split inbox categories, Local-first SQLite database, Dark & light themes, Google Calendar integration, Newsletter bundles, Quick Steps automation",
+      "featureList": "Multi-provider support (Gmail API + IMAP/SMTP), AI-powered thread summaries, Smart replies, 30+ keyboard shortcuts, Phishing detection, Split inbox categories, Local-first SQLite database, Dark & light themes, Google Calendar integration, Newsletter bundles, Quick Steps automation, Auto-discovery for Outlook/Yahoo/iCloud/Fastmail",
       "isAccessibleForFree": true
     }
     </script>
@@ -116,7 +116,7 @@
           "name": "What email providers does Velo support?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Velo currently supports Gmail via the Gmail REST API with OAuth authentication. You bring your own Google Cloud credentials for maximum privacy."
+            "text": "Velo supports Gmail via the Gmail REST API with OAuth authentication, plus any email provider that supports IMAP/SMTP (Outlook, Yahoo, iCloud, Fastmail, Zoho, AOL, GMX, and more). Server settings are auto-discovered for popular providers. Gmail uses your own Google Cloud credentials; IMAP accounts use password or app-password with AES-256-GCM encryption."
           }
         },
         {
