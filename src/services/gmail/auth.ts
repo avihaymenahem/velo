@@ -71,6 +71,12 @@ export async function startOAuthFlow(
   clientId: string,
   clientSecret?: string,
 ): Promise<{ tokens: TokenResponse; userInfo: UserInfo }> {
+  if (!clientSecret) {
+    throw new Error(
+      "Client Secret is not configured. Go to Settings → Google API to add it.",
+    );
+  }
+
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 

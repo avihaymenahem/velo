@@ -14,15 +14,13 @@ export function SetupClientId({ onComplete, onCancel }: SetupClientIdProps) {
 
   const handleSave = async () => {
     const trimmedId = clientId.trim();
-    if (!trimmedId) return;
+    const trimmedSecret = clientSecret.trim();
+    if (!trimmedId || !trimmedSecret) return;
 
     setSaving(true);
     try {
       await setSetting("google_client_id", trimmedId);
-      const trimmedSecret = clientSecret.trim();
-      if (trimmedSecret) {
-        await setSecureSetting("google_client_secret", trimmedSecret);
-      }
+      await setSecureSetting("google_client_secret", trimmedSecret);
       onComplete();
     } catch {
       setSaving(false);
@@ -66,8 +64,11 @@ export function SetupClientId({ onComplete, onCancel }: SetupClientIdProps) {
           value={clientSecret}
           onChange={(e) => setClientSecret(e.target.value)}
           placeholder="Paste your Client Secret here..."
-          className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm mb-4 outline-none focus:border-accent"
+          className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm mb-1 outline-none focus:border-accent"
         />
+        <p className="text-text-tertiary text-xs mb-4">
+          Required for Web application credentials
+        </p>
 
         <div className="flex gap-3 justify-end">
           <button
@@ -78,7 +79,7 @@ export function SetupClientId({ onComplete, onCancel }: SetupClientIdProps) {
           </button>
           <button
             onClick={handleSave}
-            disabled={!clientId.trim() || saving}
+            disabled={!clientId.trim() || !clientSecret.trim() || saving}
             className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Save & Continue"}
