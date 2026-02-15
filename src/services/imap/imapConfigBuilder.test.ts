@@ -28,6 +28,7 @@ function makeAccount(overrides: Partial<DbAccount> = {}): DbAccount {
     oauth_provider: null,
     oauth_client_id: null,
     oauth_client_secret: null,
+    imap_username: null,
     ...overrides,
   };
 }
@@ -145,5 +146,31 @@ describe("buildSmtpConfig", () => {
     const config = buildSmtpConfig(account, "smtp-oauth-token");
     expect(config.password).toBe("smtp-oauth-token");
     expect(config.auth_method).toBe("oauth2");
+  });
+});
+
+describe("imap_username override", () => {
+  it("uses imap_username when set for IMAP config", () => {
+    const account = makeAccount({ imap_username: "custom-user" });
+    const config = buildImapConfig(account);
+    expect(config.username).toBe("custom-user");
+  });
+
+  it("uses imap_username when set for SMTP config", () => {
+    const account = makeAccount({ imap_username: "custom-user" });
+    const config = buildSmtpConfig(account);
+    expect(config.username).toBe("custom-user");
+  });
+
+  it("falls back to email when imap_username is null", () => {
+    const account = makeAccount({ imap_username: null });
+    const config = buildImapConfig(account);
+    expect(config.username).toBe("user@example.com");
+  });
+
+  it("falls back to email when imap_username is empty string", () => {
+    const account = makeAccount({ imap_username: "" as string | null });
+    const config = buildImapConfig(account);
+    expect(config.username).toBe("user@example.com");
   });
 });

@@ -574,6 +574,11 @@ const MIGRATIONS = [
       ALTER TABLE accounts ADD COLUMN oauth_client_secret TEXT;
     `,
   },
+  {
+    version: 16,
+    description: "Optional IMAP/SMTP username override",
+    sql: `ALTER TABLE accounts ADD COLUMN imap_username TEXT;`,
+  },
 ];
 
 /**

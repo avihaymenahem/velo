@@ -57,6 +57,7 @@ function makeGmailAccount(overrides: Partial<DbAccount> = {}): DbAccount {
     oauth_provider: null,
     oauth_client_id: null,
     oauth_client_secret: null,
+    imap_username: null,
     ...overrides,
   };
 }
@@ -87,6 +88,7 @@ function makeImapAccount(overrides: Partial<DbAccount> = {}): DbAccount {
     oauth_provider: null,
     oauth_client_id: null,
     oauth_client_secret: null,
+    imap_username: null,
     ...overrides,
   };
 }
@@ -230,7 +232,33 @@ describe("accounts", () => {
         "ssl",
         "password",
         "enc:my-app-password", // encrypted
+        null, // imap_username
       ]);
+    });
+
+    it("inserts IMAP account with custom username", async () => {
+      mockExecute.mockResolvedValue(undefined);
+
+      await insertImapAccount({
+        id: "new-imap-2",
+        email: "user@example.com",
+        displayName: null,
+        avatarUrl: null,
+        imapHost: "imap.example.com",
+        imapPort: 993,
+        imapSecurity: "ssl",
+        smtpHost: "smtp.example.com",
+        smtpPort: 465,
+        smtpSecurity: "ssl",
+        authMethod: "password",
+        password: "pass",
+        imapUsername: "custom-login-id",
+      });
+
+      expect(mockExecute).toHaveBeenCalledTimes(1);
+      const [sql, params] = mockExecute.mock.calls[0] as [string, unknown[]];
+      expect(sql).toContain("imap_username");
+      expect(params).toContain("custom-login-id");
     });
 
     it("sets access_token and refresh_token to NULL for IMAP accounts", async () => {

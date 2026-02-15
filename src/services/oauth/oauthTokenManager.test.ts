@@ -44,6 +44,7 @@ function makeAccount(overrides: Partial<DbAccount> = {}): DbAccount {
     oauth_provider: "microsoft",
     oauth_client_id: "client-id-123",
     oauth_client_secret: null,
+    imap_username: null,
     ...overrides,
   };
 }

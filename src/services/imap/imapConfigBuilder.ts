@@ -47,7 +47,7 @@ export function buildImapConfig(
     host: account.imap_host,
     port: account.imap_port ?? 993,
     security: mapSecurity(account.imap_security),
-    username: account.email,
+    username: account.imap_username || account.email,
     password,
     auth_method: authMethod,
   };
@@ -78,7 +78,7 @@ export function buildSmtpConfig(
     host: account.smtp_host,
     port: account.smtp_port ?? 587,
     security: mapSecurity(account.smtp_security),
-    username: account.email,
+    username: account.imap_username || account.email,
     password,
     auth_method: authMethod,
   };

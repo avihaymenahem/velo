@@ -36,6 +36,7 @@ type AuthMode = "password" | "oauth2";
 interface FormState {
   email: string;
   displayName: string;
+  imapUsername: string;
   imapHost: string;
   imapPort: number;
   imapSecurity: SecurityType;
@@ -59,6 +60,7 @@ interface FormState {
 const initialFormState: FormState = {
   email: "",
   displayName: "",
+  imapUsername: "",
   imapHost: "",
   imapPort: 993,
   imapSecurity: "ssl",
@@ -286,7 +288,7 @@ export function AddImapAccount({
             host: form.imapHost,
             port: form.imapPort,
             security: mapSecurity(form.imapSecurity),
-            username: isOAuth ? (form.oauthEmail ?? form.email) : form.email,
+            username: form.imapUsername || (isOAuth ? (form.oauthEmail ?? form.email) : form.email),
             password: isOAuth ? (form.oauthAccessToken ?? "") : form.password,
             auth_method: isOAuth ? "oauth2" : "password",
           },
@@ -317,7 +319,7 @@ export function AddImapAccount({
             host: form.smtpHost,
             port: form.smtpPort,
             security: mapSecurity(form.smtpSecurity),
-            username: isOAuth ? (form.oauthEmail ?? form.email) : form.email,
+            username: form.imapUsername || (isOAuth ? (form.oauthEmail ?? form.email) : form.email),
             password: smtpPassword,
             auth_method: isOAuth ? "oauth2" : "password",
           },
@@ -344,6 +346,8 @@ export function AddImapAccount({
       const accountId = crypto.randomUUID();
       const email = (isOAuth ? form.oauthEmail : null) ?? form.email.trim();
 
+      const imapUsername = form.imapUsername.trim() || null;
+
       if (isOAuth) {
         await insertOAuthImapAccount({
           id: accountId,
@@ -362,6 +366,7 @@ export function AddImapAccount({
           oauthProvider: form.oauthProvider!,
           oauthClientId: form.oauthClientId.trim(),
           oauthClientSecret: form.oauthClientSecret.trim() || null,
+          imapUsername,
         });
       } else {
         await insertImapAccount({
@@ -377,6 +382,7 @@ export function AddImapAccount({
           smtpSecurity: form.smtpSecurity,
           authMethod: "password",
           password: form.samePassword ? form.password : form.password,
+          imapUsername,
         });
       }
 
@@ -588,6 +594,22 @@ export function AddImapAccount({
               placeholder="Your Name"
               className={inputClass}
             />
+          </div>
+          <div>
+            <label htmlFor="imap-username" className={labelClass}>
+              Username (optional)
+            </label>
+            <input
+              id="imap-username"
+              type="text"
+              value={form.imapUsername}
+              onChange={(e) => updateForm("imapUsername", e.target.value)}
+              placeholder="Leave blank to use your email address"
+              className={inputClass}
+            />
+            <p className="text-xs text-text-tertiary mt-1">
+              Only needed if your login username differs from your email address.
+            </p>
           </div>
           <div>
             <label htmlFor="imap-password" className={labelClass}>
