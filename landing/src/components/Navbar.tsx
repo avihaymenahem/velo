@@ -1,13 +1,11 @@
 import { useState, useCallback } from 'react'
 import { motion, useScroll, useMotionValueEvent } from 'framer-motion'
-import { Mail, Menu, X, Github, Star } from 'lucide-react'
+import { Menu, X, Github } from 'lucide-react'
 
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
-  { label: 'Speed', href: '#speed' },
-  { label: 'AI', href: '#ai' },
-  { label: 'Security', href: '#security' },
-  { label: 'Experience', href: '#experience' },
+  { label: 'Open Source', href: '#open-source' },
+  { label: 'Download', href: '#download' },
 ]
 
 export function Navbar() {
@@ -35,16 +33,12 @@ export function Navbar() {
       animate={{ y: 0 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
     >
-      <nav className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
+      <nav className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
         <a href="#" className="flex items-center gap-2.5 text-text-primary no-underline">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-dark to-accent-violet flex items-center justify-center">
-            <Mail size={16} className="text-white" />
-          </div>
-          <span className="font-bold text-lg tracking-tight">Velo</span>
+          <img src="/logo-white.svg" alt="Velo" className="w-7 h-7 rounded-md" />
+          <span className="font-semibold text-lg tracking-tight">Velo</span>
         </a>
 
-        {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-8">
           {NAV_LINKS.map((link) => (
             <a
@@ -58,29 +52,26 @@ export function Navbar() {
           ))}
         </div>
 
-        {/* CTA */}
         <div className="hidden md:flex items-center gap-3">
           <a
             href="https://github.com/avihaymenahem/velo"
             target="_blank"
             rel="noopener noreferrer"
-            className="ghost-button !text-sm !py-2 !px-4"
+            className="btn-secondary !py-2 !px-4 !text-sm"
           >
             <Github size={15} />
-            <Star size={13} />
-            Star
+            GitHub
           </a>
           <a
             href="https://github.com/avihaymenahem/velo/releases"
             target="_blank"
             rel="noopener noreferrer"
-            className="glow-button text-sm !py-2.5 !px-5"
+            className="btn-primary !py-2 !px-4 !text-sm"
           >
             Download
           </a>
         </div>
 
-        {/* Mobile Menu Toggle */}
         <button
           className="md:hidden p-2 text-text-secondary hover:text-text-primary transition-colors bg-transparent border-none cursor-pointer"
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -90,7 +81,6 @@ export function Navbar() {
         </button>
       </nav>
 
-      {/* Mobile Menu */}
       {mobileOpen && (
         <motion.div
           className="md:hidden nav-blur border-t border-border px-6 py-4"
@@ -109,11 +99,11 @@ export function Navbar() {
                 {link.label}
               </a>
             ))}
-            <a href="https://github.com/avihaymenahem/velo" target="_blank" rel="noopener noreferrer" className="ghost-button text-sm !py-2.5 mt-2 justify-center">
+            <a href="https://github.com/avihaymenahem/velo" target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm !py-2.5 mt-2 justify-center">
               <Github size={16} />
-              Star on GitHub
+              GitHub
             </a>
-            <a href="https://github.com/avihaymenahem/velo/releases" target="_blank" rel="noopener noreferrer" className="glow-button text-sm !py-2.5 justify-center">
+            <a href="https://github.com/avihaymenahem/velo/releases" target="_blank" rel="noopener noreferrer" className="btn-primary text-sm !py-2.5 justify-center">
               Download
             </a>
           </div>

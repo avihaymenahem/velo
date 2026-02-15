@@ -1,162 +1,125 @@
 import { motion } from 'framer-motion'
 import {
-  Sparkles, Keyboard, Shield, Inbox, Tag, Clock,
-  Search, Calendar, Bell, Mail, Zap, Layout,
-  Palette, Filter, BookOpen, BellRing, Server,
+  Zap, Search, Clock, Send, Bell, Calendar,
+  Filter, Layers, GripVertical, PenTool, Shield, Palette,
 } from 'lucide-react'
-import { SectionHeader } from './SectionHeader'
 
-const HERO_FEATURES = [
-  {
-    icon: Sparkles,
-    title: 'AI-Powered Intelligence',
-    description: 'Thread summaries, smart replies, AI compose, text transforms, and natural language inbox search. Choose from Claude, GPT, or Gemini.',
-    gradient: 'from-violet-500/20 to-indigo-500/20',
-    span: 'md:col-span-2',
-  },
-  {
-    icon: Keyboard,
-    title: 'Keyboard-First Design',
-    description: '30+ Superhuman-style shortcuts with two-key sequences, customizable bindings, and a system-wide compose shortcut.',
-    gradient: 'from-indigo-500/20 to-blue-500/20',
-    span: 'md:col-span-1',
-  },
-  {
-    icon: Shield,
-    title: 'Privacy & Security',
-    description: 'Local-first SQLite database. Phishing detection with 10 heuristic rules. SPF/DKIM/DMARC verification badges. Remote image blocking.',
-    gradient: 'from-emerald-500/20 to-teal-500/20',
-    span: 'md:col-span-1',
-  },
-  {
-    icon: Inbox,
-    title: 'Split Inbox Categories',
-    description: 'Auto-sort into Primary, Updates, Promotions, Social & Newsletters. Rule-based engine with AI refinement for pinpoint accuracy.',
-    gradient: 'from-blue-500/20 to-cyan-500/20',
-    span: 'md:col-span-2',
-  },
-]
-
-const FEATURES_GRID = [
-  {
-    icon: Server,
-    title: 'Multi-Provider',
-    description: 'Gmail API + IMAP/SMTP. Auto-discover Outlook, Yahoo, iCloud, Fastmail, and more.',
-  },
-  {
-    icon: Clock,
-    title: 'Snooze & Schedule',
-    description: 'Snooze threads to resurface later. Schedule sends with quick presets.',
-  },
-  {
-    icon: Search,
-    title: 'Powerful Search',
-    description: 'Gmail-style operators with instant FTS5 local search and command palette.',
-  },
-  {
-    icon: Filter,
-    title: 'Smart Filters',
-    description: 'Auto-apply labels, archive, star, or trash based on custom criteria.',
-  },
-  {
-    icon: Tag,
-    title: 'Labels & Smart Folders',
-    description: 'Color-coded labels and saved search queries with dynamic date tokens.',
-  },
+const FEATURES = [
   {
     icon: Zap,
     title: 'Quick Steps',
-    description: 'Chain up to 18 action types into single-click automation workflows.',
+    description: '18 action types to automate repetitive workflows. Archive, label, reply, forward — chain actions into one-click sequences.',
   },
   {
-    icon: Calendar,
-    title: 'Google Calendar',
-    description: 'Day, week, and month views. Create events right from your inbox.',
+    icon: Search,
+    title: 'Command palette',
+    description: 'Gmail-style search operators (from:, has:attachment, before:) with fuzzy matching and instant results across all accounts.',
+  },
+  {
+    icon: Clock,
+    title: 'Snooze & schedule',
+    description: 'Snooze threads to resurface later. Schedule emails to send at the perfect time. Background checkers handle the rest.',
+  },
+  {
+    icon: Send,
+    title: 'Undo send',
+    description: 'Configurable delay window after hitting send. Cancel a message before it actually leaves your outbox.',
   },
   {
     icon: Bell,
-    title: 'Smart Notifications',
-    description: 'Category-filtered alerts with VIP senders who always get through.',
+    title: 'Smart notifications',
+    description: 'OS-native notifications filtered by VIP senders. Only get alerted for the people who matter.',
   },
   {
-    icon: Mail,
-    title: 'Rich Composer',
-    description: 'TipTap rich text editor, signatures, templates, undo send, and draft auto-save.',
+    icon: Calendar,
+    title: 'Calendar integration',
+    description: 'Google Calendar built in — view events, create meetings, and manage your schedule without switching apps.',
   },
   {
-    icon: Layout,
-    title: 'Flexible Layout',
-    description: 'Right, bottom, or hidden reading pane. Resizable panels. Pop-out windows.',
+    icon: Filter,
+    title: 'Filters & rules',
+    description: 'Auto-apply labels, archive, star, or mark as read. AND-logic criteria with action merging when multiple filters match.',
   },
   {
-    icon: BellRing,
-    title: 'Follow-Up Reminders',
-    description: 'Get notified when replies are missing. Auto-dismiss when they arrive.',
+    icon: Layers,
+    title: 'Newsletter bundles',
+    description: 'Group newsletter senders into bundles with delivery schedules. Read them on your terms, not theirs.',
   },
   {
-    icon: BookOpen,
-    title: 'Newsletter Bundles',
-    description: 'Group newsletters by sender with scheduled daily or weekly delivery.',
+    icon: GripVertical,
+    title: 'Drag & drop',
+    description: 'Drag threads onto sidebar labels to organize instantly. Multi-select and bulk operations for power users.',
+  },
+  {
+    icon: PenTool,
+    title: 'Rich composer',
+    description: 'TipTap editor with formatting, templates, signatures, attachments, and draft auto-save every 3 seconds.',
+  },
+  {
+    icon: Shield,
+    title: 'Phishing detection',
+    description: '10 heuristic rules — homograph attacks, URL shorteners, display mismatch, brand impersonation. Configurable sensitivity.',
   },
   {
     icon: Palette,
-    title: 'Stunning Themes',
-    description: '8 accent colors, light & dark mode, font scaling, and adjustable email density.',
+    title: 'Themes & density',
+    description: '8 accent colors, light & dark mode, 4 density levels, adjustable font scaling. Make it yours.',
   },
 ]
 
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, delay: i * 0.06 },
+  }),
+}
+
 export function Features() {
   return (
-    <section id="features" className="py-24 md:py-32 px-6 relative z-10">
-      <div className="max-w-6xl mx-auto">
-        <SectionHeader
-          badge="Features"
-          title="Everything you need."
-          highlight="Nothing you don't."
-          description="130+ features crafted for speed, privacy, and productivity. Here are the highlights."
-        />
+    <section className="relative py-24 md:py-32 px-6 dot-grid">
+      {/* Fade edges */}
+      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-bg-primary to-transparent pointer-events-none" />
+      <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-bg-primary to-transparent pointer-events-none" />
 
-        {/* Hero Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          {HERO_FEATURES.map((feature, i) => (
+      <div className="relative max-w-5xl mx-auto">
+        <motion.div
+          className="text-center mb-16"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-light tracking-tight mb-4">
+            <span className="gradient-text">Everything</span>
+            <span className="text-text-primary"> you'd expect, and more</span>
+          </h2>
+          <p className="text-text-secondary text-lg max-w-xl mx-auto">
+            130+ features built for people who live in their inbox.
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {FEATURES.map((feature, i) => (
             <motion.div
               key={feature.title}
-              className={`glass-card p-6 md:p-8 ${feature.span} relative overflow-hidden group`}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              className="group rounded-xl border border-white/[0.04] p-5 transition-all duration-300 hover:border-white/[0.08] hover:bg-white/[0.02]"
+              custom={i}
+              variants={cardVariants}
+              initial="hidden"
+              whileInView="visible"
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
             >
-              {/* Gradient background */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-
-              <div className="relative z-10">
-                <div className="feature-icon mb-4">
-                  <feature.icon size={22} />
+              <div className="flex items-start gap-3.5">
+                <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/15 flex items-center justify-center flex-shrink-0 transition-colors duration-300 group-hover:bg-accent/15 group-hover:border-accent/25">
+                  <feature.icon size={17} className="text-accent" strokeWidth={1.5} />
                 </div>
-                <h3 className="text-lg font-semibold mb-2 text-text-primary">{feature.title}</h3>
-                <p className="text-sm text-text-secondary leading-relaxed">{feature.description}</p>
+                <div className="min-w-0">
+                  <h3 className="text-[15px] font-medium text-text-primary mb-1">{feature.title}</h3>
+                  <p className="text-[13px] text-text-secondary leading-relaxed">{feature.description}</p>
+                </div>
               </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Smaller Feature Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {FEATURES_GRID.map((feature, i) => (
-            <motion.div
-              key={feature.title}
-              className="glass-card p-5 group"
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.05 }}
-            >
-              <div className="feature-icon mb-3 !w-10 !h-10">
-                <feature.icon size={18} />
-              </div>
-              <h3 className="text-sm font-semibold mb-1.5 text-text-primary">{feature.title}</h3>
-              <p className="text-xs text-text-secondary leading-relaxed">{feature.description}</p>
             </motion.div>
           ))}
         </div>

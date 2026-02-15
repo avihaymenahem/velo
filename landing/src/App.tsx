@@ -2,14 +2,11 @@ import { useEffect } from 'react'
 import Lenis from 'lenis'
 import { Navbar } from './components/Navbar'
 import { Hero } from './components/Hero'
-import { Logos } from './components/Logos'
+import { WhyVelo } from './components/WhyVelo'
+import { ProductShowcase } from './components/ProductShowcase'
 import { Features } from './components/Features'
-import { Speed } from './components/Speed'
-import { AiSection } from './components/AiSection'
-import { Security } from './components/Security'
-import { Experience } from './components/Experience'
+import { OpenSource } from './components/OpenSource'
 import { CtaFooter } from './components/CtaFooter'
-import { Blobs } from './components/Blobs'
 import './App.css'
 
 function App() {
@@ -30,21 +27,13 @@ function App() {
 
   return (
     <div className="relative min-h-screen">
-      <Blobs />
       <Navbar />
       <main>
         <Hero />
-        <Logos />
-        <div className="section-divider max-w-5xl mx-auto" />
+        <WhyVelo />
+        <ProductShowcase />
         <Features />
-        <div className="section-divider max-w-5xl mx-auto" />
-        <Speed />
-        <div className="section-divider max-w-5xl mx-auto" />
-        <AiSection />
-        <div className="section-divider max-w-5xl mx-auto" />
-        <Security />
-        <div className="section-divider max-w-5xl mx-auto" />
-        <Experience />
+        <OpenSource />
         <CtaFooter />
       </main>
     </div>
