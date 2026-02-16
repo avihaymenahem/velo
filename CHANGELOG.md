@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.10](https://github.com/avihaymenahem/velo/compare/velo-v0.3.9...velo-v0.3.10) (2026-02-16)
+
+
+### Bug Fixes
+
+* IMAP messages downloaded but not stored in database ([1c28a8e](https://github.com/avihaymenahem/velo/commit/1c28a8e7c3e55dfdd3197ba2011e7b82025767f5)), closes [#39](https://github.com/avihaymenahem/velo/issues/39)
+
 ## [0.3.9](https://github.com/avihaymenahem/velo/compare/velo-v0.3.8...velo-v0.3.9) (2026-02-16)
 
 
