@@ -10,7 +10,7 @@ import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { SnoozeDialog } from "./SnoozeDialog";
 import { FollowUpDialog } from "./FollowUpDialog";
-import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX } from "lucide-react";
+import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen } from "lucide-react";
 import type { DbMessage } from "@/services/db/messages";
 import { insertFollowUpReminder, getFollowUpForThread, cancelFollowUpForThread } from "@/services/db/followUpReminders";
 import { Button } from "@/components/ui/Button";
@@ -18,9 +18,23 @@ import { Button } from "@/components/ui/Button";
 interface ActionBarProps {
   thread: Thread;
   messages?: DbMessage[];
+  noReply?: boolean;
+  defaultReplyMode?: "reply" | "replyAll";
+  contactSidebarVisible?: boolean;
+  onReply?: () => void;
+  onReplyAll?: () => void;
+  onForward?: () => void;
+  onPrint?: () => void;
+  onExport?: () => void;
+  onPopOut?: () => void;
+  onToggleContactSidebar?: () => void;
 }
 
-export function ActionBar({ thread, messages }: ActionBarProps) {
+function Separator() {
+  return <div className="w-px h-5 bg-border-secondary mx-1 shrink-0" />;
+}
+
+export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply", contactSidebarVisible, onReply, onReplyAll, onForward, onPrint, onExport, onPopOut, onToggleContactSidebar }: ActionBarProps) {
   const updateThread = useThreadStore((s) => s.updateThread);
   const removeThread = useThreadStore((s) => s.removeThread);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
@@ -29,6 +43,7 @@ export function ActionBar({ thread, messages }: ActionBarProps) {
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [hasFollowUp, setHasFollowUp] = useState(false);
   const isSpamView = activeLabel === "spam";
+  const hasLastMessage = !!messages?.length;
 
   // Check if thread has an active follow-up reminder
   useEffect(() => {
@@ -186,83 +201,124 @@ export function ActionBar({ thread, messages }: ActionBarProps) {
 
   return (
     <>
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-border-secondary bg-bg-secondary">
-        <ActionButton
-          onClick={handleArchive}
-          title="Archive (e)"
-          icon={<Archive size={14} />}
-          label="Archive"
-        />
-        <ActionButton
-          onClick={handleDelete}
-          title="Delete (#)"
-          icon={<Trash2 size={14} />}
-          label="Delete"
-        />
-        <ActionButton
+      <div className="flex items-center gap-1 px-3 py-3 border-b border-border-secondary bg-bg-secondary">
+        {/* Reply / Forward group */}
+        {hasLastMessage && (
+          <>
+            <Button
+              variant="secondary"
+              iconOnly
+              icon={defaultReplyMode === "replyAll" ? <ReplyAll size={15} /> : <Reply size={15} />}
+              onClick={defaultReplyMode === "replyAll" ? onReplyAll : onReply}
+              disabled={noReply}
+              title={noReply ? "This sender does not accept replies" : defaultReplyMode === "replyAll" ? "Reply All (r)" : "Reply (r)"}
+              className="disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
+            />
+            <Button
+              variant="secondary"
+              iconOnly
+              icon={defaultReplyMode === "replyAll" ? <Reply size={15} /> : <ReplyAll size={15} />}
+              onClick={defaultReplyMode === "replyAll" ? onReply : onReplyAll}
+              disabled={noReply}
+              title={noReply ? "This sender does not accept replies" : defaultReplyMode === "replyAll" ? "Reply (a)" : "Reply All (a)"}
+              className="disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
+            />
+            <Button
+              variant="secondary"
+              iconOnly
+              icon={<Forward size={15} />}
+              onClick={onForward}
+              title="Forward (f)"
+            />
+            <Separator />
+          </>
+        )}
+
+        {/* Core actions group */}
+        <Button variant="secondary" iconOnly icon={<Archive size={15} />} onClick={handleArchive} title="Archive (e)" />
+        <Button variant="secondary" iconOnly icon={<Trash2 size={15} />} onClick={handleDelete} title="Delete (#)" />
+        <Button
+          variant="secondary"
+          iconOnly
+          icon={thread.isRead ? <Mail size={15} /> : <MailOpen size={15} />}
           onClick={handleToggleRead}
           title={thread.isRead ? "Mark unread" : "Mark read"}
-          icon={thread.isRead ? <Mail size={14} /> : <MailOpen size={14} />}
-          label={thread.isRead ? "Unread" : "Read"}
         />
-        <ActionButton
+        <Button
+          variant="secondary"
+          iconOnly
+          icon={<Star size={15} className={thread.isStarred ? "fill-current" : ""} />}
           onClick={handleToggleStar}
           title={thread.isStarred ? "Unstar (s)" : "Star (s)"}
-          icon={<Star size={14} className={thread.isStarred ? "fill-current" : ""} />}
-          label={thread.isStarred ? "Starred" : "Star"}
           className={thread.isStarred ? "text-warning" : ""}
         />
-        <ActionButton
-          onClick={() => setShowSnooze(true)}
-          title="Snooze (h)"
-          icon={<Clock size={14} />}
-          label="Snooze"
-        />
-        <ActionButton
+        <Button variant="secondary" iconOnly icon={<Clock size={15} />} onClick={() => setShowSnooze(true)} title="Snooze (h)" />
+        <Button
+          variant="secondary"
+          iconOnly
+          icon={<Ban size={15} />}
           onClick={handleSpam}
           title={isSpamView ? "Not Spam (!)" : "Report Spam (!)"}
-          icon={<Ban size={14} />}
-          label={isSpamView ? "Not Spam" : "Spam"}
         />
-        <ActionButton
+        <Button
+          variant="secondary"
+          iconOnly
+          icon={<Pin size={15} className={thread.isPinned ? "fill-current" : ""} />}
           onClick={handleTogglePin}
           title={thread.isPinned ? "Unpin (p)" : "Pin (p)"}
-          icon={<Pin size={14} className={thread.isPinned ? "fill-current" : ""} />}
-          label={thread.isPinned ? "Unpin" : "Pin"}
           className={thread.isPinned ? "text-accent" : ""}
         />
-        <ActionButton
+        <Button
+          variant="secondary"
+          iconOnly
+          icon={<VolumeX size={15} className={thread.isMuted ? "fill-current" : ""} />}
           onClick={handleToggleMute}
           title={thread.isMuted ? "Unmute (m)" : "Mute (m)"}
-          icon={<VolumeX size={14} className={thread.isMuted ? "fill-current" : ""} />}
-          label={thread.isMuted ? "Unmute" : "Mute"}
           className={thread.isMuted ? "text-warning" : ""}
         />
         {hasFollowUp ? (
-          <ActionButton
+          <Button
+            variant="secondary"
+            iconOnly
+            icon={<BellRing size={15} className="fill-current" />}
             onClick={handleCancelFollowUp}
             title="Cancel follow-up reminder"
-            icon={<BellRing size={14} className="fill-current" />}
-            label="Following up"
             className="text-accent"
           />
         ) : (
-          <ActionButton
+          <Button
+            variant="secondary"
+            iconOnly
+            icon={<BellRing size={15} />}
             onClick={() => setShowFollowUp(true)}
             title="Remind me if no reply"
-            icon={<BellRing size={14} />}
-            label="Follow up"
           />
         )}
         {hasUnsubscribe && (
-          <ActionButton
+          <Button
+            variant="secondary"
+            iconOnly
+            icon={<MailMinus size={15} />}
             onClick={handleUnsubscribe}
-            title="Unsubscribe (u)"
-            icon={<MailMinus size={14} />}
-            label={unsubscribeStatus === "loading" ? "Unsubscribing..." : unsubscribeStatus === "done" ? "Unsubscribed" : "Unsubscribe"}
+            title={unsubscribeStatus === "loading" ? "Unsubscribing..." : unsubscribeStatus === "done" ? "Unsubscribed" : "Unsubscribe (u)"}
             className={unsubscribeStatus === "done" ? "text-success" : ""}
           />
         )}
+
+        {/* Spacer */}
+        <div className="ml-auto" />
+
+        {/* Utility group */}
+        <Button variant="secondary" iconOnly icon={<Printer size={15} />} onClick={onPrint} title="Print" />
+        <Button variant="secondary" iconOnly icon={<Download size={15} />} onClick={onExport} title="Export as .eml" />
+        <Button variant="secondary" iconOnly icon={<ExternalLink size={15} />} onClick={onPopOut} title="Open in new window" />
+        <Button
+          variant="secondary"
+          iconOnly
+          icon={contactSidebarVisible ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
+          onClick={onToggleContactSidebar}
+          title={contactSidebarVisible ? "Hide contact sidebar" : "Show contact sidebar"}
+        />
       </div>
 
       <SnoozeDialog
@@ -276,31 +332,5 @@ export function ActionBar({ thread, messages }: ActionBarProps) {
         onClose={() => setShowFollowUp(false)}
       />
     </>
-  );
-}
-
-function ActionButton({
-  onClick,
-  title,
-  icon,
-  label,
-  className = "",
-}: {
-  onClick: () => void;
-  title: string;
-  icon: React.ReactNode;
-  label: string;
-  className?: string;
-}) {
-  return (
-    <Button
-      variant="secondary"
-      icon={icon}
-      onClick={onClick}
-      title={title}
-      className={`interactive-btn ${className}`}
-    >
-      {label}
-    </Button>
   );
 }

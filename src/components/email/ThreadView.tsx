@@ -10,7 +10,7 @@ import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { markThreadRead } from "@/services/emailActions";
 import { getSetting } from "@/services/db/settings";
 import { isAllowlisted } from "@/services/db/imageAllowlist";
-import { ExternalLink, Reply, ReplyAll, Forward, Printer, Download, PanelRightClose, PanelRightOpen, VolumeX } from "lucide-react";
+import { VolumeX } from "lucide-react";
 import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { isNoReplyAddress } from "@/utils/noReply";
 import { ThreadSummary } from "./ThreadSummary";
@@ -18,7 +18,6 @@ import { SmartReplySuggestions } from "./SmartReplySuggestions";
 import { InlineReply } from "./InlineReply";
 import { ContactSidebar } from "./ContactSidebar";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
-import { Button } from "@/components/ui/Button";
 
 interface ThreadViewProps {
   thread: Thread;
@@ -303,91 +302,36 @@ export function ThreadView({ thread }: ThreadViewProps) {
   return (
     <div className="flex h-full @container relative">
       <div className="flex flex-col flex-1 min-w-0">
-        {/* Thread header */}
-        <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-              {thread.subject ?? "(No subject)"}
-              {thread.isMuted && (
-                <span className="text-warning shrink-0" title="Muted">
-                  <VolumeX size={16} />
-                </span>
-              )}
-            </h1>
-            <div className="text-xs text-text-tertiary mt-1">
-              {messages.length} message{messages.length !== 1 ? "s" : ""} in this thread
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            {lastMessage && (
-              <>
-                <Button
-                  variant="secondary"
-                  icon={defaultReplyMode === "replyAll" ? <ReplyAll size={14} /> : <Reply size={14} />}
-                  onClick={defaultReplyMode === "replyAll" ? handleReplyAll : handleReply}
-                  disabled={noReply}
-                  title={noReply ? "This sender does not accept replies" : defaultReplyMode === "replyAll" ? "Reply All (r)" : "Reply (r)"}
-                  className="disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
-                >
-                  {defaultReplyMode === "replyAll" ? "Reply All" : "Reply"}
-                </Button>
-                <Button
-                  variant="secondary"
-                  icon={defaultReplyMode === "replyAll" ? <Reply size={14} /> : <ReplyAll size={14} />}
-                  onClick={defaultReplyMode === "replyAll" ? handleReply : handleReplyAll}
-                  disabled={noReply}
-                  title={noReply ? "This sender does not accept replies" : defaultReplyMode === "replyAll" ? "Reply (a)" : "Reply All (a)"}
-                  className="disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
-                >
-                  {defaultReplyMode === "replyAll" ? "Reply" : "Reply All"}
-                </Button>
-                <Button
-                  variant="secondary"
-                  icon={<Forward size={14} />}
-                  onClick={handleForward}
-                  title="Forward (f)"
-                >
-                  Forward
-                </Button>
-              </>
+        {/* Unified action bar */}
+        <ActionBar
+          thread={thread}
+          messages={messages}
+          noReply={noReply}
+          defaultReplyMode={defaultReplyMode}
+          contactSidebarVisible={contactSidebarVisible}
+          onReply={handleReply}
+          onReplyAll={handleReplyAll}
+          onForward={handleForward}
+          onPrint={handlePrint}
+          onExport={handleExport}
+          onPopOut={() => handlePopOut(thread)}
+          onToggleContactSidebar={toggleContactSidebar}
+        />
+
+        {/* Thread subject */}
+        <div className="px-6 py-3 border-b border-border-primary">
+          <h1 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+            {thread.subject ?? "(No subject)"}
+            {thread.isMuted && (
+              <span className="text-warning shrink-0" title="Muted">
+                <VolumeX size={16} />
+              </span>
             )}
-            <Button
-              variant="secondary"
-              iconOnly
-              size="md"
-              icon={<Printer size={16} />}
-              onClick={handlePrint}
-              title="Print"
-            />
-            <Button
-              variant="secondary"
-              iconOnly
-              size="md"
-              icon={<Download size={16} />}
-              onClick={handleExport}
-              title="Export as .eml"
-            />
-            <Button
-              variant="secondary"
-              iconOnly
-              size="md"
-              icon={<ExternalLink size={16} />}
-              onClick={() => handlePopOut(thread)}
-              title="Open in new window"
-            />
-            <Button
-              variant="secondary"
-              iconOnly
-              size="md"
-              icon={contactSidebarVisible ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-              onClick={toggleContactSidebar}
-              title={contactSidebarVisible ? "Hide contact sidebar" : "Show contact sidebar"}
-            />
+          </h1>
+          <div className="text-xs text-text-tertiary mt-1">
+            {messages.length} message{messages.length !== 1 ? "s" : ""} in this thread
           </div>
         </div>
-
-        {/* Action bar */}
-        <ActionBar thread={thread} messages={messages} />
 
         {/* AI Summary */}
         {activeAccountId && (
