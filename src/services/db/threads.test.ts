@@ -10,11 +10,9 @@ vi.mock("@/services/db/connection", async (importOriginal) => {
 
 import { getDb } from "@/services/db/connection";
 import { muteThread, unmuteThread, getMutedThreadIds } from "./threads";
+import { createMockDb } from "@/test/mocks";
 
-const mockDb = {
-  select: vi.fn(() => Promise.resolve([])),
-  execute: vi.fn(() => Promise.resolve({ rowsAffected: 1 })),
-};
+const mockDb = createMockDb();
 
 describe("threads service - mute", () => {
   beforeEach(() => {

@@ -37,6 +37,7 @@ vi.mock("../backgroundCheckers", () => ({
 import { useUIStore } from "@/stores/uiStore";
 import { cacheAttachment } from "./cacheManager";
 import { startPreCacheManager, stopPreCacheManager } from "./preCacheManager";
+import { createMockUIStoreState } from "@/test/mocks";
 
 async function runPreCache() {
   startPreCacheManager();
@@ -47,13 +48,13 @@ describe("preCacheManager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     stopPreCacheManager();
-    (useUIStore.getState as ReturnType<typeof vi.fn>).mockReturnValue({ isOnline: true });
+    (useUIStore.getState as ReturnType<typeof vi.fn>).mockReturnValue(createMockUIStoreState());
     mockSelect.mockReset();
     mockFetchAttachment.mockReset();
   });
 
   it("skips when offline", async () => {
-    (useUIStore.getState as ReturnType<typeof vi.fn>).mockReturnValue({ isOnline: false });
+    (useUIStore.getState as ReturnType<typeof vi.fn>).mockReturnValue(createMockUIStoreState({ isOnline: false }));
 
     await runPreCache();
 

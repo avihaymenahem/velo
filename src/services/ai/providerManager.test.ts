@@ -8,27 +8,20 @@ vi.mock("@/services/db/settings", () => {
   };
 });
 
+import { createMockAiProvider } from "@/test/mocks";
+
 vi.mock("./providers/claudeProvider", () => ({
-  createClaudeProvider: vi.fn(() => ({
-    complete: vi.fn(() => Promise.resolve("claude response")),
-    testConnection: vi.fn(() => Promise.resolve(true)),
-  })),
+  createClaudeProvider: vi.fn(() => createMockAiProvider("claude response")),
   clearClaudeProvider: vi.fn(),
 }));
 
 vi.mock("./providers/openaiProvider", () => ({
-  createOpenAIProvider: vi.fn(() => ({
-    complete: vi.fn(() => Promise.resolve("openai response")),
-    testConnection: vi.fn(() => Promise.resolve(true)),
-  })),
+  createOpenAIProvider: vi.fn(() => createMockAiProvider("openai response")),
   clearOpenAIProvider: vi.fn(),
 }));
 
 vi.mock("./providers/geminiProvider", () => ({
-  createGeminiProvider: vi.fn(() => ({
-    complete: vi.fn(() => Promise.resolve("gemini response")),
-    testConnection: vi.fn(() => Promise.resolve(true)),
-  })),
+  createGeminiProvider: vi.fn(() => createMockAiProvider("gemini response")),
   clearGeminiProvider: vi.fn(),
 }));
 

@@ -8,9 +8,11 @@ vi.mock("@/services/emailActions", () => ({
   updateDraft: vi.fn().mockResolvedValue({ success: true }),
 }));
 
+import { createMockAccountStoreState } from "@/test/mocks";
+
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: {
-    getState: () => ({
+    getState: () => createMockAccountStoreState({
       accounts: [{ id: "account-1", email: "test@example.com" }],
     }),
   },

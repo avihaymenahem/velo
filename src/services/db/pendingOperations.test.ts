@@ -22,11 +22,9 @@ import {
   clearFailedOperations,
   retryFailedOperations,
 } from "./pendingOperations";
+import { createMockDb } from "@/test/mocks";
 
-const mockDb = {
-  select: vi.fn(() => Promise.resolve([])),
-  execute: vi.fn(() => Promise.resolve({ rowsAffected: 1 })),
-};
+const mockDb = createMockDb();
 
 describe("pendingOperations DB service", () => {
   beforeEach(() => {

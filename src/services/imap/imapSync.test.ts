@@ -1,40 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { imapMessageToParsedMessage } from "./imapSync";
-import type { ImapMessage } from "./tauriCommands";
-
-function makeImapMessage(overrides: Partial<ImapMessage> = {}): ImapMessage {
-  return {
-    uid: 42,
-    folder: "INBOX",
-    message_id: "<test-123@example.com>",
-    in_reply_to: null,
-    references: null,
-    from_address: "sender@example.com",
-    from_name: "Sender Name",
-    to_addresses: "recipient@example.com",
-    cc_addresses: null,
-    bcc_addresses: null,
-    reply_to: null,
-    subject: "Test Subject",
-    date: 1700000000,
-    is_read: false,
-    is_starred: false,
-    is_draft: false,
-    body_html: "<p>Hello</p>",
-    body_text: "Hello",
-    snippet: "Hello",
-    raw_size: 1024,
-    list_unsubscribe: null,
-    list_unsubscribe_post: null,
-    auth_results: null,
-    attachments: [],
-    ...overrides,
-  };
-}
+import { createMockImapMessage } from "@/test/mocks";
 
 describe("imapMessageToParsedMessage", () => {
   it("converts basic IMAP message to ParsedMessage format", () => {
-    const msg = makeImapMessage();
+    const msg = createMockImapMessage();
     const { parsed, threadable } = imapMessageToParsedMessage(msg, "acc-1", "INBOX");
 
     expect(parsed.id).toBe("imap-acc-1-INBOX-42");
@@ -54,33 +24,33 @@ describe("imapMessageToParsedMessage", () => {
   });
 
   it("generates stable message ID from account, folder, and uid", () => {
-    const msg = makeImapMessage({ uid: 99, folder: "Sent" });
+    const msg = createMockImapMessage({ uid: 99, folder: "Sent" });
     const { parsed } = imapMessageToParsedMessage(msg, "acc-2", "SENT");
     expect(parsed.id).toBe("imap-acc-2-Sent-99");
   });
 
   it("includes UNREAD label for unread messages", () => {
-    const msg = makeImapMessage({ is_read: false });
+    const msg = createMockImapMessage({ is_read: false });
     const { parsed } = imapMessageToParsedMessage(msg, "acc-1", "INBOX");
     expect(parsed.labelIds).toContain("UNREAD");
     expect(parsed.labelIds).toContain("INBOX");
   });
 
   it("does not include UNREAD label for read messages", () => {
-    const msg = makeImapMessage({ is_read: true });
+    const msg = createMockImapMessage({ is_read: true });
     const { parsed } = imapMessageToParsedMessage(msg, "acc-1", "INBOX");
     expect(parsed.labelIds).not.toContain("UNREAD");
     expect(parsed.labelIds).toContain("INBOX");
   });
 
   it("includes STARRED label for flagged messages", () => {
-    const msg = makeImapMessage({ is_starred: true, is_read: true });
+    const msg = createMockImapMessage({ is_starred: true, is_read: true });
     const { parsed } = imapMessageToParsedMessage(msg, "acc-1", "INBOX");
     expect(parsed.labelIds).toContain("STARRED");
   });
 
   it("creates threadable message with correct fields", () => {
-    const msg = makeImapMessage({
+    const msg = createMockImapMessage({
       message_id: "<msg-abc@host.com>",
       in_reply_to: "<msg-parent@host.com>",
       references: "<msg-root@host.com> <msg-parent@host.com>",
@@ -96,14 +66,14 @@ describe("imapMessageToParsedMessage", () => {
   });
 
   it("generates synthetic message ID when none present", () => {
-    const msg = makeImapMessage({ message_id: null });
+    const msg = createMockImapMessage({ message_id: null });
     const { threadable } = imapMessageToParsedMessage(msg, "acc-1", "INBOX");
 
     expect(threadable.messageId).toBe("synthetic-acc-1-INBOX-42@velo.local");
   });
 
   it("converts attachments correctly", () => {
-    const msg = makeImapMessage({
+    const msg = createMockImapMessage({
       attachments: [
         {
           part_id: "2",
@@ -146,7 +116,7 @@ describe("imapMessageToParsedMessage", () => {
   });
 
   it("generates snippet from body_text when snippet is null", () => {
-    const msg = makeImapMessage({
+    const msg = createMockImapMessage({
       snippet: null,
       body_text: "This is a long email body that should be truncated to create a snippet for display purposes.",
     });
@@ -155,7 +125,7 @@ describe("imapMessageToParsedMessage", () => {
   });
 
   it("handles null body fields gracefully", () => {
-    const msg = makeImapMessage({
+    const msg = createMockImapMessage({
       body_html: null,
       body_text: null,
       snippet: null,
@@ -167,7 +137,7 @@ describe("imapMessageToParsedMessage", () => {
   });
 
   it("preserves list-unsubscribe headers", () => {
-    const msg = makeImapMessage({
+    const msg = createMockImapMessage({
       list_unsubscribe: "<mailto:unsub@list.com>",
       list_unsubscribe_post: "List-Unsubscribe=One-Click",
     });
@@ -177,7 +147,7 @@ describe("imapMessageToParsedMessage", () => {
   });
 
   it("preserves auth results", () => {
-    const msg = makeImapMessage({
+    const msg = createMockImapMessage({
       auth_results: '{"spf":"pass","dkim":"pass"}',
     });
     const { parsed } = imapMessageToParsedMessage(msg, "acc-1", "INBOX");

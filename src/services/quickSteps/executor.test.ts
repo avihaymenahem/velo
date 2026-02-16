@@ -53,24 +53,7 @@ import { setThreadCategory } from "@/services/db/threadCategories";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { useThreadStore } from "@/stores/threadStore";
 import { executeQuickStep } from "./executor";
-import type { QuickStep } from "./types";
-
-function makeQuickStep(overrides: Partial<QuickStep> = {}): QuickStep {
-  return {
-    id: "qs-1",
-    accountId: "acct-1",
-    name: "Test Quick Step",
-    description: null,
-    shortcut: null,
-    actions: [],
-    icon: null,
-    isEnabled: true,
-    continueOnError: false,
-    sortOrder: 0,
-    createdAt: Date.now(),
-    ...overrides,
-  };
-}
+import { createMockQuickStep } from "@/test/mocks";
 
 describe("executeQuickStep", () => {
   beforeEach(() => {
@@ -78,7 +61,7 @@ describe("executeQuickStep", () => {
   });
 
   it("executes a single archive action", async () => {
-    const step = makeQuickStep({
+    const step = createMockQuickStep({
       actions: [{ type: "archive" }],
     });
 
@@ -93,7 +76,7 @@ describe("executeQuickStep", () => {
   });
 
   it("executes a multi-action chain (markRead + archive)", async () => {
-    const step = makeQuickStep({
+    const step = createMockQuickStep({
       actions: [{ type: "markRead" }, { type: "archive" }],
     });
 
@@ -117,7 +100,7 @@ describe("executeQuickStep", () => {
     // Make the archive action fail
     mockArchiveThread.mockRejectedValueOnce(new Error("API Error"));
 
-    const step = makeQuickStep({
+    const step = createMockQuickStep({
       actions: [{ type: "archive" }, { type: "markRead" }],
     });
 
@@ -137,7 +120,7 @@ describe("executeQuickStep", () => {
     // Make the archive action fail
     mockArchiveThread.mockRejectedValueOnce(new Error("API Error"));
 
-    const step = makeQuickStep({
+    const step = createMockQuickStep({
       continueOnError: true,
       actions: [{ type: "archive" }, { type: "markRead" }],
     });
@@ -156,7 +139,7 @@ describe("executeQuickStep", () => {
   });
 
   it("defers thread removal until chain completes", async () => {
-    const step = makeQuickStep({
+    const step = createMockQuickStep({
       actions: [{ type: "star" }, { type: "archive" }],
     });
 
@@ -178,7 +161,7 @@ describe("executeQuickStep", () => {
   it("dispatches event for reply action and does not remove from view", async () => {
     const dispatchSpy = vi.spyOn(window, "dispatchEvent");
 
-    const step = makeQuickStep({
+    const step = createMockQuickStep({
       actions: [{ type: "reply" }],
     });
 
@@ -197,7 +180,7 @@ describe("executeQuickStep", () => {
   });
 
   it("executes pin and unpin actions", async () => {
-    const step = makeQuickStep({
+    const step = createMockQuickStep({
       actions: [{ type: "pin" }],
     });
 
@@ -209,7 +192,7 @@ describe("executeQuickStep", () => {
 
     vi.clearAllMocks();
 
-    const step2 = makeQuickStep({ actions: [{ type: "unpin" }] });
+    const step2 = createMockQuickStep({ actions: [{ type: "unpin" }] });
     await executeQuickStep(step2, ["t1"], "acct-1");
     expect(unpinThread).toHaveBeenCalledWith("acct-1", "t1");
     expect(useThreadStore.getState().updateThread).toHaveBeenCalledWith("t1", { isPinned: false });
@@ -219,7 +202,7 @@ describe("executeQuickStep", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T00:00:00Z"));
 
-    const step = makeQuickStep({
+    const step = createMockQuickStep({
       actions: [{ type: "snooze", params: { snoozeDuration: 3600000 } }],
     });
 
@@ -234,7 +217,7 @@ describe("executeQuickStep", () => {
   it("executes moveToCategory action", async () => {
     const dispatchSpy = vi.spyOn(window, "dispatchEvent");
 
-    const step = makeQuickStep({
+    const step = createMockQuickStep({
       actions: [{ type: "moveToCategory", params: { category: "Promotions" } }],
     });
 
@@ -248,7 +231,7 @@ describe("executeQuickStep", () => {
   });
 
   it("executes spam action", async () => {
-    const step = makeQuickStep({
+    const step = createMockQuickStep({
       actions: [{ type: "spam" }],
     });
 
@@ -260,7 +243,7 @@ describe("executeQuickStep", () => {
   });
 
   it("handles multiple threads", async () => {
-    const step = makeQuickStep({
+    const step = createMockQuickStep({
       actions: [{ type: "markRead" }],
     });
 
@@ -273,7 +256,7 @@ describe("executeQuickStep", () => {
   });
 
   it("returns correct result for empty action list", async () => {
-    const step = makeQuickStep({ actions: [] });
+    const step = createMockQuickStep({ actions: [] });
 
     const result = await executeQuickStep(step, ["t1"], "acct-1");
 

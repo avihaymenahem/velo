@@ -45,24 +45,24 @@ import {
 import { executeQueuedAction } from "../emailActions";
 import { classifyError } from "@/utils/networkErrors";
 import { startQueueProcessor, stopQueueProcessor, triggerQueueFlush } from "./queueProcessor";
+import { createMockUIStoreState } from "@/test/mocks";
 
 const mockSetPendingOpsCount = vi.fn();
 
 describe("queueProcessor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useUIStore.getState).mockReturnValue({
-      isOnline: true,
+    vi.mocked(useUIStore.getState).mockReturnValue(createMockUIStoreState({
       setPendingOpsCount: mockSetPendingOpsCount,
-    } as never);
+    }) as never);
     vi.mocked(getPendingOperations).mockResolvedValue([]);
   });
 
   it("skips processing when offline", async () => {
-    vi.mocked(useUIStore.getState).mockReturnValue({
+    vi.mocked(useUIStore.getState).mockReturnValue(createMockUIStoreState({
       isOnline: false,
       setPendingOpsCount: mockSetPendingOpsCount,
-    } as never);
+    }) as never);
     await triggerQueueFlush();
     expect(getPendingOperations).not.toHaveBeenCalled();
   });

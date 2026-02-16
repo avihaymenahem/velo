@@ -20,14 +20,7 @@ const mockDbDeleteLabel = vi.mocked(dbDeleteLabel);
 const mockUpdateSortOrder = vi.mocked(updateLabelSortOrder);
 const mockUpsertLabel = vi.mocked(upsertLabel);
 const mockGetGmailClient = vi.mocked(getGmailClient);
-
-function makeMockClient() {
-  return {
-    createLabel: vi.fn(),
-    updateLabel: vi.fn(),
-    deleteLabel: vi.fn(),
-  };
-}
+import { createMockGmailClient } from "@/test/mocks";
 
 describe("labelStore", () => {
   beforeEach(() => {
@@ -97,7 +90,7 @@ describe("labelStore", () => {
   });
 
   it("should create a label via Gmail API and update DB", async () => {
-    const mockClient = makeMockClient();
+    const mockClient = createMockGmailClient();
     mockClient.createLabel.mockResolvedValue({
       id: "Label_new",
       name: "New Label",
@@ -124,7 +117,7 @@ describe("labelStore", () => {
   });
 
   it("should update a label via Gmail API and update DB", async () => {
-    const mockClient = makeMockClient();
+    const mockClient = createMockGmailClient();
     mockClient.updateLabel.mockResolvedValue({
       id: "Label_1",
       name: "Renamed",
@@ -149,7 +142,7 @@ describe("labelStore", () => {
   });
 
   it("should delete a label via Gmail API and DB", async () => {
-    const mockClient = makeMockClient();
+    const mockClient = createMockGmailClient();
     mockClient.deleteLabel.mockResolvedValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockGetGmailClient.mockResolvedValue(mockClient as any);

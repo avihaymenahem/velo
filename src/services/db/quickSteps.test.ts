@@ -18,11 +18,9 @@ import {
   deleteQuickStep,
   reorderQuickSteps,
 } from "./quickSteps";
+import { createMockDb } from "@/test/mocks";
 
-const mockDb = {
-  select: vi.fn(() => Promise.resolve([])),
-  execute: vi.fn(() => Promise.resolve({ rowsAffected: 1 })),
-};
+const mockDb = createMockDb();
 
 describe("quickSteps DB service", () => {
   beforeEach(() => {

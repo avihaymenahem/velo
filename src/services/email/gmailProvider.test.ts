@@ -1,35 +1,13 @@
 import { GmailApiProvider } from "./gmailProvider";
 import type { GmailClient } from "../gmail/client";
-
-function createMockClient(): GmailClient {
-  return {
-    listLabels: vi.fn(),
-    createLabel: vi.fn(),
-    deleteLabel: vi.fn(),
-    updateLabel: vi.fn(),
-    modifyThread: vi.fn(),
-    deleteThread: vi.fn(),
-    getMessage: vi.fn(),
-    getAttachment: vi.fn(),
-    sendMessage: vi.fn(),
-    createDraft: vi.fn(),
-    updateDraft: vi.fn(),
-    deleteDraft: vi.fn(),
-    getProfile: vi.fn(),
-    getHistory: vi.fn(),
-    getThread: vi.fn(),
-    listThreads: vi.fn(),
-    listDrafts: vi.fn(),
-    request: vi.fn(),
-  } as unknown as GmailClient;
-}
+import { createMockGmailClient } from "@/test/mocks";
 
 describe("GmailApiProvider", () => {
   let provider: GmailApiProvider;
   let mockClient: GmailClient;
 
   beforeEach(() => {
-    mockClient = createMockClient();
+    mockClient = createMockGmailClient();
     provider = new GmailApiProvider("account-1", mockClient);
   });
 

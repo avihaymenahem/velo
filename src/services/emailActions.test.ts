@@ -45,22 +45,9 @@ import {
   spamThread,
   executeEmailAction,
 } from "./emailActions";
+import { createMockEmailProvider, createMockUIStoreState, createMockThreadStoreState } from "@/test/mocks";
 
-const mockProvider = {
-  archive: vi.fn(() => Promise.resolve()),
-  trash: vi.fn(() => Promise.resolve()),
-  permanentDelete: vi.fn(() => Promise.resolve()),
-  markRead: vi.fn(() => Promise.resolve()),
-  star: vi.fn(() => Promise.resolve()),
-  spam: vi.fn(() => Promise.resolve()),
-  moveToFolder: vi.fn(() => Promise.resolve()),
-  addLabel: vi.fn(() => Promise.resolve()),
-  removeLabel: vi.fn(() => Promise.resolve()),
-  sendMessage: vi.fn(() => Promise.resolve({ id: "msg-1" })),
-  createDraft: vi.fn(() => Promise.resolve({ draftId: "d-1" })),
-  updateDraft: vi.fn(() => Promise.resolve({ draftId: "d-1" })),
-  deleteDraft: vi.fn(() => Promise.resolve()),
-};
+const mockProvider = createMockEmailProvider();
 
 const mockUpdateThread = vi.fn();
 const mockRemoveThread = vi.fn();
@@ -69,11 +56,11 @@ describe("emailActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getEmailProvider).mockResolvedValue(mockProvider as never);
-    vi.mocked(useUIStore.getState).mockReturnValue({ isOnline: true } as never);
-    vi.mocked(useThreadStore.getState).mockReturnValue({
+    vi.mocked(useUIStore.getState).mockReturnValue(createMockUIStoreState() as never);
+    vi.mocked(useThreadStore.getState).mockReturnValue(createMockThreadStoreState({
       updateThread: mockUpdateThread,
       removeThread: mockRemoveThread,
-    } as never);
+    }) as never);
   });
 
   describe("online execution", () => {

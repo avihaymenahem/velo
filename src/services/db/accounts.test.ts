@@ -7,8 +7,8 @@ import {
   deleteAccount,
   updateAccountTokens,
   updateAccountSyncState,
-  type DbAccount,
 } from "./accounts";
+import { createMockGmailAccount, createMockImapAccount } from "@/test/mocks";
 
 const mockExecute = vi.fn();
 const mockSelect = vi.fn();
@@ -31,68 +31,6 @@ import { selectFirstBy } from "./connection";
 
 const mockSelectFirstBy = vi.mocked(selectFirstBy);
 
-function makeGmailAccount(overrides: Partial<DbAccount> = {}): DbAccount {
-  return {
-    id: "acc-gmail",
-    email: "user@gmail.com",
-    display_name: "Gmail User",
-    avatar_url: null,
-    access_token: "enc:access-token",
-    refresh_token: "enc:refresh-token",
-    token_expires_at: 9999999999,
-    history_id: "12345",
-    last_sync_at: 1700000000,
-    is_active: 1,
-    created_at: 1700000000,
-    updated_at: 1700000000,
-    provider: "gmail_api",
-    imap_host: null,
-    imap_port: null,
-    imap_security: null,
-    smtp_host: null,
-    smtp_port: null,
-    smtp_security: null,
-    auth_method: "oauth",
-    imap_password: null,
-    oauth_provider: null,
-    oauth_client_id: null,
-    oauth_client_secret: null,
-    imap_username: null,
-    ...overrides,
-  };
-}
-
-function makeImapAccount(overrides: Partial<DbAccount> = {}): DbAccount {
-  return {
-    id: "acc-imap",
-    email: "user@example.com",
-    display_name: "IMAP User",
-    avatar_url: null,
-    access_token: null,
-    refresh_token: null,
-    token_expires_at: null,
-    history_id: null,
-    last_sync_at: null,
-    is_active: 1,
-    created_at: 1700000000,
-    updated_at: 1700000000,
-    provider: "imap",
-    imap_host: "imap.example.com",
-    imap_port: 993,
-    imap_security: "tls",
-    smtp_host: "smtp.example.com",
-    smtp_port: 465,
-    smtp_security: "tls",
-    auth_method: "password",
-    imap_password: "enc:secret-password",
-    oauth_provider: null,
-    oauth_client_id: null,
-    oauth_client_secret: null,
-    imap_username: null,
-    ...overrides,
-  };
-}
-
 describe("accounts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -108,7 +46,7 @@ describe("accounts", () => {
     });
 
     it("returns a Gmail account with decrypted tokens", async () => {
-      mockSelectFirstBy.mockResolvedValue(makeGmailAccount());
+      mockSelectFirstBy.mockResolvedValue(createMockGmailAccount());
 
       const result = await getAccount("acc-gmail");
 
@@ -120,7 +58,7 @@ describe("accounts", () => {
     });
 
     it("returns an IMAP account with decrypted imap_password", async () => {
-      mockSelectFirstBy.mockResolvedValue(makeImapAccount());
+      mockSelectFirstBy.mockResolvedValue(createMockImapAccount());
 
       const result = await getAccount("acc-imap");
 
@@ -138,7 +76,7 @@ describe("accounts", () => {
 
     it("handles IMAP account with null imap_password gracefully", async () => {
       mockSelectFirstBy.mockResolvedValue(
-        makeImapAccount({ imap_password: null }),
+        createMockImapAccount({ imap_password: null }),
       );
 
       const result = await getAccount("acc-imap");
@@ -149,7 +87,7 @@ describe("accounts", () => {
 
   describe("getAccountByEmail", () => {
     it("returns account matching email", async () => {
-      mockSelectFirstBy.mockResolvedValue(makeImapAccount());
+      mockSelectFirstBy.mockResolvedValue(createMockImapAccount());
 
       const result = await getAccountByEmail("user@example.com");
 
@@ -168,7 +106,7 @@ describe("accounts", () => {
 
   describe("getAllAccounts", () => {
     it("returns all accounts with decrypted tokens", async () => {
-      mockSelect.mockResolvedValue([makeGmailAccount(), makeImapAccount()]);
+      mockSelect.mockResolvedValue([createMockGmailAccount(), createMockImapAccount()]);
 
       const result = await getAllAccounts();
 
@@ -188,7 +126,7 @@ describe("accounts", () => {
     });
 
     it("decrypts imap_password for IMAP accounts in the list", async () => {
-      mockSelect.mockResolvedValue([makeImapAccount()]);
+      mockSelect.mockResolvedValue([createMockImapAccount()]);
 
       const result = await getAllAccounts();
 
