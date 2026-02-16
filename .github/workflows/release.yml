@@ -1,6 +1,8 @@
 name: Build & Release
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
