@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.7](https://github.com/avihaymenahem/velo/compare/velo-v0.3.6...velo-v0.3.7) (2026-02-16)
+
+
+### Bug Fixes
+
+* use baseDir option for Tauri FS operations to resolve scope errors ([7b463dc](https://github.com/avihaymenahem/velo/commit/7b463dcba326e45c59ac5d2d47b967d05591384a))
+
 ## [0.3.6](https://github.com/avihaymenahem/velo/compare/velo-v0.3.5...velo-v0.3.6) (2026-02-16)
 
 
