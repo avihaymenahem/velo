@@ -138,6 +138,17 @@ async function applyLocalDbUpdate(
         "UPDATE threads SET is_starred = $1 WHERE account_id = $2 AND id = $3",
         [action.starred ? 1 : 0, accountId, action.threadId],
       );
+      if (action.starred) {
+        await db.execute(
+          "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, 'STARRED')",
+          [accountId, action.threadId],
+        );
+      } else {
+        await db.execute(
+          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'STARRED'",
+          [accountId, action.threadId],
+        );
+      }
       break;
     case "archive":
       await db.execute(
