@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.6](https://github.com/avihaymenahem/velo/compare/velo-v0.3.5...velo-v0.3.6) (2026-02-16)
+
+
+### Bug Fixes
+
+* resolve nested button warnings, TipTap duplicate extensions, FS scope, and CI type errors ([65c0028](https://github.com/avihaymenahem/velo/commit/65c0028e03315fc7150a1882ed0775344ec345fd))
+
 ## [0.3.5](https://github.com/avihaymenahem/velo/compare/velo-v0.3.4...velo-v0.3.5) (2026-02-16)
 
 
