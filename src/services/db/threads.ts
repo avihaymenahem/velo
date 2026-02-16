@@ -167,6 +167,15 @@ export async function getThreadById(
   return rows[0];
 }
 
+export async function getThreadCountForAccount(accountId: string): Promise<number> {
+  const db = await getDb();
+  const rows = await db.select<{ count: number }[]>(
+    "SELECT COUNT(*) as count FROM threads WHERE account_id = $1",
+    [accountId],
+  );
+  return rows[0]?.count ?? 0;
+}
+
 export async function getUnreadInboxCount(): Promise<number> {
   const db = await getDb();
   const rows = await db.select<{ count: number }[]>(

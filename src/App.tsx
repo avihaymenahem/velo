@@ -259,7 +259,8 @@ export default function App() {
           avatarUrl: a.avatar_url,
           isActive: a.is_active === 1,
         }));
-        setAccounts(mapped);
+        const savedAccountId = await getSetting("active_account_id");
+        setAccounts(mapped, savedAccountId);
 
         // Initialize Gmail clients for existing accounts
         await initializeClients();
@@ -337,7 +338,6 @@ export default function App() {
           setSyncStatus(`Fetching threads... (${progress.current})`);
         }
       } else if (status === "done") {
-        console.log(`[App] Sync done for account ${accountId}, dispatching velo-sync-done`);
         setSyncStatus(null);
         window.dispatchEvent(new Event("velo-sync-done"));
         updateBadgeCount();
@@ -350,7 +350,6 @@ export default function App() {
             .catch((err) => console.error("Backfill error:", err));
         }
       } else if (status === "error") {
-        console.error(`[App] Sync error for account ${accountId}:`, progress);
         setSyncStatus(null);
         // Still dispatch sync-done so the UI refreshes with any partially stored data
         window.dispatchEvent(new Event("velo-sync-done"));

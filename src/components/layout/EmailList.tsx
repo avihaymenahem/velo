@@ -279,14 +279,12 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
           dbThreads = await getThreadsForCategory(activeAccountId, activeCategory, PAGE_SIZE, 0);
         } else {
           const gmailLabelId = LABEL_MAP[activeLabel] ?? activeLabel;
-          console.log(`[EmailList] loadThreads: account=${activeAccountId}, label="${activeLabel}" → gmailLabelId="${gmailLabelId}"`);
           dbThreads = await getThreadsForAccount(
             activeAccountId,
             gmailLabelId || undefined,
             PAGE_SIZE,
             0,
           );
-          console.log(`[EmailList] loadThreads: got ${dbThreads.length} threads from DB`);
         }
 
         const mapped = await mapDbThreads(dbThreads);
@@ -438,7 +436,6 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
   // Listen for sync completion to reload
   useEffect(() => {
     const handler = () => {
-      console.log(`[EmailList] velo-sync-done received, reloading threads (account=${activeAccountId}, label=${activeLabel})`);
       loadThreads();
     };
     window.addEventListener("velo-sync-done", handler);

@@ -63,7 +63,6 @@ export function mapFolderToLabel(folder: ImapFolder): FolderLabelMapping {
   if (folder.special_use) {
     const mapping = SPECIAL_USE_MAP[folder.special_use];
     if (mapping) {
-      console.log(`[folderMapper] ${folder.path} → ${mapping.labelId} (via special-use "${folder.special_use}")`);
       return mapping;
     }
   }
@@ -76,13 +75,11 @@ export function mapFolderToLabel(folder: ImapFolder): FolderLabelMapping {
   if (specialUse) {
     const mapping = SPECIAL_USE_MAP[specialUse];
     if (mapping) {
-      console.log(`[folderMapper] ${folder.path} → ${mapping.labelId} (via name fallback "${lowerPath}"/"${lowerName}")`);
       return mapping;
     }
   }
 
   // User-defined folder
-  console.log(`[folderMapper] ${folder.path} → folder-${folder.path} (unrecognized, special_use=${folder.special_use}, path="${folder.path}", name="${folder.name}")`);
   return {
     labelId: `folder-${folder.path}`,
     labelName: folder.name,

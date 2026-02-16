@@ -224,6 +224,17 @@ export async function imapFetchAttachment(
   return invoke<string>('imap_fetch_attachment', { config, folder, uid, partId });
 }
 
+/**
+ * Raw IMAP diagnostic: bypasses async-imap to show raw server responses.
+ */
+export async function imapRawFetchDiagnostic(
+  config: ImapConfig,
+  folder: string,
+  uidRange: string,
+): Promise<string> {
+  return invoke<string>('imap_raw_fetch_diagnostic', { config, folder, uidRange });
+}
+
 // ---------- SMTP commands ----------
 
 /**

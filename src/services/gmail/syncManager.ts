@@ -2,7 +2,9 @@ import { getGmailClient } from "./tokenManager";
 import { initialSync, deltaSync, type SyncProgress } from "./sync";
 import { getAccount, clearAccountHistoryId } from "../db/accounts";
 import { getSetting } from "../db/settings";
+import { getThreadCountForAccount } from "../db/threads";
 import { imapInitialSync, imapDeltaSync } from "../imap/imapSync";
+import { clearAllFolderSyncStates } from "../db/folderSyncState";
 import { ensureFreshToken } from "../oauth/oauthTokenManager";
 
 const SYNC_INTERVAL_MS = 15_000; // 15 seconds — delta syncs are lightweight (single API call when idle)
@@ -84,7 +86,26 @@ async function syncImapAccount(accountId: string): Promise<void> {
 
   if (account.history_id) {
     // Delta sync — IMAP uses folder-level UID tracking
-    await imapDeltaSync(accountId);
+    const result = await imapDeltaSync(accountId);
+
+    // Recovery: if delta sync found nothing new but the DB has no threads,
+    // the previous initial sync likely failed or stored data incorrectly.
+    // Force a full re-sync to recover.
+    if (result.messages.length === 0) {
+      const threadCount = await getThreadCountForAccount(accountId);
+      if (threadCount === 0) {
+        console.warn(`[syncManager] IMAP delta sync returned 0 new messages and DB has 0 threads for ${accountId} — forcing full re-sync`);
+        await clearAccountHistoryId(accountId);
+        await clearAllFolderSyncStates(accountId);
+        await imapInitialSync(accountId, syncDays, (progress) => {
+          statusCallback?.(accountId, "syncing", {
+            phase: progress.phase === "folders" ? "labels" : progress.phase === "threading" ? "messages" : progress.phase as "labels" | "threads" | "messages" | "done",
+            current: progress.current,
+            total: progress.total,
+          });
+        });
+      }
+    }
   } else {
     // First time — full initial sync
     await imapInitialSync(accountId, syncDays, (progress) => {
@@ -110,6 +131,8 @@ async function syncAccountInternal(accountId: string): Promise<void> {
       throw new Error("Account not found");
     }
 
+    console.log(`[syncManager] Syncing account ${accountId} (provider=${account.provider}, history_id=${account.history_id ?? "null"})`);
+
     if (account.provider === "imap") {
       await syncImapAccount(accountId);
     } else {
@@ -119,7 +142,7 @@ async function syncAccountInternal(accountId: string): Promise<void> {
     statusCallback?.(accountId, "done");
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error(`Sync failed for account ${accountId}:`, message);
+    console.error(`[syncManager] Sync failed for account ${accountId}:`, message);
     statusCallback?.(accountId, "error", undefined, message);
   }
 }

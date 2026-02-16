@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { setSetting } from "../services/db/settings";
 
 export interface Account {
   id: string;
@@ -11,7 +12,7 @@ export interface Account {
 interface AccountState {
   accounts: Account[];
   activeAccountId: string | null;
-  setAccounts: (accounts: Account[]) => void;
+  setAccounts: (accounts: Account[], restoredId?: string | null) => void;
   setActiveAccount: (id: string) => void;
   addAccount: (account: Account) => void;
   removeAccount: (id: string) => void;
@@ -21,13 +22,17 @@ export const useAccountStore = create<AccountState>((set) => ({
   accounts: [],
   activeAccountId: null,
 
-  setAccounts: (accounts) =>
-    set({
-      accounts,
-      activeAccountId: accounts[0]?.id ?? null,
-    }),
+  setAccounts: (accounts, restoredId) => {
+    const activeId = (restoredId && accounts.some((a) => a.id === restoredId))
+      ? restoredId
+      : accounts[0]?.id ?? null;
+    set({ accounts, activeAccountId: activeId });
+  },
 
-  setActiveAccount: (activeAccountId) => set({ activeAccountId }),
+  setActiveAccount: (activeAccountId) => {
+    setSetting("active_account_id", activeAccountId).catch(() => {});
+    set({ activeAccountId });
+  },
 
   addAccount: (account) =>
     set((state) => ({
