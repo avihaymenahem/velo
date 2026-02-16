@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.8](https://github.com/avihaymenahem/velo/compare/velo-v0.3.7...velo-v0.3.8) (2026-02-16)
+
+
+### Bug Fixes
+
+* add appdata read/write permissions for Tauri FS baseDir operations ([f9750de](https://github.com/avihaymenahem/velo/commit/f9750de942535e3c245fcfd86b034446bfb37233))
+
 ## [0.3.7](https://github.com/avihaymenahem/velo/compare/velo-v0.3.6...velo-v0.3.7) (2026-02-16)
 
 
