@@ -132,8 +132,11 @@ pub async fn list_folders(session: &mut ImapSession) -> Result<Vec<ImapFolder>, 
 
     let mut folders = Vec::new();
     for name in &names {
-        let path = name.name().to_string();
+        let raw_path = name.name().to_string();
         let delimiter = name.delimiter().unwrap_or("/").to_string();
+
+        // Decode modified UTF-7 (RFC 3501 §5.1.3) to UTF-8 for display
+        let path = utf7_imap::decode_utf7_imap(raw_path.clone());
 
         // Extract display name (last segment after delimiter)
         let display_name = path
@@ -144,9 +147,9 @@ pub async fn list_folders(session: &mut ImapSession) -> Result<Vec<ImapFolder>, 
         // Detect special-use from attributes (RFC 6154)
         let special_use = detect_special_use(name);
 
-        // Get message counts via STATUS (ignore errors for non-selectable folders)
+        // Get message counts via STATUS — use raw_path for IMAP commands
         let (exists, unseen) = match session
-            .status(&path, "(MESSAGES UNSEEN)")
+            .status(&raw_path, "(MESSAGES UNSEEN)")
             .await
         {
             Ok(mailbox) => (mailbox.exists, mailbox.unseen.unwrap_or(0)),
@@ -155,6 +158,7 @@ pub async fn list_folders(session: &mut ImapSession) -> Result<Vec<ImapFolder>, 
 
         folders.push(ImapFolder {
             path,
+            raw_path,
             name: display_name,
             delimiter,
             special_use,
@@ -293,6 +297,27 @@ pub async fn fetch_new_uids(
 
     // Filter out last_uid itself (IMAP returns it if it's the highest UID)
     let mut result: Vec<u32> = uids.into_iter().filter(|&u| u > last_uid).collect();
+    result.sort();
+    Ok(result)
+}
+
+/// Search for all UIDs in a folder using `UID SEARCH ALL`.
+/// Returns real UIDs sorted ascending — avoids the sparse UID gap problem.
+pub async fn search_all_uids(
+    session: &mut ImapSession,
+    folder: &str,
+) -> Result<Vec<u32>, String> {
+    session
+        .select(folder)
+        .await
+        .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
+
+    let uids = session
+        .uid_search("ALL")
+        .await
+        .map_err(|e| format!("UID SEARCH ALL failed: {e}"))?;
+
+    let mut result: Vec<u32> = uids.into_iter().collect();
     result.sort();
     Ok(result)
 }

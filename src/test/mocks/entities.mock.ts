@@ -217,8 +217,10 @@ export function createMockImapMessage(
 export function createMockImapFolder(
   overrides: Partial<ImapFolder> = {},
 ): ImapFolder {
+  const path = overrides.path ?? "INBOX";
   return {
-    path: "INBOX",
+    path,
+    raw_path: path,
     name: "INBOX",
     delimiter: "/",
     special_use: null,

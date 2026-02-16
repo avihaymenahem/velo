@@ -12,8 +12,9 @@ export interface ImapConfig {
 }
 
 export interface ImapFolder {
-  path: string;
-  name: string;
+  path: string;       // decoded UTF-8 display name
+  raw_path: string;   // original modified UTF-7 path for IMAP commands
+  name: string;       // decoded display name (last segment)
   delimiter: string;
   special_use: string | null;
   exists: number;
@@ -123,6 +124,17 @@ export async function imapFetchNewUids(
   sinceUid: number
 ): Promise<number[]> {
   return invoke<number[]>('imap_fetch_new_uids', { config, folder, sinceUid });
+}
+
+/**
+ * Search for all UIDs in a folder using UID SEARCH ALL.
+ * Returns real UIDs — avoids the sparse UID gap problem with generateUidRange.
+ */
+export async function imapSearchAllUids(
+  config: ImapConfig,
+  folder: string
+): Promise<number[]> {
+  return invoke<number[]>('imap_search_all_uids', { config, folder });
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   imapGetFolderStatus,
   imapFetchMessages,
   imapFetchNewUids,
+  imapSearchAllUids,
 } from "./tauriCommands";
 import { buildImapConfig } from "./imapConfigBuilder";
 import {
@@ -254,20 +255,6 @@ async function storeThreadsAndMessages(
 // ---------------------------------------------------------------------------
 
 /**
- * Generate UID range for initial sync.
- * Fetches UIDs from (uidnext - estimatedCount) to uidnext.
- * Uses the folder's `exists` count to estimate, capped by daysBack heuristic.
- */
-function generateUidRange(uidnext: number, maxMessages: number): number[] {
-  const startUid = Math.max(1, uidnext - maxMessages);
-  const uids: number[] = [];
-  for (let uid = startUid; uid < uidnext; uid++) {
-    uids.push(uid);
-  }
-  return uids;
-}
-
-/**
  * Fetch messages from a folder in batches of BATCH_SIZE.
  */
 async function fetchMessagesInBatches(
@@ -331,41 +318,26 @@ export async function imapInitialSync(
 
   // Estimate total messages for progress
   let totalEstimate = 0;
-  const folderStatuses = new Map<string, { uidnext: number; exists: number; uidvalidity: number }>();
-
   for (const folder of syncableFolders) {
-    try {
-      const status = await imapGetFolderStatus(config, folder.path);
-      folderStatuses.set(folder.path, {
-        uidnext: status.uidnext,
-        exists: status.exists,
-        uidvalidity: status.uidvalidity,
-      });
-      totalEstimate += Math.min(status.exists, status.uidnext);
-    } catch (err) {
-      console.error(`Failed to get status for folder ${folder.path}:`, err);
-    }
+    totalEstimate += folder.exists;
   }
 
   let fetchedTotal = 0;
 
   for (const folder of syncableFolders) {
-    const status = folderStatuses.get(folder.path);
-    if (!status || status.exists === 0) continue;
+    if (folder.exists === 0) continue;
 
     const folderMapping = mapFolderToLabel(folder);
 
     try {
-      // Generate UIDs to fetch — use the exists count but not more than
-      // what's reasonable for daysBack. As a heuristic, we use exists count
-      // directly (the server already limits by what's in the folder).
-      const uidsToFetch = generateUidRange(status.uidnext, status.exists);
+      // Use UID SEARCH ALL to get real UIDs (avoids sparse UID gap problem)
+      const uidsToFetch = await imapSearchAllUids(config, folder.raw_path);
 
       if (uidsToFetch.length === 0) continue;
 
       const { messages, lastUid, uidvalidity } = await fetchMessagesInBatches(
         config,
-        folder.path,
+        folder.raw_path,
         uidsToFetch,
         (fetched, _total) => {
           onProgress?.({
@@ -396,10 +368,10 @@ export async function imapInitialSync(
 
       fetchedTotal += uidsToFetch.length;
 
-      // Update folder sync state
+      // Update folder sync state — store decoded path for DB lookups
       await upsertFolderSyncState({
         account_id: accountId,
-        folder_path: folder.path,
+        folder_path: folder.raw_path,
         uidvalidity,
         last_uid: lastUid,
         modseq: null,
@@ -467,20 +439,17 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
 
   for (const folder of syncableFolders) {
     const folderMapping = mapFolderToLabel(folder);
-    const savedState = syncStateMap.get(folder.path);
+    const savedState = syncStateMap.get(folder.raw_path);
 
     try {
       if (!savedState) {
-        // New folder — do initial sync for it
-        const status = await imapGetFolderStatus(config, folder.path);
-        if (status.exists === 0) continue;
-
-        const uidsToFetch = generateUidRange(status.uidnext, status.exists);
+        // New folder — do initial sync for it using UID SEARCH ALL
+        const uidsToFetch = await imapSearchAllUids(config, folder.raw_path);
         if (uidsToFetch.length === 0) continue;
 
         const { messages, lastUid, uidvalidity } = await fetchMessagesInBatches(
           config,
-          folder.path,
+          folder.raw_path,
           uidsToFetch,
         );
 
@@ -497,7 +466,7 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
 
         await upsertFolderSyncState({
           account_id: accountId,
-          folder_path: folder.path,
+          folder_path: folder.raw_path,
           uidvalidity,
           last_uid: lastUid,
           modseq: null,
@@ -507,27 +476,24 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
       }
 
       // Check UIDVALIDITY — if changed, all cached UIDs are invalid
-      const currentStatus = await imapGetFolderStatus(config, folder.path);
+      const currentStatus = await imapGetFolderStatus(config, folder.raw_path);
 
       if (
         savedState.uidvalidity !== null &&
         currentStatus.uidvalidity !== savedState.uidvalidity
       ) {
-        // UIDVALIDITY changed — full resync of this folder
+        // UIDVALIDITY changed — full resync of this folder using UID SEARCH ALL
         console.warn(
           `UIDVALIDITY changed for folder ${folder.path} ` +
             `(was ${savedState.uidvalidity}, now ${currentStatus.uidvalidity}). ` +
             `Doing full resync of this folder.`,
         );
-        const uidsToFetch = generateUidRange(
-          currentStatus.uidnext,
-          currentStatus.exists,
-        );
+        const uidsToFetch = await imapSearchAllUids(config, folder.raw_path);
         if (uidsToFetch.length === 0) continue;
 
         const { messages, lastUid, uidvalidity } = await fetchMessagesInBatches(
           config,
-          folder.path,
+          folder.raw_path,
           uidsToFetch,
         );
 
@@ -544,7 +510,7 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
 
         await upsertFolderSyncState({
           account_id: accountId,
-          folder_path: folder.path,
+          folder_path: folder.raw_path,
           uidvalidity,
           last_uid: lastUid,
           modseq: null,
@@ -554,13 +520,13 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
       }
 
       // Normal delta: fetch UIDs > last_uid
-      const newUids = await imapFetchNewUids(config, folder.path, savedState.last_uid);
+      const newUids = await imapFetchNewUids(config, folder.raw_path, savedState.last_uid);
 
       if (newUids.length === 0) continue;
 
       const { messages, lastUid, uidvalidity } = await fetchMessagesInBatches(
         config,
-        folder.path,
+        folder.raw_path,
         newUids,
       );
 
@@ -577,7 +543,7 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
 
       await upsertFolderSyncState({
         account_id: accountId,
-        folder_path: folder.path,
+        folder_path: folder.raw_path,
         uidvalidity,
         last_uid: Math.max(savedState.last_uid, lastUid),
         modseq: null,

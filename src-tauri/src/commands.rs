@@ -55,6 +55,17 @@ pub async fn imap_fetch_new_uids(
 }
 
 #[tauri::command]
+pub async fn imap_search_all_uids(
+    config: ImapConfig,
+    folder: String,
+) -> Result<Vec<u32>, String> {
+    let mut session = imap_client::connect(&config).await?;
+    let uids = imap_client::search_all_uids(&mut session, &folder).await?;
+    let _ = session.logout().await;
+    Ok(uids)
+}
+
+#[tauri::command]
 pub async fn imap_fetch_message_body(
     config: ImapConfig,
     folder: String,

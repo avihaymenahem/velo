@@ -12,8 +12,9 @@ pub struct ImapConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImapFolder {
-    pub path: String,
-    pub name: String,
+    pub path: String,      // decoded UTF-8 display name
+    pub raw_path: String,  // original modified UTF-7 path for IMAP commands
+    pub name: String,      // decoded display name (last segment)
     pub delimiter: String,
     pub special_use: Option<String>, // "\Sent", "\Trash", "\Drafts", "\Junk", "\Archive", "\All"
     pub exists: u32,

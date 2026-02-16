@@ -81,6 +81,7 @@ pub fn run() {
             commands::imap_list_folders,
             commands::imap_fetch_messages,
             commands::imap_fetch_new_uids,
+            commands::imap_search_all_uids,
             commands::imap_fetch_message_body,
             commands::imap_set_flags,
             commands::imap_move_messages,

@@ -130,7 +130,7 @@ export async function syncFoldersToLabels(
       accountId,
       name: mapping.labelName,
       type: mapping.type,
-      imapFolderPath: folder.path,
+      imapFolderPath: folder.raw_path,
       imapSpecialUse: folder.special_use,
     });
   }

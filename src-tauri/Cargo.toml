@@ -40,6 +40,7 @@ native-tls = "0.2"
 mail-parser = "0.9"
 lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "tokio1-native-tls", "builder"] }
 base64 = "0.22"
+utf7-imap = "0.3"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = ["Win32_UI_Shell"] }
