@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.5](https://github.com/avihaymenahem/velo/compare/velo-v0.3.4...velo-v0.3.5) (2026-02-16)
+
+
+### Bug Fixes
+
+* add missing path separator in attachment cache directory ([de4355b](https://github.com/avihaymenahem/velo/commit/de4355b799abf316cb4ee729d22c6f03138174f2))
+* call sep() as function, not use as string ([b65888b](https://github.com/avihaymenahem/velo/commit/b65888b70578c767a330ec13087c38f66880bda5))
+* use join() for paths and hash long attachment IDs for filenames ([d01dd79](https://github.com/avihaymenahem/velo/commit/d01dd794dbe02ef0820bc293e7af39bc37deaa45))
+
 ## [0.3.4](https://github.com/avihaymenahem/velo/compare/velo-v0.3.3...velo-v0.3.4) (2026-02-16)
 
 
