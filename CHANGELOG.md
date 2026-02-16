@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.11](https://github.com/avihaymenahem/velo/compare/velo-v0.3.10...velo-v0.3.11) (2026-02-16)
+
+
+### Bug Fixes
+
+* IMAP emails not displaying in UI after sync ([18521cf](https://github.com/avihaymenahem/velo/commit/18521cf2cbcb87f75cab25cff21dba9876fb0e31))
+* IMAP fetch fallback for servers incompatible with async-imap ([fcc7a45](https://github.com/avihaymenahem/velo/commit/fcc7a45f52e2fe04595d40c0c34926adca5678b4))
+* IMAP trash not working for servers with non-standard folder names ([b6cf2c6](https://github.com/avihaymenahem/velo/commit/b6cf2c6d3aae86fa261fd3b20d938ff8c16f36a9))
+
 ## [0.3.10](https://github.com/avihaymenahem/velo/compare/velo-v0.3.9...velo-v0.3.10) (2026-02-16)
 
 
