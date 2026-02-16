@@ -1,5 +1,5 @@
 import { useComposerStore } from "@/stores/composerStore";
-import { getGmailClient } from "@/services/gmail/tokenManager";
+import { createDraft as createDraftAction, updateDraft as updateDraftAction } from "@/services/emailActions";
 import { buildRawEmail } from "@/utils/emailBuilder";
 import { useAccountStore } from "@/stores/accountStore";
 
@@ -25,7 +25,6 @@ async function saveDraft(): Promise<void> {
   state.setIsSaving(true);
 
   try {
-    const client = await getGmailClient(accountId);
     const raw = buildRawEmail({
       from: account.email,
       to: state.to.length > 0 ? state.to : [""],
@@ -42,10 +41,12 @@ async function saveDraft(): Promise<void> {
     });
 
     if (state.draftId) {
-      await client.updateDraft(state.draftId, raw, state.threadId ?? undefined);
+      await updateDraftAction(accountId, state.draftId, raw, state.threadId ?? undefined);
     } else {
-      const result = await client.createDraft(raw, state.threadId ?? undefined);
-      state.setDraftId(result.id);
+      const result = await createDraftAction(accountId, raw, state.threadId ?? undefined);
+      if (result.data && typeof result.data === "object" && "draftId" in result.data) {
+        state.setDraftId((result.data as { draftId: string }).draftId);
+      }
     }
 
     state.setLastSavedAt(Date.now());

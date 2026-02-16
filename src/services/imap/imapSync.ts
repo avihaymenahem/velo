@@ -27,6 +27,7 @@ import {
   type ThreadableMessage,
   type ThreadGroup,
 } from "../threading/threadBuilder";
+import { getPendingOpsForResource } from "../db/pendingOperations";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -149,6 +150,13 @@ async function storeThreadsAndMessages(
       .filter((m): m is ParsedMessage => m !== undefined);
 
     if (messages.length === 0) continue;
+
+    // Skip metadata overwrite for threads with pending local changes
+    const pendingOps = await getPendingOpsForResource(accountId, group.threadId);
+    if (pendingOps.length > 0) {
+      console.log(`[imapSync] Skipping thread ${group.threadId}: has ${pendingOps.length} pending local ops`);
+      continue;
+    }
 
     // Assign threadId to each message
     for (const msg of messages) {

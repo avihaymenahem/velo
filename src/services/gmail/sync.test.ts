@@ -42,6 +42,9 @@ vi.mock("@/services/db/bundleRules", () => ({
   holdThread: vi.fn(),
   getNextDeliveryTime: vi.fn(),
 }));
+vi.mock("@/services/db/pendingOperations", () => ({
+  getPendingOpsForResource: vi.fn().mockResolvedValue([]),
+}));
 
 const mockNotify = vi.fn();
 const mockShouldNotify = vi.fn().mockReturnValue(true);

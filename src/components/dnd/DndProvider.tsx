@@ -10,7 +10,7 @@ import {
 } from "@dnd-kit/core";
 import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
-import { getGmailClient } from "@/services/gmail/tokenManager";
+import { addThreadLabel, removeThreadLabel } from "@/services/emailActions";
 
 // Map sidebar IDs to Gmail label IDs (same as EmailList)
 const LABEL_MAP: Record<string, string> = {
@@ -93,15 +93,15 @@ export function DndProvider({ children }: DndProviderProps) {
     if (!change) return;
 
     try {
-      const client = await getGmailClient(activeAccountId);
       for (const threadId of dragData.threadIds) {
-        await client.modifyThread(
-          threadId,
-          change.addLabelIds.length > 0 ? change.addLabelIds : undefined,
-          change.removeLabelIds.length > 0 ? change.removeLabelIds : undefined,
-        );
+        for (const labelId of change.addLabelIds) {
+          await addThreadLabel(activeAccountId, threadId, labelId);
+        }
+        for (const labelId of change.removeLabelIds) {
+          await removeThreadLabel(activeAccountId, threadId, labelId);
+        }
       }
-      // Optimistically remove from current view
+      // Remove from current view
       removeThreads(dragData.threadIds);
     } catch (err) {
       console.error("Failed to move threads:", err);

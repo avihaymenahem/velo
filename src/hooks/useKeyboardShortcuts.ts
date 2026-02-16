@@ -6,9 +6,10 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { navigateToLabel, navigateToThread, navigateBack, getActiveLabel, getSelectedThreadId } from "@/router/navigate";
-import { getGmailClient } from "@/services/gmail/tokenManager";
+import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
 import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
+import { getGmailClient } from "@/services/gmail/tokenManager";
 import { getMessagesForThread } from "@/services/db/messages";
 import { parseUnsubscribeUrl } from "@/components/email/MessageItem";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -269,24 +270,12 @@ async function executeAction(actionId: string): Promise<void> {
     case "action.archive": {
       const multiIds = useThreadStore.getState().selectedThreadIds;
       if (multiIds.size > 0 && activeAccountId) {
-        try {
-          const client = await getGmailClient(activeAccountId);
-          const ids = [...multiIds];
-          for (const id of ids) {
-            await client.modifyThread(id, undefined, ["INBOX"]);
-          }
-          useThreadStore.getState().removeThreads(ids);
-        } catch (err) {
-          console.error("Bulk archive failed:", err);
+        const ids = [...multiIds];
+        for (const id of ids) {
+          await archiveThread(activeAccountId, id, []);
         }
       } else if (selectedId && activeAccountId) {
-        try {
-          const client = await getGmailClient(activeAccountId);
-          await client.modifyThread(selectedId, undefined, ["INBOX"]);
-          useThreadStore.getState().removeThread(selectedId);
-        } catch (err) {
-          console.error("Archive failed:", err);
-        }
+        await archiveThread(activeAccountId, selectedId, []);
       }
       break;
     }
@@ -296,37 +285,37 @@ async function executeAction(actionId: string): Promise<void> {
       const isDraftsView = deleteLabelCtx === "drafts";
       const multiDeleteIds = useThreadStore.getState().selectedThreadIds;
       if (multiDeleteIds.size > 0 && activeAccountId) {
-        try {
-          const client = await getGmailClient(activeAccountId);
-          const ids = [...multiDeleteIds];
-          for (const id of ids) {
-            if (isTrashView) {
-              await client.deleteThread(id);
-              await deleteThreadFromDb(activeAccountId, id);
-            } else if (isDraftsView) {
+        const ids = [...multiDeleteIds];
+        for (const id of ids) {
+          if (isTrashView) {
+            await permanentDeleteThread(activeAccountId, id, []);
+            await deleteThreadFromDb(activeAccountId, id);
+          } else if (isDraftsView) {
+            try {
+              const client = await getGmailClient(activeAccountId);
               await deleteDraftsForThread(client, activeAccountId, id);
-            } else {
-              await client.modifyThread(id, ["TRASH"], ["INBOX"]);
+              useThreadStore.getState().removeThread(id);
+            } catch (err) {
+              console.error("Draft delete failed:", err);
             }
+          } else {
+            await trashThread(activeAccountId, id, []);
           }
-          useThreadStore.getState().removeThreads(ids);
-        } catch (err) {
-          console.error("Bulk delete failed:", err);
         }
       } else if (selectedId && activeAccountId) {
-        try {
-          const client = await getGmailClient(activeAccountId);
-          if (isTrashView) {
-            await client.deleteThread(selectedId);
-            await deleteThreadFromDb(activeAccountId, selectedId);
-          } else if (isDraftsView) {
+        if (isTrashView) {
+          await permanentDeleteThread(activeAccountId, selectedId, []);
+          await deleteThreadFromDb(activeAccountId, selectedId);
+        } else if (isDraftsView) {
+          try {
+            const client = await getGmailClient(activeAccountId);
             await deleteDraftsForThread(client, activeAccountId, selectedId);
-          } else {
-            await client.modifyThread(selectedId, ["TRASH"], ["INBOX"]);
+            useThreadStore.getState().removeThread(selectedId);
+          } catch (err) {
+            console.error("Draft delete failed:", err);
           }
-          useThreadStore.getState().removeThread(selectedId);
-        } catch (err) {
-          console.error("Delete failed:", err);
+        } else {
+          await trashThread(activeAccountId, selectedId, []);
         }
       }
       break;
@@ -335,23 +324,7 @@ async function executeAction(actionId: string): Promise<void> {
       if (selectedId && activeAccountId) {
         const thread = threads.find((t) => t.id === selectedId);
         if (thread) {
-          const newStarred = !thread.isStarred;
-          useThreadStore.getState().updateThread(selectedId, {
-            isStarred: newStarred,
-          });
-          try {
-            const client = await getGmailClient(activeAccountId);
-            if (newStarred) {
-              await client.modifyThread(selectedId, ["STARRED"]);
-            } else {
-              await client.modifyThread(selectedId, undefined, ["STARRED"]);
-            }
-          } catch (err) {
-            console.error("Star failed:", err);
-            useThreadStore.getState().updateThread(selectedId, {
-              isStarred: !newStarred,
-            });
-          }
+          await starThread(activeAccountId, selectedId, [], !thread.isStarred);
         }
       }
       break;
@@ -360,32 +333,12 @@ async function executeAction(actionId: string): Promise<void> {
       const isSpamView = getActiveLabel() === "spam";
       const multiSpamIds = useThreadStore.getState().selectedThreadIds;
       if (multiSpamIds.size > 0 && activeAccountId) {
-        try {
-          const client = await getGmailClient(activeAccountId);
-          const ids = [...multiSpamIds];
-          for (const id of ids) {
-            if (isSpamView) {
-              await client.modifyThread(id, ["INBOX"], ["SPAM"]);
-            } else {
-              await client.modifyThread(id, ["SPAM"], ["INBOX"]);
-            }
-          }
-          useThreadStore.getState().removeThreads(ids);
-        } catch (err) {
-          console.error("Bulk spam failed:", err);
+        const ids = [...multiSpamIds];
+        for (const id of ids) {
+          await spamThread(activeAccountId, id, [], !isSpamView);
         }
       } else if (selectedId && activeAccountId) {
-        try {
-          const client = await getGmailClient(activeAccountId);
-          if (isSpamView) {
-            await client.modifyThread(selectedId, ["INBOX"], ["SPAM"]);
-          } else {
-            await client.modifyThread(selectedId, ["SPAM"], ["INBOX"]);
-          }
-          useThreadStore.getState().removeThread(selectedId);
-        } catch (err) {
-          console.error("Spam failed:", err);
-        }
+        await spamThread(activeAccountId, selectedId, [], !isSpamView);
       }
       break;
     }
@@ -426,9 +379,7 @@ async function executeAction(actionId: string): Promise<void> {
             const url = parseUnsubscribeUrl(unsubMsg.list_unsubscribe!);
             if (url) {
               await openUrl(url);
-              useThreadStore.getState().removeThread(selectedId);
-              const client = await getGmailClient(activeAccountId);
-              await client.modifyThread(selectedId, undefined, ["INBOX"]);
+              await archiveThread(activeAccountId, selectedId, []);
             }
           }
         } catch (err) {
@@ -440,22 +391,16 @@ async function executeAction(actionId: string): Promise<void> {
     case "action.mute": {
       const multiMuteIds = useThreadStore.getState().selectedThreadIds;
       if (multiMuteIds.size > 0 && activeAccountId) {
-        try {
-          const client = await getGmailClient(activeAccountId);
-          const ids = [...multiMuteIds];
-          for (const id of ids) {
-            const t = threads.find((thread) => thread.id === id);
-            if (t?.isMuted) {
-              await unmuteThreadDb(activeAccountId, id);
-              useThreadStore.getState().updateThread(id, { isMuted: false });
-            } else {
-              await muteThreadDb(activeAccountId, id);
-              await client.modifyThread(id, undefined, ["INBOX"]);
-              useThreadStore.getState().removeThread(id);
-            }
+        const ids = [...multiMuteIds];
+        for (const id of ids) {
+          const t = threads.find((thread) => thread.id === id);
+          if (t?.isMuted) {
+            await unmuteThreadDb(activeAccountId, id);
+            useThreadStore.getState().updateThread(id, { isMuted: false });
+          } else {
+            await muteThreadDb(activeAccountId, id);
+            await archiveThread(activeAccountId, id, []);
           }
-        } catch (err) {
-          console.error("Bulk mute failed:", err);
         }
       } else if (selectedId && activeAccountId) {
         const thread = threads.find((t) => t.id === selectedId);
@@ -464,15 +409,8 @@ async function executeAction(actionId: string): Promise<void> {
             await unmuteThreadDb(activeAccountId, selectedId);
             useThreadStore.getState().updateThread(selectedId, { isMuted: false });
           } else {
-            try {
-              await muteThreadDb(activeAccountId, selectedId);
-              const client = await getGmailClient(activeAccountId);
-              await client.modifyThread(selectedId, undefined, ["INBOX"]);
-              useThreadStore.getState().removeThread(selectedId);
-            } catch (err) {
-              console.error("Mute failed:", err);
-              await unmuteThreadDb(activeAccountId, selectedId);
-            }
+            await muteThreadDb(activeAccountId, selectedId);
+            await archiveThread(activeAccountId, selectedId, []);
           }
         }
       }

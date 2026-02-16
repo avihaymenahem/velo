@@ -50,6 +50,7 @@ import {
   LinkIcon,
   MailPlus,
   Server,
+  WifiOff,
 } from "lucide-react";
 
 // ---------- Types ----------
@@ -995,6 +996,21 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Multiple threads can be open in separate windows." },
           { text: "Pop-out windows are independent of the main app window." },
         ],
+      },
+      {
+        id: "offline-mode",
+        icon: WifiOff,
+        title: "Offline mode",
+        summary: "Keep working without an internet connection.",
+        description:
+          "Archive, star, trash, move, label, and compose emails even when you're offline. Changes are queued locally and sync automatically when your connection returns. A banner appears at the top of the screen when you're offline, and the sidebar shows how many operations are pending. Redundant actions (like starring then unstarring) are automatically compacted so only the final result syncs.",
+        tips: [
+          { text: "All actions work offline — archive, star, trash, labels, compose." },
+          { text: "Pending changes sync automatically when you reconnect." },
+          { text: "Check pending and failed operations in Settings > Sync." },
+          { text: "Failed operations can be retried or cleared from Settings." },
+        ],
+        relatedSettingsTab: "sync",
       },
     ],
   },

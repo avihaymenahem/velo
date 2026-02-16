@@ -25,6 +25,8 @@ interface UIState {
   colorTheme: ColorThemeId;
   sendAndArchive: boolean;
   inboxViewMode: InboxViewMode;
+  isOnline: boolean;
+  pendingOpsCount: number;
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -40,6 +42,8 @@ interface UIState {
   setColorTheme: (theme: ColorThemeId) => void;
   setSendAndArchive: (enabled: boolean) => void;
   setInboxViewMode: (mode: InboxViewMode) => void;
+  setOnline: (online: boolean) => void;
+  setPendingOpsCount: (count: number) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -56,6 +60,8 @@ export const useUIStore = create<UIState>((set) => ({
   colorTheme: "indigo",
   sendAndArchive: false,
   inboxViewMode: "unified",
+  isOnline: true,
+  pendingOpsCount: 0,
 
   setTheme: (theme) => set({ theme }),
   toggleSidebar: () =>
@@ -112,4 +118,6 @@ export const useUIStore = create<UIState>((set) => ({
     setSetting("inbox_view_mode", inboxViewMode).catch(() => {});
     set({ inboxViewMode });
   },
+  setOnline: (isOnline) => set({ isOnline }),
+  setPendingOpsCount: (pendingOpsCount) => set({ pendingOpsCount }),
 }));

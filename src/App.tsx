@@ -44,6 +44,15 @@ import {
 } from "./services/globalShortcut";
 import { initDeepLinkHandler } from "./services/deepLinkHandler";
 import { updateBadgeCount } from "./services/badgeManager";
+import {
+  startQueueProcessor,
+  stopQueueProcessor,
+  triggerQueueFlush,
+} from "./services/queue/queueProcessor";
+import {
+  startPreCacheManager,
+  stopPreCacheManager,
+} from "./services/attachments/preCacheManager";
 import { fetchSendAsAliases } from "./services/gmail/sendAs";
 import { getGmailClient } from "./services/gmail/tokenManager";
 import { invoke } from "@tauri-apps/api/core";
@@ -51,6 +60,7 @@ import { DndProvider } from "./components/dnd/DndProvider";
 import { TitleBar } from "./components/layout/TitleBar";
 import { useShortcutStore } from "./stores/shortcutStore";
 import { ContextMenuPortal } from "./components/ui/ContextMenuPortal";
+import { OfflineBanner } from "./components/ui/OfflineBanner";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
@@ -90,6 +100,28 @@ export default function App() {
 
   // Register global keyboard shortcuts
   useKeyboardShortcuts();
+
+  // Network status detection
+  useEffect(() => {
+    const { setOnline } = useUIStore.getState();
+    setOnline(navigator.onLine);
+
+    const handleOnline = () => {
+      setOnline(true);
+      triggerQueueFlush();
+      const accounts = useAccountStore.getState().accounts;
+      const activeIds = accounts.filter((a) => a.isActive).map((a) => a.id);
+      if (activeIds.length > 0) triggerSync(activeIds);
+    };
+    const handleOffline = () => setOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   // Suppress default browser context menu globally (Tauri app should feel native)
   useEffect(() => {
@@ -247,11 +279,13 @@ export default function App() {
           startBackgroundSync(activeIds);
         }
 
-        // Start snooze, scheduled send, follow-up, and bundle checkers
+        // Start snooze, scheduled send, follow-up, bundle, and queue checkers
         startSnoozeChecker();
         startScheduledSendChecker();
         startFollowUpChecker();
         startBundleChecker();
+        startQueueProcessor();
+        startPreCacheManager();
 
         // Initialize notifications
         await initNotifications();
@@ -280,6 +314,8 @@ export default function App() {
       stopScheduledSendChecker();
       stopFollowUpChecker();
       stopBundleChecker();
+      stopQueueProcessor();
+      stopPreCacheManager();
       unregisterComposeShortcut();
       deepLinkCleanupRef?.();
     };
@@ -421,6 +457,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden text-text-primary">
+      <OfflineBanner />
       {/* Animated gradient blobs for glassmorphism effect */}
       <div className="animated-bg" aria-hidden="true">
         <div className="blob" />

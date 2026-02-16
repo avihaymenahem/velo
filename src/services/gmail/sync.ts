@@ -11,6 +11,7 @@ import { getSetting } from "../db/settings";
 import { getMutedThreadIds } from "../db/threads";
 import { getThreadCategory } from "../db/threadCategories";
 import { getVipSenders } from "../db/notificationVips";
+import { getPendingOpsForResource } from "../db/pendingOperations";
 
 async function loadAutoArchiveCategories(): Promise<Set<string>> {
   const raw = await getSetting("auto_archive_categories");
@@ -352,6 +353,13 @@ export async function deltaSync(
     await parallelLimit(
       threadIds.map((threadId) => async () => {
         try {
+          // Skip metadata overwrite for threads with pending local changes
+          const pendingOps = await getPendingOpsForResource(accountId, threadId);
+          if (pendingOps.length > 0) {
+            console.log(`[deltaSync] Skipping thread ${threadId}: has ${pendingOps.length} pending local ops`);
+            return;
+          }
+
           const thread = await client.getThread(threadId, "full");
 
           if (!thread.messages || thread.messages.length === 0) return;
@@ -396,7 +404,7 @@ export async function deltaSync(
           const newMessages = parsedMessages.filter((m) => newInboxMessageIds.has(m.id));
           if (newMessages.length > 0) {
             try {
-              await applyFiltersToMessages(accountId, newMessages, client);
+              await applyFiltersToMessages(accountId, newMessages);
             } catch (err) {
               console.error(`Failed to apply filters to thread ${threadId}:`, err);
             }

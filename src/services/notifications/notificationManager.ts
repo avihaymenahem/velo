@@ -8,7 +8,6 @@ import {
 import { getSetting } from "../db/settings";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useComposerStore } from "../../stores/composerStore";
-import { useThreadStore } from "../../stores/threadStore";
 import { navigateToLabel } from "../../router/navigate";
 import { normalizeEmail } from "@/utils/emailUtils";
 
@@ -85,16 +84,11 @@ export async function initNotifications(): Promise<void> {
           threadId: ctx.threadId,
         });
       } else if (actionId === "archive" && ctx?.threadId && ctx?.accountId) {
-        const threadStore = useThreadStore.getState();
-        threadStore.removeThread(ctx.threadId);
-        const { getGmailClient } = await import("../gmail/tokenManager");
-        const client = await getGmailClient(ctx.accountId);
-        if (client) {
-          try {
-            await client.modifyThread(ctx.threadId, [], ["INBOX"]);
-          } catch (err) {
-            console.error("Failed to archive from notification:", err);
-          }
+        try {
+          const { archiveThread } = await import("../emailActions");
+          await archiveThread(ctx.accountId, ctx.threadId, []);
+        } catch (err) {
+          console.error("Failed to archive from notification:", err);
         }
       } else {
         await showAndFocusMainWindow();

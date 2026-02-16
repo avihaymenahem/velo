@@ -20,7 +20,7 @@ import { FromSelector } from "./FromSelector";
 import { useComposerStore } from "@/stores/composerStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUIStore } from "@/stores/uiStore";
-import { getGmailClient } from "@/services/gmail/tokenManager";
+import { sendEmail, archiveThread, deleteDraft as deleteDraftAction } from "@/services/emailActions";
 import { buildRawEmail } from "@/utils/emailBuilder";
 import { upsertContact } from "@/services/db/contacts";
 import { getSetting } from "@/services/db/settings";
@@ -291,17 +291,16 @@ export function Composer() {
 
     const timer = setTimeout(async () => {
       try {
-        const client = await getGmailClient(activeAccountId);
-        await client.sendMessage(raw, threadId ?? undefined);
+        await sendEmail(activeAccountId, raw, threadId ?? undefined);
 
         // Delete draft if it was saved
         if (currentDraftId) {
-          try { await client.deleteDraft(currentDraftId); } catch { /* ignore */ }
+          try { await deleteDraftAction(activeAccountId, currentDraftId); } catch { /* ignore */ }
         }
 
         // Send & archive: remove from inbox if replying to a thread
         if (useUIStore.getState().sendAndArchive && threadId) {
-          try { await client.modifyThread(threadId, undefined, ["INBOX"]); } catch { /* ignore */ }
+          try { await archiveThread(activeAccountId, threadId, []); } catch { /* ignore */ }
         }
 
         // Update contacts frequency
@@ -388,8 +387,7 @@ export function Composer() {
     // Delete the draft if exists
     if (draftId) {
       try {
-        const client = await getGmailClient(activeAccountId);
-        await client.deleteDraft(draftId);
+        await deleteDraftAction(activeAccountId, draftId);
       } catch { /* ignore */ }
     }
 
@@ -415,8 +413,7 @@ export function Composer() {
     // Delete the draft if it was saved
     if (draftId && activeAccountId) {
       try {
-        const client = await getGmailClient(activeAccountId);
-        await client.deleteDraft(draftId);
+        await deleteDraftAction(activeAccountId, draftId);
       } catch { /* ignore */ }
     }
     closeComposer();

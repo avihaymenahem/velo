@@ -8,7 +8,7 @@ import { Reply, ReplyAll, Forward, Send, Maximize2 } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { useUIStore } from "@/stores/uiStore";
-import { getGmailClient } from "@/services/gmail/tokenManager";
+import { sendEmail, archiveThread } from "@/services/emailActions";
 import { buildRawEmail } from "@/utils/emailBuilder";
 import { upsertContact } from "@/services/db/contacts";
 import { getSetting } from "@/services/db/settings";
@@ -149,12 +149,11 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
 
       const timer = setTimeout(async () => {
         try {
-          const client = await getGmailClient(accountId);
-          await client.sendMessage(raw, thread.id);
+          await sendEmail(accountId, raw, thread.id);
 
           // Send & archive: remove from inbox if enabled
           if (useUIStore.getState().sendAndArchive) {
-            try { await client.modifyThread(thread.id, undefined, ["INBOX"]); } catch { /* ignore */ }
+            try { await archiveThread(accountId, thread.id, []); } catch { /* ignore */ }
           }
 
           // Update contacts frequency

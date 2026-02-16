@@ -1,8 +1,7 @@
 import type { FilterCriteria, FilterActions } from "../db/filters";
 import { getEnabledFiltersForAccount } from "../db/filters";
 import type { ParsedMessage } from "../gmail/messageParser";
-import type { GmailClient } from "../gmail/client";
-import { getDb } from "../db/connection";
+import { addThreadLabel, removeThreadLabel, markThreadRead, starThread } from "../emailActions";
 
 /**
  * Check if a parsed message matches the given filter criteria.
@@ -85,7 +84,6 @@ export function computeFilterActions(actions: FilterActions): FilterResult {
 export async function applyFiltersToMessages(
   accountId: string,
   messages: ParsedMessage[],
-  client: GmailClient,
 ): Promise<void> {
   const filters = await getEnabledFiltersForAccount(accountId);
   if (filters.length === 0) return;
@@ -121,36 +119,27 @@ export async function applyFiltersToMessages(
   }
 
   // Apply combined actions per thread
-  const db = await getDb();
   for (const [threadId, result] of threadActions) {
     const addLabels = [...new Set(result.addLabelIds)];
     const removeLabels = [...new Set(result.removeLabelIds)];
 
     try {
-      // Apply label changes via Gmail API
-      if (addLabels.length > 0 || removeLabels.length > 0) {
-        await client.modifyThread(
-          threadId,
-          addLabels.length > 0 ? addLabels : undefined,
-          removeLabels.length > 0 ? removeLabels : undefined,
-        );
+      // Apply label changes via provider
+      for (const labelId of addLabels) {
+        await addThreadLabel(accountId, threadId, labelId);
+      }
+      for (const labelId of removeLabels) {
+        await removeThreadLabel(accountId, threadId, labelId);
       }
 
-      // Mark as read locally + via API
+      // Mark as read via provider
       if (result.markRead) {
-        await client.modifyThread(threadId, undefined, ["UNREAD"]);
-        await db.execute(
-          "UPDATE threads SET is_read = 1 WHERE account_id = $1 AND id = $2",
-          [accountId, threadId],
-        );
+        await markThreadRead(accountId, threadId, [], true);
       }
 
-      // Star locally
+      // Star via provider
       if (result.star) {
-        await db.execute(
-          "UPDATE threads SET is_starred = 1 WHERE account_id = $1 AND id = $2",
-          [accountId, threadId],
-        );
+        await starThread(accountId, threadId, [], true);
       }
     } catch (err) {
       console.error(`Failed to apply filter actions to thread ${threadId}:`, err);

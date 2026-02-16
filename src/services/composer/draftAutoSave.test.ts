@@ -2,12 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useComposerStore } from "@/stores/composerStore";
 import { startAutoSave, stopAutoSave } from "./draftAutoSave";
 
-// Mock dependencies
-vi.mock("@/services/gmail/tokenManager", () => ({
-  getGmailClient: vi.fn().mockResolvedValue({
-    createDraft: vi.fn().mockResolvedValue({ id: "draft-1", message: {} }),
-    updateDraft: vi.fn().mockResolvedValue({ id: "draft-1", message: {} }),
-  }),
+// Mock emailActions instead of getGmailClient
+vi.mock("@/services/emailActions", () => ({
+  createDraft: vi.fn().mockResolvedValue({ success: true, data: { draftId: "draft-1" } }),
+  updateDraft: vi.fn().mockResolvedValue({ success: true }),
 }));
 
 vi.mock("@/stores/accountStore", () => ({

@@ -579,6 +579,46 @@ const MIGRATIONS = [
     description: "Optional IMAP/SMTP username override",
     sql: `ALTER TABLE accounts ADD COLUMN imap_username TEXT;`,
   },
+  {
+    version: 17,
+    description: "Offline mode: pending operations queue and local drafts",
+    sql: `
+      CREATE TABLE IF NOT EXISTS pending_operations (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        operation_type TEXT NOT NULL,
+        resource_id TEXT NOT NULL,
+        params TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0,
+        max_retries INTEGER DEFAULT 10,
+        next_retry_at INTEGER,
+        created_at INTEGER DEFAULT (unixepoch()),
+        error_message TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_pending_ops_status ON pending_operations(status, next_retry_at);
+      CREATE INDEX IF NOT EXISTS idx_pending_ops_resource ON pending_operations(account_id, resource_id);
+
+      CREATE TABLE IF NOT EXISTS local_drafts (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        to_addresses TEXT,
+        cc_addresses TEXT,
+        bcc_addresses TEXT,
+        subject TEXT,
+        body_html TEXT,
+        reply_to_message_id TEXT,
+        thread_id TEXT,
+        from_email TEXT,
+        signature_id TEXT,
+        remote_draft_id TEXT,
+        attachments TEXT,
+        created_at INTEGER DEFAULT (unixepoch()),
+        updated_at INTEGER DEFAULT (unixepoch()),
+        sync_status TEXT DEFAULT 'pending'
+      );
+    `,
+  },
 ];
 
 /**

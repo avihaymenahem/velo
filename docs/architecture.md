@@ -39,10 +39,10 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 ## Data Flow
 
 1. **Sync** -- Background sync every 60s. Gmail accounts use Gmail History API (delta sync, falls back to full sync if history expires ~30 days). IMAP accounts use UIDVALIDITY/last_uid tracking for efficient delta sync.
-2. **Storage** -- All messages, threads, labels, contacts, calendar events, and AI results stored in local SQLite (31 tables) with FTS5 full-text indexing.
+2. **Storage** -- All messages, threads, labels, contacts, calendar events, and AI results stored in local SQLite (33 tables) with FTS5 full-text indexing.
 3. **State** -- Eight Zustand stores manage UI state. No middleware, no persistence needed -- ephemeral state rebuilds from SQLite on startup.
 4. **Rendering** -- Email HTML is sanitized with DOMPurify and rendered in sandboxed iframes. Remote images blocked by default.
-5. **Background services** -- Five interval checkers run continuously: sync, snooze, scheduled send, follow-up reminders, newsletter bundles (all 60s intervals).
+5. **Background services** -- Seven interval checkers run continuously: sync (60s), snooze (60s), scheduled send (60s), follow-up reminders (60s), newsletter bundles (60s), offline queue processor (30s), and attachment pre-cache (15min).
 6. **Security** -- Phishing link detection scores message links with 10 heuristic rules. SPF/DKIM/DMARC authentication headers parsed and displayed as badges.
 
 ## Project Structure
@@ -70,7 +70,7 @@ velo/
 │   │   │                     # HelpCard, HelpCardGrid, HelpTooltip
 │   │   ├── labels/           # LabelForm
 │   │   ├── dnd/              # DndProvider (drag threads → sidebar labels)
-│   │   └── ui/               # EmptyState, Skeleton, ContextMenu, illustrations/
+│   │   └── ui/               # EmptyState, Skeleton, ContextMenu, OfflineBanner, illustrations/
 │   ├── services/             # Business logic layer
 │   │   ├── db/               # SQLite queries (29 files), migrations, FTS5
 │   │   ├── email/            # EmailProvider abstraction, providerFactory,
@@ -90,9 +90,11 @@ velo/
 │   │   ├── bundles/          # Newsletter bundle manager
 │   │   ├── notifications/    # OS notification manager
 │   │   ├── contacts/         # Gravatar integration
-│   │   ├── attachments/      # Attachment cache manager
+│   │   ├── attachments/      # Attachment cache manager, pre-cache manager
 │   │   ├── unsubscribe/      # One-click unsubscribe (RFC 8058)
 │   │   ├── quickSteps/       # Quick step executor, types, defaults
+│   │   ├── queue/            # Offline queue processor
+│   │   ├── emailActions.ts   # Centralized email action service (offline-aware)
 │   │   ├── badgeManager.ts   # Taskbar badge count
 │   │   ├── deepLinkHandler.ts # mailto: protocol handler
 │   │   └── globalShortcut.ts # System-wide compose shortcut
@@ -156,11 +158,12 @@ All business logic lives in `src/services/` as plain async functions (except `Gm
 | `bundles/` | Newsletter bundling with delivery schedules |
 | `notifications/` | OS notifications with VIP filtering |
 | `contacts/` | Gravatar integration |
-| `attachments/` | Local attachment caching |
+| `attachments/` | Local attachment caching, pre-cache recent attachments |
 | `unsubscribe/` | One-click unsubscribe (RFC 8058) |
 | `quickSteps/` | Custom action chains with executor engine |
+| `queue/` | Offline queue processor with exponential backoff |
 
-**Root-level services:** `badgeManager.ts` (taskbar badge), `deepLinkHandler.ts` (mailto: protocol), `globalShortcut.ts` (system-wide compose)
+**Root-level services:** `emailActions.ts` (centralized offline-aware email actions), `badgeManager.ts` (taskbar badge), `deepLinkHandler.ts` (mailto: protocol), `globalShortcut.ts` (system-wide compose)
 
 ## UI Layer
 
@@ -168,7 +171,7 @@ Eight Zustand stores manage ephemeral UI state:
 
 | Store | Purpose |
 |-------|---------|
-| `uiStore` | Theme, sidebar, reading pane, density, font scale, selections |
+| `uiStore` | Theme, sidebar, reading pane, density, font scale, selections, online status, pending ops count |
 | `accountStore` | Account list, active account |
 | `threadStore` | Thread list, selected thread, loading state |
 | `composerStore` | Compose state, recipients, body, attachments |
@@ -179,9 +182,9 @@ Eight Zustand stores manage ephemeral UI state:
 
 ## Database
 
-SQLite via Tauri SQL plugin. 14 migrations, 31 tables total.
+SQLite via Tauri SQL plugin. 17 migrations, 33 tables total.
 
-Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS5 index, `auth_results`, IMAP headers, `imap_uid`, `imap_folder`), `threads` (with `is_pinned`, `is_muted`), `thread_labels`, `labels` (with `imap_folder_path`, `imap_special_use`), `contacts`, `attachments` (with `imap_part_id`), `filter_rules`, `scheduled_emails`, `templates`, `signatures`, `image_allowlist`, `settings`, `ai_cache`, `thread_categories`, `calendar_events`, `follow_up_reminders`, `notification_vips`, `unsubscribe_actions`, `bundle_rules`, `bundled_threads`, `send_as_aliases`, `smart_folders`, `link_scan_results`, `phishing_allowlist`, `quick_steps`, `folder_sync_state` (IMAP sync tracking).
+Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS5 index, `auth_results`, IMAP headers, `imap_uid`, `imap_folder`), `threads` (with `is_pinned`, `is_muted`), `thread_labels`, `labels` (with `imap_folder_path`, `imap_special_use`), `contacts`, `attachments` (with `imap_part_id`), `filter_rules`, `scheduled_emails`, `templates`, `signatures`, `image_allowlist`, `settings`, `ai_cache`, `thread_categories`, `calendar_events`, `follow_up_reminders`, `notification_vips`, `unsubscribe_actions`, `bundle_rules`, `bundled_threads`, `send_as_aliases`, `smart_folders`, `link_scan_results`, `phishing_allowlist`, `quick_steps`, `folder_sync_state` (IMAP sync tracking), `pending_operations` (offline action queue), `local_drafts` (offline draft persistence).
 
 ## Startup Sequence
 
@@ -190,9 +193,10 @@ Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS
 3. Load custom keyboard shortcuts
 4. Initialize email providers for all accounts (Gmail API clients + IMAP providers), sync send-as aliases for Gmail accounts
 5. Start background sync (60s interval), backfill uncategorized threads
-6. Start background checkers (snooze, scheduled send, follow-up, bundles)
-7. Initialize OS notifications
-8. Register global compose shortcut
-9. Initialize deep link handler (`mailto:`)
-10. Update taskbar badge count
-11. Close splash screen, show main window
+6. Start background checkers (snooze, scheduled send, follow-up, bundles, queue processor, attachment pre-cache)
+7. Initialize network status detection (online/offline listeners)
+8. Initialize OS notifications
+9. Register global compose shortcut
+10. Initialize deep link handler (`mailto:`)
+11. Update taskbar badge count
+12. Close splash screen, show main window

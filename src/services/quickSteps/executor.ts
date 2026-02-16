@@ -1,6 +1,6 @@
 import type { QuickStep, QuickStepAction, QuickStepExecutionResult } from "./types";
 import { ACTION_TYPE_METADATA } from "./types";
-import { getGmailClient } from "../gmail/tokenManager";
+import { archiveThread, trashThread, markThreadRead, starThread, spamThread, addThreadLabel, removeThreadLabel } from "../emailActions";
 import {
   pinThread as pinThreadDb,
   unpinThread as unpinThreadDb,
@@ -18,46 +18,40 @@ async function executeSingleAction(
   threadIds: string[],
   accountId: string,
 ): Promise<void> {
-  const client = await getGmailClient(accountId);
-
   switch (action.type) {
     case "archive":
       for (const id of threadIds) {
-        await client.modifyThread(id, undefined, ["INBOX"]);
+        await archiveThread(accountId, id, []);
       }
       break;
 
     case "trash":
       for (const id of threadIds) {
-        await client.modifyThread(id, ["TRASH"], ["INBOX"]);
+        await trashThread(accountId, id, []);
       }
       break;
 
     case "markRead":
       for (const id of threadIds) {
-        await client.modifyThread(id, undefined, ["UNREAD"]);
-        useThreadStore.getState().updateThread(id, { isRead: true });
+        await markThreadRead(accountId, id, [], true);
       }
       break;
 
     case "markUnread":
       for (const id of threadIds) {
-        await client.modifyThread(id, ["UNREAD"]);
-        useThreadStore.getState().updateThread(id, { isRead: false });
+        await markThreadRead(accountId, id, [], false);
       }
       break;
 
     case "star":
       for (const id of threadIds) {
-        await client.modifyThread(id, ["STARRED"]);
-        useThreadStore.getState().updateThread(id, { isStarred: true });
+        await starThread(accountId, id, [], true);
       }
       break;
 
     case "unstar":
       for (const id of threadIds) {
-        await client.modifyThread(id, undefined, ["STARRED"]);
-        useThreadStore.getState().updateThread(id, { isStarred: false });
+        await starThread(accountId, id, [], false);
       }
       break;
 
@@ -78,7 +72,7 @@ async function executeSingleAction(
     case "applyLabel":
       if (action.params?.labelId) {
         for (const id of threadIds) {
-          await client.modifyThread(id, [action.params.labelId]);
+          await addThreadLabel(accountId, id, action.params.labelId);
           const thread = useThreadStore.getState().threads.find((t) => t.id === id);
           if (thread && !thread.labelIds.includes(action.params.labelId)) {
             useThreadStore.getState().updateThread(id, {
@@ -92,7 +86,7 @@ async function executeSingleAction(
     case "removeLabel":
       if (action.params?.labelId) {
         for (const id of threadIds) {
-          await client.modifyThread(id, undefined, [action.params.labelId]);
+          await removeThreadLabel(accountId, id, action.params.labelId);
           const thread = useThreadStore.getState().threads.find((t) => t.id === id);
           if (thread) {
             useThreadStore.getState().updateThread(id, {
@@ -147,13 +141,13 @@ async function executeSingleAction(
 
     case "spam":
       for (const id of threadIds) {
-        await client.modifyThread(id, ["SPAM"], ["INBOX"]);
+        await spamThread(accountId, id, [], true);
       }
       break;
 
     case "notSpam":
       for (const id of threadIds) {
-        await client.modifyThread(id, ["INBOX"], ["SPAM"]);
+        await spamThread(accountId, id, [], false);
       }
       break;
   }

@@ -7,7 +7,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useThreadStore, type Thread } from "@/stores/threadStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
-import { getGmailClient } from "@/services/gmail/tokenManager";
+import { markThreadRead } from "@/services/emailActions";
 import { getSetting } from "@/services/db/settings";
 import { isAllowlisted } from "@/services/db/imageAllowlist";
 import { ExternalLink, Reply, ReplyAll, Forward, Printer, Download, PanelRightClose, PanelRightOpen, VolumeX } from "lucide-react";
@@ -116,11 +116,8 @@ export function ThreadView({ thread }: ThreadViewProps) {
 
     const markRead = () => {
       markedReadRef.current = thread.id;
-      updateThread(thread.id, { isRead: true });
-      getGmailClient(activeAccountId).then((client) => {
-        client.modifyThread(thread.id, undefined, ["UNREAD"]).catch((err) => {
-          console.error("Failed to mark thread as read:", err);
-        });
+      markThreadRead(activeAccountId, thread.id, [], true).catch((err) => {
+        console.error("Failed to mark thread as read:", err);
       });
     };
 

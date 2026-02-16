@@ -581,6 +581,28 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           { key: "query", label: "Search query", placeholder: "e.g. is:unread from:boss" },
         ]}
       />
+
+      {/* Pending operations indicator */}
+      <PendingOpsIndicator collapsed={collapsed} />
     </aside>
+  );
+}
+
+function PendingOpsIndicator({ collapsed }: { collapsed: boolean }) {
+  const pendingOpsCount = useUIStore((s) => s.pendingOpsCount);
+  if (pendingOpsCount <= 0) return null;
+
+  return (
+    <div className="px-3 py-2 border-t border-border-primary">
+      {collapsed ? (
+        <div className="flex justify-center">
+          <span className="bg-accent/20 text-accent text-xs font-medium px-1.5 py-0.5 rounded-full">{pendingOpsCount}</span>
+        </div>
+      ) : (
+        <div className="text-xs text-text-secondary">
+          {pendingOpsCount} pending {pendingOpsCount === 1 ? "change" : "changes"}
+        </div>
+      )}
+    </div>
   );
 }

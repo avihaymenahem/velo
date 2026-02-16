@@ -6,9 +6,10 @@ import { useAccountStore } from "@/stores/accountStore";
 import { getActiveLabel } from "@/router/navigate";
 import { useComposerStore } from "@/stores/composerStore";
 import { useLabelStore } from "@/stores/labelStore";
-import { getGmailClient } from "@/services/gmail/tokenManager";
+import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, addThreadLabel, removeThreadLabel } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
 import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
+import { getGmailClient } from "@/services/gmail/tokenManager";
 import { getMessagesForThread } from "@/services/db/messages";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { getEnabledQuickStepsForAccount, type DbQuickStep } from "@/services/db/quickSteps";
@@ -242,57 +243,43 @@ function ThreadMenu({
   };
 
   const handleArchive = async () => {
-    const client = await getGmailClient(activeAccountId);
-    const ids = [...targetIds];
-    useThreadStore.getState().removeThreads(ids);
-    for (const id of ids) {
-      await client.modifyThread(id, undefined, ["INBOX"]);
+    for (const id of targetIds) {
+      await archiveThread(activeAccountId, id, []);
     }
   };
 
   const handleDelete = async () => {
-    const client = await getGmailClient(activeAccountId);
-    const ids = [...targetIds];
-    useThreadStore.getState().removeThreads(ids);
-    for (const id of ids) {
+    for (const id of targetIds) {
       if (isTrashView) {
-        await client.deleteThread(id);
+        await permanentDeleteThread(activeAccountId, id, []);
         await deleteThreadFromDb(activeAccountId, id);
       } else if (isDraftsView) {
-        await deleteDraftsForThread(client, activeAccountId, id);
+        useThreadStore.getState().removeThread(id);
+        try {
+          const client = await getGmailClient(activeAccountId);
+          await deleteDraftsForThread(client, activeAccountId, id);
+        } catch (err) {
+          console.error("Failed to delete drafts:", err);
+        }
       } else {
-        await client.modifyThread(id, ["TRASH"], ["INBOX"]);
+        await trashThread(activeAccountId, id, []);
       }
     }
   };
 
   const handleToggleRead = async () => {
-    const client = await getGmailClient(activeAccountId);
     for (const id of targetIds) {
       const t = threads.find((th) => th.id === id);
       if (!t) continue;
-      const newIsRead = !t.isRead;
-      useThreadStore.getState().updateThread(id, { isRead: newIsRead });
-      if (newIsRead) {
-        await client.modifyThread(id, undefined, ["UNREAD"]);
-      } else {
-        await client.modifyThread(id, ["UNREAD"]);
-      }
+      await markThreadRead(activeAccountId, id, [], !t.isRead);
     }
   };
 
   const handleToggleStar = async () => {
-    const client = await getGmailClient(activeAccountId);
     for (const id of targetIds) {
       const t = threads.find((th) => th.id === id);
       if (!t) continue;
-      const newStarred = !t.isStarred;
-      useThreadStore.getState().updateThread(id, { isStarred: newStarred });
-      if (newStarred) {
-        await client.modifyThread(id, ["STARRED"]);
-      } else {
-        await client.modifyThread(id, undefined, ["STARRED"]);
-      }
+      await starThread(activeAccountId, id, [], !t.isStarred);
     }
   };
 
@@ -311,15 +298,8 @@ function ThreadMenu({
   };
 
   const handleSpam = async () => {
-    const client = await getGmailClient(activeAccountId);
-    const ids = [...targetIds];
-    useThreadStore.getState().removeThreads(ids);
-    for (const id of ids) {
-      if (isSpamView) {
-        await client.modifyThread(id, ["INBOX"], ["SPAM"]);
-      } else {
-        await client.modifyThread(id, ["SPAM"], ["INBOX"]);
-      }
+    for (const id of targetIds) {
+      await spamThread(activeAccountId, id, [], !isSpamView);
     }
   };
 
@@ -334,9 +314,7 @@ function ThreadMenu({
       const newMuted = !t.isMuted;
       if (newMuted) {
         await muteThreadDb(activeAccountId, id);
-        const client = await getGmailClient(activeAccountId);
-        await client.modifyThread(id, undefined, ["INBOX"]);
-        useThreadStore.getState().removeThread(id);
+        await archiveThread(activeAccountId, id, []);
       } else {
         await unmuteThreadDb(activeAccountId, id);
         useThreadStore.getState().updateThread(id, { isMuted: false });
@@ -371,18 +349,17 @@ function ThreadMenu({
   };
 
   const handleToggleLabel = async (labelId: string) => {
-    const client = await getGmailClient(activeAccountId);
     for (const id of targetIds) {
       const t = useThreadStore.getState().threads.find((th) => th.id === id);
       if (!t) continue;
       const hasLabel = t.labelIds.includes(labelId);
       if (hasLabel) {
-        await client.modifyThread(id, undefined, [labelId]);
+        await removeThreadLabel(activeAccountId, id, labelId);
         useThreadStore.getState().updateThread(id, {
           labelIds: t.labelIds.filter((l) => l !== labelId),
         });
       } else {
-        await client.modifyThread(id, [labelId]);
+        await addThreadLabel(activeAccountId, id, labelId);
         useThreadStore.getState().updateThread(id, {
           labelIds: [...t.labelIds, labelId],
         });
