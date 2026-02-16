@@ -21,9 +21,11 @@ export async function backfillUncategorizedThreads(
   do {
     batch = await getUncategorizedInboxThreadIds(accountId, batchSize);
 
-    for (const thread of batch) {
-      const labelIds = await getThreadLabelIds(accountId, thread.id);
-      const messages = await getMessagesForThread(accountId, thread.id);
+    await Promise.all(batch.map(async (thread) => {
+      const [labelIds, messages] = await Promise.all([
+        getThreadLabelIds(accountId, thread.id),
+        getMessagesForThread(accountId, thread.id),
+      ]);
       const lastMessage = messages[messages.length - 1];
 
       const category = categorizeByRules({
@@ -34,7 +36,7 @@ export async function backfillUncategorizedThreads(
 
       await setThreadCategory(accountId, thread.id, category, false);
       totalCategorized++;
-    }
+    }));
   } while (batch.length === batchSize);
 
   return totalCategorized;

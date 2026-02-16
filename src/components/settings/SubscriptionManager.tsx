@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAccountStore } from "@/stores/accountStore";
 import {
   getSubscriptions,
@@ -15,8 +15,8 @@ export function SubscriptionManager() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [unsubscribingIds, setUnsubscribingIds] = useState<Set<string>>(new Set());
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [unsubscribingIds, setUnsubscribingIds] = useState<Set<string>>(() => new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (!activeAccountId) return;
@@ -78,14 +78,14 @@ export function SubscriptionManager() {
     });
   };
 
-  const filtered = subscriptions.filter((s) => {
-    if (!searchQuery) return true;
+  const filtered = useMemo(() => {
+    if (!searchQuery) return subscriptions;
     const q = searchQuery.toLowerCase();
-    return (
+    return subscriptions.filter((s) =>
       s.from_address.toLowerCase().includes(q) ||
-      (s.from_name?.toLowerCase().includes(q) ?? false)
+      (s.from_name?.toLowerCase().includes(q) ?? false),
     );
-  });
+  }, [subscriptions, searchQuery]);
 
   if (!activeAccountId) {
     return <p className="text-sm text-text-tertiary">No active account selected.</p>;

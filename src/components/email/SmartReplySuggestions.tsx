@@ -18,6 +18,7 @@ export function SmartReplySuggestions({ threadId, accountId, messages, noReply }
   const [loading, setLoading] = useState(false);
   const [available, setAvailable] = useState(false);
   const checkedRef = useRef(false);
+  const loadingRef = useRef(false);
   const openComposer = useComposerStore((s) => s.openComposer);
 
   useEffect(() => {
@@ -27,7 +28,8 @@ export function SmartReplySuggestions({ threadId, accountId, messages, noReply }
   }, []);
 
   const loadReplies = useCallback(async () => {
-    if (loading) return;
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     try {
       const result = await generateSmartReplies(threadId, accountId, messages);
@@ -35,15 +37,16 @@ export function SmartReplySuggestions({ threadId, accountId, messages, noReply }
     } catch (err) {
       console.error("Failed to generate smart replies:", err);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [threadId, accountId, messages, loading]);
+  }, [threadId, accountId, messages]);
 
   // Auto-load when available
   useEffect(() => {
-    if (!available || messages.length === 0 || replies !== null || loading) return;
+    if (!available || messages.length === 0 || replies !== null || loadingRef.current) return;
     loadReplies();
-  }, [available, messages.length, replies, loading, loadReplies]);
+  }, [available, messages.length, replies, loadReplies]);
 
   const handleRefresh = useCallback(async () => {
     await deleteAiCache(accountId, threadId, "smart_replies");

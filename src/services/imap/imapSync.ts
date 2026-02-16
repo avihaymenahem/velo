@@ -196,7 +196,7 @@ async function storeThreadsAndMessages(
 
     await setThreadLabels(accountId, group.threadId, [...allLabelIds]);
 
-    for (const parsed of messages) {
+    await Promise.all(messages.map(async (parsed) => {
       const imapMsg = imapMsgByLocalId.get(parsed.id);
 
       await upsertMessage({
@@ -228,9 +228,8 @@ async function storeThreadsAndMessages(
         imapFolder: imapMsg?.folder ?? null,
       });
 
-      // Store attachments
-      for (const att of parsed.attachments) {
-        await upsertAttachment({
+      await Promise.all(parsed.attachments.map((att) =>
+        upsertAttachment({
           id: `${parsed.id}_${att.gmailAttachmentId}`,
           messageId: parsed.id,
           accountId,
@@ -240,11 +239,11 @@ async function storeThreadsAndMessages(
           gmailAttachmentId: att.gmailAttachmentId,
           contentId: att.contentId,
           isInline: att.isInline,
-        });
-      }
+        }),
+      ));
 
       storedMessages.push(parsed);
-    }
+    }));
   }
 
   return storedMessages;

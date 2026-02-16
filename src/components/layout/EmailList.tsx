@@ -79,13 +79,13 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const [categoryMap, setCategoryMap] = useState<Map<string, string>>(new Map());
-  const [categoryUnreadCounts, setCategoryUnreadCounts] = useState<Map<string, number>>(new Map());
-  const [followUpThreadIds, setFollowUpThreadIds] = useState<Set<string>>(new Set());
+  const [categoryMap, setCategoryMap] = useState<Map<string, string>>(() => new Map());
+  const [categoryUnreadCounts, setCategoryUnreadCounts] = useState<Map<string, number>>(() => new Map());
+  const [followUpThreadIds, setFollowUpThreadIds] = useState<Set<string>>(() => new Set());
   const [bundleRules, setBundleRules] = useState<DbBundleRule[]>([]);
-  const [heldThreadIds, setHeldThreadIds] = useState<Set<string>>(new Set());
-  const [expandedBundles, setExpandedBundles] = useState<Set<string>>(new Set());
-  const [bundleSummaries, setBundleSummaries] = useState<Map<string, { count: number; latestSubject: string | null; latestSender: string | null }>>(new Map());
+  const [heldThreadIds, setHeldThreadIds] = useState<Set<string>>(() => new Set());
+  const [expandedBundles, setExpandedBundles] = useState<Set<string>>(() => new Set());
+  const [bundleSummaries, setBundleSummaries] = useState<Map<string, { count: number; latestSubject: string | null; latestSender: string | null }>>(() => new Map());
 
   const openMenu = useContextMenuStore((s) => s.openMenu);
   const multiSelectCount = selectedThreadIds.size;
@@ -206,6 +206,23 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     // Category filtering is now server-side (Phase 4) — no client-side filter needed
     return filtered;
   }, [threads, readFilter, searchThreadIds]);
+
+  // Pre-compute bundled category Set for O(1) lookups in filter
+  const bundledCategorySet = useMemo(
+    () => new Set(bundleRules.map((r) => r.category)),
+    [bundleRules],
+  );
+
+  // Memoize visible threads (excludes bundled/held threads in "All" inbox view)
+  const visibleThreads = useMemo(() => {
+    if (activeLabel !== "inbox" || activeCategory !== "All") return filteredThreads;
+    return filteredThreads.filter((t) => {
+      const cat = categoryMap.get(t.id);
+      if (cat && bundledCategorySet.has(cat)) return false;
+      if (heldThreadIds.has(t.id)) return false;
+      return true;
+    });
+  }, [filteredThreads, activeLabel, activeCategory, categoryMap, bundledCategorySet, heldThreadIds]);
 
   const mapDbThreads = useCallback(async (dbThreads: Awaited<ReturnType<typeof getThreadsForAccount>>): Promise<Thread[]> => {
     return Promise.all(
@@ -613,19 +630,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
                 </div>
               );
             })}
-            {filteredThreads
-              .filter((t) => {
-                // In "All" view, hide threads that belong to a bundled (collapsed) category
-                if (activeLabel === "inbox" && activeCategory === "All") {
-                  const cat = categoryMap.get(t.id);
-                  const isBundled = cat && bundleRules.some((r) => r.category === cat);
-                  if (isBundled) return false;
-                  // Also hide held threads
-                  if (heldThreadIds.has(t.id)) return false;
-                }
-                return true;
-              })
-              .map((thread, idx) => {
+            {visibleThreads.map((thread, idx) => {
               const prevThread = idx > 0 ? filteredThreads[idx - 1] : undefined;
               const showDivider = prevThread?.isPinned && !thread.isPinned;
               return (

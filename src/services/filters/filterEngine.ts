@@ -118,31 +118,33 @@ export async function applyFiltersToMessages(
     }
   }
 
-  // Apply combined actions per thread
-  for (const [threadId, result] of threadActions) {
-    const addLabels = [...new Set(result.addLabelIds)];
-    const removeLabels = [...new Set(result.removeLabelIds)];
+  // Apply combined actions per thread in parallel
+  await Promise.allSettled(
+    [...threadActions].map(async ([threadId, result]) => {
+      const addLabels = [...new Set(result.addLabelIds)];
+      const removeLabels = [...new Set(result.removeLabelIds)];
 
-    try {
-      // Apply label changes via provider
-      for (const labelId of addLabels) {
-        await addThreadLabel(accountId, threadId, labelId);
-      }
-      for (const labelId of removeLabels) {
-        await removeThreadLabel(accountId, threadId, labelId);
-      }
+      try {
+        // Apply label changes via provider
+        for (const labelId of addLabels) {
+          await addThreadLabel(accountId, threadId, labelId);
+        }
+        for (const labelId of removeLabels) {
+          await removeThreadLabel(accountId, threadId, labelId);
+        }
 
-      // Mark as read via provider
-      if (result.markRead) {
-        await markThreadRead(accountId, threadId, [], true);
-      }
+        // Mark as read via provider
+        if (result.markRead) {
+          await markThreadRead(accountId, threadId, [], true);
+        }
 
-      // Star via provider
-      if (result.star) {
-        await starThread(accountId, threadId, [], true);
+        // Star via provider
+        if (result.star) {
+          await starThread(accountId, threadId, [], true);
+        }
+      } catch (err) {
+        console.error(`Failed to apply filter actions to thread ${threadId}:`, err);
       }
-    } catch (err) {
-      console.error(`Failed to apply filter actions to thread ${threadId}:`, err);
-    }
-  }
+    }),
+  );
 }

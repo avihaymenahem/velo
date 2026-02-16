@@ -110,7 +110,7 @@ async function processAndStoreThread(
     }
   }
 
-  for (const parsed of parsedMessages) {
+  await Promise.all(parsedMessages.map(async (parsed) => {
     await upsertMessage({
       id: parsed.id,
       accountId,
@@ -135,8 +135,8 @@ async function processAndStoreThread(
       authResults: parsed.authResults,
     });
 
-    for (const att of parsed.attachments) {
-      await upsertAttachment({
+    await Promise.all(parsed.attachments.map((att) =>
+      upsertAttachment({
         id: `${parsed.id}_${att.gmailAttachmentId}`,
         messageId: parsed.id,
         accountId,
@@ -146,9 +146,9 @@ async function processAndStoreThread(
         gmailAttachmentId: att.gmailAttachmentId,
         contentId: att.contentId,
         isInline: att.isInline,
-      });
-    }
-  }
+      }),
+    ));
+  }));
 }
 
 /**
@@ -159,16 +159,16 @@ export async function syncLabels(
   accountId: string,
 ): Promise<void> {
   const response = await client.listLabels();
-  for (const label of response.labels) {
-    await upsertLabel({
+  await Promise.all(response.labels.map((label) =>
+    upsertLabel({
       id: label.id,
       accountId,
       name: label.name,
       type: label.type,
       colorBg: label.color?.backgroundColor ?? null,
       colorFg: label.color?.textColor ?? null,
-    });
-  }
+    }),
+  ));
 }
 
 /**
@@ -220,32 +220,32 @@ export async function initialSync(
   // Load auto-archive categories once for the whole sync
   const autoArchiveCategories = await loadAutoArchiveCategories();
 
-  for (let i = 0; i < threadStubs.length; i++) {
-    const stub = threadStubs[i]!;
-    onProgress?.({
-      phase: "messages",
-      current: i + 1,
-      total: threadStubs.length,
-    });
+  let progress = 0;
+  await parallelLimit(
+    threadStubs.map((stub) => async () => {
+      onProgress?.({
+        phase: "messages",
+        current: ++progress,
+        total: threadStubs.length,
+      });
 
-    try {
-      const thread = await client.getThread(stub.id, "full");
+      try {
+        const thread = await client.getThread(stub.id, "full");
 
-      if (
-        BigInt(thread.historyId) > BigInt(historyId)
-      ) {
-        historyId = thread.historyId;
+        if (BigInt(thread.historyId) > BigInt(historyId)) {
+          historyId = thread.historyId;
+        }
+
+        if (!thread.messages || thread.messages.length === 0) return;
+
+        const parsedMessages = thread.messages.map(parseGmailMessage);
+        await processAndStoreThread(thread, accountId, parsedMessages, client, autoArchiveCategories);
+      } catch (err) {
+        console.error(`Failed to sync thread ${stub.id}:`, err);
       }
-
-      if (!thread.messages || thread.messages.length === 0) continue;
-
-      const parsedMessages = thread.messages.map(parseGmailMessage);
-      await processAndStoreThread(thread, accountId, parsedMessages, client, autoArchiveCategories);
-    } catch (err) {
-      console.error(`Failed to sync thread ${stub.id}:`, err);
-      // Continue with next thread
-    }
-  }
+    }),
+    5,
+  );
 
   // Store the latest history ID for delta sync
   await updateAccountSyncState(accountId, historyId);

@@ -55,6 +55,12 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
     },
   });
 
+  const activateMode = useCallback((newMode: ReplyMode) => {
+    setMode(newMode);
+    if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+    focusTimerRef.current = setTimeout(() => editor?.commands.focus(), 50);
+  }, [editor]);
+
   // Load default signature
   useEffect(() => {
     getDefaultSignature(accountId).then((sig) => {
@@ -67,14 +73,12 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { mode: ReplyMode } | undefined;
       if (detail?.mode) {
-        setMode(detail.mode);
-        if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
-        focusTimerRef.current = setTimeout(() => editor?.commands.focus(), 50);
+        activateMode(detail.mode);
       }
     };
     window.addEventListener("velo-inline-reply", handler);
     return () => window.removeEventListener("velo-inline-reply", handler);
-  }, [editor]);
+  }, [activateMode]);
 
   // Scroll into view when activated
   useEffect(() => {
@@ -229,7 +233,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
     return (
       <div ref={containerRef} className="mx-4 my-3 flex items-center gap-2">
         <button
-          onClick={() => { setMode("reply"); if (focusTimerRef.current) clearTimeout(focusTimerRef.current); focusTimerRef.current = setTimeout(() => editor?.commands.focus(), 50); }}
+          onClick={() => activateMode("reply")}
           disabled={noReply}
           title={noReply ? "This sender does not accept replies" : undefined}
           className="flex items-center gap-1.5 px-4 py-2 text-xs text-text-secondary border border-border-primary rounded-lg hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-secondary"
@@ -238,7 +242,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
           Reply
         </button>
         <button
-          onClick={() => { setMode("replyAll"); if (focusTimerRef.current) clearTimeout(focusTimerRef.current); focusTimerRef.current = setTimeout(() => editor?.commands.focus(), 50); }}
+          onClick={() => activateMode("replyAll")}
           disabled={noReply}
           title={noReply ? "This sender does not accept replies" : undefined}
           className="flex items-center gap-1.5 px-4 py-2 text-xs text-text-secondary border border-border-primary rounded-lg hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-secondary"
@@ -247,7 +251,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
           Reply All
         </button>
         <button
-          onClick={() => { setMode("forward"); if (focusTimerRef.current) clearTimeout(focusTimerRef.current); focusTimerRef.current = setTimeout(() => editor?.commands.focus(), 50); }}
+          onClick={() => activateMode("forward")}
           className="flex items-center gap-1.5 px-4 py-2 text-xs text-text-secondary border border-border-primary rounded-lg hover:bg-bg-hover hover:text-text-primary transition-colors"
         >
           <Forward size={14} />
