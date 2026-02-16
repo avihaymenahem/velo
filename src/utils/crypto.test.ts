@@ -1,24 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createMockTauriFs } from "@/test/mocks";
 
-// Mock Tauri FS and path modules before importing the module
-vi.mock("@tauri-apps/plugin-fs", () => {
-  const store = new Map<string, string>();
-  return {
-    exists: vi.fn(async (path: string) => store.has(path)),
-    readTextFile: vi.fn(async (path: string) => store.get(path) ?? ""),
-    writeTextFile: vi.fn(async (path: string, content: string) => { store.set(path, content); }),
-    mkdir: vi.fn(async () => {}),
-  };
-});
+const tauriFs = createMockTauriFs();
 
-vi.mock("@tauri-apps/api/path", () => ({
-  appDataDir: vi.fn(async () => "/mock/app/data/"),
-  join: vi.fn(async (...parts: string[]) => parts.join("/")),
-}));
+vi.mock("@tauri-apps/plugin-fs", () => tauriFs.mock);
 
 describe("crypto", () => {
   beforeEach(() => {
     vi.resetModules();
+    tauriFs.store.clear();
   });
 
   it("encrypts and decrypts a value roundtrip", async () => {
@@ -26,9 +16,7 @@ describe("crypto", () => {
     const plaintext = "my-secret-api-key-12345";
     const encrypted = await encryptValue(plaintext);
 
-    // Encrypted value should be different from plaintext
     expect(encrypted).not.toBe(plaintext);
-    // Should be in iv:ciphertext format
     expect(encrypted.split(":")).toHaveLength(2);
 
     const decrypted = await decryptValue(encrypted);
@@ -74,5 +62,38 @@ describe("crypto", () => {
     const encrypted = await encryptValue(plaintext);
     const decrypted = await decryptValue(encrypted);
     expect(decrypted).toBe(plaintext);
+  });
+
+  it("uses baseDir option for FS operations", async () => {
+    const { encryptValue } = await import("./crypto");
+
+    await encryptValue("test");
+
+    expect(tauriFs.mock.exists).toHaveBeenCalledWith(
+      "velo.key",
+      expect.objectContaining({ baseDir: 26 }),
+    );
+    expect(tauriFs.mock.writeTextFile).toHaveBeenCalledWith(
+      "velo.key",
+      expect.any(String),
+      expect.objectContaining({ baseDir: 26 }),
+    );
+  });
+
+  it("reads existing key from file using baseDir", async () => {
+    // Pre-seed a key in the mock store
+    const mockKey = btoa(String.fromCharCode(...new Uint8Array(32).fill(42)));
+    tauriFs.store.set("velo.key", mockKey);
+
+    const { encryptValue, decryptValue } = await import("./crypto");
+    const encrypted = await encryptValue("round-trip-test");
+
+    expect(tauriFs.mock.readTextFile).toHaveBeenCalledWith(
+      "velo.key",
+      expect.objectContaining({ baseDir: 26 }),
+    );
+
+    const decrypted = await decryptValue(encrypted);
+    expect(decrypted).toBe("round-trip-test");
   });
 });

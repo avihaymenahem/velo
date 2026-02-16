@@ -20,3 +20,4 @@ export {
   createMockThreadStoreState,
   createMockAccountStoreState,
 } from "./stores.mock";
+export { createMockTauriFs, createMockTauriPath } from "./tauri.mock";
