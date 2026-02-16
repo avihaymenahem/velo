@@ -4,11 +4,23 @@ import { getSetting } from "@/services/db/settings";
 const CACHE_DIR = "attachment_cache";
 
 async function getCacheDir(): Promise<string> {
-  const { appDataDir, sep } = await import("@tauri-apps/api/path");
+  const { appDataDir, join } = await import("@tauri-apps/api/path");
   const dir = await appDataDir();
-  const separator = sep();
-  const base = dir.endsWith(separator) ? dir : `${dir}${separator}`;
-  return `${base}${CACHE_DIR}`;
+  return join(dir, CACHE_DIR);
+}
+
+function hashFileName(id: string): string {
+  // Use simple DJB2-based hash to create a short, filesystem-safe name
+  let h1 = 5381;
+  let h2 = 52711;
+  for (let i = 0; i < id.length; i++) {
+    const ch = id.charCodeAt(i);
+    h1 = (h1 * 33) ^ ch;
+    h2 = (h2 * 33) ^ ch;
+    h1 = h1 >>> 0;
+    h2 = h2 >>> 0;
+  }
+  return `${h1.toString(36)}_${h2.toString(36)}`;
 }
 
 export async function cacheAttachment(
@@ -26,7 +38,8 @@ export async function cacheAttachment(
       // directory may already exist
     }
 
-    const filePath = `${cacheDir}/${attachmentId}`;
+    const { join } = await import("@tauri-apps/api/path");
+    const filePath = await join(cacheDir, hashFileName(attachmentId));
     await fsWriteFile(filePath, data);
 
     // Update DB
