@@ -137,6 +137,18 @@ const wellKnownProviders: WellKnownProvider[] = [
     },
     authMethods: ["password"],
   },
+  {
+    domains: ["mailo.com", "net-c.com", "netc.fr"],
+    settings: {
+      imapHost: "mail.mailo.com",
+      imapPort: 993,
+      imapSecurity: "ssl",
+      smtpHost: "mail.mailo.com",
+      smtpPort: 465,
+      smtpSecurity: "ssl",
+    },
+    authMethods: ["password"],
+  },
 ];
 
 /**

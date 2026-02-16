@@ -142,6 +142,7 @@ async function storeThreadsAndMessages(
   threadGroups: ThreadGroup[],
   parsedByLocalId: Map<string, ParsedMessage>,
   imapMsgByLocalId: Map<string, ImapMessage>,
+  labelsByRfcId?: Map<string, Set<string>>,
 ): Promise<ParsedMessage[]> {
   const storedMessages: ParsedMessage[] = [];
 
@@ -170,11 +171,24 @@ async function storeThreadsAndMessages(
     const firstMessage = messages[0]!;
     const lastMessage = messages[messages.length - 1]!;
 
-    // Collect all label IDs across messages in this thread
+    // Collect all label IDs across messages in this thread.
+    // Also include labels from duplicate folder copies (same RFC Message-ID
+    // in multiple folders) that the threading algorithm may have deduplicated.
     const allLabelIds = new Set<string>();
     for (const msg of messages) {
       for (const lid of msg.labelIds) {
         allLabelIds.add(lid);
+      }
+      // Merge labels from all folder copies of this message
+      const imapMsg = imapMsgByLocalId.get(msg.id);
+      const rfcId = imapMsg?.message_id;
+      if (rfcId && labelsByRfcId) {
+        const extraLabels = labelsByRfcId.get(rfcId);
+        if (extraLabels) {
+          for (const lid of extraLabels) {
+            allLabelIds.add(lid);
+          }
+        }
       }
     }
 
@@ -195,7 +209,9 @@ async function storeThreadsAndMessages(
       hasAttachments,
     });
 
-    await setThreadLabels(accountId, group.threadId, [...allLabelIds]);
+    const labelArray = [...allLabelIds];
+    console.log(`[imapSync] Thread ${group.threadId}: ${messages.length} msgs, labels=[${labelArray.join(",")}], subject="${firstMessage.subject?.slice(0, 50)}"`);
+    await setThreadLabels(accountId, group.threadId, labelArray);
 
     await Promise.all(messages.map(async (parsed) => {
       const imapMsg = imapMsgByLocalId.get(parsed.id);
@@ -406,6 +422,23 @@ export async function imapInitialSync(
     }
   }
 
+  // Build a map: RFC Message-ID → all label IDs from every folder copy.
+  // This ensures labels aren't lost when the threading algorithm deduplicates
+  // messages that exist in multiple IMAP folders (e.g., INBOX + Sent).
+  const labelsByRfcId = new Map<string, Set<string>>();
+  for (const threadable of allThreadable) {
+    const parsed = allParsed.get(threadable.id);
+    if (!parsed) continue;
+    let labels = labelsByRfcId.get(threadable.messageId);
+    if (!labels) {
+      labels = new Set();
+      labelsByRfcId.set(threadable.messageId, labels);
+    }
+    for (const lid of parsed.labelIds) {
+      labels.add(lid);
+    }
+  }
+
   // Phase 3: Thread messages
   onProgress?.({ phase: "threading", current: 0, total: allThreadable.length });
   const threadGroups = buildThreads(allThreadable);
@@ -419,6 +452,7 @@ export async function imapInitialSync(
     threadGroups,
     allParsed,
     allImapMsgs,
+    labelsByRfcId,
   );
 
   console.log(
@@ -596,6 +630,21 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
     return { messages: [] };
   }
 
+  // Build RFC Message-ID → labels map for cross-folder label merging
+  const labelsByRfcId = new Map<string, Set<string>>();
+  for (const threadable of allThreadable) {
+    const parsed = allParsed.get(threadable.id);
+    if (!parsed) continue;
+    let labels = labelsByRfcId.get(threadable.messageId);
+    if (!labels) {
+      labels = new Set();
+      labelsByRfcId.set(threadable.messageId, labels);
+    }
+    for (const lid of parsed.labelIds) {
+      labels.add(lid);
+    }
+  }
+
   // Thread the new messages
   const threadGroups = buildThreads(allThreadable);
 
@@ -605,6 +654,7 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
     threadGroups,
     allParsed,
     allImapMsgs,
+    labelsByRfcId,
   );
 
   // Update sync state timestamp

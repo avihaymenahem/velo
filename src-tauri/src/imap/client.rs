@@ -640,6 +640,7 @@ fn detect_special_use(name: &async_imap::types::Name) -> Option<String> {
     // Heuristic fallback based on common folder names
     let lower = name.name().to_lowercase();
     match lower.as_str() {
+        "inbox" => Some("\\Inbox".to_string()),
         "sent" | "sent messages" | "sent items" | "[gmail]/sent mail" => {
             Some("\\Sent".to_string())
         }
