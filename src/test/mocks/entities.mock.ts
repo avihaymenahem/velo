@@ -31,6 +31,8 @@ export function createMockParsedMessage(
     hasAttachments: false,
     attachments: [],
     listUnsubscribe: null,
+    listUnsubscribePost: null,
+    authResults: null,
     ...overrides,
   };
 }

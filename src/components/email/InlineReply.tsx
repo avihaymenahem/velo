@@ -1,8 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
-import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Reply, ReplyAll, Forward, Send, Maximize2 } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
@@ -40,9 +38,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: false }),
-      Link.configure({ openOnClick: false }),
-      Underline,
+      StarterKit.configure({ heading: false, link: { openOnClick: false } }),
       Placeholder.configure({
         placeholder: "Write your reply...",
       }),

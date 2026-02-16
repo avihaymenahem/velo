@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { GmailClient } from "@/services/gmail/client";
 
 export function createMockGmailClient(

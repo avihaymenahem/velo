@@ -1,3 +1,5 @@
+import { vi } from "vitest";
+
 export function createMockUIStoreState(overrides: Record<string, unknown> = {}) {
   return {
     isOnline: true,

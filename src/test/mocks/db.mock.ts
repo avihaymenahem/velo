@@ -1,3 +1,5 @@
+import { vi } from "vitest";
+
 export function createMockDb() {
   return {
     select: vi.fn(() => Promise.resolve([])),

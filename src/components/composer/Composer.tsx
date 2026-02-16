@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CSSTransition } from "react-transition-group";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
-import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import { Clock, Maximize2, Minimize2, ExternalLink } from "lucide-react";
@@ -84,9 +82,8 @@ export function Composer() {
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+        link: { openOnClick: false },
       }),
-      Link.configure({ openOnClick: false }),
-      Underline,
       Placeholder.configure({
         placeholder: "Write your message...",
       }),

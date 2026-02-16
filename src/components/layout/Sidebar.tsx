@@ -162,14 +162,16 @@ function DroppableLabelItem({
             <Tag size={14} className="shrink-0" />
           )}
           <span className="flex-1 truncate">{label.name}</span>
-          <button
-            type="button"
+          <span
+            role="button"
+            tabIndex={0}
             onClick={(e) => { e.stopPropagation(); onEditClick(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onEditClick(); } }}
             className="opacity-0 group-hover:opacity-100 p-0.5 text-sidebar-text/40 hover:text-sidebar-text transition-opacity"
             title="Edit label"
           >
             <Pencil size={12} />
-          </button>
+          </span>
         </>
       )}
     </button>
@@ -330,10 +332,19 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                       <span className="flex-1 truncate">{item.label}</span>
                     )}
                     {isInbox && !collapsed && (
-                      <button
+                      <span
+                        role="button"
+                        tabIndex={0}
                         onClick={(e) => {
                           e.stopPropagation();
                           setInboxViewMode(inboxViewMode === "split" ? "unified" : "split");
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setInboxViewMode(inboxViewMode === "split" ? "unified" : "split");
+                          }
                         }}
                         title={inboxViewMode === "split" ? "Switch to unified inbox" : "Switch to split inbox"}
                         className={`p-1 rounded transition-colors ${
@@ -343,7 +354,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                         }`}
                       >
                         <Columns2 size={14} />
-                      </button>
+                      </span>
                     )}
                   </>
                 )}
