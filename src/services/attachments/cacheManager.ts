@@ -4,9 +4,11 @@ import { getSetting } from "@/services/db/settings";
 const CACHE_DIR = "attachment_cache";
 
 async function getCacheDir(): Promise<string> {
-  const { appDataDir } = await import("@tauri-apps/api/path");
+  const { appDataDir, sep } = await import("@tauri-apps/api/path");
   const dir = await appDataDir();
-  return `${dir}${CACHE_DIR}`;
+  // Ensure trailing separator so path doesn't merge with CACHE_DIR
+  const base = dir.endsWith(sep) ? dir : `${dir}${sep}`;
+  return `${base}${CACHE_DIR}`;
 }
 
 export async function cacheAttachment(
