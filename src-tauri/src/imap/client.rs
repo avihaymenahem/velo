@@ -1113,10 +1113,11 @@ fn detect_special_use(name: &async_imap::types::Name) -> Option<String> {
         "sent" | "sent messages" | "sent items" | "[gmail]/sent mail" => {
             Some("\\Sent".to_string())
         }
-        "trash" | "deleted" | "deleted items" | "deleted messages" | "[gmail]/trash" => {
+        "trash" | "deleted" | "deleted items" | "deleted messages" | "bin" | "corbeille"
+        | "unsolbox" | "[gmail]/trash" => {
             Some("\\Trash".to_string())
         }
-        "drafts" | "draft" | "[gmail]/drafts" => Some("\\Drafts".to_string()),
+        "drafts" | "draft" | "draftbox" | "brouillons" | "[gmail]/drafts" => Some("\\Drafts".to_string()),
         "junk" | "spam" | "junk e-mail" | "[gmail]/spam" => Some("\\Junk".to_string()),
         "archive" | "archives" | "[gmail]/all mail" => Some("\\Archive".to_string()),
         _ => None,

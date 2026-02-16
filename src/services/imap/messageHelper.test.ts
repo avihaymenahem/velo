@@ -89,6 +89,21 @@ describe("messageHelper", () => {
       expect(result).toBeNull();
     });
 
+    it("falls back to label ID lookup when imap_special_use not found", async () => {
+      const { getDb } = await import("../db/connection");
+      const mockDb = {
+        select: vi.fn()
+          .mockResolvedValueOnce([]) // first query: imap_special_use lookup → empty
+          .mockResolvedValueOnce([{ imap_folder_path: "unsolbox", name: "Trash" }]), // fallback: label ID lookup
+      };
+      vi.mocked(getDb).mockResolvedValue(mockDb as never);
+
+      const { findSpecialFolder } = await import("./messageHelper");
+      const result = await findSpecialFolder("acc1", "\\Trash");
+      expect(result).toBe("unsolbox");
+      expect(mockDb.select).toHaveBeenCalledTimes(2);
+    });
+
     it("returns imap_folder_path when available", async () => {
       const { getDb } = await import("../db/connection");
       const mockDb = {
