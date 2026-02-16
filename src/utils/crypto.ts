@@ -4,13 +4,13 @@
  * via Tauri's filesystem in the app data directory.
  */
 
-import { exists, readTextFile, writeTextFile, mkdir } from "@tauri-apps/plugin-fs";
-import { appDataDir, join } from "@tauri-apps/api/path";
+import { exists, readTextFile, writeTextFile, mkdir, BaseDirectory } from "@tauri-apps/plugin-fs";
 
 const KEY_FILE_NAME = "velo.key";
 const ALGORITHM = "AES-GCM";
 const KEY_LENGTH = 256;
 const IV_LENGTH = 12;
+const FS_OPTIONS = { baseDir: BaseDirectory.AppData };
 
 let cachedKey: CryptoKey | null = null;
 
@@ -31,15 +31,11 @@ function base64Decode(str: string): Uint8Array {
   return bytes;
 }
 
-async function getKeyFilePath(): Promise<string> {
-  const dir = await appDataDir();
-  return join(dir, KEY_FILE_NAME);
-}
-
 async function ensureAppDataDir(): Promise<void> {
-  const dir = await appDataDir();
-  if (!(await exists(dir))) {
-    await mkdir(dir, { recursive: true });
+  try {
+    await mkdir("", { ...FS_OPTIONS, recursive: true });
+  } catch {
+    // directory may already exist
   }
 }
 
@@ -53,11 +49,9 @@ function asBufferSource(arr: Uint8Array): BufferSource {
 async function getOrCreateKey(): Promise<CryptoKey> {
   if (cachedKey) return cachedKey;
 
-  const keyPath = await getKeyFilePath();
-
   let rawKeyB64: string;
-  if (await exists(keyPath)) {
-    rawKeyB64 = (await readTextFile(keyPath)).trim();
+  if (await exists(KEY_FILE_NAME, FS_OPTIONS)) {
+    rawKeyB64 = (await readTextFile(KEY_FILE_NAME, FS_OPTIONS)).trim();
   } else {
     // Generate a new random key
     const rawKey = new Uint8Array(KEY_LENGTH / 8);
@@ -65,7 +59,7 @@ async function getOrCreateKey(): Promise<CryptoKey> {
     rawKeyB64 = base64Encode(rawKey);
 
     await ensureAppDataDir();
-    await writeTextFile(keyPath, rawKeyB64);
+    await writeTextFile(KEY_FILE_NAME, rawKeyB64, FS_OPTIONS);
   }
 
   const rawKey = base64Decode(rawKeyB64);
