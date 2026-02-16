@@ -162,14 +162,14 @@ function DroppableLabelItem({
             <Tag size={14} className="shrink-0" />
           )}
           <span className="flex-1 truncate">{label.name}</span>
-          <span
-            role="button"
+          <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); onEditClick(); }}
             className="opacity-0 group-hover:opacity-100 p-0.5 text-sidebar-text/40 hover:text-sidebar-text transition-opacity"
             title="Edit label"
           >
             <Pencil size={12} />
-          </span>
+          </button>
         </>
       )}
     </button>

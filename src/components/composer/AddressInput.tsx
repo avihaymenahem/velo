@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { searchContacts, type DbContact } from "@/services/db/contacts";
 
 interface AddressInputProps {
@@ -19,6 +19,13 @@ export function AddressInput({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    };
+  }, []);
 
   const handleInputChange = useCallback(
     async (value: string) => {
@@ -84,14 +91,14 @@ export function AddressInput({
         {label}
       </span>
       <div className="flex-1 flex flex-wrap items-center gap-1 min-h-[32px] relative">
-        {addresses.map((addr, i) => (
+        {addresses.map((addr) => (
           <span
-            key={i}
+            key={addr}
             className="inline-flex items-center gap-1 bg-accent-light text-accent text-xs px-2 py-0.5 rounded-full"
           >
             {addr}
             <button
-              onClick={() => removeAddress(i)}
+              onClick={() => onChange(addresses.filter((a) => a !== addr))}
               className="hover:text-danger text-[0.625rem] leading-none"
             >
               ×
@@ -106,7 +113,8 @@ export function AddressInput({
           onKeyDown={handleKeyDown}
           onBlur={() => {
             // Delay to allow click on suggestion
-            setTimeout(() => setShowSuggestions(false), 150);
+            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+            blurTimerRef.current = setTimeout(() => setShowSuggestions(false), 150);
             if (inputValue.trim()) addAddress(inputValue);
           }}
           placeholder={addresses.length === 0 ? placeholder : ""}

@@ -322,66 +322,105 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     loadThreads();
   }, [loadThreads]);
 
-  // Load categories for "All" tab (needed for category badges)
+  // Load all thread metadata (categories, unread counts, follow-ups, bundles) in one coordinated effect
   useEffect(() => {
-    if (activeLabel !== "inbox" || activeCategory !== "All" || threads.length === 0 || !activeAccountId) {
+    let cancelled = false;
+
+    if (!activeAccountId) {
       setCategoryMap(new Map());
-      return;
-    }
-    getCategoriesForThreads(activeAccountId, threads.map((t) => t.id))
-      .then(setCategoryMap)
-      .catch(console.error);
-  }, [threads, activeLabel, activeCategory, activeAccountId]);
-
-  // Load unread counts for category tabs
-  useEffect(() => {
-    if (activeLabel !== "inbox" || !activeAccountId) {
       setCategoryUnreadCounts(new Map());
-      return;
-    }
-    getCategoryUnreadCounts(activeAccountId)
-      .then(setCategoryUnreadCounts)
-      .catch(console.error);
-  }, [threads, activeLabel, activeAccountId]);
-
-  // Load follow-up reminder indicators
-  useEffect(() => {
-    if (threads.length === 0 || !activeAccountId) {
       setFollowUpThreadIds(new Set());
-      return;
-    }
-    getActiveFollowUpThreadIds(activeAccountId, threads.map((t) => t.id))
-      .then(setFollowUpThreadIds)
-      .catch(() => setFollowUpThreadIds(new Set()));
-  }, [threads, activeAccountId]);
-
-  // Load bundle rules and held threads for inbox "All" view
-  useEffect(() => {
-    if (activeLabel !== "inbox" || !activeAccountId) {
       setBundleRules([]);
       setHeldThreadIds(new Set());
       setBundleSummaries(new Map());
       return;
     }
-    getBundleRules(activeAccountId)
-      .then((rules) => {
-        setBundleRules(rules.filter((r) => r.is_bundled));
-        // Load summaries for bundled categories
-        const summaryPromises = rules
-          .filter((r) => r.is_bundled)
-          .map(async (r) => {
-            const summary = await getBundleSummary(activeAccountId, r.category);
-            return [r.category, summary] as const;
-          });
-        Promise.all(summaryPromises).then((entries) => {
-          setBundleSummaries(new Map(entries));
-        });
-      })
-      .catch(() => setBundleRules([]));
-    getHeldThreadIds(activeAccountId)
-      .then(setHeldThreadIds)
-      .catch(() => setHeldThreadIds(new Set()));
-  }, [threads, activeLabel, activeAccountId]);
+
+    const threadIds = threads.map((t) => t.id);
+    const isInbox = activeLabel === "inbox";
+    const isAllCategory = activeCategory === "All";
+
+    const loadMetadata = async () => {
+      try {
+        // Build all promises based on current view
+        const promises: Promise<void>[] = [];
+
+        // Categories (only for inbox "All" tab with threads)
+        if (isInbox && isAllCategory && threads.length > 0) {
+          promises.push(
+            getCategoriesForThreads(activeAccountId, threadIds).then((result) => {
+              if (!cancelled) setCategoryMap(result);
+            }),
+          );
+        } else {
+          setCategoryMap(new Map());
+        }
+
+        // Unread counts (only for inbox)
+        if (isInbox) {
+          promises.push(
+            getCategoryUnreadCounts(activeAccountId).then((result) => {
+              if (!cancelled) setCategoryUnreadCounts(result);
+            }),
+          );
+        } else {
+          setCategoryUnreadCounts(new Map());
+        }
+
+        // Follow-up indicators
+        if (threads.length > 0) {
+          promises.push(
+            getActiveFollowUpThreadIds(activeAccountId, threadIds).then((result) => {
+              if (!cancelled) setFollowUpThreadIds(result);
+            }).catch(() => {
+              if (!cancelled) setFollowUpThreadIds(new Set());
+            }),
+          );
+        } else {
+          setFollowUpThreadIds(new Set());
+        }
+
+        // Bundle rules + held threads (only for inbox)
+        if (isInbox) {
+          promises.push(
+            getBundleRules(activeAccountId).then(async (rules) => {
+              if (cancelled) return;
+              const bundled = rules.filter((r) => r.is_bundled);
+              setBundleRules(bundled);
+              // Load summaries for bundled categories
+              const entries = await Promise.all(
+                bundled.map(async (r) => {
+                  const summary = await getBundleSummary(activeAccountId, r.category);
+                  return [r.category, summary] as const;
+                }),
+              ).catch(() => [] as (readonly [string, { count: number; latestSubject: string | null; latestSender: string | null }])[]);
+              if (!cancelled) setBundleSummaries(new Map(entries));
+            }).catch(() => {
+              if (!cancelled) setBundleRules([]);
+            }),
+          );
+          promises.push(
+            getHeldThreadIds(activeAccountId).then((result) => {
+              if (!cancelled) setHeldThreadIds(result);
+            }).catch(() => {
+              if (!cancelled) setHeldThreadIds(new Set());
+            }),
+          );
+        } else {
+          setBundleRules([]);
+          setHeldThreadIds(new Set());
+          setBundleSummaries(new Map());
+        }
+
+        await Promise.all(promises);
+      } catch (err) {
+        console.error("Failed to load thread metadata:", err);
+      }
+    };
+
+    loadMetadata();
+    return () => { cancelled = true; };
+  }, [threads, activeLabel, activeCategory, activeAccountId]);
 
   // Listen for sync completion to reload
   useEffect(() => {

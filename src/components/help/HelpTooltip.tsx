@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { HelpCircle } from "lucide-react";
 import { CONTEXTUAL_TIPS } from "@/constants/helpContent";
@@ -15,6 +15,10 @@ export function HelpTooltip({ contextId, size = 14 }: HelpTooltipProps) {
   const iconRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const closeTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    return () => { clearTimeout(closeTimeout.current); };
+  }, []);
 
   if (!tip) return null;
 

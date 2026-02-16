@@ -94,6 +94,7 @@ export default function App() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [showAskInbox, setShowAskInbox] = useState(false);
+  const deepLinkCleanupRef = useRef<(() => void) | undefined>(undefined);
 
   // Sync bridge: router state → Zustand stores (temporary)
   useRouterSyncBridge();
@@ -294,7 +295,7 @@ export default function App() {
         await initGlobalShortcut();
 
         // Initialize deep link handler
-        deepLinkCleanupRef = await initDeepLinkHandler();
+        deepLinkCleanupRef.current = await initDeepLinkHandler();
 
         // Initial badge count
         await updateBadgeCount();
@@ -305,7 +306,6 @@ export default function App() {
       invoke("close_splashscreen").catch(() => {});
     }
 
-    let deepLinkCleanupRef: (() => void) | undefined;
     init();
 
     return () => {
@@ -317,7 +317,7 @@ export default function App() {
       stopQueueProcessor();
       stopPreCacheManager();
       unregisterComposeShortcut();
-      deepLinkCleanupRef?.();
+      deepLinkCleanupRef.current?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- store setters are stable references
   }, []);

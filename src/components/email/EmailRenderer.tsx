@@ -124,7 +124,7 @@ export function EmailRenderer({
     observerRef.current = resizeObserver;
 
     // Open links in external browser via Tauri opener
-    doc.addEventListener("click", (e) => {
+    const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const anchor = target.closest("a");
       if (anchor?.href) {
@@ -133,9 +133,11 @@ export function EmailRenderer({
           console.error("Failed to open link:", err);
         });
       }
-    });
+    };
+    doc.addEventListener("click", handleClick);
 
     return () => {
+      doc.removeEventListener("click", handleClick);
       observerRef.current?.disconnect();
       cancelAnimationFrame(rafRef.current);
     };

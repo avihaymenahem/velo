@@ -25,8 +25,10 @@ export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryPr
     isAiAvailable().then(setAvailable);
   }, [messages.length]);
 
+  const loadingRef = useRef(false);
   const loadSummary = useCallback(async () => {
-    if (loading) return;
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     try {
       const result = await summarizeThread(threadId, accountId, messages);
@@ -35,15 +37,16 @@ export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryPr
       console.error("Failed to summarize thread:", err);
       setSummary(null);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [threadId, accountId, messages, loading]);
+  }, [threadId, accountId, messages]);
 
   // Auto-load summary when available
   useEffect(() => {
-    if (!available || messages.length < 2 || summary !== null || loading) return;
+    if (!available || messages.length < 2 || summary !== null || loadingRef.current) return;
     loadSummary();
-  }, [available, messages.length, summary, loading, loadSummary]);
+  }, [available, messages.length, summary, loadSummary]);
 
   const handleRefresh = useCallback(async () => {
     await deleteAiCache(accountId, threadId, "summary");

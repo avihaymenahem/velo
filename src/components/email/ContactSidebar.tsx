@@ -44,6 +44,8 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
 
   const loadedRef = useRef<string | null>(null);
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { threads, setThreads } = useThreadStore();
 
   const handleThreadClick = useCallback(async (threadId: string) => {
@@ -75,37 +77,43 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
   }, [accountId, threads, setThreads]);
 
   useEffect(() => {
-    if (!email || loadedRef.current === email) return;
+    if (!email) return;
     loadedRef.current = email;
+    let cancelled = false;
 
     // Load contact + avatar
     getContactByEmail(email).then((c) => {
+      if (cancelled) return;
       setContact(c);
       setNotes(c?.notes ?? "");
       if (c?.avatar_url) {
         setAvatarUrl(c.avatar_url);
       } else {
-        fetchAndCacheGravatarUrl(email).then(setAvatarUrl);
+        fetchAndCacheGravatarUrl(email).then((url) => {
+          if (!cancelled) setAvatarUrl(url);
+        });
       }
     });
 
     // Load stats
-    getContactStats(email).then(setStats);
+    getContactStats(email).then((s) => { if (!cancelled) setStats(s); });
 
     // Load recent threads
-    getRecentThreadsWithContact(email).then(setRecentThreads);
+    getRecentThreadsWithContact(email).then((t) => { if (!cancelled) setRecentThreads(t); });
 
     // Load VIP status
-    isVipSender(accountId, email).then(setIsVip);
+    isVipSender(accountId, email).then((v) => { if (!cancelled) setIsVip(v); });
 
     // Load attachments from contact
-    getAttachmentsFromContact(email).then(setAttachments);
+    getAttachmentsFromContact(email).then((a) => { if (!cancelled) setAttachments(a); });
 
     // Load same-domain contacts
-    getContactsFromSameDomain(email).then(setSameDomainContacts);
+    getContactsFromSameDomain(email).then((c) => { if (!cancelled) setSameDomainContacts(c); });
 
     // Load auth results
-    getLatestAuthResult(email).then(setAuthResults);
+    getLatestAuthResult(email).then((r) => { if (!cancelled) setAuthResults(r); });
+
+    return () => { cancelled = true; };
   }, [email, accountId]);
 
   // -- Event handlers --
@@ -117,7 +125,8 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
   const handleCopyEmail = useCallback(() => {
     navigator.clipboard.writeText(email);
     setCopyFeedback(true);
-    setTimeout(() => setCopyFeedback(false), 1500);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopyFeedback(false), 1500);
   }, [email]);
 
   const handleToggleVip = useCallback(async () => {
@@ -151,7 +160,8 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
     const c = await getContactByEmail(email);
     setContact(c);
     setAddedFeedback(true);
-    setTimeout(() => setAddedFeedback(false), 1500);
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    addedTimerRef.current = setTimeout(() => setAddedFeedback(false), 1500);
   }, [email, name]);
 
   const handleStartEditName = useCallback(() => {
@@ -167,10 +177,12 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
     setEditingName(false);
   }, [contact, editNameValue]);
 
-  // Cleanup debounce timer on unmount
+  // Cleanup all timers on unmount
   useEffect(() => {
     return () => {
       if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
     };
   }, []);
 
