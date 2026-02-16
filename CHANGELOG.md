@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.9](https://github.com/avihaymenahem/velo/compare/velo-v0.3.8...velo-v0.3.9) (2026-02-16)
+
+
+### Bug Fixes
+
+* decode IMAP folder names from modified UTF-7 and use real UIDs for sync ([19a919e](https://github.com/avihaymenahem/velo/commit/19a919eece270efaa0751e8d74b42dca6e6f4f54))
+
 ## [0.3.8](https://github.com/avihaymenahem/velo/compare/velo-v0.3.7...velo-v0.3.8) (2026-02-16)
 
 
