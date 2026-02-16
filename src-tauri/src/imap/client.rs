@@ -222,7 +222,10 @@ pub async fn fetch_messages(
         let is_starred = flags.iter().any(|f| matches!(f, Flag::Flagged));
         let is_draft = flags.iter().any(|f| matches!(f, Flag::Draft));
 
-        match parse_message(&parser, raw, uid, folder, raw_size, is_read, is_starred, is_draft) {
+        // Extract INTERNALDATE as fallback for messages with unparseable Date headers
+        let internal_date = fetch.internal_date().map(|dt| dt.timestamp());
+
+        match parse_message(&parser, raw, uid, folder, raw_size, is_read, is_starred, is_draft, internal_date) {
             Ok(msg) => messages.push(msg),
             Err(e) => {
                 log::warn!("Failed to parse message UID {uid}: {e}");
@@ -275,7 +278,7 @@ pub async fn fetch_message_body(
     let is_draft = flags.iter().any(|f| matches!(f, Flag::Draft));
 
     let parser = MessageParser::default();
-    parse_message(&parser, raw, uid, folder, raw_size, is_read, is_starred, is_draft)
+    parse_message(&parser, raw, uid, folder, raw_size, is_read, is_starred, is_draft, None)
 }
 
 /// Get UIDs of messages newer than `last_uid`.
@@ -651,6 +654,9 @@ fn detect_special_use(name: &async_imap::types::Name) -> Option<String> {
 }
 
 /// Parse a raw email message into our ImapMessage struct.
+///
+/// `internal_date`: optional INTERNALDATE timestamp from the IMAP server,
+/// used as fallback when the Date header cannot be parsed.
 fn parse_message(
     parser: &MessageParser,
     raw: &[u8],
@@ -660,12 +666,17 @@ fn parse_message(
     is_read: bool,
     is_starred: bool,
     is_draft: bool,
+    internal_date: Option<i64>,
 ) -> Result<ImapMessage, String> {
     let message = parser.parse(raw).ok_or("Failed to parse MIME message")?;
 
     let message_id = message.message_id().map(|s| s.to_string());
     let subject = message.subject().map(|s| s.to_string());
-    let date = message.date().map(|d| d.to_timestamp()).unwrap_or(0);
+    let date = message
+        .date()
+        .map(|d| d.to_timestamp())
+        .or(internal_date)
+        .unwrap_or(0);
 
     // In-Reply-To
     let in_reply_to = match message.in_reply_to() {
