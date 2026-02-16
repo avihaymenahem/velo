@@ -50,6 +50,16 @@ export async function deleteFolderSyncState(
   );
 }
 
+export async function clearAllFolderSyncStates(
+  accountId: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "DELETE FROM folder_sync_state WHERE account_id = $1",
+    [accountId],
+  );
+}
+
 export async function getAllFolderSyncStates(
   accountId: string,
 ): Promise<FolderSyncState[]> {

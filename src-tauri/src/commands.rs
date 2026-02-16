@@ -28,8 +28,6 @@ pub async fn imap_fetch_messages(
         return Err("No UIDs provided".to_string());
     }
 
-    let mut session = imap_client::connect(&config).await?;
-
     // Build a UID set string like "1,5,10,20"
     let uid_set: String = uids
         .iter()
@@ -37,9 +35,19 @@ pub async fn imap_fetch_messages(
         .collect::<Vec<_>>()
         .join(",");
 
-    let result = imap_client::fetch_messages(&mut session, &folder, &uid_set).await?;
+    let mut session = imap_client::connect(&config).await?;
+    let result = imap_client::fetch_messages(&mut session, &folder, &uid_set).await;
     let _ = session.logout().await;
-    Ok(result)
+
+    match result {
+        Ok(r) => Ok(r),
+        Err(e) if e.starts_with("ASYNC_IMAP_EMPTY:") => {
+            // async-imap can't parse this server's responses — use raw TCP fallback
+            log::info!("Falling back to raw TCP fetch for folder {folder}");
+            imap_client::raw_fetch_messages(&config, &folder, &uid_set).await
+        }
+        Err(e) => Err(e),
+    }
 }
 
 #[tauri::command]
@@ -216,6 +224,15 @@ fn base64url_decode(input: &str) -> Result<Vec<u8>, String> {
     engine
         .decode(input)
         .map_err(|e| format!("base64url decode failed: {e}"))
+}
+
+#[tauri::command]
+pub async fn imap_raw_fetch_diagnostic(
+    config: ImapConfig,
+    folder: String,
+    uid_range: String,
+) -> Result<String, String> {
+    imap_client::raw_fetch_diagnostic(&config, &folder, &uid_range).await
 }
 
 // ---------- SMTP commands ----------

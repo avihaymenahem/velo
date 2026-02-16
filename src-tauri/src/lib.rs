@@ -89,6 +89,7 @@ pub fn run() {
             commands::imap_get_folder_status,
             commands::imap_fetch_attachment,
             commands::imap_append_message,
+            commands::imap_raw_fetch_diagnostic,
             commands::smtp_send_email,
             commands::smtp_test_connection,
         ])
@@ -102,6 +103,7 @@ pub fn run() {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(level)
+                        .level_for("sqlx::query", log::LevelFilter::Warn)
                         .build(),
                 )?;
             }

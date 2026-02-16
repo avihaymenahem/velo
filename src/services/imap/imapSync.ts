@@ -210,7 +210,6 @@ async function storeThreadsAndMessages(
     });
 
     const labelArray = [...allLabelIds];
-    console.log(`[imapSync] Thread ${group.threadId}: ${messages.length} msgs, labels=[${labelArray.join(",")}], subject="${firstMessage.subject?.slice(0, 50)}"`);
     await setThreadLabels(accountId, group.threadId, labelArray);
 
     await Promise.all(messages.map(async (parsed) => {
