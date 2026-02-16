@@ -153,4 +153,16 @@ describe("imapMessageToParsedMessage", () => {
     const { parsed } = imapMessageToParsedMessage(msg, "acc-1", "INBOX");
     expect(parsed.authResults).toBe('{"spf":"pass","dkim":"pass"}');
   });
+
+  it("handles date=0 (unparseable Date header) without crashing", () => {
+    const msg = createMockImapMessage({ date: 0 });
+    const { parsed, threadable } = imapMessageToParsedMessage(msg, "acc-1", "INBOX");
+
+    // date=0 is passed through — the caller (imapInitialSync) applies the fallback
+    expect(parsed.date).toBe(0);
+    expect(threadable.date).toBe(0);
+    // Message should still be valid
+    expect(parsed.id).toBe("imap-acc-1-INBOX-42");
+    expect(parsed.fromAddress).toBe("sender@example.com");
+  });
 });

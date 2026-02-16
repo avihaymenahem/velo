@@ -309,6 +309,7 @@ export async function imapInitialSync(
   const allFolders = await imapListFolders(config);
   const syncableFolders = getSyncableFolders(allFolders);
   await syncFoldersToLabels(accountId, syncableFolders);
+  console.log(`[imapSync] Initial sync for account ${accountId}: ${syncableFolders.length} syncable folders`);
   onProgress?.({ phase: "folders", current: 1, total: 1 });
 
   // Phase 2: Fetch messages from each folder
@@ -323,6 +324,7 @@ export async function imapInitialSync(
   }
 
   let fetchedTotal = 0;
+  let totalMessagesFound = 0;
 
   for (const folder of syncableFolders) {
     if (folder.exists === 0) continue;
@@ -349,9 +351,30 @@ export async function imapInitialSync(
         },
       );
 
+      totalMessagesFound += messages.length;
+
       // Filter by date if daysBack is specified
+      // Messages with date=0 (unparseable Date header) use current time as fallback
       const cutoffDate = Math.floor(Date.now() / 1000) - daysBack * 86400;
-      const filteredMessages = messages.filter((m) => m.date >= cutoffDate);
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      let dateFallbackCount = 0;
+      const filteredMessages = messages.filter((m) => {
+        if (m.date === 0) {
+          dateFallbackCount++;
+          m.date = nowSeconds;
+        }
+        return m.date >= cutoffDate;
+      });
+
+      if (dateFallbackCount > 0) {
+        console.warn(
+          `[imapSync] Folder ${folder.path}: ${dateFallbackCount}/${messages.length} messages had unparseable dates, using current time as fallback`,
+        );
+      }
+
+      console.log(
+        `[imapSync] Folder ${folder.path}: ${uidsToFetch.length} UIDs, ${messages.length} fetched, ${filteredMessages.length} after date filter`,
+      );
 
       for (const msg of filteredMessages) {
         const { parsed, threadable } = imapMessageToParsedMessage(
@@ -378,7 +401,7 @@ export async function imapInitialSync(
         last_sync_at: Math.floor(Date.now() / 1000),
       });
     } catch (err) {
-      console.error(`Failed to sync folder ${folder.path}:`, err);
+      console.error(`[imapSync] Failed to sync folder ${folder.path}:`, err);
       // Continue with next folder
     }
   }
@@ -386,6 +409,9 @@ export async function imapInitialSync(
   // Phase 3: Thread messages
   onProgress?.({ phase: "threading", current: 0, total: allThreadable.length });
   const threadGroups = buildThreads(allThreadable);
+  console.log(
+    `[imapSync] Threading: ${allThreadable.length} messages → ${threadGroups.length} thread groups`,
+  );
 
   // Phase 4: Store in DB
   const storedMessages = await storeThreadsAndMessages(
@@ -395,8 +421,19 @@ export async function imapInitialSync(
     allImapMsgs,
   );
 
-  // Mark initial sync as done by storing a sync token
-  await updateAccountSyncState(accountId, `imap-synced-${Date.now()}`);
+  console.log(
+    `[imapSync] Stored ${storedMessages.length} messages (found ${totalMessagesFound} on server)`,
+  );
+
+  // Only mark sync as complete if messages were stored OR no messages exist on server.
+  // This prevents marking sync done when all messages were silently dropped.
+  if (storedMessages.length > 0 || totalMessagesFound === 0) {
+    await updateAccountSyncState(accountId, `imap-synced-${Date.now()}`);
+  } else {
+    console.warn(
+      `[imapSync] Found ${totalMessagesFound} messages on server but stored 0 — NOT marking sync as complete so it will be retried`,
+    );
+  }
 
   onProgress?.({
     phase: "done",
