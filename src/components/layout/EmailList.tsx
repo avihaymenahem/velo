@@ -146,18 +146,17 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     if (!activeAccountId || multiSelectCount === 0) return;
     const isTrashView = activeLabel === "trash";
     const ids = [...selectedThreadIds];
-    // Optimistic: remove from UI immediately
     removeThreads(ids);
     try {
       const client = await getGmailClient(activeAccountId);
-      for (const id of ids) {
+      await Promise.all(ids.map(async (id) => {
         if (isTrashView) {
           await client.deleteThread(id);
           await deleteThreadFromDb(activeAccountId, id);
         } else {
           await client.modifyThread(id, ["TRASH"], ["INBOX"]);
         }
-      }
+      }));
     } catch (err) {
       console.error("Bulk delete failed:", err);
     }
@@ -166,13 +165,10 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
   const handleBulkArchive = async () => {
     if (!activeAccountId || multiSelectCount === 0) return;
     const ids = [...selectedThreadIds];
-    // Optimistic: remove from UI immediately
     removeThreads(ids);
     try {
       const client = await getGmailClient(activeAccountId);
-      for (const id of ids) {
-        await client.modifyThread(id, undefined, ["INBOX"]);
-      }
+      await Promise.all(ids.map((id) => client.modifyThread(id, undefined, ["INBOX"])));
     } catch (err) {
       console.error("Bulk archive failed:", err);
     }
@@ -185,13 +181,11 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     removeThreads(ids);
     try {
       const client = await getGmailClient(activeAccountId);
-      for (const id of ids) {
-        if (isSpamView) {
-          await client.modifyThread(id, ["INBOX"], ["SPAM"]);
-        } else {
-          await client.modifyThread(id, ["SPAM"], ["INBOX"]);
-        }
-      }
+      await Promise.all(ids.map((id) =>
+        isSpamView
+          ? client.modifyThread(id, ["INBOX"], ["SPAM"])
+          : client.modifyThread(id, ["SPAM"], ["INBOX"]),
+      ));
     } catch (err) {
       console.error("Bulk spam failed:", err);
     }

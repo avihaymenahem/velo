@@ -8,22 +8,20 @@ import { Search, X, FolderPlus } from "lucide-react";
 
 export function SearchBar() {
   const searchQuery = useThreadStore((s) => s.searchQuery);
-  const setSearch = useThreadStore((s) => s.setSearch);
-  const clearSearch = useThreadStore((s) => s.clearSearch);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
-  const createSmartFolder = useSmartFolderStore((s) => s.createFolder);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [showSaveModal, setShowSaveModal] = useState(false);
 
   const handleSaveAsSmartFolder = useCallback(() => {
-    if (searchQuery.trim().length < 2) return;
+    if (useThreadStore.getState().searchQuery.trim().length < 2) return;
     setShowSaveModal(true);
-  }, [searchQuery]);
+  }, []);
 
   const handleChange = useCallback(
     (value: string) => {
+      const { setSearch } = useThreadStore.getState();
       setSearch(value, useThreadStore.getState().searchThreadIds);
 
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -37,23 +35,23 @@ export function SearchBar() {
         try {
           const hits = await searchMessages(value, activeAccountId ?? undefined, 100);
           const threadIds = new Set(hits.map((h) => h.thread_id));
-          setSearch(value, threadIds);
+          useThreadStore.getState().setSearch(value, threadIds);
         } catch {
-          setSearch(value, null);
+          useThreadStore.getState().setSearch(value, null);
         }
       }, 200);
     },
-    [activeAccountId, setSearch],
+    [activeAccountId],
   );
 
   const handleClear = useCallback(() => {
-    clearSearch();
+    useThreadStore.getState().clearSearch();
     inputRef.current?.focus();
-  }, [clearSearch]);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
-      clearSearch();
+      useThreadStore.getState().clearSearch();
       inputRef.current?.blur();
     }
   };
@@ -96,7 +94,7 @@ export function SearchBar() {
         isOpen={showSaveModal}
         onClose={() => setShowSaveModal(false)}
         onSubmit={(values) => {
-          createSmartFolder(values.name!.trim(), searchQuery.trim(), activeAccountId ?? undefined);
+          useSmartFolderStore.getState().createFolder(values.name!.trim(), useThreadStore.getState().searchQuery.trim(), activeAccountId ?? undefined);
         }}
         title="Save as Smart Folder"
         fields={[

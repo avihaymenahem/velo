@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useCallback, useRef, useState } from "react";
 import { Inbox, Bell, Tag, Users, Newspaper, type LucideIcon } from "lucide-react";
 import { ALL_CATEGORIES } from "@/services/db/threadCategories";
 
@@ -43,8 +43,8 @@ export function CategoryTabs({ activeCategory, onCategoryChange, unreadCounts }:
     };
   }, [checkOverflow]);
 
-  // Update sliding indicator position when active category changes
-  useEffect(() => {
+  // Update sliding indicator position when active category changes — useLayoutEffect prevents flicker
+  useLayoutEffect(() => {
     const el = tabRefs.current.get(activeCategory);
     if (el) {
       setIndicatorStyle({ left: el.offsetLeft, width: el.offsetWidth });

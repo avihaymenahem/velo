@@ -151,60 +151,50 @@ export function Composer() {
     },
   });
 
-  // Load default signature when composer opens
+  // Load signature, aliases, and templates in parallel when composer opens
   useEffect(() => {
     if (!isOpen || !activeAccountId) return;
     let cancelled = false;
-    getDefaultSignature(activeAccountId).then((sig) => {
-      if (cancelled || !sig) return;
-      setSignatureHtml(sig.body_html);
-      setSignatureId(sig.id);
-    });
-    return () => { cancelled = true; };
-  }, [isOpen, activeAccountId, setSignatureHtml, setSignatureId]);
 
-  // Load send-as aliases when composer opens and resolve fromEmail for replies
-  useEffect(() => {
-    if (!isOpen || !activeAccountId) return;
-    let cancelled = false;
-    getAliasesForAccount(activeAccountId).then((dbAliases) => {
+    Promise.all([
+      getDefaultSignature(activeAccountId),
+      getAliasesForAccount(activeAccountId),
+      getTemplatesForAccount(activeAccountId),
+    ]).then(([sig, dbAliases, templates]) => {
       if (cancelled) return;
+
+      // Signature
+      if (sig) {
+        setSignatureHtml(sig.body_html);
+        setSignatureId(sig.id);
+      }
+
+      // Aliases + fromEmail resolution
       const mapped = dbAliases.map(mapDbAlias);
       setAliases(mapped);
-
-      // If no fromEmail is set yet, resolve it
       if (!fromEmail && mapped.length > 0) {
         const { mode: currentMode, to: currentTo, cc: currentCc } = useComposerStore.getState();
         if (currentMode === "reply" || currentMode === "replyAll" || currentMode === "forward") {
-          // For replies, resolve based on To/CC of original message
           const resolved = resolveFromAddress(mapped, currentTo.join(", "), currentCc.join(", "));
           if (resolved) setFromEmail(resolved.email);
         } else {
-          // For new compose, use default/primary alias
           const defaultAlias = mapped.find((a) => a.isDefault) ?? mapped.find((a) => a.isPrimary) ?? mapped[0];
           if (defaultAlias) setFromEmail(defaultAlias.email);
         }
       }
+
+      // Templates
+      templateShortcutsRef.current = templates.filter((t) => t.shortcut);
     });
+
     return () => { cancelled = true; };
-  }, [isOpen, activeAccountId, fromEmail, setFromEmail]);
+  }, [isOpen, activeAccountId, fromEmail, setFromEmail, setSignatureHtml, setSignatureId]);
 
   // Start/stop draft auto-save
   useEffect(() => {
     if (!isOpen || !activeAccountId) return;
     startAutoSave(activeAccountId);
     return () => { stopAutoSave(); };
-  }, [isOpen, activeAccountId]);
-
-  // Load templates with shortcuts when composer opens
-  useEffect(() => {
-    if (!isOpen || !activeAccountId) return;
-    let cancelled = false;
-    getTemplatesForAccount(activeAccountId).then((templates) => {
-      if (cancelled) return;
-      templateShortcutsRef.current = templates.filter((t) => t.shortcut);
-    });
-    return () => { cancelled = true; };
   }, [isOpen, activeAccountId]);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {

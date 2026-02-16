@@ -20,88 +20,80 @@ async function executeSingleAction(
 ): Promise<void> {
   switch (action.type) {
     case "archive":
-      for (const id of threadIds) {
-        await archiveThread(accountId, id, []);
-      }
+      await Promise.all(threadIds.map((id) => archiveThread(accountId, id, [])));
       break;
 
     case "trash":
-      for (const id of threadIds) {
-        await trashThread(accountId, id, []);
-      }
+      await Promise.all(threadIds.map((id) => trashThread(accountId, id, [])));
       break;
 
     case "markRead":
-      for (const id of threadIds) {
-        await markThreadRead(accountId, id, [], true);
-      }
+      await Promise.all(threadIds.map((id) => markThreadRead(accountId, id, [], true)));
       break;
 
     case "markUnread":
-      for (const id of threadIds) {
-        await markThreadRead(accountId, id, [], false);
-      }
+      await Promise.all(threadIds.map((id) => markThreadRead(accountId, id, [], false)));
       break;
 
     case "star":
-      for (const id of threadIds) {
-        await starThread(accountId, id, [], true);
-      }
+      await Promise.all(threadIds.map((id) => starThread(accountId, id, [], true)));
       break;
 
     case "unstar":
-      for (const id of threadIds) {
-        await starThread(accountId, id, [], false);
-      }
+      await Promise.all(threadIds.map((id) => starThread(accountId, id, [], false)));
       break;
 
     case "pin":
-      for (const id of threadIds) {
+      await Promise.all(threadIds.map(async (id) => {
         await pinThreadDb(accountId, id);
         useThreadStore.getState().updateThread(id, { isPinned: true });
-      }
+      }));
       break;
 
     case "unpin":
-      for (const id of threadIds) {
+      await Promise.all(threadIds.map(async (id) => {
         await unpinThreadDb(accountId, id);
         useThreadStore.getState().updateThread(id, { isPinned: false });
-      }
+      }));
       break;
 
     case "applyLabel":
       if (action.params?.labelId) {
-        for (const id of threadIds) {
-          await addThreadLabel(accountId, id, action.params.labelId);
-          const thread = useThreadStore.getState().threads.find((t) => t.id === id);
-          if (thread && !thread.labelIds.includes(action.params.labelId)) {
+        const labelId = action.params.labelId;
+        const threadMap = new Map(useThreadStore.getState().threads.map((t) => [t.id, t]));
+        await Promise.all(threadIds.map(async (id) => {
+          await addThreadLabel(accountId, id, labelId);
+          const thread = threadMap.get(id);
+          if (thread && !thread.labelIds.includes(labelId)) {
             useThreadStore.getState().updateThread(id, {
-              labelIds: [...thread.labelIds, action.params.labelId],
+              labelIds: [...thread.labelIds, labelId],
             });
           }
-        }
+        }));
       }
       break;
 
     case "removeLabel":
       if (action.params?.labelId) {
-        for (const id of threadIds) {
-          await removeThreadLabel(accountId, id, action.params.labelId);
-          const thread = useThreadStore.getState().threads.find((t) => t.id === id);
+        const labelId = action.params.labelId;
+        const threadMap = new Map(useThreadStore.getState().threads.map((t) => [t.id, t]));
+        await Promise.all(threadIds.map(async (id) => {
+          await removeThreadLabel(accountId, id, labelId);
+          const thread = threadMap.get(id);
           if (thread) {
             useThreadStore.getState().updateThread(id, {
-              labelIds: thread.labelIds.filter((l) => l !== action.params?.labelId),
+              labelIds: thread.labelIds.filter((l) => l !== labelId),
             });
           }
-        }
+        }));
       }
       break;
 
     case "moveToCategory":
       if (action.params?.category) {
-        for (const id of threadIds) {
-          await setThreadCategory(accountId, id, action.params.category, true);
-        }
+        await Promise.all(threadIds.map((id) =>
+          setThreadCategory(accountId, id, action.params!.category!, true),
+        ));
         window.dispatchEvent(new Event("velo-sync-done"));
       }
       break;
@@ -133,22 +125,16 @@ async function executeSingleAction(
     case "snooze":
       if (action.params?.snoozeDuration) {
         const until = Date.now() + action.params.snoozeDuration;
-        for (const id of threadIds) {
-          await snoozeThread(accountId, id, until);
-        }
+        await Promise.all(threadIds.map((id) => snoozeThread(accountId, id, until)));
       }
       break;
 
     case "spam":
-      for (const id of threadIds) {
-        await spamThread(accountId, id, [], true);
-      }
+      await Promise.all(threadIds.map((id) => spamThread(accountId, id, [], true)));
       break;
 
     case "notSpam":
-      for (const id of threadIds) {
-        await spamThread(accountId, id, [], false);
-      }
+      await Promise.all(threadIds.map((id) => spamThread(accountId, id, [], false)));
       break;
   }
 }
