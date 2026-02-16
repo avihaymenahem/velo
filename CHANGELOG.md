@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.12](https://github.com/avihaymenahem/velo/compare/velo-v0.3.11...velo-v0.3.12) (2026-02-16)
+
+
+### Bug Fixes
+
+* starred threads not appearing in Starred folder ([a03db9f](https://github.com/avihaymenahem/velo/commit/a03db9f4877988d7d979980f750ff5daf63bc052))
+
 ## [0.3.11](https://github.com/avihaymenahem/velo/compare/velo-v0.3.10...velo-v0.3.11) (2026-02-16)
 
 
