@@ -83,6 +83,9 @@ export function CtaFooter() {
             <a href="mailto:info@velomail.app" className="hover:text-text-secondary transition-colors no-underline">
               Contact
             </a>
+            <a href="https://github.com/avihaymenahem/velo/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="hover:text-text-secondary transition-colors no-underline">
+              Apache 2.0
+            </a>
           </div>
         </div>
       </footer>

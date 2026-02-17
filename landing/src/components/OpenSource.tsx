@@ -33,7 +33,7 @@ export function OpenSource() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.05 }}
         >
-          Every line of code is public. No telemetry, no data collection, no cloud dependency. Your email stays on your machine.
+          Every line of code is public, licensed under Apache 2.0. No telemetry, no data collection, no cloud dependency. Your email stays on your machine.
         </motion.p>
 
         <motion.div
