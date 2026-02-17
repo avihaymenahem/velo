@@ -1,5 +1,8 @@
 use crate::imap::client as imap_client;
-use crate::imap::types::{ImapConfig, ImapFetchResult, ImapFolder, ImapFolderStatus, ImapMessage};
+use crate::imap::types::{
+    DeltaCheckRequest, DeltaCheckResult, ImapConfig, ImapFetchResult, ImapFolder, ImapFolderStatus,
+    ImapMessage,
+};
 use crate::smtp::client as smtp_client;
 use crate::smtp::types::{SmtpConfig, SmtpSendResult};
 
@@ -245,6 +248,17 @@ pub async fn imap_raw_fetch_diagnostic(
     uid_range: String,
 ) -> Result<String, String> {
     imap_client::raw_fetch_diagnostic(&config, &folder, &uid_range).await
+}
+
+#[tauri::command]
+pub async fn imap_delta_check(
+    config: ImapConfig,
+    folders: Vec<DeltaCheckRequest>,
+) -> Result<Vec<DeltaCheckResult>, String> {
+    let mut session = imap_client::connect(&config).await?;
+    let results = imap_client::delta_check_folders(&mut session, &folders).await?;
+    let _ = session.logout().await;
+    Ok(results)
 }
 
 // ---------- SMTP commands ----------

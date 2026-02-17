@@ -70,6 +70,21 @@ export interface ImapFetchResult {
   folder_status: ImapFolderStatus;
 }
 
+// ---------- Delta check types ----------
+
+export interface DeltaCheckRequest {
+  folder: string;
+  last_uid: number;
+  uidvalidity: number;
+}
+
+export interface DeltaCheckResult {
+  folder: string;
+  uidvalidity: number;
+  new_uids: number[];
+  uidvalidity_changed: boolean;
+}
+
 // ---------- SMTP types ----------
 
 export interface SmtpConfig {
@@ -234,6 +249,17 @@ export async function imapFetchRawMessage(
   uid: number
 ): Promise<string> {
   return invoke<string>('imap_fetch_raw_message', { config, folder, uid });
+}
+
+/**
+ * Check multiple folders for new UIDs in a single IMAP connection.
+ * Replaces N separate imapGetFolderStatus + imapFetchNewUids calls with one round-trip.
+ */
+export async function imapDeltaCheck(
+  config: ImapConfig,
+  folders: DeltaCheckRequest[]
+): Promise<DeltaCheckResult[]> {
+  return invoke<DeltaCheckResult[]>('imap_delta_check', { config, folders });
 }
 
 /**

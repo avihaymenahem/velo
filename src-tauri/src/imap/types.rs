@@ -73,3 +73,18 @@ pub struct ImapFetchResult {
     pub messages: Vec<ImapMessage>,
     pub folder_status: ImapFolderStatus,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeltaCheckRequest {
+    pub folder: String,
+    pub last_uid: u32,
+    pub uidvalidity: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeltaCheckResult {
+    pub folder: String,
+    pub uidvalidity: u32,
+    pub new_uids: Vec<u32>,
+    pub uidvalidity_changed: bool,
+}

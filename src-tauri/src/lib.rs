@@ -91,6 +91,7 @@ pub fn run() {
             commands::imap_fetch_attachment,
             commands::imap_append_message,
             commands::imap_raw_fetch_diagnostic,
+            commands::imap_delta_check,
             commands::smtp_send_email,
             commands::smtp_test_connection,
         ])

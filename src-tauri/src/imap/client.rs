@@ -549,6 +549,65 @@ pub async fn fetch_raw_message(
     Ok(String::from_utf8_lossy(raw).to_string())
 }
 
+/// Check multiple folders for new UIDs in a single IMAP session.
+///
+/// For each folder: SELECT, compare UIDVALIDITY, UID SEARCH for new messages.
+/// This replaces N separate connections (status + fetch_new_uids per folder)
+/// with a single connection that checks all folders.
+pub async fn delta_check_folders(
+    session: &mut ImapSession,
+    folders: &[DeltaCheckRequest],
+) -> Result<Vec<DeltaCheckResult>, String> {
+    let mut results = Vec::with_capacity(folders.len());
+
+    for req in folders {
+        let mailbox = match session.select(&req.folder).await {
+            Ok(m) => m,
+            Err(e) => {
+                log::warn!("delta_check: SELECT {} failed: {e}", req.folder);
+                continue;
+            }
+        };
+
+        let current_uidvalidity = mailbox.uid_validity.unwrap_or(0);
+        let uidvalidity_changed = req.uidvalidity != 0 && current_uidvalidity != req.uidvalidity;
+
+        if uidvalidity_changed {
+            // UIDVALIDITY changed — caller must do full resync
+            results.push(DeltaCheckResult {
+                folder: req.folder.clone(),
+                uidvalidity: current_uidvalidity,
+                new_uids: vec![],
+                uidvalidity_changed: true,
+            });
+            continue;
+        }
+
+        // UID SEARCH for messages newer than last_uid
+        let query = format!("{}:*", req.last_uid + 1);
+        let new_uids = match session.uid_search(&query).await {
+            Ok(uids) => {
+                let mut result: Vec<u32> = uids.into_iter().filter(|&u| u > req.last_uid).collect();
+                result.sort();
+                result
+            }
+            Err(e) => {
+                log::warn!("delta_check: UID SEARCH {} failed: {e}", req.folder);
+                vec![]
+            }
+        };
+
+        results.push(DeltaCheckResult {
+            folder: req.folder.clone(),
+            uidvalidity: current_uidvalidity,
+            new_uids,
+            uidvalidity_changed: false,
+        });
+    }
+
+    Ok(results)
+}
+
 /// Test IMAP connectivity: connect, login, list, logout.
 pub async fn test_connection(config: &ImapConfig) -> Result<String, String> {
     let mut session = connect(config).await?;
