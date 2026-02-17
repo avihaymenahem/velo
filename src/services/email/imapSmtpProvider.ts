@@ -10,6 +10,7 @@ import {
   imapDeleteMessages,
   imapFetchMessageBody,
   imapFetchAttachment,
+  imapFetchRawMessage,
   imapTestConnection,
   imapAppendMessage,
   smtpSendEmail,
@@ -173,6 +174,17 @@ export class ImapSmtpProvider implements EmailProvider {
     const config = await this.getImapConfig();
     const data = await imapFetchAttachment(config, folder, uid, attachmentId);
     return { data, size: data.length };
+  }
+
+  async fetchRawMessage(messageId: string): Promise<string> {
+    const { folder, uid } = this.parseImapMessageId(messageId);
+
+    if (uid === null || !folder) {
+      throw new Error(`Invalid IMAP message ID format: ${messageId}`);
+    }
+
+    const config = await this.getImapConfig();
+    return imapFetchRawMessage(config, folder, uid);
   }
 
   // ---- Actions ----

@@ -18,6 +18,7 @@ import { SmartReplySuggestions } from "./SmartReplySuggestions";
 import { InlineReply } from "./InlineReply";
 import { ContactSidebar } from "./ContactSidebar";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { RawMessageModal } from "./RawMessageModal";
 
 interface ThreadViewProps {
   thread: Thread;
@@ -226,11 +227,30 @@ export function ThreadView({ thread }: ThreadViewProps) {
     setTimeout(() => document.body.removeChild(iframe), 1000);
   }, [messages, thread.subject]);
 
+  const [rawMessageTarget, setRawMessageTarget] = useState<{
+    messageId: string;
+    accountId: string;
+  } | null>(null);
+
+  // Listen for "View Source" event from context menu
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as {
+        messageId: string;
+        accountId: string;
+      };
+      setRawMessageTarget(detail);
+    };
+    window.addEventListener("velo-view-raw-message", handler);
+    return () => window.removeEventListener("velo-view-raw-message", handler);
+  }, []);
+
   const handleMessageContextMenu = useCallback((e: React.MouseEvent, msg: DbMessage) => {
     e.preventDefault();
     openMenu("message", { x: e.clientX, y: e.clientY }, {
       messageId: msg.id,
       threadId: msg.thread_id,
+      accountId: msg.account_id,
       fromAddress: msg.from_address,
       fromName: msg.from_name,
       replyTo: msg.reply_to,
@@ -402,6 +422,16 @@ export function ThreadView({ thread }: ThreadViewProps) {
             />
           </div>
         </>
+      )}
+
+      {/* Raw message source modal */}
+      {rawMessageTarget && (
+        <RawMessageModal
+          isOpen={true}
+          onClose={() => setRawMessageTarget(null)}
+          messageId={rawMessageTarget.messageId}
+          accountId={rawMessageTarget.accountId}
+        />
       )}
     </div>
   );

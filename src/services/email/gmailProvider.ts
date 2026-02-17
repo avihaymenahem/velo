@@ -137,6 +137,13 @@ export class GmailApiProvider implements EmailProvider {
     return { data: resp.data, size: resp.size };
   }
 
+  async fetchRawMessage(messageId: string): Promise<string> {
+    // Gmail API with format=raw returns a { raw: string } field (base64url-encoded RFC822)
+    const resp = await this.client.getMessage(messageId, "raw") as unknown as { raw: string };
+    const base64 = resp.raw.replace(/-/g, "+").replace(/_/g, "/");
+    return atob(base64);
+  }
+
   async archive(threadId: string, _messageIds: string[]): Promise<void> {
     await this.client.modifyThread(threadId, undefined, ["INBOX"]);
   }

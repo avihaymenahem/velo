@@ -86,6 +86,18 @@ pub async fn imap_fetch_message_body(
 }
 
 #[tauri::command]
+pub async fn imap_fetch_raw_message(
+    config: ImapConfig,
+    folder: String,
+    uid: u32,
+) -> Result<String, String> {
+    let mut session = imap_client::connect(&config).await?;
+    let raw = imap_client::fetch_raw_message(&mut session, &folder, uid).await?;
+    let _ = session.logout().await;
+    Ok(raw)
+}
+
+#[tauri::command]
 pub async fn imap_set_flags(
     config: ImapConfig,
     folder: String,

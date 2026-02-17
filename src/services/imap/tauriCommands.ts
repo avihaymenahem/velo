@@ -225,6 +225,18 @@ export async function imapFetchAttachment(
 }
 
 /**
+ * Fetch the raw RFC822 source of a single message by UID.
+ * Returns the full message as a UTF-8 string.
+ */
+export async function imapFetchRawMessage(
+  config: ImapConfig,
+  folder: string,
+  uid: number
+): Promise<string> {
+  return invoke<string>('imap_fetch_raw_message', { config, folder, uid });
+}
+
+/**
  * Raw IMAP diagnostic: bypasses async-imap to show raw server responses.
  */
 export async function imapRawFetchDiagnostic(

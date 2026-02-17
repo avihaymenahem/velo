@@ -44,6 +44,7 @@ export function createMockEmailProvider(
     createDraft: vi.fn(() => Promise.resolve({ draftId: "d-1" })),
     updateDraft: vi.fn(() => Promise.resolve({ draftId: "d-1" })),
     deleteDraft: vi.fn(() => Promise.resolve()),
+    fetchRawMessage: vi.fn(() => Promise.resolve("")),
     ...overrides,
   };
 }

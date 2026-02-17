@@ -29,6 +29,7 @@ vi.mock("../imap/tauriCommands", () => ({
   imapDeleteMessages: vi.fn(),
   imapFetchMessageBody: vi.fn(),
   imapFetchAttachment: vi.fn(),
+  imapFetchRawMessage: vi.fn(),
   imapTestConnection: vi.fn(),
   imapAppendMessage: vi.fn(),
   smtpSendEmail: vi.fn(),
@@ -178,6 +179,26 @@ describe("ImapSmtpProvider", () => {
     it("throws an informative error", async () => {
       await expect(provider.renameFolder("old", "new")).rejects.toThrow(
         "not supported",
+      );
+    });
+  });
+
+  // ---------- Raw message ----------
+
+  describe("fetchRawMessage", () => {
+    it("parses IMAP message ID and calls imapFetchRawMessage", async () => {
+      const { imapFetchRawMessage } = await import("../imap/tauriCommands");
+      vi.mocked(imapFetchRawMessage).mockResolvedValue("From: test@example.com\r\nSubject: Hello\r\n\r\nBody");
+
+      const result = await provider.fetchRawMessage("imap-acc-1-INBOX-42");
+
+      expect(imapFetchRawMessage).toHaveBeenCalledWith(mockImapConfig, "INBOX", 42);
+      expect(result).toBe("From: test@example.com\r\nSubject: Hello\r\n\r\nBody");
+    });
+
+    it("throws for invalid message ID format", async () => {
+      await expect(provider.fetchRawMessage("invalid-id")).rejects.toThrow(
+        "Invalid IMAP message ID format",
       );
     });
   });

@@ -513,6 +513,42 @@ pub async fn fetch_attachment(
     Ok(base64::engine::general_purpose::STANDARD.encode(data))
 }
 
+/// Fetch the raw RFC822 source of a single message by UID.
+/// Returns the full message as a UTF-8 string (lossy conversion for non-UTF-8 bytes).
+pub async fn fetch_raw_message(
+    session: &mut ImapSession,
+    folder: &str,
+    uid: u32,
+) -> Result<String, String> {
+    session
+        .select(folder)
+        .await
+        .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
+
+    let uid_str = uid.to_string();
+    let fetches = session
+        .uid_fetch(&uid_str, "BODY.PEEK[]")
+        .await
+        .map_err(|e| format!("UID FETCH failed: {e}"))?;
+
+    let fetches: Vec<_> = fetches
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let fetch = fetches
+        .first()
+        .ok_or_else(|| format!("Message UID {uid} not found in {folder}"))?;
+
+    let raw = fetch
+        .body()
+        .ok_or_else(|| format!("No body for UID {uid}"))?;
+
+    Ok(String::from_utf8_lossy(raw).to_string())
+}
+
 /// Test IMAP connectivity: connect, login, list, logout.
 pub async fn test_connection(config: &ImapConfig) -> Result<String, String> {
     let mut session = connect(config).await?;

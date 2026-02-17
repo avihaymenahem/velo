@@ -46,6 +46,7 @@ export interface EmailProvider {
     messageId: string,
     attachmentId: string,
   ): Promise<{ data: string; size: number }>;
+  fetchRawMessage(messageId: string): Promise<string>;
 
   // Actions (operate on thread/message level)
   archive(threadId: string, messageIds: string[]): Promise<void>;

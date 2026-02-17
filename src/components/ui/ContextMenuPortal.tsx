@@ -35,6 +35,7 @@ import {
   Layers,
   VolumeX,
   Zap,
+  Code,
 } from "lucide-react";
 import { setThreadCategory, ALL_CATEGORIES } from "@/services/db/threadCategories";
 
@@ -547,6 +548,7 @@ function MessageMenu({
 
   const messageId = data["messageId"] as string;
   const threadId = data["threadId"] as string;
+  const accountId = data["accountId"] as string | null;
   const fromAddress = data["fromAddress"] as string | null;
   const fromName = data["fromName"] as string | null;
   const replyTo = data["replyTo"] as string | null;
@@ -642,6 +644,23 @@ function MessageMenu({
       icon: Copy,
       action: handleCopy,
     },
+    ...(accountId
+      ? [
+          { id: "sep-2", label: "", separator: true },
+          {
+            id: "view-source",
+            label: "View Source",
+            icon: Code,
+            action: () => {
+              window.dispatchEvent(
+                new CustomEvent("velo-view-raw-message", {
+                  detail: { messageId, accountId },
+                }),
+              );
+            },
+          },
+        ]
+      : []),
   ];
 
   return <ContextMenu items={items} position={position} onClose={onClose} />;
