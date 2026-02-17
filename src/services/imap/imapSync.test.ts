@@ -12,7 +12,7 @@ describe("imapMessageToParsedMessage", () => {
     expect(parsed.fromName).toBe("Sender Name");
     expect(parsed.toAddresses).toBe("recipient@example.com");
     expect(parsed.subject).toBe("Test Subject");
-    expect(parsed.date).toBe(1700000000);
+    expect(parsed.date).toBe(1700000000000);
     expect(parsed.isRead).toBe(false);
     expect(parsed.isStarred).toBe(false);
     expect(parsed.bodyHtml).toBe("<p>Hello</p>");
@@ -62,7 +62,7 @@ describe("imapMessageToParsedMessage", () => {
     expect(threadable.inReplyTo).toBe("<msg-parent@host.com>");
     expect(threadable.references).toBe("<msg-root@host.com> <msg-parent@host.com>");
     expect(threadable.subject).toBe("Test Subject");
-    expect(threadable.date).toBe(1700000000);
+    expect(threadable.date).toBe(1700000000000);
   });
 
   it("generates synthetic message ID when none present", () => {
@@ -158,7 +158,7 @@ describe("imapMessageToParsedMessage", () => {
     const msg = createMockImapMessage({ date: 0 });
     const { parsed, threadable } = imapMessageToParsedMessage(msg, "acc-1", "INBOX");
 
-    // date=0 is passed through — the caller (imapInitialSync) applies the fallback
+    // date=0 * 1000 = 0, passed through — the caller (imapInitialSync) applies the fallback
     expect(parsed.date).toBe(0);
     expect(threadable.date).toBe(0);
     // Message should still be valid

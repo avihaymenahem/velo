@@ -126,3 +126,13 @@ export async function deleteMessage(
     [accountId, messageId],
   );
 }
+
+export async function deleteAllMessagesForAccount(
+  accountId: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "DELETE FROM messages WHERE account_id = $1",
+    [accountId],
+  );
+}

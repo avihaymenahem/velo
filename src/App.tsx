@@ -431,23 +431,25 @@ export default function App() {
     }));
     setAccounts(mapped);
 
-    // Re-initialize clients and start sync for the new account
+    // Re-initialize clients for the new account
     await initializeClients();
-    const activeIds = mapped.filter((a) => a.isActive).map((a) => a.id);
-    startBackgroundSync(activeIds);
 
-    // Fetch send-as aliases for the new account
     const newest = mapped[mapped.length - 1];
     if (newest) {
-      try {
-        const client = await getGmailClient(newest.id);
-        await fetchSendAsAliases(client, newest.id);
-      } catch (err) {
-        console.warn(`Failed to fetch send-as aliases for new account:`, err);
-      }
-      // Trigger immediate sync for the latest account
+      // Sync the new account immediately — before restarting the background
+      // timer so it doesn't queue behind delta syncs for existing accounts.
       syncAccount(newest.id);
+
+      // Fetch send-as aliases in the background (non-blocking)
+      getGmailClient(newest.id)
+        .then((client) => fetchSendAsAliases(client, newest.id))
+        .catch((err) => console.warn(`Failed to fetch send-as aliases for new account:`, err));
     }
+
+    // Restart background sync for all accounts, but skip the immediate run
+    // since we already triggered the new account's sync above.
+    const activeIds = mapped.filter((a) => a.isActive).map((a) => a.id);
+    startBackgroundSync(activeIds, true);
   }, [setAccounts]);
 
   if (!initialized) {

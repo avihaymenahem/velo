@@ -297,8 +297,11 @@ export function buildThreads(messages: ThreadableMessage[]): ThreadGroup[] {
     messagesInThread.sort((a, b) => a.date - b.date);
 
     // Find the root Message-ID for thread ID generation:
-    // Use the earliest message's Message-ID
-    const rootMessageId = messagesInThread[0]?.messageId ?? "";
+    // Use the root container's messageId (which may be a phantom) so that
+    // thread IDs are deterministic regardless of which messages are present.
+    // This ensures delta sync (only new messages) produces the same thread ID
+    // as initial sync (all messages) for the same conversation.
+    const rootMessageId = root.messageId;
 
     threadGroups.push({
       threadId: generateThreadId(rootMessageId),

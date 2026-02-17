@@ -9,10 +9,26 @@ vi.mock("@/services/db/connection", async (importOriginal) => {
 });
 
 import { getDb } from "@/services/db/connection";
-import { muteThread, unmuteThread, getMutedThreadIds } from "./threads";
+import { muteThread, unmuteThread, getMutedThreadIds, deleteAllThreadsForAccount } from "./threads";
 import { createMockDb } from "@/test/mocks";
 
 const mockDb = createMockDb();
+
+describe("threads service - deleteAllThreadsForAccount", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getDb).mockResolvedValue(mockDb as unknown as Awaited<ReturnType<typeof getDb>>);
+  });
+
+  it("deletes all threads for the given account", async () => {
+    await deleteAllThreadsForAccount("acc-1");
+
+    expect(mockDb.execute).toHaveBeenCalledWith(
+      "DELETE FROM threads WHERE account_id = $1",
+      ["acc-1"],
+    );
+  });
+});
 
 describe("threads service - mute", () => {
   beforeEach(() => {

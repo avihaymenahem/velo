@@ -578,6 +578,66 @@ describe('buildThreads', () => {
     expect(threads[0].messageIds).toEqual(['local-1']);
   });
 
+  it('produces same thread ID for reply-only as for full conversation (delta sync)', () => {
+    // Simulate initial sync: both original and reply present
+    const allMessages: ThreadableMessage[] = [
+      {
+        id: 'local-a',
+        messageId: 'original@host',
+        inReplyTo: null,
+        references: null,
+        subject: 'Hello',
+        date: 1000,
+      },
+      {
+        id: 'local-b',
+        messageId: 'reply@host',
+        inReplyTo: '<original@host>',
+        references: '<original@host>',
+        subject: 'Re: Hello',
+        date: 2000,
+      },
+    ];
+    const initialThreads = buildThreads(allMessages);
+    expect(initialThreads).toHaveLength(1);
+
+    // Simulate delta sync: only the reply is passed to buildThreads
+    const deltaMessages: ThreadableMessage[] = [
+      {
+        id: 'local-b',
+        messageId: 'reply@host',
+        inReplyTo: '<original@host>',
+        references: '<original@host>',
+        subject: 'Re: Hello',
+        date: 2000,
+      },
+    ];
+    const deltaThreads = buildThreads(deltaMessages);
+    expect(deltaThreads).toHaveLength(1);
+
+    // Both should produce the same thread ID (based on root Message-ID "original@host")
+    expect(deltaThreads[0].threadId).toBe(initialThreads[0].threadId);
+    expect(deltaThreads[0].threadId).toBe(generateThreadId('original@host'));
+  });
+
+  it('produces same thread ID for deep reply chain in delta sync', () => {
+    // Delta sync: only message C arrives, referencing A → B → C
+    const deltaMessages: ThreadableMessage[] = [
+      {
+        id: 'local-c',
+        messageId: 'c@host',
+        inReplyTo: '<b@host>',
+        references: '<a@host> <b@host>',
+        subject: 'Re: Topic',
+        date: 3000,
+      },
+    ];
+    const deltaThreads = buildThreads(deltaMessages);
+    expect(deltaThreads).toHaveLength(1);
+    // Thread ID should be based on the root of the References chain (a@host)
+    expect(deltaThreads[0].threadId).toBe(generateThreadId('a@host'));
+  });
+
   it('does not merge subjects that differ only by list prefix', () => {
     const messages: ThreadableMessage[] = [
       {

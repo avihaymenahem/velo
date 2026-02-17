@@ -6,7 +6,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { getSetting, setSetting, getSecureSetting, setSecureSetting } from "@/services/db/settings";
 import { deleteAccount } from "@/services/db/accounts";
 import { removeClient, reauthorizeAccount } from "@/services/gmail/tokenManager";
-import { triggerSync, forceFullSync } from "@/services/gmail/syncManager";
+import { triggerSync, forceFullSync, resyncAccount } from "@/services/gmail/syncManager";
 import {
   registerComposeShortcut,
   getCurrentShortcut,
@@ -125,6 +125,7 @@ export function SettingsPage() {
   const [cacheSizeMb, setCacheSizeMb] = useState<number | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
   const [reauthStatus, setReauthStatus] = useState<Record<string, "idle" | "authorizing" | "done" | "error">>({});
+  const [resyncStatus, setResyncStatus] = useState<Record<string, "idle" | "syncing" | "done" | "error">>({});
   const [autoArchiveCategories, setAutoArchiveCategories] = useState<Set<string>>(() => new Set());
   const [smartNotifications, setSmartNotifications] = useState(true);
   const [notifyCategories, setNotifyCategories] = useState<Set<string>>(() => new Set(["Primary"]));
@@ -296,6 +297,26 @@ export function SettingsPage() {
         setReauthStatus((prev) => ({ ...prev, [accountId]: "error" }));
         setTimeout(() => {
           setReauthStatus((prev) => ({ ...prev, [accountId]: "idle" }));
+        }, 3000);
+      }
+    },
+    [],
+  );
+
+  const handleResyncAccount = useCallback(
+    async (accountId: string) => {
+      setResyncStatus((prev) => ({ ...prev, [accountId]: "syncing" }));
+      try {
+        await resyncAccount(accountId);
+        setResyncStatus((prev) => ({ ...prev, [accountId]: "done" }));
+        setTimeout(() => {
+          setResyncStatus((prev) => ({ ...prev, [accountId]: "idle" }));
+        }, 3000);
+      } catch (err) {
+        console.error("Resync failed:", err);
+        setResyncStatus((prev) => ({ ...prev, [accountId]: "error" }));
+        setTimeout(() => {
+          setResyncStatus((prev) => ({ ...prev, [accountId]: "idle" }));
         }, 3000);
       }
     },
@@ -800,6 +821,16 @@ export function SettingsPage() {
                                 {reauthStatus[account.id] === "done" && "Done!"}
                                 {reauthStatus[account.id] === "error" && "Failed"}
                                 {(!reauthStatus[account.id] || reauthStatus[account.id] === "idle") && "Re-authorize"}
+                              </button>
+                              <button
+                                onClick={() => handleResyncAccount(account.id)}
+                                disabled={resyncStatus[account.id] === "syncing"}
+                                className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                              >
+                                {resyncStatus[account.id] === "syncing" && "Resyncing..."}
+                                {resyncStatus[account.id] === "done" && "Done!"}
+                                {resyncStatus[account.id] === "error" && "Failed"}
+                                {(!resyncStatus[account.id] || resyncStatus[account.id] === "idle") && "Resync"}
                               </button>
                               <button
                                 onClick={() => handleRemoveAccount(account.id)}

@@ -197,6 +197,16 @@ export async function deleteThread(
   );
 }
 
+export async function deleteAllThreadsForAccount(
+  accountId: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "DELETE FROM threads WHERE account_id = $1",
+    [accountId],
+  );
+}
+
 export async function pinThread(
   accountId: string,
   threadId: string,

@@ -2,7 +2,8 @@ import { getGmailClient } from "./tokenManager";
 import { initialSync, deltaSync, type SyncProgress } from "./sync";
 import { getAccount, clearAccountHistoryId } from "../db/accounts";
 import { getSetting } from "../db/settings";
-import { getThreadCountForAccount } from "../db/threads";
+import { getThreadCountForAccount, deleteAllThreadsForAccount } from "../db/threads";
+import { deleteAllMessagesForAccount } from "../db/messages";
 import { imapInitialSync, imapDeltaSync } from "../imap/imapSync";
 import { clearAllFolderSyncStates } from "../db/folderSyncState";
 import { ensureFreshToken } from "../oauth/oauthTokenManager";
@@ -185,12 +186,17 @@ export async function syncAccount(accountId: string): Promise<void> {
 
 /**
  * Start the background sync timer for all accounts.
+ * When `skipImmediateSync` is true the first periodic sync is deferred to the
+ * next interval tick — useful when the caller already triggered a sync for a
+ * newly-added account and doesn't want existing accounts to block it.
  */
-export function startBackgroundSync(accountIds: string[]): void {
+export function startBackgroundSync(accountIds: string[], skipImmediateSync = false): void {
   stopBackgroundSync();
 
-  // Immediate sync
-  runSync(accountIds);
+  if (!skipImmediateSync) {
+    // Immediate sync
+    runSync(accountIds);
+  }
 
   // Periodic sync
   syncTimer = setInterval(() => {
@@ -225,4 +231,17 @@ export async function forceFullSync(accountIds: string[]): Promise<void> {
     await clearAccountHistoryId(id);
   }
   await runSync(accountIds);
+}
+
+/**
+ * Delete all local data for a single account and re-sync from scratch.
+ * Removes all threads, messages, history ID, and IMAP folder sync states,
+ * then runs a fresh initial sync.
+ */
+export async function resyncAccount(accountId: string): Promise<void> {
+  await deleteAllThreadsForAccount(accountId);
+  await deleteAllMessagesForAccount(accountId);
+  await clearAccountHistoryId(accountId);
+  await clearAllFolderSyncStates(accountId);
+  await runSync([accountId]);
 }
