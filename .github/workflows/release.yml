@@ -169,3 +169,89 @@ jobs:
       - name: Clean up keychain
         if: always() && steps.signing-check.outputs.has_signing == 'true'
         run: security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
+
+  update-homebrew:
+    needs: build-macos
+    if: github.event_name == 'release'
+    runs-on: macos-latest
+    steps:
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Download DMG and compute SHA256
+        id: sha
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Velo_${VERSION}_universal.dmg"
+
+          echo "Downloading DMG from: ${DMG_URL}"
+          curl -sL -o Velo.dmg "$DMG_URL"
+
+          SHA256=$(shasum -a 256 Velo.dmg | awk '{print $1}')
+          echo "SHA256: ${SHA256}"
+          echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: avihaymenahem/homebrew-velo
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-velo
+
+      - name: Update cask definition
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA256="${{ steps.sha.outputs.sha256 }}"
+
+          cat > homebrew-velo/Casks/velo.rb << CASK_EOF
+          cask "velo" do
+            version "${VERSION}"
+            sha256 "${SHA256}"
+
+            url "https://github.com/avihaymenahem/velo/releases/download/v#{version}/Velo_#{version}_universal.dmg",
+                verified: "github.com/avihaymenahem/velo/"
+
+            name "Velo"
+            desc "Fast, beautiful desktop email client"
+            homepage "https://github.com/avihaymenahem/velo"
+
+            livecheck do
+              url :url
+              strategy :github_latest
+            end
+
+            depends_on macos: ">= :high_sierra"
+
+            app "Velo.app"
+
+            caveats <<~EOS
+              If the app is not notarized, macOS may block it on first launch.
+              To allow it, right-click Velo.app and select "Open", or run:
+                xattr -cr /Applications/Velo.app
+            EOS
+
+            zap trash: [
+              "~/Library/Application Support/com.velomail.app",
+              "~/Library/Caches/com.velomail.app",
+              "~/Library/Preferences/com.velomail.app.plist",
+              "~/Library/Saved Application State/com.velomail.app.savedState",
+              "~/Library/WebKit/com.velomail.app",
+            ]
+          end
+          CASK_EOF
+
+      - name: Commit and push to tap
+        working-directory: homebrew-velo
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/velo.rb
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "Update velo to ${VERSION}"
+          git push
