@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.15](https://github.com/avihaymenahem/velo/compare/velo-v0.3.14...velo-v0.3.15) (2026-02-17)
+
+
+### Features
+
+* add standalone workflow to manually sync homebrew tap ([5a33e67](https://github.com/avihaymenahem/velo/commit/5a33e6707175bfa13a443c2e2489e6f40996ee7b))
+
+
+### Bug Fixes
+
+* allow homebrew tap update on workflow_dispatch triggers ([c31ddc8](https://github.com/avihaymenahem/velo/commit/c31ddc86c022005d1aa02ea9f6e828a39e2bff46))
+
 ## [0.3.14](https://github.com/avihaymenahem/velo/compare/velo-v0.3.13...velo-v0.3.14) (2026-02-17)
 
 
