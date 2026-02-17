@@ -121,15 +121,28 @@ homebrew-velo/
 
 ### Step 6: First-time SHA256 setup
 
-After creating the tap repo, compute the SHA256 from your latest release DMG and update the cask:
+After creating the tap repo, compute the SHA256 from your latest release DMG and update the cask.
+
+**macOS / Linux:**
 
 ```bash
-# Replace with your actual latest version
 VERSION="0.3.12"
 curl -sL "https://github.com/avihaymenahem/velo/releases/download/v${VERSION}/Velo_${VERSION}_universal.dmg" | shasum -a 256
 ```
 
+**Windows (PowerShell):**
+
+```powershell
+$VERSION = "0.3.12"
+$url = "https://github.com/avihaymenahem/velo/releases/download/v$VERSION/Velo_${VERSION}_universal.dmg"
+Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\Velo.dmg"
+(Get-FileHash "$env:TEMP\Velo.dmg" -Algorithm SHA256).Hash.ToLower()
+Remove-Item "$env:TEMP\Velo.dmg"
+```
+
 Replace `PLACEHOLDER` in `Casks/velo.rb` with the computed hash.
+
+> **Tip:** You can skip this step entirely — the CI workflow computes the SHA256 automatically on every release. The placeholder will be overwritten the next time a release is published.
 
 After this one-time setup, all future releases will auto-update the cask via the CI workflow.
 
