@@ -18,7 +18,8 @@
   <a href="#getting-started">Getting Started</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;
   <a href="docs/keyboard-shortcuts.md">Shortcuts</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;
   <a href="docs/architecture.md">Architecture</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;
-  <a href="docs/development.md">Development</a>
+  <a href="docs/development.md">Development</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;
+  <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
 ---
@@ -144,7 +145,7 @@ See [Development Guide](docs/development.md) for all commands, testing, and buil
 | **State** | Zustand 5 (8 stores) |
 | **Editor** | TipTap v3 |
 | **Email** | Gmail API, IMAP/SMTP (via async-imap + lettre in Rust) |
-| **Database** | SQLite + FTS5 (31 tables) |
+| **Database** | SQLite + FTS5 (33 tables) |
 | **AI** | Claude, GPT, Gemini |
 | **Testing** | Vitest + Testing Library |
 
@@ -164,7 +165,7 @@ npm run tauri build
 
 ## License
 
-[MIT License](LICENSE)
+[Apache-2.0](LICENSE)
 
 ---
 
