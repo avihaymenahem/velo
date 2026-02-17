@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.13](https://github.com/avihaymenahem/velo/compare/velo-v0.3.12...velo-v0.3.13) (2026-02-17)
+
+
+### Features
+
+* add About page to settings ([fa03431](https://github.com/avihaymenahem/velo/commit/fa03431f091a3f84d78eab1122267c35fdd8c722))
+* add Homebrew tap auto-update to release workflow ([4a817b0](https://github.com/avihaymenahem/velo/commit/4a817b0dba3bba3b8d4650e3c1a3b57a9f0a72f0))
+* add View Source option to message context menu ([c657b0f](https://github.com/avihaymenahem/velo/commit/c657b0f798d70bda0436acbd0ea435afd3f84b63))
+* optimize IMAP delta sync with single-connection batch check ([0a62b73](https://github.com/avihaymenahem/velo/commit/0a62b7363c6c7d34592781a711eb8695b8e5ed52))
+
 ## [0.3.12](https://github.com/avihaymenahem/velo/compare/velo-v0.3.11...velo-v0.3.12) (2026-02-16)
 
 
