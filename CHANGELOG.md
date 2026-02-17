@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.14](https://github.com/avihaymenahem/velo/compare/velo-v0.3.13...velo-v0.3.14) (2026-02-17)
+
+
+### Features
+
+* prioritize new account sync to eliminate 20-30s delay ([49bce0f](https://github.com/avihaymenahem/velo/commit/49bce0fc8227d75923642cef26700c13504ee046))
+
 ## [0.3.13](https://github.com/avihaymenahem/velo/compare/velo-v0.3.12...velo-v0.3.13) (2026-02-17)
 
 
