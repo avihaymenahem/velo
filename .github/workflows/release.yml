@@ -69,12 +69,16 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: "Velo v__VERSION__"
           releaseBody: "See the assets below to download for your platform."
           releaseDraft: false
           prerelease: false
+          makeLatest: true
+          updaterJsonKeepUniversal: true
           args: ${{ matrix.args }}
 
   build-macos:
@@ -138,12 +142,16 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: "Velo v__VERSION__"
           releaseBody: "See the assets below to download for your platform."
           releaseDraft: false
           prerelease: false
+          makeLatest: true
+          updaterJsonKeepUniversal: true
           args: --target universal-apple-darwin
 
       - name: Build and release (unsigned)
@@ -151,6 +159,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: "Velo v__VERSION__"
@@ -164,6 +174,8 @@ jobs:
             > Or right-click the app and select "Open" on first launch.
           releaseDraft: false
           prerelease: false
+          makeLatest: true
+          updaterJsonKeepUniversal: true
           args: --target universal-apple-darwin
 
       - name: Clean up keychain

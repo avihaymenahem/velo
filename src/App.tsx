@@ -53,6 +53,10 @@ import {
   startPreCacheManager,
   stopPreCacheManager,
 } from "./services/attachments/preCacheManager";
+import {
+  startUpdateChecker,
+  stopUpdateChecker,
+} from "./services/updateManager";
 import { fetchSendAsAliases } from "./services/gmail/sendAs";
 import { getGmailClient } from "./services/gmail/tokenManager";
 import { invoke } from "@tauri-apps/api/core";
@@ -61,6 +65,7 @@ import { TitleBar } from "./components/layout/TitleBar";
 import { useShortcutStore } from "./stores/shortcutStore";
 import { ContextMenuPortal } from "./components/ui/ContextMenuPortal";
 import { OfflineBanner } from "./components/ui/OfflineBanner";
+import { UpdateToast } from "./components/ui/UpdateToast";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
@@ -304,6 +309,9 @@ export default function App() {
 
         // Initial badge count
         await updateBadgeCount();
+
+        // Start auto-update checker
+        startUpdateChecker();
       } catch (err) {
         console.error("Failed to initialize:", err);
       }
@@ -321,6 +329,7 @@ export default function App() {
       stopBundleChecker();
       stopQueueProcessor();
       stopPreCacheManager();
+      stopUpdateChecker();
       unregisterComposeShortcut();
       deepLinkCleanupRef.current?.();
     };
@@ -518,6 +527,7 @@ export default function App() {
         <Composer />
       </ErrorBoundary>
       <UndoSendToast />
+      <UpdateToast />
       <ErrorBoundary name="CommandPalette">
         <CommandPalette
           isOpen={showCommandPalette}

@@ -32,6 +32,8 @@ tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-deep-link = "2"
 tauri-plugin-http = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 tokio = { version = "1", features = ["net", "io-util", "sync", "macros", "rt", "time"] }
 futures = "0.3"
 async-imap = { version = "0.10", default-features = false, features = ["runtime-tokio"] }

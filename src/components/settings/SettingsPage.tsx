@@ -30,6 +30,7 @@ import {
   Github,
   Scale,
   Globe,
+  Download,
   type LucideIcon,
 } from "lucide-react";
 import { SignatureEditor } from "./SignatureEditor";
@@ -1319,6 +1320,10 @@ function DeveloperTab() {
   const [appVersion, setAppVersion] = useState("");
   const [tauriVersion, setTauriVersion] = useState("");
   const [webviewVersion, setWebviewVersion] = useState("");
+  const [checkingForUpdate, setCheckingForUpdate] = useState(false);
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const [updateCheckDone, setUpdateCheckDone] = useState(false);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -1332,9 +1337,45 @@ function DeveloperTab() {
       const chromeMatch = /Chrome\/(\S+)/.exec(ua);
       const webkitMatch = /AppleWebKit\/(\S+)/.exec(ua);
       setWebviewVersion(edgMatch?.[1] ?? chromeMatch?.[1] ?? webkitMatch?.[1] ?? "Unknown");
+
+      // Check if there's already a known update
+      const { getAvailableUpdate } = await import("@/services/updateManager");
+      const existing = getAvailableUpdate();
+      if (existing) setUpdateVersion(existing.version);
     }
     load();
   }, []);
+
+  const handleCheckForUpdate = async () => {
+    setCheckingForUpdate(true);
+    setUpdateCheckDone(false);
+    setUpdateVersion(null);
+    try {
+      const { checkForUpdateNow } = await import("@/services/updateManager");
+      const result = await checkForUpdateNow();
+      if (result) {
+        setUpdateVersion(result.version);
+      } else {
+        setUpdateCheckDone(true);
+      }
+    } catch (err) {
+      console.error("Update check failed:", err);
+      setUpdateCheckDone(true);
+    } finally {
+      setCheckingForUpdate(false);
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    setInstallingUpdate(true);
+    try {
+      const { installUpdate } = await import("@/services/updateManager");
+      await installUpdate();
+    } catch (err) {
+      console.error("Update install failed:", err);
+      setInstallingUpdate(false);
+    }
+  };
 
   return (
     <>
@@ -1343,6 +1384,46 @@ function DeveloperTab() {
         <InfoRow label="Tauri version" value={tauriVersion || "..."} />
         <InfoRow label="WebView version" value={webviewVersion || "..."} />
         <InfoRow label="Platform" value={navigator.platform} />
+      </Section>
+
+      <Section title="Updates">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-sm text-text-secondary">Software updates</span>
+            {updateVersion && (
+              <p className="text-xs text-accent mt-0.5">
+                v{updateVersion} available
+              </p>
+            )}
+            {updateCheckDone && !updateVersion && (
+              <p className="text-xs text-success mt-0.5">Up to date</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {updateVersion ? (
+              <Button
+                variant="primary"
+                size="md"
+                icon={<Download size={14} />}
+                onClick={handleInstallUpdate}
+                disabled={installingUpdate}
+              >
+                {installingUpdate ? "Updating..." : "Update & Restart"}
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                size="md"
+                icon={<RefreshCw size={14} className={checkingForUpdate ? "animate-spin" : ""} />}
+                onClick={handleCheckForUpdate}
+                disabled={checkingForUpdate}
+                className="bg-bg-tertiary text-text-primary border border-border-primary"
+              >
+                {checkingForUpdate ? "Checking..." : "Check for Updates"}
+              </Button>
+            )}
+          </div>
+        </div>
       </Section>
 
       <Section title="Developer Tools">

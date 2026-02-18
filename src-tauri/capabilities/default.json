@@ -62,6 +62,8 @@
     "global-shortcut:allow-is-registered",
     "deep-link:default",
     "core:window:allow-set-badge-count",
-    "http:default"
+    "http:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }
