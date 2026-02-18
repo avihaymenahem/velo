@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.1](https://github.com/avihaymenahem/velo/compare/velo-v0.4.0...velo-v0.4.1) (2026-02-18)
+
+
+### Features
+
+* **nav:** add arrow key navigation between messages in thread view ([efd213d](https://github.com/avihaymenahem/velo/commit/efd213d2f0420852be2432e7ef09a1c12231f110))
+* **nav:** add arrow key navigation in email list and thread view ([e87c712](https://github.com/avihaymenahem/velo/commit/e87c712a284cee6918f21042764ca90119e8cbb1))
+* **nav:** add arrow key navigation in email list with auto-scroll ([9f4b0d8](https://github.com/avihaymenahem/velo/commit/9f4b0d826100492dc781bab6c48b4e0e5ba191af))
+
+
+### Bug Fixes
+
+* **popout:** set active account in thread pop-out window ([ae60695](https://github.com/avihaymenahem/velo/commit/ae606950a8c1692a5c935d4ea60d384d1093e7e0))
+* **test:** update HelpPage test for 14 categories (added tasks) ([ca97b65](https://github.com/avihaymenahem/velo/commit/ca97b656290781f1d81d944e57445a6f1158f287))
+* **ui:** replace loading text with skeleton animation and fix platform detection ([02eda9f](https://github.com/avihaymenahem/velo/commit/02eda9fd35f7272222aa4c5e9f28661230bc754b))
+
 ## [0.4.0](https://github.com/avihaymenahem/velo/compare/velo-v0.3.19...velo-v0.4.0) (2026-02-18)
 
 
