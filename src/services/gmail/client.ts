@@ -105,6 +105,7 @@ export class GmailClient {
       if (!retry.ok) {
         throw new Error(`Gmail API error: ${retry.status} ${await retry.text()}`);
       }
+      if (retry.status === 204) return undefined as T;
       return retry.json();
     }
 
@@ -114,6 +115,7 @@ export class GmailClient {
       );
     }
 
+    if (response.status === 204) return undefined as T;
     return response.json();
   }
 
