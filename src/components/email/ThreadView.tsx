@@ -222,6 +222,50 @@ export function ThreadView({ thread }: ThreadViewProps) {
     setTimeout(() => document.body.removeChild(iframe), 1000);
   }, [messages, thread.subject]);
 
+  // Message-level keyboard navigation (ArrowUp / ArrowDown)
+  const [focusedMsgIdx, setFocusedMsgIdx] = useState(-1);
+  const messageRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Reset focused index when thread changes
+  useEffect(() => {
+    setFocusedMsgIdx(-1);
+  }, [thread.id]);
+
+  // Scroll focused message into view
+  useEffect(() => {
+    if (focusedMsgIdx >= 0 && messageRefs.current[focusedMsgIdx]) {
+      messageRefs.current[focusedMsgIdx]!.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [focusedMsgIdx]);
+
+  // Arrow key handler for message navigation
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInputFocused =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable;
+      if (isInputFocused) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedMsgIdx((prev) => {
+          const next = prev + 1;
+          return next < messages.length ? next : prev;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedMsgIdx((prev) => {
+          const next = prev - 1;
+          return next >= 0 ? next : prev;
+        });
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [messages.length]);
+
   const [rawMessageTarget, setRawMessageTarget] = useState<{
     messageId: string;
     accountId: string;
@@ -377,8 +421,10 @@ export function ThreadView({ thread }: ThreadViewProps) {
             {messages.map((msg, i) => (
               <MessageItem
                 key={msg.id}
+                ref={(el) => { messageRefs.current[i] = el; }}
                 message={msg}
                 isLast={i === messages.length - 1}
+                focused={i === focusedMsgIdx}
                 blockImages={blockImages}
                 senderAllowlisted={msg.from_address ? allowlistedSenders.has(msg.from_address) : false}
                 isSpam={thread.labelIds.includes("SPAM")}

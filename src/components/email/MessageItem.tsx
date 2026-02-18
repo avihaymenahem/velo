@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useEffect } from "react";
+import { memo, useState, useRef, useEffect, forwardRef } from "react";
 import { formatFullDate } from "@/utils/date";
 import { EmailRenderer } from "./EmailRenderer";
 import { InlineAttachmentPreview } from "./InlineAttachmentPreview";
@@ -17,10 +17,11 @@ interface MessageItemProps {
   accountId?: string;
   threadId?: string;
   isSpam?: boolean;
+  focused?: boolean;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export const MessageItem = memo(function MessageItem({ message, isLast, blockImages, senderAllowlisted, accountId, threadId, isSpam, onContextMenu }: MessageItemProps) {
+export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(function MessageItem({ message, isLast, blockImages, senderAllowlisted, accountId, threadId, isSpam, focused, onContextMenu }, ref) {
   const [expanded, setExpanded] = useState(isLast);
   const [attachments, setAttachments] = useState<DbAttachment[]>([]);
   const [, setPreviewAttachment] = useState<DbAttachment | null>(null);
@@ -45,6 +46,14 @@ export const MessageItem = memo(function MessageItem({ message, isLast, blockIma
     }
   }, [isLast]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-expand when focused via keyboard navigation
+  useEffect(() => {
+    if (focused && !expanded) {
+      setExpanded(true);
+      loadAttachments();
+    }
+  }, [focused]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleToggle = () => {
     const willExpand = !expanded;
     setExpanded(willExpand);
@@ -56,7 +65,7 @@ export const MessageItem = memo(function MessageItem({ message, isLast, blockIma
   const fromDisplay = message.from_name ?? message.from_address ?? "Unknown";
 
   return (
-    <div className={`border-b border-border-secondary last:border-b-0 ${isSpam ? "bg-red-500/8 dark:bg-red-500/10" : ""}`} onContextMenu={onContextMenu}>
+    <div ref={ref} className={`border-b border-border-secondary last:border-b-0 ${isSpam ? "bg-red-500/8 dark:bg-red-500/10" : ""} ${focused ? "ring-2 ring-inset ring-accent/50" : ""}`} onContextMenu={onContextMenu}>
       {/* Header — always visible, click to expand/collapse */}
       <button
         onClick={handleToggle}
@@ -143,7 +152,7 @@ export const MessageItem = memo(function MessageItem({ message, isLast, blockIma
       )}
     </div>
   );
-});
+}));
 
 export function parseUnsubscribeUrl(header: string): string | null {
   // Prefer https URL over mailto
