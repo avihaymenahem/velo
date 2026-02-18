@@ -1449,7 +1449,7 @@ function DeveloperTab() {
         <InfoRow label="App version" value={appVersion || "..."} />
         <InfoRow label="Tauri version" value={tauriVersion || "..."} />
         <InfoRow label="WebView version" value={webviewVersion || "..."} />
-        <InfoRow label="Platform" value={navigator.platform} />
+        <InfoRow label="Platform" value={getPlatformLabel()} />
       </Section>
 
       <Section title="Updates">
@@ -1610,6 +1610,38 @@ function AboutTab() {
       </Section>
     </>
   );
+}
+
+function getPlatformLabel(): string {
+  const ua = navigator.userAgent;
+  if (ua.includes("Windows")) {
+    if (ua.includes("ARM") || ua.includes("arm64")) return "Windows (ARM)";
+    if (ua.includes("Win64") || ua.includes("x64") || ua.includes("WOW64")) return "Windows (x64)";
+    return "Windows";
+  }
+  if (ua.includes("Mac OS X") || ua.includes("Macintosh")) {
+    // WebKit on macOS always reports "Intel" in navigator.platform.
+    // Check for ARM hints in the user agent or use GL renderer as heuristic.
+    if (ua.includes("ARM") || ua.includes("arm64")) return "macOS (Apple Silicon)";
+    // Try WebGL renderer — Apple Silicon reports "Apple M1/M2/M3/M4" GPU
+    try {
+      const canvas = document.createElement("canvas");
+      const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+      if (gl) {
+        const ext = gl.getExtension("WEBGL_debug_renderer_info");
+        if (ext) {
+          const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string;
+          if (/Apple M\d/i.test(renderer)) return "macOS (Apple Silicon)";
+        }
+      }
+    } catch { /* ignore */ }
+    return "macOS (Intel)";
+  }
+  if (ua.includes("Linux")) {
+    if (ua.includes("aarch64") || ua.includes("arm")) return "Linux (ARM)";
+    return "Linux (x64)";
+  }
+  return navigator.platform;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

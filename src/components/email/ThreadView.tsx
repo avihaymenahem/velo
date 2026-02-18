@@ -20,6 +20,7 @@ import { ContactSidebar } from "./ContactSidebar";
 import { TaskSidebar } from "@/components/tasks/TaskSidebar";
 import { AiTaskExtractDialog } from "@/components/tasks/AiTaskExtractDialog";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { MessageSkeleton } from "@/components/ui/Skeleton";
 import { RawMessageModal } from "./RawMessageModal";
 
 interface ThreadViewProps {
@@ -361,8 +362,10 @@ export function ThreadView({ thread }: ThreadViewProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full text-text-tertiary text-sm">
-        Loading messages...
+      <div className="flex flex-col h-full">
+        <MessageSkeleton />
+        <MessageSkeleton />
+        <MessageSkeleton />
       </div>
     );
   }
