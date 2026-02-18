@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.19](https://github.com/avihaymenahem/velo/compare/velo-v0.3.18...velo-v0.3.19) (2026-02-18)
+
+
+### Features
+
+* add auto-update via Tauri updater plugin ([7ac2362](https://github.com/avihaymenahem/velo/commit/7ac2362c3ef1c9e9f628fd2232cd16f8ccfc194b))
+
 ## [0.3.18](https://github.com/avihaymenahem/velo/compare/velo-v0.3.17...velo-v0.3.18) (2026-02-18)
 
 
