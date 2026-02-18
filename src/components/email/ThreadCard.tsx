@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import type { Thread } from "@/stores/threadStore";
 import { useThreadStore } from "@/stores/threadStore";
@@ -18,8 +18,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 interface ThreadCardProps {
   thread: Thread;
   isSelected: boolean;
-  onClick: () => void;
-  onContextMenu?: (e: React.MouseEvent) => void;
+  onClick: (thread: Thread) => void;
+  onContextMenu?: (e: React.MouseEvent, threadId: string) => void;
   category?: string;
   showCategoryBadge?: boolean;
   hasFollowUp?: boolean;
@@ -28,21 +28,18 @@ interface ThreadCardProps {
 export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick, onContextMenu, category, showCategoryBadge, hasFollowUp }: ThreadCardProps) {
   const isMultiSelected = useThreadStore((s) => s.selectedThreadIds.has(thread.id));
   const hasMultiSelect = useThreadStore((s) => s.selectedThreadIds.size > 0);
-  const selectedThreadIds = useThreadStore((s) => s.selectedThreadIds);
   const toggleThreadSelection = useThreadStore((s) => s.toggleThreadSelection);
   const selectThreadRange = useThreadStore((s) => s.selectThreadRange);
   const activeLabel = useActiveLabel();
   const emailDensity = useUIStore((s) => s.emailDensity);
 
-  // Determine drag payload: if multi-selected and this thread is in selection, drag all; otherwise just this one
-  const dragThreadIds = hasMultiSelect && isMultiSelected
-    ? [...selectedThreadIds]
-    : [thread.id];
-
-  const dragData: DragData = {
-    threadIds: dragThreadIds,
+  // Read selectedThreadIds lazily for drag — avoids subscribing all cards to the Set reference
+  const dragData: DragData = useMemo(() => ({
+    threadIds: hasMultiSelect && isMultiSelected
+      ? [...useThreadStore.getState().selectedThreadIds]
+      : [thread.id],
     sourceLabel: activeLabel,
-  };
+  }), [hasMultiSelect, isMultiSelected, thread.id, activeLabel]);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `thread-${thread.id}`,
@@ -59,9 +56,13 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
     } else if (hasMultiSelect) {
       toggleThreadSelection(thread.id);
     } else {
-      onClick();
+      onClick(thread);
     }
   };
+
+  const handleContextMenu = onContextMenu
+    ? (e: React.MouseEvent) => onContextMenu(e, thread.id)
+    : undefined;
   const initial = (
     thread.fromName?.[0] ??
     thread.fromAddress?.[0] ??
@@ -74,7 +75,7 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
       {...attributes}
       {...listeners}
       onClick={handleClick}
-      onContextMenu={onContextMenu}
+      onContextMenu={handleContextMenu}
       aria-label={`${thread.isRead ? "" : "Unread "}email from ${thread.fromName ?? thread.fromAddress ?? "Unknown"}: ${thread.subject ?? "(No subject)"}`}
       aria-selected={isSelected}
       className={`w-full text-left border-b border-border-secondary group hover-lift press-scale ${

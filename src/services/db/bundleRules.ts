@@ -157,6 +157,53 @@ export async function getBundleSummary(
 }
 
 /**
+ * Batch-fetch bundle summaries for multiple categories in 2 queries instead of 2N.
+ */
+export async function getBundleSummaries(
+  accountId: string,
+  categories: string[],
+): Promise<Map<string, { count: number; latestSubject: string | null; latestSender: string | null }>> {
+  if (categories.length === 0) return new Map();
+  const db = await getDb();
+  const placeholders = categories.map((_, i) => `$${i + 2}`).join(", ");
+
+  const countRows = await db.select<{ category: string; count: number }[]>(
+    `SELECT tc.category, COUNT(DISTINCT t.id) as count
+     FROM threads t
+     JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id AND tl.label_id = 'INBOX'
+     JOIN thread_categories tc ON tc.account_id = t.account_id AND tc.thread_id = t.id AND tc.category IN (${placeholders})
+     WHERE t.account_id = $1
+     GROUP BY tc.category`,
+    [accountId, ...categories],
+  );
+
+  const latestRows = await db.select<{ category: string; subject: string | null; from_name: string | null }[]>(
+    `SELECT tc.category, t.subject, m.from_name
+     FROM threads t
+     JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id AND tl.label_id = 'INBOX'
+     JOIN thread_categories tc ON tc.account_id = t.account_id AND tc.thread_id = t.id AND tc.category IN (${placeholders})
+     JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
+     WHERE t.account_id = $1
+     GROUP BY tc.category
+     HAVING t.last_message_at = MAX(t.last_message_at)`,
+    [accountId, ...categories],
+  );
+
+  const latestMap = new Map(latestRows.map((r) => [r.category, r]));
+  const result = new Map<string, { count: number; latestSubject: string | null; latestSender: string | null }>();
+  for (const cat of categories) {
+    const countRow = countRows.find((r) => r.category === cat);
+    const latest = latestMap.get(cat);
+    result.set(cat, {
+      count: countRow?.count ?? 0,
+      latestSubject: latest?.subject ?? null,
+      latestSender: latest?.from_name ?? null,
+    });
+  }
+  return result;
+}
+
+/**
  * Calculate the next delivery time for a schedule from now.
  */
 export function getNextDeliveryTime(schedule: DeliverySchedule): number {

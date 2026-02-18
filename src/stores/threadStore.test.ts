@@ -39,6 +39,7 @@ describe("threadStore", () => {
   beforeEach(() => {
     useThreadStore.setState({
       threads: [],
+      threadMap: new Map(),
       selectedThreadId: null,
       selectedThreadIds: new Set(),
       isLoading: false,
@@ -123,6 +124,51 @@ describe("threadStore", () => {
     const state = useThreadStore.getState();
     // Should have thread-1 (from toggle) + thread-2, thread-3 (from selectAllFromHere)
     expect(state.selectedThreadIds.size).toBe(3);
+  });
+
+  describe("threadMap", () => {
+    it("should build threadMap when setting threads", () => {
+      useThreadStore.getState().setThreads([mockThread, mockThread2]);
+      const { threadMap } = useThreadStore.getState();
+      expect(threadMap.size).toBe(2);
+      expect(threadMap.get("thread-1")).toBe(useThreadStore.getState().threads[0]);
+      expect(threadMap.get("thread-2")).toBe(useThreadStore.getState().threads[1]);
+    });
+
+    it("should return undefined for non-existent thread in threadMap", () => {
+      useThreadStore.getState().setThreads([mockThread]);
+      expect(useThreadStore.getState().threadMap.get("non-existent")).toBeUndefined();
+    });
+
+    it("should update threadMap when updating a thread", () => {
+      useThreadStore.getState().setThreads([mockThread, mockThread2]);
+      useThreadStore.getState().updateThread("thread-1", { isRead: true });
+      const { threadMap } = useThreadStore.getState();
+      expect(threadMap.get("thread-1")?.isRead).toBe(true);
+      expect(threadMap.get("thread-2")?.isRead).toBe(true); // was already true
+    });
+
+    it("should remove from threadMap when removing a thread", () => {
+      useThreadStore.getState().setThreads([mockThread, mockThread2]);
+      useThreadStore.getState().removeThread("thread-1");
+      const { threadMap } = useThreadStore.getState();
+      expect(threadMap.size).toBe(1);
+      expect(threadMap.has("thread-1")).toBe(false);
+      expect(threadMap.has("thread-2")).toBe(true);
+    });
+
+    it("should remove from threadMap when removing multiple threads", () => {
+      const mockThread3: Thread = { ...mockThread, id: "thread-3" };
+      useThreadStore.getState().setThreads([mockThread, mockThread2, mockThread3]);
+      useThreadStore.getState().removeThreads(["thread-1", "thread-3"]);
+      const { threadMap } = useThreadStore.getState();
+      expect(threadMap.size).toBe(1);
+      expect(threadMap.has("thread-2")).toBe(true);
+    });
+
+    it("should start with empty threadMap", () => {
+      expect(useThreadStore.getState().threadMap.size).toBe(0);
+    });
   });
 
   it("should update a specific thread", () => {

@@ -9,7 +9,7 @@ import { useComposerStore } from "@/stores/composerStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { markThreadRead } from "@/services/emailActions";
 import { getSetting } from "@/services/db/settings";
-import { isAllowlisted } from "@/services/db/imageAllowlist";
+import { getAllowlistedSenders } from "@/services/db/imageAllowlist";
 import { VolumeX } from "lucide-react";
 import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { isNoReplyAddress } from "@/utils/noReply";
@@ -81,28 +81,19 @@ export function ThreadView({ thread }: ThreadViewProps) {
       .finally(() => setLoading(false));
   }, [activeAccountId, thread.id]);
 
-  // Check per-sender allowlist (parallel queries, runs after messages load)
+  // Check per-sender allowlist (single batch query instead of N queries)
   useEffect(() => {
     if (!activeAccountId || messages.length === 0) return;
     let cancelled = false;
 
-    const senders = new Set<string>();
+    const senders: string[] = [];
     for (const msg of messages) {
-      if (msg.from_address) senders.add(msg.from_address);
+      if (msg.from_address) senders.push(msg.from_address);
     }
+    const uniqueSenders = [...new Set(senders)];
 
-    Promise.all(
-      Array.from(senders).map(async (sender) => ({
-        sender,
-        isAllowed: await isAllowlisted(activeAccountId, sender),
-      }))
-    ).then((results) => {
-      if (cancelled) return;
-      const allowed = new Set<string>();
-      for (const { sender, isAllowed } of results) {
-        if (isAllowed) allowed.add(sender);
-      }
-      setAllowlistedSenders(allowed);
+    getAllowlistedSenders(activeAccountId, uniqueSenders).then((allowed) => {
+      if (!cancelled) setAllowlistedSenders(allowed);
     });
 
     return () => { cancelled = true; };

@@ -77,10 +77,12 @@ export async function updateLabelSortOrder(
   labelOrders: { id: string; sortOrder: number }[],
 ): Promise<void> {
   const db = await getDb();
-  for (const { id, sortOrder } of labelOrders) {
-    await db.execute(
-      "UPDATE labels SET sort_order = $1 WHERE account_id = $2 AND id = $3",
-      [sortOrder, accountId, id],
-    );
-  }
+  await Promise.all(
+    labelOrders.map(({ id, sortOrder }) =>
+      db.execute(
+        "UPDATE labels SET sort_order = $1 WHERE account_id = $2 AND id = $3",
+        [sortOrder, accountId, id],
+      ),
+    ),
+  );
 }

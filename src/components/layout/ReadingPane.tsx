@@ -5,9 +5,8 @@ import { EmptyState } from "../ui/EmptyState";
 import { ReadingPaneIllustration } from "../ui/illustrations";
 
 export function ReadingPane() {
-  const threads = useThreadStore((s) => s.threads);
   const selectedThreadId = useSelectedThreadId();
-  const selectedThread = threads.find((t) => t.id === selectedThreadId);
+  const selectedThread = useThreadStore((s) => selectedThreadId ? s.threadMap.get(selectedThreadId) ?? null : null);
 
   if (!selectedThread) {
     return (

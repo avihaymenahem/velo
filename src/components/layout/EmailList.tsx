@@ -12,7 +12,7 @@ import { navigateToThread, navigateToLabel } from "@/router/navigate";
 import { getThreadsForAccount, getThreadsForCategory, getThreadLabelIds, deleteThread as deleteThreadFromDb } from "@/services/db/threads";
 import { getCategoriesForThreads, getCategoryUnreadCounts } from "@/services/db/threadCategories";
 import { getActiveFollowUpThreadIds } from "@/services/db/followUpReminders";
-import { getBundleRules, getHeldThreadIds, getBundleSummary, type DbBundleRule } from "@/services/db/bundleRules";
+import { getBundleRules, getHeldThreadIds, getBundleSummaries, type DbBundleRule } from "@/services/db/bundleRules";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { useLabelStore } from "@/stores/labelStore";
 import { useSmartFolderStore } from "@/stores/smartFolderStore";
@@ -141,6 +141,14 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
       console.error("Failed to open draft:", err);
     }
   }, [activeAccountId, openComposer]);
+
+  const handleThreadClick = useCallback((thread: Thread) => {
+    if (activeLabel === "drafts") {
+      handleDraftClick(thread);
+    } else {
+      navigateToThread(thread.id);
+    }
+  }, [activeLabel, handleDraftClick]);
 
   const handleBulkDelete = async () => {
     if (!activeAccountId || multiSelectCount === 0) return;
@@ -333,6 +341,9 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     loadThreads();
   }, [loadThreads]);
 
+  // Stable thread ID key — only changes when the actual set of thread IDs changes, not on every array reference
+  const threadIdKey = useMemo(() => threads.map((t) => t.id).join(","), [threads]);
+
   // Load all thread metadata (categories, unread counts, follow-ups, bundles) in one coordinated effect
   useEffect(() => {
     let cancelled = false;
@@ -347,7 +358,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
       return;
     }
 
-    const threadIds = threads.map((t) => t.id);
+    const threadIds = threadIdKey ? threadIdKey.split(",") : [];
     const isInbox = activeLabel === "inbox";
     const isAllCategory = activeCategory === "All";
 
@@ -357,7 +368,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
         const promises: Promise<void>[] = [];
 
         // Categories (only for inbox "All" tab with threads)
-        if (isInbox && isAllCategory && threads.length > 0) {
+        if (isInbox && isAllCategory && threadIds.length > 0) {
           promises.push(
             getCategoriesForThreads(activeAccountId, threadIds).then((result) => {
               if (!cancelled) setCategoryMap(result);
@@ -379,7 +390,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
         }
 
         // Follow-up indicators
-        if (threads.length > 0) {
+        if (threadIds.length > 0) {
           promises.push(
             getActiveFollowUpThreadIds(activeAccountId, threadIds).then((result) => {
               if (!cancelled) setFollowUpThreadIds(result);
@@ -398,14 +409,13 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
               if (cancelled) return;
               const bundled = rules.filter((r) => r.is_bundled);
               setBundleRules(bundled);
-              // Load summaries for bundled categories
-              const entries = await Promise.all(
-                bundled.map(async (r) => {
-                  const summary = await getBundleSummary(activeAccountId, r.category);
-                  return [r.category, summary] as const;
-                }),
-              ).catch(() => [] as (readonly [string, { count: number; latestSubject: string | null; latestSender: string | null }])[]);
-              if (!cancelled) setBundleSummaries(new Map(entries));
+              // Batch-fetch all summaries in 2 queries instead of 2N
+              if (bundled.length > 0) {
+                const summaries = await getBundleSummaries(activeAccountId, bundled.map((r) => r.category)).catch(() => new Map());
+                if (!cancelled) setBundleSummaries(summaries);
+              } else {
+                if (!cancelled) setBundleSummaries(new Map());
+              }
             }).catch(() => {
               if (!cancelled) setBundleRules([]);
             }),
@@ -431,15 +441,20 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
 
     loadMetadata();
     return () => { cancelled = true; };
-  }, [threads, activeLabel, activeCategory, activeAccountId]);
+  }, [threadIdKey, activeLabel, activeCategory, activeAccountId]);
 
-  // Listen for sync completion to reload
+  // Listen for sync completion to reload (debounced to avoid waterfall from multiple emitters)
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const handler = () => {
-      loadThreads();
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => loadThreads(), 500);
     };
     window.addEventListener("velo-sync-done", handler);
-    return () => window.removeEventListener("velo-sync-done", handler);
+    return () => {
+      window.removeEventListener("velo-sync-done", handler);
+      if (timer) clearTimeout(timer);
+    };
   }, [loadThreads, activeAccountId, activeLabel]);
 
   // Infinite scroll: load more when near bottom
@@ -622,8 +637,8 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
                       <ThreadCard
                         thread={thread}
                         isSelected={thread.id === selectedThreadId}
-                        onClick={() => navigateToThread(thread.id)}
-                        onContextMenu={(e) => handleThreadContextMenu(e, thread.id)}
+                        onClick={handleThreadClick}
+                        onContextMenu={handleThreadContextMenu}
                         category={rule.category}
                         hasFollowUp={followUpThreadIds.has(thread.id)}
                       />
@@ -649,14 +664,8 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
                   <ThreadCard
                     thread={thread}
                     isSelected={thread.id === selectedThreadId}
-                    onClick={() => {
-                      if (activeLabel === "drafts") {
-                        handleDraftClick(thread);
-                      } else {
-                        navigateToThread(thread.id);
-                      }
-                    }}
-                    onContextMenu={(e) => handleThreadContextMenu(e, thread.id)}
+                    onClick={handleThreadClick}
+                    onContextMenu={handleThreadContextMenu}
                     category={categoryMap.get(thread.id)}
                     showCategoryBadge={activeLabel === "inbox" && activeCategory === "All"}
                     hasFollowUp={followUpThreadIds.has(thread.id)}

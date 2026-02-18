@@ -13,6 +13,24 @@ export async function isAllowlisted(
   return rows.length > 0;
 }
 
+/**
+ * Batch-check which senders are allowlisted in a single query.
+ */
+export async function getAllowlistedSenders(
+  accountId: string,
+  senderAddresses: string[],
+): Promise<Set<string>> {
+  if (senderAddresses.length === 0) return new Set();
+  const db = await getDb();
+  const normalized = senderAddresses.map(normalizeEmail);
+  const placeholders = normalized.map((_, i) => `$${i + 2}`).join(", ");
+  const rows = await db.select<{ sender_address: string }[]>(
+    `SELECT sender_address FROM image_allowlist WHERE account_id = $1 AND sender_address IN (${placeholders})`,
+    [accountId, ...normalized],
+  );
+  return new Set(rows.map((r) => r.sender_address));
+}
+
 export async function addToAllowlist(
   accountId: string,
   senderAddress: string,

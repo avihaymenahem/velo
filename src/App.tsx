@@ -86,8 +86,10 @@ function useRouterSyncBridge() {
 import { useThreadStore } from "./stores/threadStore";
 
 export default function App() {
-  const { theme, setTheme, sidebarCollapsed, setSidebarCollapsed, setContactSidebarVisible, setReadingPanePosition, setReadFilter, setEmailListWidth, setEmailDensity, setDefaultReplyMode, setMarkAsReadBehavior, setSendAndArchive, fontScale, setFontScale, colorTheme, setColorTheme, setInboxViewMode } = useUIStore();
-  const { setAccounts } = useAccountStore();
+  const theme = useUIStore((s) => s.theme);
+  const fontScale = useUIStore((s) => s.fontScale);
+  const colorTheme = useUIStore((s) => s.colorTheme);
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
@@ -169,83 +171,85 @@ export default function App() {
       try {
         await runMigrations();
 
+        const ui = useUIStore.getState();
+
         // Restore persisted theme
         const savedTheme = await getSetting("theme");
         if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") {
-          setTheme(savedTheme);
+          ui.setTheme(savedTheme);
         }
 
         // Restore persisted sidebar state
         const savedSidebar = await getSetting("sidebar_collapsed");
         if (savedSidebar === "true") {
-          setSidebarCollapsed(true);
+          ui.setSidebarCollapsed(true);
         }
 
         // Restore contact sidebar visibility
         const savedContactSidebar = await getSetting("contact_sidebar_visible");
         if (savedContactSidebar === "false") {
-          setContactSidebarVisible(false);
+          ui.setContactSidebarVisible(false);
         }
 
         // Restore reading pane position
         const savedPanePos = await getSetting("reading_pane_position");
         if (savedPanePos === "right" || savedPanePos === "bottom" || savedPanePos === "hidden") {
-          setReadingPanePosition(savedPanePos);
+          ui.setReadingPanePosition(savedPanePos);
         }
 
         // Restore read filter
         const savedReadFilter = await getSetting("read_filter");
         if (savedReadFilter === "all" || savedReadFilter === "read" || savedReadFilter === "unread") {
-          setReadFilter(savedReadFilter);
+          ui.setReadFilter(savedReadFilter);
         }
 
         // Restore email list width
         const savedListWidth = await getSetting("email_list_width");
         if (savedListWidth) {
           const w = parseInt(savedListWidth, 10);
-          if (w >= 240 && w <= 800) setEmailListWidth(w);
+          if (w >= 240 && w <= 800) ui.setEmailListWidth(w);
         }
 
         // Restore email density
         const savedDensity = await getSetting("email_density");
         if (savedDensity === "compact" || savedDensity === "default" || savedDensity === "spacious") {
-          setEmailDensity(savedDensity);
+          ui.setEmailDensity(savedDensity);
         }
 
         // Restore default reply mode
         const savedReplyMode = await getSetting("default_reply_mode");
         if (savedReplyMode === "reply" || savedReplyMode === "replyAll") {
-          setDefaultReplyMode(savedReplyMode);
+          ui.setDefaultReplyMode(savedReplyMode);
         }
 
         // Restore mark-as-read behavior
         const savedMarkRead = await getSetting("mark_as_read_behavior");
         if (savedMarkRead === "instant" || savedMarkRead === "2s" || savedMarkRead === "manual") {
-          setMarkAsReadBehavior(savedMarkRead);
+          ui.setMarkAsReadBehavior(savedMarkRead);
         }
 
         // Restore send and archive
         const savedSendArchive = await getSetting("send_and_archive");
         if (savedSendArchive === "true") {
-          setSendAndArchive(true);
+          ui.setSendAndArchive(true);
         }
 
         // Restore font scale
         const savedFontScale = await getSetting("font_size");
         if (savedFontScale === "small" || savedFontScale === "default" || savedFontScale === "large" || savedFontScale === "xlarge") {
-          setFontScale(savedFontScale);
+          ui.setFontScale(savedFontScale);
         }
 
         // Restore color theme
         const savedColorTheme = await getSetting("color_theme");
         if (savedColorTheme && COLOR_THEMES.some((t) => t.id === savedColorTheme)) {
-          setColorTheme(savedColorTheme as ColorThemeId);
+          ui.setColorTheme(savedColorTheme as ColorThemeId);
         }
 
         // Restore inbox view mode
         const savedViewMode = await getSetting("inbox_view_mode");
         if (savedViewMode === "unified" || savedViewMode === "split") {
-          setInboxViewMode(savedViewMode);
+          ui.setInboxViewMode(savedViewMode);
         }
 
         // Load custom keyboard shortcuts
@@ -260,7 +264,7 @@ export default function App() {
           isActive: a.is_active === 1,
         }));
         const savedAccountId = await getSetting("active_account_id");
-        setAccounts(mapped, savedAccountId);
+        useAccountStore.getState().setAccounts(mapped, savedAccountId);
 
         // Initialize Gmail clients for existing accounts
         await initializeClients();
@@ -435,7 +439,7 @@ export default function App() {
       avatarUrl: a.avatar_url,
       isActive: a.is_active === 1,
     }));
-    setAccounts(mapped);
+    useAccountStore.getState().setAccounts(mapped);
 
     // Re-initialize clients for the new account
     await initializeClients();
@@ -456,12 +460,18 @@ export default function App() {
     // since we already triggered the new account's sync above.
     const activeIds = mapped.filter((a) => a.isActive).map((a) => a.id);
     startBackgroundSync(activeIds, true);
-  }, [setAccounts]);
+  }, []);
 
   if (!initialized) {
     return (
-      <div className="flex h-screen items-center justify-center text-text-secondary">
-        <span className="text-sm">Loading...</span>
+      <div className="flex h-screen items-center justify-center bg-bg-primary">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative w-10 h-10">
+            <div className="absolute inset-0 rounded-full border-2 border-accent/20" />
+            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-accent animate-spin" />
+          </div>
+          <span className="text-xs text-text-tertiary animate-pulse">Loading your inbox...</span>
+        </div>
       </div>
     );
   }
