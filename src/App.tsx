@@ -326,16 +326,20 @@ export default function App() {
   // Listen for sync status updates
   const backfillDoneRef = useRef(false);
   useEffect(() => {
-    const unsub = onSyncStatus((accountId, status, progress) => {
-      if (status === "syncing" && progress) {
-        if (progress.phase === "messages") {
-          setSyncStatus(
-            `Syncing: ${progress.current}/${progress.total} threads`,
-          );
-        } else if (progress.phase === "labels") {
-          setSyncStatus("Syncing labels...");
-        } else if (progress.phase === "threads") {
-          setSyncStatus(`Fetching threads... (${progress.current})`);
+    const unsub = onSyncStatus((accountId, status, progress, error) => {
+      if (status === "syncing") {
+        if (progress) {
+          if (progress.phase === "messages") {
+            setSyncStatus(
+              `Syncing: ${progress.current}/${progress.total} threads`,
+            );
+          } else if (progress.phase === "labels") {
+            setSyncStatus("Syncing labels...");
+          } else if (progress.phase === "threads") {
+            setSyncStatus(`Fetching threads... (${progress.current})`);
+          }
+        } else {
+          setSyncStatus("Syncing...");
         }
       } else if (status === "done") {
         setSyncStatus(null);
@@ -350,9 +354,11 @@ export default function App() {
             .catch((err) => console.error("Backfill error:", err));
         }
       } else if (status === "error") {
-        setSyncStatus(null);
+        setSyncStatus(error ? `Sync failed: ${error}` : "Sync failed");
         // Still dispatch sync-done so the UI refreshes with any partially stored data
         window.dispatchEvent(new Event("velo-sync-done"));
+        // Auto-clear the error after 8 seconds
+        setTimeout(() => setSyncStatus(null), 8_000);
       }
     });
     return unsub;
@@ -486,7 +492,7 @@ export default function App() {
 
       {/* Sync status bar */}
       {syncStatus && (
-        <div className="fixed bottom-0 left-0 right-0 bg-accent/90 glass-panel text-white text-xs px-4 py-1.5 text-center z-40">
+        <div className={`fixed bottom-0 left-0 right-0 glass-panel text-white text-xs px-4 py-1.5 text-center z-40 ${syncStatus.startsWith("Sync failed") ? "bg-danger/90" : "bg-accent/90"}`}>
           {syncStatus}
         </div>
       )}

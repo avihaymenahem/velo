@@ -127,6 +127,23 @@ export async function deleteMessage(
   );
 }
 
+export async function updateMessageThreadIds(
+  accountId: string,
+  messageIds: string[],
+  threadId: string,
+): Promise<void> {
+  const db = await getDb();
+  // SQLite variable limit is 999; process in chunks
+  for (let i = 0; i < messageIds.length; i += 500) {
+    const chunk = messageIds.slice(i, i + 500);
+    const placeholders = chunk.map((_, idx) => `$${idx + 3}`).join(", ");
+    await db.execute(
+      `UPDATE messages SET thread_id = $1 WHERE account_id = $2 AND id IN (${placeholders})`,
+      [threadId, accountId, ...chunk],
+    );
+  }
+}
+
 export async function deleteAllMessagesForAccount(
   accountId: string,
 ): Promise<void> {
