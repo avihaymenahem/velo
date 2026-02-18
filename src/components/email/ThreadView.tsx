@@ -238,8 +238,12 @@ export function ThreadView({ thread }: ThreadViewProps) {
     }
   }, [focusedMsgIdx]);
 
-  // Arrow key handler for message navigation
+  // Arrow key handler for message navigation (only in full-screen thread view)
+  // In split-pane mode, arrows navigate the thread list instead (handled by useKeyboardShortcuts)
+  const readingPanePosition = useUIStore((s) => s.readingPanePosition);
   useEffect(() => {
+    if (readingPanePosition !== "hidden") return;
+
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       const isInputFocused =
@@ -264,7 +268,7 @@ export function ThreadView({ thread }: ThreadViewProps) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [messages.length]);
+  }, [messages.length, readingPanePosition]);
 
   const [rawMessageTarget, setRawMessageTarget] = useState<{
     messageId: string;

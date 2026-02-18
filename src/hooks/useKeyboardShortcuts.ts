@@ -156,6 +156,20 @@ export function useKeyboardShortcuts() {
         return;
       }
 
+      // Arrow keys navigate the thread list when no thread is open full-screen
+      // (In split-pane mode or list-only view, arrows move between threads)
+      if (key === "ArrowDown" || key === "ArrowUp") {
+        const selectedId = getSelectedThreadId();
+        const paneOff = useUIStore.getState().readingPanePosition === "hidden";
+        // Only handle here if no thread is open in full-screen mode
+        // (when pane is off and a thread is selected, ThreadView handles arrows for message nav)
+        if (!(paneOff && selectedId)) {
+          e.preventDefault();
+          await executeAction(key === "ArrowDown" ? "nav.next" : "nav.prev");
+          return;
+        }
+      }
+
       // Single key shortcuts
       let actionId = singleKey.get(key);
       // Delete and Backspace always trigger delete action
