@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.16](https://github.com/avihaymenahem/velo/compare/velo-v0.3.15...velo-v0.3.16) (2026-02-18)
+
+
+### Features
+
+* add Microsoft OAuth2 support for Outlook/Hotmail/Live accounts ([019a5e2](https://github.com/avihaymenahem/velo/commit/019a5e241dc558d6eb384efc5b6e9880643d7383))
+
 ## [0.3.15](https://github.com/avihaymenahem/velo/compare/velo-v0.3.14...velo-v0.3.15) (2026-02-18)
 
 
