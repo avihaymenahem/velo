@@ -16,10 +16,11 @@ interface MessageItemProps {
   senderAllowlisted?: boolean;
   accountId?: string;
   threadId?: string;
+  isSpam?: boolean;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export const MessageItem = memo(function MessageItem({ message, isLast, blockImages, senderAllowlisted, accountId, threadId, onContextMenu }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({ message, isLast, blockImages, senderAllowlisted, accountId, threadId, isSpam, onContextMenu }: MessageItemProps) {
   const [expanded, setExpanded] = useState(isLast);
   const [attachments, setAttachments] = useState<DbAttachment[]>([]);
   const [, setPreviewAttachment] = useState<DbAttachment | null>(null);
@@ -55,7 +56,7 @@ export const MessageItem = memo(function MessageItem({ message, isLast, blockIma
   const fromDisplay = message.from_name ?? message.from_address ?? "Unknown";
 
   return (
-    <div className="border-b border-border-secondary last:border-b-0" onContextMenu={onContextMenu}>
+    <div className={`border-b border-border-secondary last:border-b-0 ${isSpam ? "bg-red-500/8 dark:bg-red-500/10" : ""}`} onContextMenu={onContextMenu}>
       {/* Header — always visible, click to expand/collapse */}
       <button
         onClick={handleToggle}
