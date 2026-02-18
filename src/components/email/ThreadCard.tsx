@@ -32,6 +32,7 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
   const selectThreadRange = useThreadStore((s) => s.selectThreadRange);
   const activeLabel = useActiveLabel();
   const emailDensity = useUIStore((s) => s.emailDensity);
+  const isSpam = thread.labelIds.includes("SPAM");
 
   // Read selectedThreadIds lazily for drag — avoids subscribing all cards to the Set reference
   const dragData: DragData = useMemo(() => ({
@@ -88,7 +89,7 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
             : isSelected
               ? "bg-bg-selected"
               : "hover:bg-bg-hover"
-      }`}
+      } ${isSpam ? "bg-red-500/8 dark:bg-red-500/10" : ""}`}
     >
       <div className="flex items-start gap-3">
         {/* Avatar */}
