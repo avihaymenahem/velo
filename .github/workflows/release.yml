@@ -1,8 +1,7 @@
 name: Build & Release
 
 on:
-  release:
-    types: [published]
+  workflow_call:
   workflow_dispatch:
 
 concurrency:
@@ -184,7 +183,7 @@ jobs:
 
   update-homebrew:
     needs: build-macos
-    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    if: always() && needs.build-macos.result == 'success'
     runs-on: macos-latest
     steps:
       - name: Get version from tag
