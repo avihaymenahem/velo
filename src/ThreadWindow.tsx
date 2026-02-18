@@ -64,6 +64,9 @@ export default function ThreadWindow() {
         }));
         setAccounts(mapped);
 
+        // Set active account to the thread's account (without persisting to settings)
+        useAccountStore.setState({ activeAccountId: accountId! });
+
         // Initialize Gmail clients
         await initializeClients();
 
