@@ -431,12 +431,10 @@ export function Composer() {
     <CSSTransition nodeRef={overlayRef} in={isOpen} timeout={200} classNames="slide-up" unmountOnExit>
     <div ref={overlayRef} className={`fixed inset-0 z-50 flex ${isFullpage ? "items-stretch justify-center p-4" : "items-end justify-center pb-4"} pointer-events-none`}>
       {/* Backdrop */}
-      {!isFullpage && (
-        <div
-          className="absolute inset-0 bg-black/20 pointer-events-auto glass-backdrop"
-          onClick={closeComposer}
-        />
-      )}
+      <div
+        className="absolute inset-0 pointer-events-auto backdrop-animate"
+        onClick={closeComposer}
+      />
 
       {/* Composer window */}
       <div

@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: rgba(250, 250, 249, 0.82);
-  --color-bg-secondary: rgba(245, 245, 244, 0.78);
-  --color-bg-tertiary: rgba(231, 229, 228, 0.8);
-  --color-bg-hover: rgba(231, 229, 228, 0.55);
-  --color-bg-selected: rgba(224, 231, 255, 0.65);
+  --color-bg-primary: rgba(250, 250, 249, 0.92);
+  --color-bg-secondary: rgba(245, 245, 244, 0.88);
+  --color-bg-tertiary: rgba(231, 229, 228, 0.88);
+  --color-bg-hover: rgba(231, 229, 228, 0.65);
+  --color-bg-selected: rgba(224, 231, 255, 0.75);
 
   --color-text-primary: #1c1917;
   --color-text-secondary: #57534e;
@@ -22,9 +22,9 @@
   --color-warning: #d97706;
   --color-success: #059669;
 
-  --color-sidebar-bg: rgba(245, 245, 244, 0.92);
+  --color-sidebar-bg: rgba(245, 245, 244, 0.95);
   --color-sidebar-text: #1c1917;
-  --color-sidebar-hover: rgba(231, 229, 228, 0.7);
+  --color-sidebar-hover: rgba(231, 229, 228, 0.8);
   --color-sidebar-active: #4f46e5;
 
   --glass-blur: 20px;
@@ -33,7 +33,7 @@
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   --glass-shadow-elevated: 0 16px 48px rgba(0, 0, 0, 0.14);
   --glass-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.4);
-  --backdrop-blur-overlay: 8px;
+  --backdrop-blur-overlay: 16px;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -42,11 +42,11 @@
  * Dark mode overrides — applied when <html class="dark">
  */
 .dark {
-  --color-bg-primary: rgba(15, 23, 42, 0.75);
-  --color-bg-secondary: rgba(30, 41, 59, 0.65);
-  --color-bg-tertiary: rgba(51, 65, 85, 0.6);
-  --color-bg-hover: rgba(51, 65, 85, 0.45);
-  --color-bg-selected: rgba(30, 58, 95, 0.55);
+  --color-bg-primary: rgba(15, 23, 42, 0.88);
+  --color-bg-secondary: rgba(30, 41, 59, 0.82);
+  --color-bg-tertiary: rgba(51, 65, 85, 0.78);
+  --color-bg-hover: rgba(51, 65, 85, 0.58);
+  --color-bg-selected: rgba(30, 58, 95, 0.68);
 
   --color-text-primary: #f8fafc;
   --color-text-secondary: #cbd5e1;
@@ -59,9 +59,9 @@
   --color-accent-hover: #6366f1;
   --color-accent-light: #312e81;
 
-  --color-sidebar-bg: rgba(15, 23, 42, 0.7);
+  --color-sidebar-bg: rgba(15, 23, 42, 0.88);
   --color-sidebar-text: #e2e8f0;
-  --color-sidebar-hover: rgba(30, 41, 59, 0.55);
+  --color-sidebar-hover: rgba(30, 41, 59, 0.7);
 
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -337,14 +337,12 @@ body {
 .modal-exit-active { opacity: 0; transition: opacity var(--anim-fast) ease-in; }
 .modal-exit-active .modal-panel { transform: scale(0.95); transition: transform var(--anim-fast) ease-in; }
 
-/* CSSTransition: slide-up (fade overlay + slide-up panel) */
-.slide-up-enter { opacity: 0; }
-.slide-up-enter .slide-up-panel { transform: translateY(16px); }
-.slide-up-enter-active { opacity: 1; transition: opacity var(--anim-normal) ease-out; }
-.slide-up-enter-active .slide-up-panel { transform: translateY(0); transition: transform var(--anim-normal) ease-out; }
-.slide-up-exit { opacity: 1; }
-.slide-up-exit-active { opacity: 0; transition: opacity var(--anim-fast) ease-in; }
-.slide-up-exit-active .slide-up-panel { transform: translateY(16px); transition: transform var(--anim-fast) ease-in; }
+/* CSSTransition: slide-up (backdrop fades in independently, panel slides up) */
+.slide-up-enter .slide-up-panel { opacity: 0; transform: translateY(16px); }
+.slide-up-enter-active .slide-up-panel { opacity: 1; transform: translateY(0); transition: opacity var(--anim-normal) ease-out, transform var(--anim-normal) ease-out; }
+.slide-up-exit .slide-up-panel { opacity: 1; }
+.slide-up-exit-active .backdrop-animate { opacity: 0; transition: opacity var(--anim-fast) ease-in; }
+.slide-up-exit-active .slide-up-panel { opacity: 0; transform: translateY(16px); transition: opacity var(--anim-fast) ease-in, transform var(--anim-fast) ease-in; }
 
 /* CSSTransition: slide-down (multi-select bar) */
 .slide-down-enter { opacity: 0; max-height: 0; overflow: hidden; }
@@ -392,6 +390,24 @@ body {
 /* Utility: star pop animation */
 .star-animate {
   animation: starPop var(--anim-slow) ease-out;
+}
+
+/* Backdrop blur fade-in */
+.backdrop-animate {
+  animation: backdropIn var(--anim-slow) ease-out forwards;
+}
+
+@keyframes backdropIn {
+  from {
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+    background-color: rgba(0, 0, 0, 0);
+  }
+  to {
+    backdrop-filter: blur(var(--backdrop-blur-overlay));
+    -webkit-backdrop-filter: blur(var(--backdrop-blur-overlay));
+    background-color: rgba(0, 0, 0, 0.2);
+  }
 }
 
 /* Utility: stagger-in for list items */
