@@ -125,11 +125,18 @@ async function syncImapAccount(accountId: string): Promise<void> {
  */
 async function syncAccountInternal(accountId: string): Promise<void> {
   try {
-    statusCallback?.(accountId, "syncing");
     const account = await getAccount(accountId);
 
     if (!account) {
       throw new Error("Account not found");
+    }
+
+    // Only show the "Syncing..." status bar for initial syncs (no history_id).
+    // Delta syncs are lightweight background ops that run every 15s — showing
+    // the bar each time makes it appear permanently stuck.
+    const isInitialSync = !account.history_id;
+    if (isInitialSync) {
+      statusCallback?.(accountId, "syncing");
     }
 
     console.log(`[syncManager] Syncing account ${accountId} (provider=${account.provider}, history_id=${account.history_id ?? "null"})`);
@@ -140,6 +147,9 @@ async function syncAccountInternal(accountId: string): Promise<void> {
       await syncGmailAccount(accountId);
     }
 
+    // Always emit "done" when an initial sync completes (clears the bar).
+    // Also emit for delta syncs that fell back to initial (recovery re-sync)
+    // since those emit progress via statusCallback inside syncImapAccount.
     statusCallback?.(accountId, "done");
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
