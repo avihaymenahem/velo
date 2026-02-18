@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/avihaymenahem/velo/compare/velo-v0.3.19...velo-v0.4.0) (2026-02-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* Migration 18 adds 3 new database tables (writing_style_profiles, tasks, task_tags) and 2 new default settings. The migration runner now wraps each migration in a transaction. The taskStore is the 9th Zustand store and is initialized on app startup. These changes require a fresh app restart to run the new migration.
+
+### Features
+
+* add AI auto-draft replies with writing style learning and full task manager ([c75dfc5](https://github.com/avihaymenahem/velo/commit/c75dfc5b3cf7b08abc9c8a9c15018dc480413516))
+* **ui:** highlight spam threads with dimmed red background ([5766ecb](https://github.com/avihaymenahem/velo/commit/5766ecbc72ea5e121c486d2f21fd7a40a3cd2179))
+
+
+### Bug Fixes
+
+* create placeholder thread before message insert during IMAP sync ([6c2d013](https://github.com/avihaymenahem/velo/commit/6c2d0135a6b3683dfbce4075a032b9df12ed699a)), closes [#89](https://github.com/avihaymenahem/velo/issues/89)
+
 ## [0.3.19](https://github.com/avihaymenahem/velo/compare/velo-v0.3.18...velo-v0.3.19) (2026-02-18)
 
 
