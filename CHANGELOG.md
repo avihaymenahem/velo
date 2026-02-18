@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.18](https://github.com/avihaymenahem/velo/compare/velo-v0.3.17...velo-v0.3.18) (2026-02-18)
+
+
+### Bug Fixes
+
+* resolve nested button warning and 204 response parsing ([e44f063](https://github.com/avihaymenahem/velo/commit/e44f063927b179444711771e87923343b6599a26))
+
+
+### Performance Improvements
+
+* memoize calendar event buckets, filter descriptions, and contact search ([3eb6042](https://github.com/avihaymenahem/velo/commit/3eb60425bcff8e60a9fc34e23e2abe6f77fdce09))
+* optimize rendering, store subscriptions, and DB queries ([0fd4d8c](https://github.com/avihaymenahem/velo/commit/0fd4d8c784a326f30f334cbf4ace46cd7347677e))
+* pre-parse filter JSON and lazy load route components ([33440b7](https://github.com/avihaymenahem/velo/commit/33440b7ed272ac04adbb3186f5d81f77f1e45dec))
+
 ## [0.3.17](https://github.com/avihaymenahem/velo/compare/velo-v0.3.16...velo-v0.3.17) (2026-02-18)
 
 
