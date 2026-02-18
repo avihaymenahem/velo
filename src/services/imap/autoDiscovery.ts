@@ -30,10 +30,10 @@ const wellKnownProviders: WellKnownProvider[] = [
       "hotmail.co.uk",
     ],
     settings: {
-      imapHost: "outlook.office365.com",
+      imapHost: "imap-mail.outlook.com",
       imapPort: 993,
       imapSecurity: "ssl",
-      smtpHost: "smtp.office365.com",
+      smtpHost: "smtp-mail.outlook.com",
       smtpPort: 587,
       smtpSecurity: "starttls",
     },

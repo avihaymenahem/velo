@@ -9,10 +9,13 @@ describe("getOAuthProvider", () => {
     expect(provider!.name).toBe("Microsoft");
     expect(provider!.authUrl).toContain("login.microsoftonline.com");
     expect(provider!.tokenUrl).toContain("login.microsoftonline.com");
-    expect(provider!.scopes).toContain("https://outlook.office365.com/IMAP.AccessAsUser.All");
-    expect(provider!.scopes).toContain("https://outlook.office365.com/SMTP.Send");
+    expect(provider!.scopes).toContain("https://outlook.office.com/IMAP.AccessAsUser.All");
+    expect(provider!.scopes).toContain("https://outlook.office.com/SMTP.Send");
     expect(provider!.scopes).toContain("offline_access");
-    expect(provider!.userInfoUrl).toContain("graph.microsoft.com");
+    expect(provider!.scopes).toContain("openid");
+    expect(provider!.scopes).toContain("profile");
+    expect(provider!.scopes).toContain("email");
+    expect(provider!.userInfoUrl).toBeUndefined();
     expect(provider!.usePkce).toBe(true);
   });
 

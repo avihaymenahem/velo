@@ -46,8 +46,8 @@ describe("findWellKnownProvider", () => {
   it("returns settings for outlook.com", () => {
     const result = findWellKnownProvider("outlook.com");
     expect(result).not.toBeNull();
-    expect(result!.settings.imapHost).toBe("outlook.office365.com");
-    expect(result!.settings.smtpHost).toBe("smtp.office365.com");
+    expect(result!.settings.imapHost).toBe("imap-mail.outlook.com");
+    expect(result!.settings.smtpHost).toBe("smtp-mail.outlook.com");
     expect(result!.settings.smtpPort).toBe(587);
     expect(result!.authMethods).toEqual(["oauth2"]);
     expect(result!.oauthProviderId).toBe("microsoft");
@@ -56,7 +56,7 @@ describe("findWellKnownProvider", () => {
   it("returns settings for hotmail.com (outlook alias)", () => {
     const result = findWellKnownProvider("hotmail.com");
     expect(result).not.toBeNull();
-    expect(result!.settings.imapHost).toBe("outlook.office365.com");
+    expect(result!.settings.imapHost).toBe("imap-mail.outlook.com");
   });
 
   it("returns settings for yahoo.com", () => {
@@ -95,7 +95,7 @@ describe("findWellKnownProvider", () => {
   it("is case insensitive", () => {
     const result = findWellKnownProvider("OUTLOOK.COM");
     expect(result).not.toBeNull();
-    expect(result!.settings.imapHost).toBe("outlook.office365.com");
+    expect(result!.settings.imapHost).toBe("imap-mail.outlook.com");
   });
 
   it("returns a copy (not a reference)", () => {
@@ -130,7 +130,7 @@ describe("discoverSettings", () => {
   it("returns well-known settings for known providers", () => {
     const result = discoverSettings("user@outlook.com");
     expect(result).not.toBeNull();
-    expect(result!.settings.imapHost).toBe("outlook.office365.com");
+    expect(result!.settings.imapHost).toBe("imap-mail.outlook.com");
   });
 
   it("falls back to guessed settings for unknown domains", () => {

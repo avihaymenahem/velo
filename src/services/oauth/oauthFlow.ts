@@ -15,6 +15,7 @@ export interface TokenResponse {
   expires_in: number;
   token_type: string;
   scope?: string;
+  id_token?: string;
 }
 
 export interface ProviderUserInfo {
@@ -67,7 +68,7 @@ export async function startProviderOAuthFlow(
   crypto.getRandomValues(stateArray);
   const oauthState = base64UrlEncode(stateArray);
 
-  const redirectUri = `http://127.0.0.1:${OAUTH_CALLBACK_PORT}`;
+  const redirectUri = `http://localhost:${OAUTH_CALLBACK_PORT}`;
 
   const params: Record<string, string> = {
     client_id: clientId,
@@ -113,7 +114,7 @@ export async function startProviderOAuthFlow(
     clientSecret,
   );
 
-  const userInfo = await fetchUserInfo(provider, tokens.access_token);
+  const userInfo = await fetchUserInfo(provider, tokens);
 
   return { tokens, userInfo };
 }
@@ -126,36 +127,16 @@ async function exchangeCode(
   codeVerifier: string,
   clientSecret?: string,
 ): Promise<TokenResponse> {
-  const params: Record<string, string> = {
+  // Use Rust backend for token exchange to avoid CORS issues (required for Microsoft native client)
+  return invoke<TokenResponse>("oauth_exchange_token", {
+    tokenUrl: provider.tokenUrl,
     code,
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    grant_type: "authorization_code",
-  };
-
-  if (provider.usePkce) {
-    params.code_verifier = codeVerifier;
-  }
-  if (clientSecret) {
-    params.client_secret = clientSecret;
-  }
-  // Microsoft requires scope in token exchange
-  if (provider.id === "microsoft") {
-    params.scope = provider.scopes.join(" ");
-  }
-
-  const response = await fetch(provider.tokenUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(params),
+    clientId,
+    redirectUri,
+    codeVerifier: provider.usePkce ? codeVerifier : null,
+    clientSecret: clientSecret || null,
+    scope: provider.id === "microsoft" ? provider.scopes.join(" ") : null,
   });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Token exchange failed: ${error}`);
-  }
-
-  return response.json();
 }
 
 /**
@@ -167,42 +148,46 @@ export async function refreshProviderToken(
   clientId: string,
   clientSecret?: string,
 ): Promise<TokenResponse> {
-  const params: Record<string, string> = {
-    refresh_token: refreshToken,
-    client_id: clientId,
-    grant_type: "refresh_token",
-  };
-  if (clientSecret) {
-    params.client_secret = clientSecret;
-  }
-  if (provider.id === "microsoft") {
-    params.scope = provider.scopes.join(" ");
-  }
-
-  const response = await fetch(provider.tokenUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(params),
+  // Use Rust backend for token refresh to avoid CORS issues
+  return invoke<TokenResponse>("oauth_refresh_token", {
+    tokenUrl: provider.tokenUrl,
+    refreshToken,
+    clientId,
+    clientSecret: clientSecret || null,
+    scope: provider.id === "microsoft" ? provider.scopes.join(" ") : null,
   });
+}
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Token refresh failed: ${error}`);
-  }
-
-  return response.json();
+function parseIdToken(idToken: string): Record<string, unknown> {
+  const payload = idToken.split(".")[1];
+  const decoded = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+  return JSON.parse(decoded);
 }
 
 async function fetchUserInfo(
   provider: OAuthProviderConfig,
-  accessToken: string,
+  tokens: TokenResponse,
 ): Promise<ProviderUserInfo> {
+  // Microsoft: extract user info from ID token (can't use Graph API with Outlook scopes)
+  if (provider.id === "microsoft") {
+    if (tokens.id_token) {
+      const claims = parseIdToken(tokens.id_token);
+      return {
+        email: (claims.email as string) || (claims.preferred_username as string) || "",
+        name: (claims.name as string) || "",
+        picture: undefined,
+      };
+    }
+    // Fallback if no ID token
+    return { email: "", name: "", picture: undefined };
+  }
+
   if (!provider.userInfoUrl) {
     throw new Error(`Provider ${provider.id} has no user info endpoint`);
   }
 
   const response = await fetch(provider.userInfoUrl, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
 
   if (!response.ok) {
@@ -212,13 +197,6 @@ async function fetchUserInfo(
   const data = await response.json();
 
   // Normalize response across providers
-  if (provider.id === "microsoft") {
-    return {
-      email: data.mail || data.userPrincipalName || "",
-      name: data.displayName || "",
-      picture: undefined,
-    };
-  }
   if (provider.id === "yahoo") {
     return {
       email: data.email || "",

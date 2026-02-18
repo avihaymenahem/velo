@@ -14,18 +14,18 @@ const providers: Record<string, OAuthProviderConfig> = {
     id: "microsoft",
     name: "Microsoft",
     authUrl:
-      "https://login.microsoftonline.com/consumers/oauth2/v2/authorize",
+      "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize",
     tokenUrl:
-      "https://login.microsoftonline.com/consumers/oauth2/v2/token",
+      "https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
     scopes: [
-      "https://outlook.office365.com/IMAP.AccessAsUser.All",
-      "https://outlook.office365.com/SMTP.Send",
+      "https://outlook.office.com/IMAP.AccessAsUser.All",
+      "https://outlook.office.com/SMTP.Send",
       "offline_access",
-      "email",
       "openid",
       "profile",
+      "email",
     ],
-    userInfoUrl: "https://graph.microsoft.com/v1.0/me",
+    userInfoUrl: undefined,
     usePkce: true,
   },
   yahoo: {

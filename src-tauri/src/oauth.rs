@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -17,7 +17,7 @@ pub async fn start_oauth_server(port: u16, state: String) -> Result<OAuthResult,
     // Try the requested port, then a few alternatives
     let mut listener = None;
     for p in [port, port + 1, port + 2, port + 3] {
-        match TcpListener::bind(format!("127.0.0.1:{}", p)).await {
+        match TcpListener::bind(format!("localhost:{}", p)).await {
             Ok(l) => {
                 listener = Some(l);
                 break;
@@ -147,4 +147,110 @@ fn urlencoding_decode(s: &str) -> String {
         i += 1;
     }
     String::from_utf8(result).unwrap_or_else(|_| s.to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TokenExchangeResult {
+    pub access_token: String,
+    pub refresh_token: Option<String>,
+    pub expires_in: u64,
+    pub token_type: String,
+    pub scope: Option<String>,
+    pub id_token: Option<String>,
+}
+
+/// Exchange an OAuth authorization code for tokens via Rust HTTP client (avoids CORS).
+#[tauri::command]
+pub async fn oauth_exchange_token(
+    token_url: String,
+    code: String,
+    client_id: String,
+    redirect_uri: String,
+    code_verifier: Option<String>,
+    client_secret: Option<String>,
+    scope: Option<String>,
+) -> Result<TokenExchangeResult, String> {
+    let mut params = vec![
+        ("code", code),
+        ("client_id", client_id),
+        ("redirect_uri", redirect_uri),
+        ("grant_type", "authorization_code".to_string()),
+    ];
+    if let Some(verifier) = code_verifier {
+        params.push(("code_verifier", verifier));
+    }
+    if let Some(secret) = client_secret {
+        if !secret.is_empty() {
+            params.push(("client_secret", secret));
+        }
+    }
+    if let Some(s) = scope {
+        params.push(("scope", s));
+    }
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&token_url)
+        .form(&params)
+        .send()
+        .await
+        .map_err(|e| format!("Token exchange request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        let error = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        return Err(format!("Token exchange failed: {}", error));
+    }
+
+    response
+        .json::<TokenExchangeResult>()
+        .await
+        .map_err(|e| format!("Failed to parse token response: {}", e))
+}
+
+/// Refresh an OAuth token via Rust HTTP client (avoids CORS).
+#[tauri::command]
+pub async fn oauth_refresh_token(
+    token_url: String,
+    refresh_token: String,
+    client_id: String,
+    client_secret: Option<String>,
+    scope: Option<String>,
+) -> Result<TokenExchangeResult, String> {
+    let mut params = vec![
+        ("refresh_token", refresh_token),
+        ("client_id", client_id),
+        ("grant_type", "refresh_token".to_string()),
+    ];
+    if let Some(secret) = client_secret {
+        if !secret.is_empty() {
+            params.push(("client_secret", secret));
+        }
+    }
+    if let Some(s) = scope {
+        params.push(("scope", s));
+    }
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&token_url)
+        .form(&params)
+        .send()
+        .await
+        .map_err(|e| format!("Token refresh request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        let error = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        return Err(format!("Token refresh failed: {}", error));
+    }
+
+    response
+        .json::<TokenExchangeResult>()
+        .await
+        .map_err(|e| format!("Failed to parse token response: {}", e))
 }
