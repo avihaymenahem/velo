@@ -7,9 +7,8 @@ import {
 } from "./helpContent";
 
 const VALID_SETTINGS_TABS = [
-  "general", "composing", "labels", "filters", "smart-folders",
-  "quickSteps", "contacts", "accounts", "sync", "shortcuts", "ai",
-  "subscriptions", "developer",
+  "general", "notifications", "composing", "mail-rules", "people",
+  "accounts", "shortcuts", "ai", "about",
 ];
 
 describe("helpContent", () => {

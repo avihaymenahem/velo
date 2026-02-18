@@ -86,9 +86,8 @@ export interface ContextualTip {
 // ---------- Valid settings tabs (for type-safe references) ----------
 
 const VALID_SETTINGS_TABS = [
-  "general", "composing", "labels", "filters", "smart-folders",
-  "quickSteps", "contacts", "accounts", "sync", "shortcuts", "ai",
-  "subscriptions", "developer",
+  "general", "notifications", "composing", "mail-rules", "people",
+  "accounts", "shortcuts", "ai", "about",
 ] as const;
 
 export type SettingsTabId = (typeof VALID_SETTINGS_TABS)[number];
@@ -124,13 +123,13 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         description:
           "When you add a new account, the app performs an initial sync that downloads your last year of email (configurable). This builds a local database for fast offline search and browsing. Depending on your inbox size, this can take a few minutes. You can use the app normally while the sync runs in the background — read, compose, and send without waiting. After the initial sync, the app switches to delta sync (every 60 seconds) to fetch only new changes. Gmail uses the History API for delta sync; IMAP uses UID-based tracking.",
         tips: [
-          { text: "Change the sync period (30 days to 1 year) in Settings > Sync." },
+          { text: "Change the sync period (30 days to 1 year) in Settings > Accounts." },
           { text: "The app is fully usable during the initial sync." },
           { text: "Delta sync runs every 60 seconds after the first sync completes." },
           { text: "Gmail: if sync history expires (~30 days offline), the app auto-falls back to a full sync." },
           { text: "IMAP: if folder UIDVALIDITY changes, the app resyncs that folder automatically." },
         ],
-        relatedSettingsTab: "sync",
+        relatedSettingsTab: "accounts",
       },
       {
         id: "client-id-setup",
@@ -144,10 +143,10 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Enable both the Gmail API and Google Calendar API." },
           { text: "Choose 'Desktop application' when creating OAuth credentials." },
           { text: "Your Client ID is stored locally — never sent to external servers." },
-          { text: "Update your Client ID later in Settings > Developer." },
+          { text: "Update your Client ID later in Settings > About." },
           { text: "IMAP accounts skip this step entirely — no Google Cloud project needed." },
         ],
-        relatedSettingsTab: "developer",
+        relatedSettingsTab: "about",
       },
       {
         id: "imap-smtp-setup",
@@ -458,7 +457,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "A thread can have multiple labels simultaneously." },
           { text: "Gmail labels sync across devices; IMAP folders are mapped to labels automatically." },
         ],
-        relatedSettingsTab: "labels",
+        relatedSettingsTab: "mail-rules",
       },
       {
         id: "smart-folders",
@@ -472,9 +471,9 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Use search operators: is:unread from:boss" },
           { text: "Dynamic tokens: __LAST_7_DAYS__, __LAST_30_DAYS__, __TODAY__" },
           { text: "Each smart folder shows its unread count in the sidebar." },
-          { text: "Edit or delete smart folders in Settings > Smart Folders." },
+          { text: "Edit or delete smart folders in Settings > Mail Rules." },
         ],
-        relatedSettingsTab: "smart-folders",
+        relatedSettingsTab: "mail-rules",
       },
       {
         id: "filters",
@@ -484,13 +483,13 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         description:
           "Create filter rules that automatically process incoming email. Set criteria (match by sender address, subject line, or message content) and assign actions (apply a label, archive, move to trash, star, or mark as read). Criteria use case-insensitive substring matching with AND logic — all criteria must match. When multiple filters match the same message, their actions are merged together. Filters run automatically on every new message during sync.",
         tips: [
-          { text: "Create filters in Settings > Filters." },
+          { text: "Create filters in Settings > Mail Rules." },
           { text: "Criteria: match by From, Subject, or Content (AND logic)." },
           { text: "Actions: apply label, archive, trash, star, mark as read." },
           { text: "Multiple matching filters merge their actions." },
           { text: "Filters run on every new message during background sync." },
         ],
-        relatedSettingsTab: "filters",
+        relatedSettingsTab: "mail-rules",
       },
       {
         id: "quick-steps",
@@ -502,10 +501,10 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         tips: [
           { text: "Access quick steps from the action bar on a thread." },
           { text: "18 action types available: label, archive, trash, star, mark read, reply, forward, and more." },
-          { text: "Create and manage quick steps in Settings > Quick Steps." },
+          { text: "Create and manage quick steps in Settings > Mail Rules." },
           { text: "Preset templates are available as starting points." },
         ],
-        relatedSettingsTab: "quickSteps",
+        relatedSettingsTab: "mail-rules",
       },
       {
         id: "star-pin-mute",
@@ -730,12 +729,12 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         description:
           "Bundle newsletters from the same sender so they arrive on a schedule you choose — daily, weekly, or on specific days. Instead of getting distracted by newsletters throughout the day, they're held and delivered in a batch. Each bundle groups all emails from that sender into a single sidebar entry. You can create bundles per-sender and set different delivery schedules for each.",
         tips: [
-          { text: "Manage bundles in Settings > Subscriptions." },
+          { text: "Manage bundles in Settings > People." },
           { text: "Choose delivery frequency: daily, weekly, or specific days." },
           { text: "Bundled newsletters are held until the next delivery time." },
           { text: "Each sender can have its own delivery schedule." },
         ],
-        relatedSettingsTab: "subscriptions",
+        relatedSettingsTab: "people",
       },
       {
         id: "unsubscribe",
@@ -748,9 +747,9 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Unsubscribe from the current thread", shortcut: "u" },
           { text: "Uses RFC 8058 one-click unsubscribe when available." },
           { text: "Falls back to mailto: unsubscribe if one-click isn't supported." },
-          { text: "View unsubscribe history in Settings > Subscriptions." },
+          { text: "View unsubscribe history in Settings > People." },
         ],
-        relatedSettingsTab: "subscriptions",
+        relatedSettingsTab: "people",
       },
     ],
   },
@@ -767,13 +766,13 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         description:
           "Get desktop notifications when new email arrives. Smart notifications let you choose which inbox categories trigger notifications (e.g., only Primary), reducing noise from updates and promotions. Add VIP senders who always trigger a notification regardless of category — useful for your boss, key clients, or family. Muted threads never trigger notifications. Notifications use your OS's native notification system.",
         tips: [
-          { text: "Enable notifications in Settings > General." },
+          { text: "Enable notifications in Settings > Notifications." },
           { text: "Smart notifications: choose which categories trigger alerts." },
           { text: "Add VIP senders who always notify regardless of category." },
           { text: "Muted threads never trigger notifications." },
           { text: "Uses your OS's native notification system (Windows, macOS, Linux)." },
         ],
-        relatedSettingsTab: "general",
+        relatedSettingsTab: "notifications",
       },
       {
         id: "contact-sidebar",
@@ -789,7 +788,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Browse recent shared threads and attachments." },
           { text: "Add notes about contacts for your own reference." },
         ],
-        relatedSettingsTab: "contacts",
+        relatedSettingsTab: "people",
       },
     ],
   },
@@ -1028,10 +1027,10 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         tips: [
           { text: "All actions work offline — archive, star, trash, labels, compose." },
           { text: "Pending changes sync automatically when you reconnect." },
-          { text: "Check pending and failed operations in Settings > Sync." },
+          { text: "Check pending and failed operations in Settings > Accounts." },
           { text: "Failed operations can be retried or cleared from Settings." },
         ],
-        relatedSettingsTab: "sync",
+        relatedSettingsTab: "accounts",
       },
     ],
   },

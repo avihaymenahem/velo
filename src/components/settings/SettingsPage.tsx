@@ -17,18 +17,14 @@ import {
   RefreshCw,
   Settings,
   PenLine,
-  Tag,
+  Bell,
   Filter,
   Users,
   UserCircle,
   Keyboard,
   Sparkles,
-  MailMinus,
-  Code,
   Check,
   Mail,
-  FolderSearch,
-  Zap,
   Info,
   ExternalLink,
   Github,
@@ -57,22 +53,17 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
 
-type SettingsTab = "general" | "composing" | "labels" | "filters" | "smart-folders" | "quickSteps" | "contacts" | "accounts" | "sync" | "shortcuts" | "ai" | "subscriptions" | "developer" | "about";
+type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "people" | "accounts" | "shortcuts" | "ai" | "about";
 
 const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "general", label: "General", icon: Settings },
+  { id: "notifications", label: "Notifications", icon: Bell },
   { id: "composing", label: "Composing", icon: PenLine },
-  { id: "labels", label: "Labels", icon: Tag },
-  { id: "filters", label: "Filters", icon: Filter },
-  { id: "smart-folders", label: "Smart Folders", icon: FolderSearch },
-  { id: "quickSteps", label: "Quick Steps", icon: Zap },
-  { id: "contacts", label: "Contacts", icon: Users },
-  { id: "subscriptions", label: "Subscriptions", icon: MailMinus },
+  { id: "mail-rules", label: "Mail Rules", icon: Filter },
+  { id: "people", label: "People", icon: Users },
   { id: "accounts", label: "Accounts", icon: UserCircle },
-  { id: "sync", label: "Sync", icon: RefreshCw },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
   { id: "ai", label: "AI", icon: Sparkles },
-  { id: "developer", label: "Developer", icon: Code },
   { id: "about", label: "About", icon: Info },
 ];
 
@@ -486,112 +477,6 @@ export function SettingsPage() {
                     />
                   </Section>
 
-                  <Section title="Notifications">
-                    <ToggleRow
-                      label="Enable notifications"
-                      checked={notificationsEnabled}
-                      onToggle={handleNotificationsToggle}
-                    />
-                    <ToggleRow
-                      label="Smart notifications"
-                      description="Only notify for selected categories and VIP senders"
-                      checked={smartNotifications}
-                      onToggle={async () => {
-                        const newVal = !smartNotifications;
-                        setSmartNotifications(newVal);
-                        await setSetting("smart_notifications", newVal ? "true" : "false");
-                      }}
-                    />
-                    {smartNotifications && (
-                      <>
-                        <div>
-                          <span className="text-sm text-text-secondary">Notify for categories</span>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {(["Primary", "Updates", "Promotions", "Social", "Newsletters"] as const).map((cat) => (
-                              <button
-                                key={cat}
-                                onClick={async () => {
-                                  const next = new Set(notifyCategories);
-                                  if (next.has(cat)) next.delete(cat);
-                                  else next.add(cat);
-                                  setNotifyCategories(next);
-                                  await setSetting("notify_categories", [...next].join(","));
-                                }}
-                                className={`px-2.5 py-1 text-xs rounded-full transition-colors border ${
-                                  notifyCategories.has(cat)
-                                    ? "bg-accent/15 text-accent border-accent/30"
-                                    : "bg-bg-tertiary text-text-tertiary border-border-primary hover:text-text-primary"
-                                }`}
-                              >
-                                {cat}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-sm text-text-secondary">VIP senders</span>
-                          <p className="text-xs text-text-tertiary mt-0.5 mb-2">
-                            These senders always trigger notifications regardless of category
-                          </p>
-                          <div className="space-y-1.5">
-                            {vipSenders.map((vip) => (
-                              <div key={vip.email_address} className="flex items-center justify-between py-1.5 px-3 bg-bg-secondary rounded-md">
-                                <span className="text-xs text-text-primary truncate">
-                                  {vip.display_name ? `${vip.display_name} (${vip.email_address})` : vip.email_address}
-                                </span>
-                                <button
-                                  onClick={async () => {
-                                    const activeId = accounts.find((a) => a.isActive)?.id;
-                                    if (!activeId) return;
-                                    const { removeVipSender } = await import("@/services/db/notificationVips");
-                                    await removeVipSender(activeId, vip.email_address);
-                                    setVipSenders((prev) => prev.filter((v) => v.email_address !== vip.email_address));
-                                  }}
-                                  className="text-xs text-danger hover:text-danger/80 ml-2 shrink-0"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex gap-2 mt-2">
-                            <input
-                              type="email"
-                              value={newVipEmail}
-                              onChange={(e) => setNewVipEmail(e.target.value)}
-                              placeholder="email@example.com"
-                              className="flex-1 px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded-md text-xs text-text-primary outline-none focus:border-accent"
-                              onKeyDown={async (e) => {
-                                if (e.key !== "Enter" || !newVipEmail.trim()) return;
-                                const activeId = accounts.find((a) => a.isActive)?.id;
-                                if (!activeId) return;
-                                const { addVipSender } = await import("@/services/db/notificationVips");
-                                await addVipSender(activeId, newVipEmail.trim());
-                                setVipSenders((prev) => [...prev, { email_address: newVipEmail.trim().toLowerCase(), display_name: null }]);
-                                setNewVipEmail("");
-                              }}
-                            />
-                            <Button
-                              variant="primary"
-                              onClick={async () => {
-                                if (!newVipEmail.trim()) return;
-                                const activeId = accounts.find((a) => a.isActive)?.id;
-                                if (!activeId) return;
-                                const { addVipSender } = await import("@/services/db/notificationVips");
-                                await addVipSender(activeId, newVipEmail.trim());
-                                setVipSenders((prev) => [...prev, { email_address: newVipEmail.trim().toLowerCase(), display_name: null }]);
-                                setNewVipEmail("");
-                              }}
-                              disabled={!newVipEmail.trim()}
-                            >
-                              Add
-                            </Button>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </Section>
-
                   <Section title="Privacy & Security">
                     <ToggleRow
                       label="Block remote images"
@@ -678,8 +563,119 @@ export function SettingsPage() {
                       </select>
                     </SettingRow>
                   </Section>
+                </>
+              )}
 
-                  <SyncOfflineSection />
+              {activeTab === "notifications" && (
+                <>
+                  <Section title="Notifications">
+                    <ToggleRow
+                      label="Enable notifications"
+                      checked={notificationsEnabled}
+                      onToggle={handleNotificationsToggle}
+                    />
+                    <ToggleRow
+                      label="Smart notifications"
+                      description="Only notify for selected categories and VIP senders"
+                      checked={smartNotifications}
+                      onToggle={async () => {
+                        const newVal = !smartNotifications;
+                        setSmartNotifications(newVal);
+                        await setSetting("smart_notifications", newVal ? "true" : "false");
+                      }}
+                    />
+                  </Section>
+
+                  {smartNotifications && (
+                    <>
+                      <Section title="Category Filters">
+                        <div>
+                          <span className="text-sm text-text-secondary">Notify for categories</span>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {(["Primary", "Updates", "Promotions", "Social", "Newsletters"] as const).map((cat) => (
+                              <button
+                                key={cat}
+                                onClick={async () => {
+                                  const next = new Set(notifyCategories);
+                                  if (next.has(cat)) next.delete(cat);
+                                  else next.add(cat);
+                                  setNotifyCategories(next);
+                                  await setSetting("notify_categories", [...next].join(","));
+                                }}
+                                className={`px-2.5 py-1 text-xs rounded-full transition-colors border ${
+                                  notifyCategories.has(cat)
+                                    ? "bg-accent/15 text-accent border-accent/30"
+                                    : "bg-bg-tertiary text-text-tertiary border-border-primary hover:text-text-primary"
+                                }`}
+                              >
+                                {cat}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </Section>
+
+                      <Section title="VIP Senders">
+                        <p className="text-xs text-text-tertiary mb-2">
+                          These senders always trigger notifications regardless of category
+                        </p>
+                        <div className="space-y-1.5">
+                          {vipSenders.map((vip) => (
+                            <div key={vip.email_address} className="flex items-center justify-between py-1.5 px-3 bg-bg-secondary rounded-md">
+                              <span className="text-xs text-text-primary truncate">
+                                {vip.display_name ? `${vip.display_name} (${vip.email_address})` : vip.email_address}
+                              </span>
+                              <button
+                                onClick={async () => {
+                                  const activeId = accounts.find((a) => a.isActive)?.id;
+                                  if (!activeId) return;
+                                  const { removeVipSender } = await import("@/services/db/notificationVips");
+                                  await removeVipSender(activeId, vip.email_address);
+                                  setVipSenders((prev) => prev.filter((v) => v.email_address !== vip.email_address));
+                                }}
+                                className="text-xs text-danger hover:text-danger/80 ml-2 shrink-0"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <input
+                            type="email"
+                            value={newVipEmail}
+                            onChange={(e) => setNewVipEmail(e.target.value)}
+                            placeholder="email@example.com"
+                            className="flex-1 px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded-md text-xs text-text-primary outline-none focus:border-accent"
+                            onKeyDown={async (e) => {
+                              if (e.key !== "Enter" || !newVipEmail.trim()) return;
+                              const activeId = accounts.find((a) => a.isActive)?.id;
+                              if (!activeId) return;
+                              const { addVipSender } = await import("@/services/db/notificationVips");
+                              await addVipSender(activeId, newVipEmail.trim());
+                              setVipSenders((prev) => [...prev, { email_address: newVipEmail.trim().toLowerCase(), display_name: null }]);
+                              setNewVipEmail("");
+                            }}
+                          />
+                          <Button
+                            variant="primary"
+                            onClick={async () => {
+                              if (!newVipEmail.trim()) return;
+                              const activeId = accounts.find((a) => a.isActive)?.id;
+                              if (!activeId) return;
+                              const { addVipSender } = await import("@/services/db/notificationVips");
+                              await addVipSender(activeId, newVipEmail.trim());
+                              setVipSenders((prev) => [...prev, { email_address: newVipEmail.trim().toLowerCase(), display_name: null }]);
+                              setNewVipEmail("");
+                            }}
+                            disabled={!newVipEmail.trim()}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      </Section>
+                    </>
+                  )}
                 </>
               )}
 
@@ -743,50 +739,55 @@ export function SettingsPage() {
                 </>
               )}
 
-              {activeTab === "labels" && (
-                <Section title="Manage Labels">
-                  <p className="text-xs text-text-tertiary mb-3">
-                    Create, rename, recolor, delete, or reorder your Gmail labels.
-                  </p>
-                  <LabelEditor />
-                </Section>
+              {activeTab === "mail-rules" && (
+                <>
+                  <Section title="Labels">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Create, rename, recolor, delete, or reorder your Gmail labels.
+                    </p>
+                    <LabelEditor />
+                  </Section>
+
+                  <Section title="Filters">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Filters automatically apply actions to new incoming emails during sync.
+                    </p>
+                    <FilterEditor />
+                  </Section>
+
+                  <Section title="Smart Folders">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Smart folders are saved searches that automatically show matching emails. Use search operators like <code className="bg-bg-tertiary px-1 rounded">is:unread</code>, <code className="bg-bg-tertiary px-1 rounded">from:</code>, <code className="bg-bg-tertiary px-1 rounded">has:attachment</code>, <code className="bg-bg-tertiary px-1 rounded">after:</code>.
+                    </p>
+                    <SmartFolderEditor />
+                  </Section>
+
+                  <Section title="Quick Steps">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Quick steps let you chain multiple actions together into a single click.
+                      Apply them from the right-click menu on any thread.
+                    </p>
+                    <QuickStepEditor />
+                  </Section>
+                </>
               )}
 
-              {activeTab === "filters" && (
-                <Section title="Email Filters">
-                  <p className="text-xs text-text-tertiary mb-3">
-                    Filters automatically apply actions to new incoming emails during sync.
-                  </p>
-                  <FilterEditor />
-                </Section>
-              )}
+              {activeTab === "people" && (
+                <>
+                  <Section title="Contacts">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Contacts are automatically added when you send or receive emails. Edit display names or remove contacts below.
+                    </p>
+                    <ContactEditor />
+                  </Section>
 
-              {activeTab === "smart-folders" && (
-                <Section title="Smart Folders">
-                  <p className="text-xs text-text-tertiary mb-3">
-                    Smart folders are saved searches that automatically show matching emails. Use search operators like <code className="bg-bg-tertiary px-1 rounded">is:unread</code>, <code className="bg-bg-tertiary px-1 rounded">from:</code>, <code className="bg-bg-tertiary px-1 rounded">has:attachment</code>, <code className="bg-bg-tertiary px-1 rounded">after:</code>.
-                  </p>
-                  <SmartFolderEditor />
-                </Section>
-              )}
-
-              {activeTab === "quickSteps" && (
-                <Section title="Quick Steps">
-                  <p className="text-xs text-text-tertiary mb-3">
-                    Quick steps let you chain multiple actions together into a single click.
-                    Apply them from the right-click menu on any thread.
-                  </p>
-                  <QuickStepEditor />
-                </Section>
-              )}
-
-              {activeTab === "contacts" && (
-                <Section title="Manage Contacts">
-                  <p className="text-xs text-text-tertiary mb-3">
-                    Contacts are automatically added when you send or receive emails. Edit display names or remove contacts below.
-                  </p>
-                  <ContactEditor />
-                </Section>
+                  <Section title="Subscriptions">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      View all detected newsletter and promotional senders. Unsubscribe using RFC 8058 one-click POST, mailto, or browser fallback.
+                    </p>
+                    <SubscriptionManager />
+                  </Section>
+                </>
               )}
 
               {activeTab === "accounts" && (
@@ -875,11 +876,7 @@ export function SettingsPage() {
                       </Button>
                     </div>
                   </Section>
-                </>
-              )}
 
-              {activeTab === "sync" && (
-                <>
                   <Section title="Sync">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-text-secondary">
@@ -938,6 +935,8 @@ export function SettingsPage() {
                       Changes apply on the next full resync.
                     </p>
                   </Section>
+
+                  <SyncOfflineSection />
                 </>
               )}
 
@@ -1133,21 +1132,11 @@ export function SettingsPage() {
                 </>
               )}
 
-              {activeTab === "subscriptions" && (
-                <Section title="Manage Subscriptions">
-                  <p className="text-xs text-text-tertiary mb-3">
-                    View all detected newsletter and promotional senders. Unsubscribe using RFC 8058 one-click POST, mailto, or browser fallback.
-                  </p>
-                  <SubscriptionManager />
-                </Section>
-              )}
-
-              {activeTab === "developer" && (
-                <DeveloperTab />
-              )}
-
               {activeTab === "about" && (
-                <AboutTab />
+                <>
+                  <DeveloperTab />
+                  <AboutTab />
+                </>
               )}
             </div>
           </div>
