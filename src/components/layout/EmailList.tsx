@@ -443,6 +443,15 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     return () => { cancelled = true; };
   }, [threadIdKey, activeLabel, activeCategory, activeAccountId]);
 
+  // Auto-scroll selected thread into view (triggered by keyboard navigation)
+  useEffect(() => {
+    if (!selectedThreadId || !scrollContainerRef.current) return;
+    const el = scrollContainerRef.current.querySelector(`[data-thread-id="${CSS.escape(selectedThreadId)}"]`);
+    if (el) {
+      el.scrollIntoView({ block: "nearest" });
+    }
+  }, [selectedThreadId]);
+
   // Listen for sync completion to reload (debounced to avoid waterfall from multiple emitters)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -653,6 +662,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
               return (
                 <div
                   key={thread.id}
+                  data-thread-id={thread.id}
                   className={idx < 15 ? "stagger-in" : undefined}
                   style={idx < 15 ? { animationDelay: `${idx * 30}ms` } : undefined}
                 >
