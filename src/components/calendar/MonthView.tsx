@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { DbCalendarEvent } from "@/services/db/calendarEvents";
 import { EventCard } from "./EventCard";
 
@@ -25,11 +26,17 @@ export function MonthView({ currentDate, events, onEventClick }: MonthViewProps)
   for (let d = 1; d <= totalDays; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const getEventsForDay = (day: number): DbCalendarEvent[] => {
-    const dayStart = new Date(year, month, day).getTime() / 1000;
-    const dayEnd = new Date(year, month, day + 1).getTime() / 1000;
-    return events.filter((e) => e.start_time < dayEnd && e.end_time > dayStart);
-  };
+  // Pre-bucket events by day (O(E×D) → O(E)) instead of filtering per cell
+  const eventsByDay = useMemo(() => {
+    const map = new Map<number, DbCalendarEvent[]>();
+    for (let d = 1; d <= totalDays; d++) {
+      const dayStart = new Date(year, month, d).getTime() / 1000;
+      const dayEnd = new Date(year, month, d + 1).getTime() / 1000;
+      const dayEvents = events.filter((e) => e.start_time < dayEnd && e.end_time > dayStart);
+      if (dayEvents.length > 0) map.set(d, dayEvents);
+    }
+    return map;
+  }, [events, year, month, totalDays]);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -49,7 +56,7 @@ export function MonthView({ currentDate, events, onEventClick }: MonthViewProps)
             return <div key={`empty-${idx}`} className="border-b border-r border-border-secondary bg-bg-tertiary/30" />;
           }
           const isToday = `${year}-${month}-${day}` === todayStr;
-          const dayEvents = getEventsForDay(day);
+          const dayEvents = eventsByDay.get(day) ?? [];
 
           return (
             <div

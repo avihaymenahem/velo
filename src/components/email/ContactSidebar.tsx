@@ -46,10 +46,9 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { threads, setThreads } = useThreadStore();
-
   const handleThreadClick = useCallback(async (threadId: string) => {
-    if (threads.some((t) => t.id === threadId)) {
+    const { threads, threadMap, setThreads } = useThreadStore.getState();
+    if (threadMap.has(threadId)) {
       navigateToThread(threadId);
       return;
     }
@@ -74,7 +73,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
     };
     setThreads([...threads, mapped]);
     navigateToThread(threadId);
-  }, [accountId, threads, setThreads]);
+  }, [accountId]);
 
   useEffect(() => {
     if (!email) return;

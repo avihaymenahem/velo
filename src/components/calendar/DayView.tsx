@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { DbCalendarEvent } from "@/services/db/calendarEvents";
 
 interface DayViewProps {
@@ -12,17 +13,30 @@ export function DayView({ currentDate, events, onEventClick }: DayViewProps) {
   const dayStart = new Date(currentDate);
   dayStart.setHours(0, 0, 0, 0);
 
-  const getEventsForHour = (hour: number): DbCalendarEvent[] => {
-    const hourStart = new Date(dayStart);
-    hourStart.setHours(hour, 0, 0, 0);
-    const hourEnd = new Date(dayStart);
-    hourEnd.setHours(hour + 1, 0, 0, 0);
-    const hStart = hourStart.getTime() / 1000;
-    const hEnd = hourEnd.getTime() / 1000;
-    return events.filter((e) => !e.is_all_day && e.start_time < hEnd && e.end_time > hStart);
-  };
+  // Pre-bucket events by hour (O(E) instead of O(24×E))
+  const { hourEvents: hourEventMap, allDayEvents } = useMemo(() => {
+    const hMap = new Map<number, DbCalendarEvent[]>();
+    const allDay: DbCalendarEvent[] = [];
+    const dayTs = dayStart.getTime() / 1000;
 
-  const allDayEvents = events.filter((e) => e.is_all_day);
+    for (const e of events) {
+      if (e.is_all_day) {
+        allDay.push(e);
+      } else {
+        for (const hour of HOURS) {
+          const hStart = dayTs + hour * 3600;
+          const hEnd = hStart + 3600;
+          if (e.start_time < hEnd && e.end_time > hStart) {
+            const list = hMap.get(hour);
+            if (list) list.push(e);
+            else hMap.set(hour, [e]);
+          }
+        }
+      }
+    }
+
+    return { hourEvents: hMap, allDayEvents: allDay };
+  }, [events, dayStart]);
   const isToday = new Date().toDateString() === currentDate.toDateString();
 
   return (
@@ -57,7 +71,7 @@ export function DayView({ currentDate, events, onEventClick }: DayViewProps) {
       {/* Time grid */}
       <div className="flex-1 overflow-y-auto">
         {HOURS.map((hour) => {
-          const hourEvents = getEventsForHour(hour);
+          const hourEvents = hourEventMap.get(hour) ?? [];
           return (
             <div key={hour} className="flex border-b border-border-secondary h-14">
               <div className="w-16 shrink-0 px-2 flex items-start justify-end -mt-1.5">

@@ -10,8 +10,7 @@ import { MailMinus, Search, Loader2 } from "lucide-react";
 import { formatRelativeDate } from "@/utils/date";
 
 export function SubscriptionManager() {
-  const { accounts } = useAccountStore();
-  const activeAccountId = accounts.find((a) => a.isActive)?.id;
+  const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const [subscriptions, setSubscriptions] = useState<SubscriptionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");

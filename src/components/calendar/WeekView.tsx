@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { DbCalendarEvent } from "@/services/db/calendarEvents";
 
 interface WeekViewProps {
@@ -23,21 +24,40 @@ export function WeekView({ currentDate, events, onEventClick }: WeekViewProps) {
   const today = new Date();
   const todayStr = today.toDateString();
 
-  const getEventsForDayHour = (day: Date, hour: number): DbCalendarEvent[] => {
-    const hourStart = new Date(day);
-    hourStart.setHours(hour, 0, 0, 0);
-    const hourEnd = new Date(day);
-    hourEnd.setHours(hour + 1, 0, 0, 0);
-    const hStart = hourStart.getTime() / 1000;
-    const hEnd = hourEnd.getTime() / 1000;
-    return events.filter((e) => !e.is_all_day && e.start_time < hEnd && e.end_time > hStart);
-  };
+  // Pre-bucket events by day+hour and all-day per day (O(E) instead of O(168×E))
+  const { dayHourEvents, allDayByDay } = useMemo(() => {
+    const dhMap = new Map<string, DbCalendarEvent[]>();
+    const adMap = new Map<number, DbCalendarEvent[]>();
 
-  const getAllDayEvents = (day: Date): DbCalendarEvent[] => {
-    const dayStart = new Date(day).setHours(0, 0, 0, 0) / 1000;
-    const dayEnd = new Date(day).setHours(23, 59, 59, 999) / 1000;
-    return events.filter((e) => e.is_all_day && e.start_time < dayEnd && e.end_time > dayStart);
-  };
+    for (const day of days) {
+      const dayTs = day.getTime() / 1000;
+      const dayKey = day.getDate();
+
+      for (const e of events) {
+        if (e.is_all_day) {
+          const dayEnd = dayTs + 86400;
+          if (e.start_time < dayEnd && e.end_time > dayTs) {
+            const list = adMap.get(dayKey);
+            if (list) list.push(e);
+            else adMap.set(dayKey, [e]);
+          }
+        } else {
+          for (const hour of HOURS) {
+            const hStart = dayTs + hour * 3600;
+            const hEnd = hStart + 3600;
+            if (e.start_time < hEnd && e.end_time > hStart) {
+              const key = `${dayKey}-${hour}`;
+              const list = dhMap.get(key);
+              if (list) list.push(e);
+              else dhMap.set(key, [e]);
+            }
+          }
+        }
+      }
+    }
+
+    return { dayHourEvents: dhMap, allDayByDay: adMap };
+  }, [events, days]);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -63,7 +83,7 @@ export function WeekView({ currentDate, events, onEventClick }: WeekViewProps) {
       <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border-primary shrink-0">
         <div className="border-r border-border-secondary px-1 py-1 text-[0.625rem] text-text-tertiary">all-day</div>
         {days.map((day, i) => {
-          const allDay = getAllDayEvents(day);
+          const allDay = allDayByDay.get(day.getDate()) ?? [];
           return (
             <div key={i} className="border-r border-border-secondary px-1 py-1 space-y-0.5">
               {allDay.map((e) => (
@@ -91,7 +111,7 @@ export function WeekView({ currentDate, events, onEventClick }: WeekViewProps) {
                 </span>
               </div>
               {days.map((day, di) => {
-                const hourEvents = getEventsForDayHour(day, hour);
+                const hourEvents = dayHourEvents.get(`${day.getDate()}-${hour}`) ?? [];
                 return (
                   <div key={di} className="border-r border-b border-border-secondary h-12 relative px-0.5">
                     {hourEvents.map((e) => (

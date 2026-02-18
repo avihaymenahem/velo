@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Trash2, Pencil } from "lucide-react";
 import { TextField } from "@/components/ui/TextField";
 import { useAccountStore } from "@/stores/accountStore";
@@ -137,20 +137,24 @@ export function FilterEditor() {
     await loadFilters();
   }, [loadFilters]);
 
-  const describeCriteria = (json: string): string => {
-    try {
-      const c = JSON.parse(json) as FilterCriteria;
-      const parts: string[] = [];
-      if (c.from) parts.push(`from: ${c.from}`);
-      if (c.to) parts.push(`to: ${c.to}`);
-      if (c.subject) parts.push(`subject: ${c.subject}`);
-      if (c.body) parts.push(`body: ${c.body}`);
-      if (c.hasAttachment) parts.push("has attachment");
-      return parts.join(", ") || "No criteria";
-    } catch {
-      return "Invalid criteria";
+  const filterDescriptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const filter of filters) {
+      try {
+        const c = JSON.parse(filter.criteria_json) as FilterCriteria;
+        const parts: string[] = [];
+        if (c.from) parts.push(`from: ${c.from}`);
+        if (c.to) parts.push(`to: ${c.to}`);
+        if (c.subject) parts.push(`subject: ${c.subject}`);
+        if (c.body) parts.push(`body: ${c.body}`);
+        if (c.hasAttachment) parts.push("has attachment");
+        map.set(filter.id, parts.join(", ") || "No criteria");
+      } catch {
+        map.set(filter.id, "Invalid criteria");
+      }
     }
-  };
+    return map;
+  }, [filters]);
 
   return (
     <div className="space-y-3">
@@ -169,7 +173,7 @@ export function FilterEditor() {
               )}
             </div>
             <div className="text-xs text-text-tertiary truncate">
-              {describeCriteria(filter.criteria_json)}
+              {filterDescriptions.get(filter.id) ?? "No criteria"}
             </div>
           </div>
           <div className="flex items-center gap-1">

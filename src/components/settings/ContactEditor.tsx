@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Search, Pencil, Trash2, Check, X } from "lucide-react";
 import {
   getAllContacts,
@@ -23,13 +23,15 @@ export function ContactEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadContacts is stable (no deps), run once on mount
   }, []);
 
-  const filtered = search
-    ? contacts.filter(
-        (c) =>
-          c.email.toLowerCase().includes(search.toLowerCase()) ||
-          (c.display_name?.toLowerCase().includes(search.toLowerCase()) ?? false),
-      )
-    : contacts;
+  const filtered = useMemo(() => {
+    if (!search) return contacts;
+    const q = search.toLowerCase();
+    return contacts.filter(
+      (c) =>
+        c.email.toLowerCase().includes(q) ||
+        (c.display_name?.toLowerCase().includes(q) ?? false),
+    );
+  }, [contacts, search]);
 
   const handleEdit = (contact: DbContact) => {
     setEditingId(contact.id);
