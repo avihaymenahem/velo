@@ -88,20 +88,24 @@ export async function applyFiltersToMessages(
   const filters = await getEnabledFiltersForAccount(accountId);
   if (filters.length === 0) return;
 
+  // Pre-parse filter JSON once (not per-message) to avoid O(M×F) parse operations
+  const parsedFilters = filters.flatMap((filter) => {
+    try {
+      return [{
+        criteria: JSON.parse(filter.criteria_json) as FilterCriteria,
+        actions: JSON.parse(filter.actions_json) as FilterActions,
+      }];
+    } catch {
+      return [];
+    }
+  });
+  if (parsedFilters.length === 0) return;
+
   // Group actions by threadId so we can batch modifications
   const threadActions = new Map<string, FilterResult>();
 
   for (const msg of messages) {
-    for (const filter of filters) {
-      let criteria: FilterCriteria;
-      let actions: FilterActions;
-      try {
-        criteria = JSON.parse(filter.criteria_json) as FilterCriteria;
-        actions = JSON.parse(filter.actions_json) as FilterActions;
-      } catch {
-        continue;
-      }
-
+    for (const { criteria, actions } of parsedFilters) {
       if (messageMatchesFilter(msg, criteria)) {
         const result = computeFilterActions(actions);
         const existing = threadActions.get(msg.threadId);

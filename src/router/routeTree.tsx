@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import {
   createRootRoute,
   createRoute,
@@ -5,10 +6,12 @@ import {
 } from "@tanstack/react-router";
 import App from "@/App";
 import { MailLayout } from "@/components/layout/MailLayout";
-import { SettingsPage } from "@/components/settings/SettingsPage";
-import { HelpPage } from "@/components/help/HelpPage";
-import { CalendarPage } from "@/components/calendar/CalendarPage";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+
+// Lazy-load heavy pages — these include many sub-components and service imports
+const SettingsPage = lazy(() => import("@/components/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const HelpPage = lazy(() => import("@/components/help/HelpPage").then((m) => ({ default: m.HelpPage })));
+const CalendarPage = lazy(() => import("@/components/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
 
 // ---------- Search param validation ----------
 const VALID_CATEGORIES = ["Primary", "Updates", "Promotions", "Social", "Newsletters"] as const;
@@ -56,7 +59,9 @@ function MailPage() {
 function SettingsTabPage() {
   return (
     <ErrorBoundary name="SettingsPage">
-      <SettingsPage />
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading settings...</div>}>
+        <SettingsPage />
+      </Suspense>
     </ErrorBoundary>
   );
 }
@@ -64,7 +69,9 @@ function SettingsTabPage() {
 function CalendarPageWrapper() {
   return (
     <ErrorBoundary name="CalendarPage">
-      <CalendarPage />
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading calendar...</div>}>
+        <CalendarPage />
+      </Suspense>
     </ErrorBoundary>
   );
 }
@@ -72,7 +79,9 @@ function CalendarPageWrapper() {
 function HelpPageWrapper() {
   return (
     <ErrorBoundary name="HelpPage">
-      <HelpPage />
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading help...</div>}>
+        <HelpPage />
+      </Suspense>
     </ErrorBoundary>
   );
 }
