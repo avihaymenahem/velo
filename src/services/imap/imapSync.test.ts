@@ -1,6 +1,70 @@
-import { describe, it, expect } from "vitest";
-import { imapMessageToParsedMessage } from "./imapSync";
-import { createMockImapMessage } from "@/test/mocks";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Mock all dependencies for imapInitialSync tests
+vi.mock("./tauriCommands", () => ({
+  imapListFolders: vi.fn(),
+  imapGetFolderStatus: vi.fn(),
+  imapFetchMessages: vi.fn(),
+  imapFetchNewUids: vi.fn(),
+  imapSearchAllUids: vi.fn(),
+  imapDeltaCheck: vi.fn(),
+}));
+vi.mock("./imapConfigBuilder", () => ({
+  buildImapConfig: vi.fn(() => ({
+    host: "imap.example.com",
+    port: 993,
+    security: "ssl",
+    username: "user@example.com",
+    password: "secret",
+  })),
+}));
+vi.mock("./folderMapper", () => ({
+  mapFolderToLabel: vi.fn((folder: { path: string }) => ({
+    labelId: folder.path,
+    labelName: folder.path,
+    type: "user",
+  })),
+  getLabelsForMessage: vi.fn(
+    (mapping: { labelId: string }, isRead: boolean, isStarred: boolean) => {
+      const labels = [mapping.labelId];
+      if (!isRead) labels.push("UNREAD");
+      if (isStarred) labels.push("STARRED");
+      return labels;
+    },
+  ),
+  syncFoldersToLabels: vi.fn(),
+  getSyncableFolders: vi.fn((folders: unknown[]) => folders),
+}));
+vi.mock("../db/messages", () => ({
+  upsertMessage: vi.fn(),
+  updateMessageThreadIds: vi.fn(),
+}));
+vi.mock("../db/threads", () => ({
+  upsertThread: vi.fn(),
+  setThreadLabels: vi.fn(),
+}));
+vi.mock("../db/attachments", () => ({
+  upsertAttachment: vi.fn(),
+}));
+vi.mock("../db/accounts", () => ({
+  getAccount: vi.fn(),
+  updateAccountSyncState: vi.fn(),
+}));
+vi.mock("../db/folderSyncState", () => ({
+  upsertFolderSyncState: vi.fn(),
+  getAllFolderSyncStates: vi.fn(),
+}));
+vi.mock("../db/pendingOperations", () => ({
+  getPendingOpsForResource: vi.fn(() => []),
+}));
+
+import { imapMessageToParsedMessage, imapInitialSync } from "./imapSync";
+import { createMockImapMessage, createMockImapAccount, createMockImapFolder } from "@/test/mocks";
+import { imapListFolders, imapFetchMessages, imapSearchAllUids } from "./tauriCommands";
+import { getAccount } from "../db/accounts";
+import { upsertMessage, updateMessageThreadIds } from "../db/messages";
+import { upsertThread } from "../db/threads";
+import { upsertAttachment } from "../db/attachments";
 
 describe("imapMessageToParsedMessage", () => {
   it("converts basic IMAP message to ParsedMessage format", () => {
@@ -164,5 +228,154 @@ describe("imapMessageToParsedMessage", () => {
     // Message should still be valid
     expect(parsed.id).toBe("imap-acc-1-INBOX-42");
     expect(parsed.fromAddress).toBe("sender@example.com");
+  });
+});
+
+describe("imapInitialSync", () => {
+  const mockGetAccount = vi.mocked(getAccount);
+  const mockImapListFolders = vi.mocked(imapListFolders);
+  const mockImapSearchAllUids = vi.mocked(imapSearchAllUids);
+  const mockImapFetchMessages = vi.mocked(imapFetchMessages);
+  const mockUpsertMessage = vi.mocked(upsertMessage);
+  const mockUpdateMessageThreadIds = vi.mocked(updateMessageThreadIds);
+  const mockUpsertThread = vi.mocked(upsertThread);
+  const mockUpsertAttachment = vi.mocked(upsertAttachment);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAccount.mockResolvedValue(createMockImapAccount({ id: "acc-1" }));
+  });
+
+  function setupFolderWithMessages(folder: string, messages: ReturnType<typeof createMockImapMessage>[]) {
+    const mockFolder = createMockImapFolder({
+      path: folder,
+      raw_path: folder,
+      exists: messages.length,
+    });
+    mockImapListFolders.mockResolvedValue([mockFolder]);
+    mockImapSearchAllUids.mockResolvedValue(messages.map((m) => m.uid));
+    mockImapFetchMessages.mockResolvedValue({
+      messages,
+      folder_status: { exists: messages.length, unseen: 0, uidvalidity: 1, uidnext: 100 },
+    });
+    return mockFolder;
+  }
+
+  it("stores messages to DB immediately per-batch (streaming)", async () => {
+    const msg1 = createMockImapMessage({ uid: 1, message_id: "<m1@test>", subject: "First", date: Math.floor(Date.now() / 1000) });
+    const msg2 = createMockImapMessage({ uid: 2, message_id: "<m2@test>", subject: "Second", date: Math.floor(Date.now() / 1000) });
+    setupFolderWithMessages("INBOX", [msg1, msg2]);
+
+    await imapInitialSync("acc-1");
+
+    // Messages should be stored individually via upsertMessage during fetch phase
+    expect(mockUpsertMessage).toHaveBeenCalledTimes(2);
+
+    // Each message should be stored with placeholder threadId = messageId
+    const firstCallArgs = mockUpsertMessage.mock.calls[0]![0];
+    expect(firstCallArgs.threadId).toBe(firstCallArgs.id);
+
+    const secondCallArgs = mockUpsertMessage.mock.calls[1]![0];
+    expect(secondCallArgs.threadId).toBe(secondCallArgs.id);
+  });
+
+  it("updates thread IDs after threading phase", async () => {
+    const msg1 = createMockImapMessage({ uid: 1, message_id: "<m1@test>", subject: "Hello", date: Math.floor(Date.now() / 1000) });
+    setupFolderWithMessages("INBOX", [msg1]);
+
+    await imapInitialSync("acc-1");
+
+    // Thread record should be created
+    expect(mockUpsertThread).toHaveBeenCalledTimes(1);
+
+    // Thread IDs should be batch-updated via updateMessageThreadIds
+    expect(mockUpdateMessageThreadIds).toHaveBeenCalledTimes(1);
+    const [accountId, messageIds, threadId] = mockUpdateMessageThreadIds.mock.calls[0]!;
+    expect(accountId).toBe("acc-1");
+    expect(messageIds).toHaveLength(1);
+    expect(threadId).toBeTruthy();
+  });
+
+  it("returns empty messages array (bodies not accumulated)", async () => {
+    const msg = createMockImapMessage({ uid: 1, message_id: "<m1@test>", date: Math.floor(Date.now() / 1000) });
+    setupFolderWithMessages("INBOX", [msg]);
+
+    const result = await imapInitialSync("acc-1");
+
+    // The streaming approach returns empty array — bodies are already in DB
+    expect(result.messages).toEqual([]);
+  });
+
+  it("stores attachments immediately with the message", async () => {
+    const msg = createMockImapMessage({
+      uid: 1,
+      message_id: "<m1@test>",
+      date: Math.floor(Date.now() / 1000),
+      attachments: [
+        {
+          part_id: "2",
+          filename: "doc.pdf",
+          mime_type: "application/pdf",
+          size: 5000,
+          content_id: null,
+          is_inline: false,
+        },
+      ],
+    });
+    setupFolderWithMessages("INBOX", [msg]);
+
+    await imapInitialSync("acc-1");
+
+    expect(mockUpsertAttachment).toHaveBeenCalledTimes(1);
+    expect(mockUpsertAttachment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filename: "doc.pdf",
+        mimeType: "application/pdf",
+        accountId: "acc-1",
+      }),
+    );
+  });
+
+  it("filters messages by date cutoff", async () => {
+    const recentDate = Math.floor(Date.now() / 1000) - 10; // 10 seconds ago
+    const oldDate = Math.floor(Date.now() / 1000) - 400 * 86400; // 400 days ago
+
+    const recentMsg = createMockImapMessage({ uid: 1, message_id: "<recent@test>", date: recentDate });
+    const oldMsg = createMockImapMessage({ uid: 2, message_id: "<old@test>", date: oldDate });
+
+    setupFolderWithMessages("INBOX", [recentMsg, oldMsg]);
+
+    await imapInitialSync("acc-1", 365);
+
+    // Only recent message should be stored (old one is beyond 365 days)
+    expect(mockUpsertMessage).toHaveBeenCalledTimes(1);
+    expect(mockUpsertMessage.mock.calls[0]![0].id).toContain("1"); // uid=1
+  });
+
+  it("handles empty folders gracefully", async () => {
+    const mockFolder = createMockImapFolder({ path: "INBOX", raw_path: "INBOX", exists: 0 });
+    mockImapListFolders.mockResolvedValue([mockFolder]);
+
+    const result = await imapInitialSync("acc-1");
+
+    expect(mockImapSearchAllUids).not.toHaveBeenCalled();
+    expect(mockUpsertMessage).not.toHaveBeenCalled();
+    expect(result.messages).toEqual([]);
+  });
+
+  it("reports progress through all phases", async () => {
+    const msg = createMockImapMessage({ uid: 1, message_id: "<m1@test>", date: Math.floor(Date.now() / 1000) });
+    setupFolderWithMessages("INBOX", [msg]);
+
+    const progressCalls: Array<{ phase: string }> = [];
+    await imapInitialSync("acc-1", 365, (progress) => {
+      progressCalls.push({ phase: progress.phase });
+    });
+
+    const phases = progressCalls.map((p) => p.phase);
+    expect(phases).toContain("folders");
+    expect(phases).toContain("messages");
+    expect(phases).toContain("threading");
+    expect(phases).toContain("done");
   });
 });
