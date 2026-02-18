@@ -113,6 +113,10 @@ export function SettingsPage() {
   const [aiKeySaved, setAiKeySaved] = useState(false);
   const [aiTesting, setAiTesting] = useState(false);
   const [aiTestResult, setAiTestResult] = useState<"success" | "fail" | null>(null);
+  const [aiAutoDraftEnabled, setAiAutoDraftEnabled] = useState(true);
+  const [aiWritingStyleEnabled, setAiWritingStyleEnabled] = useState(true);
+  const [styleAnalyzing, setStyleAnalyzing] = useState(false);
+  const [styleAnalyzeDone, setStyleAnalyzeDone] = useState(false);
   const [cacheMaxMb, setCacheMaxMb] = useState("500");
   const [cacheSizeMb, setCacheSizeMb] = useState<number | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
@@ -167,6 +171,10 @@ export function SettingsPage() {
       setAiAutoCategorize(aiCat !== "false");
       const aiSum = await getSetting("ai_auto_summarize");
       setAiAutoSummarize(aiSum !== "false");
+      const aiDraft = await getSetting("ai_auto_draft_enabled");
+      setAiAutoDraftEnabled(aiDraft !== "false");
+      const aiStyle = await getSetting("ai_writing_style_enabled");
+      setAiWritingStyleEnabled(aiStyle !== "false");
 
       // Load auto-archive categories
       const autoArchive = await getSetting("auto_archive_categories");
@@ -1098,6 +1106,64 @@ export function SettingsPage() {
                         await setSetting("ai_auto_summarize", newVal ? "true" : "false");
                       }}
                     />
+                  </Section>
+
+                  <Section title="Auto-Draft Replies">
+                    <ToggleRow
+                      label="Auto-draft replies"
+                      description="Pre-populate the reply editor with an AI-generated draft"
+                      checked={aiAutoDraftEnabled}
+                      onToggle={async () => {
+                        const newVal = !aiAutoDraftEnabled;
+                        setAiAutoDraftEnabled(newVal);
+                        await setSetting("ai_auto_draft_enabled", newVal ? "true" : "false");
+                      }}
+                    />
+                    <ToggleRow
+                      label="Learn writing style"
+                      description="Analyze your sent emails to match your tone and voice"
+                      checked={aiWritingStyleEnabled}
+                      onToggle={async () => {
+                        const newVal = !aiWritingStyleEnabled;
+                        setAiWritingStyleEnabled(newVal);
+                        await setSetting("ai_writing_style_enabled", newVal ? "true" : "false");
+                      }}
+                    />
+                    {aiWritingStyleEnabled && (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm text-text-secondary">Writing style profile</span>
+                          <p className="text-xs text-text-tertiary mt-0.5">
+                            Reanalyze your writing style from recent sent emails
+                          </p>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="md"
+                          onClick={async () => {
+                            setStyleAnalyzing(true);
+                            setStyleAnalyzeDone(false);
+                            try {
+                              const activeId = accounts.find((a) => a.isActive)?.id;
+                              if (activeId) {
+                                const { refreshWritingStyle } = await import("@/services/ai/writingStyleService");
+                                await refreshWritingStyle(activeId);
+                                setStyleAnalyzeDone(true);
+                                setTimeout(() => setStyleAnalyzeDone(false), 3000);
+                              }
+                            } catch (err) {
+                              console.error("Style analysis failed:", err);
+                            } finally {
+                              setStyleAnalyzing(false);
+                            }
+                          }}
+                          disabled={styleAnalyzing}
+                          className="bg-bg-tertiary text-text-primary border border-border-primary"
+                        >
+                          {styleAnalyzing ? "Analyzing..." : styleAnalyzeDone ? "Done!" : "Reanalyze"}
+                        </Button>
+                      </div>
+                    )}
                   </Section>
 
                   <Section title="Categories">

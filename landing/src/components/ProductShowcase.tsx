@@ -14,7 +14,7 @@ const FEATURES: { title: string; description: string; mockup: ReactNode }[] = [
   {
     title: 'AI assistant',
     description:
-      'Choose from Claude, GPT, or Gemini. Get thread summaries, smart reply suggestions, AI-composed drafts, and natural-language inbox search — all running through your own API key.',
+      'Choose from Claude, GPT, or Gemini. Get thread summaries, smart reply suggestions, auto-drafted replies that match your writing style, AI task extraction, and natural-language inbox search — all running through your own API key.',
     mockup: <AiMockup />,
   },
   {

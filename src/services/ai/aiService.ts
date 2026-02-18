@@ -12,6 +12,7 @@ import {
   CATEGORIZE_PROMPT,
   SMART_REPLY_PROMPT,
   ASK_INBOX_PROMPT,
+  EXTRACT_TASK_PROMPT,
 } from "./prompts";
 
 async function callAi(systemPrompt: string, userContent: string): Promise<string> {
@@ -178,6 +179,17 @@ export async function categorizeThreads(
   }
 
   return categories;
+}
+
+export async function extractTaskFromThread(
+  _threadId: string,
+  _accountId: string,
+  messages: DbMessage[],
+): Promise<string> {
+  const subject = messages[0]?.subject ?? "No subject";
+  const formatted = messages.map(formatMessageForSummary).join("\n---\n");
+  const combined = `<email_content>Subject: ${subject}\n\n${formatted}</email_content>`.slice(0, 6000);
+  return callAi(EXTRACT_TASK_PROMPT, combined);
 }
 
 export async function testConnection(): Promise<boolean> {

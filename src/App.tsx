@@ -63,6 +63,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { DndProvider } from "./components/dnd/DndProvider";
 import { TitleBar } from "./components/layout/TitleBar";
 import { useShortcutStore } from "./stores/shortcutStore";
+import { getIncompleteTaskCount } from "./services/db/tasks";
+import { useTaskStore } from "./stores/taskStore";
 import { ContextMenuPortal } from "./components/ui/ContextMenuPortal";
 import { OfflineBanner } from "./components/ui/OfflineBanner";
 import { UpdateToast } from "./components/ui/UpdateToast";
@@ -257,6 +259,12 @@ export default function App() {
           ui.setInboxViewMode(savedViewMode);
         }
 
+        // Restore task sidebar visibility
+        const savedTaskSidebar = await getSetting("task_sidebar_visible");
+        if (savedTaskSidebar === "true") {
+          ui.setTaskSidebarVisible(true);
+        }
+
         // Load custom keyboard shortcuts
         await useShortcutStore.getState().loadKeyMap();
 
@@ -309,6 +317,13 @@ export default function App() {
 
         // Initial badge count
         await updateBadgeCount();
+
+        // Load initial task count
+        const activeAcct = useAccountStore.getState().activeAccountId;
+        if (activeAcct) {
+          const count = await getIncompleteTaskCount(activeAcct);
+          useTaskStore.getState().setIncompleteCount(count);
+        }
 
         // Start auto-update checker
         startUpdateChecker();

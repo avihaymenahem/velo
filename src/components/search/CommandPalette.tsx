@@ -70,6 +70,21 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       }
     } },
 
+    // Tasks
+    { id: "task-create", label: "Create Task", category: "Tasks", action: () => {
+      onClose();
+      useUIStore.getState().setTaskSidebarVisible(true);
+    } },
+    { id: "task-extract", label: "Create Task from Email (AI)", shortcut: "t", category: "Tasks", action: () => {
+      onClose();
+      const threadId = getSelectedThreadId();
+      if (threadId) {
+        window.dispatchEvent(new CustomEvent("velo-extract-task", { detail: { threadId } }));
+      }
+    } },
+    { id: "task-view", label: "View Tasks", shortcut: "g k", category: "Tasks", action: () => { navigateToLabel("tasks"); onClose(); } },
+    { id: "task-toggle-panel", label: "Toggle Task Panel", category: "Tasks", action: () => { useUIStore.getState().toggleTaskSidebar(); onClose(); } },
+
     // AI
     { id: "ask-ai", label: "Ask AI about your inbox", category: "AI", action: () => { onClose(); window.dispatchEvent(new Event("velo-toggle-ask-inbox")); } },
 

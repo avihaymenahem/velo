@@ -10,7 +10,7 @@ import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { SnoozeDialog } from "./SnoozeDialog";
 import { FollowUpDialog } from "./FollowUpDialog";
-import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen, ListTodo } from "lucide-react";
 import type { DbMessage } from "@/services/db/messages";
 import { insertFollowUpReminder, getFollowUpForThread, cancelFollowUpForThread } from "@/services/db/followUpReminders";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +21,7 @@ interface ActionBarProps {
   noReply?: boolean;
   defaultReplyMode?: "reply" | "replyAll";
   contactSidebarVisible?: boolean;
+  taskSidebarVisible?: boolean;
   onReply?: () => void;
   onReplyAll?: () => void;
   onForward?: () => void;
@@ -28,13 +29,14 @@ interface ActionBarProps {
   onExport?: () => void;
   onPopOut?: () => void;
   onToggleContactSidebar?: () => void;
+  onToggleTaskSidebar?: () => void;
 }
 
 function Separator() {
   return <div className="w-px h-5 bg-border-secondary mx-1 shrink-0" />;
 }
 
-export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply", contactSidebarVisible, onReply, onReplyAll, onForward, onPrint, onExport, onPopOut, onToggleContactSidebar }: ActionBarProps) {
+export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply", contactSidebarVisible, taskSidebarVisible, onReply, onReplyAll, onForward, onPrint, onExport, onPopOut, onToggleContactSidebar, onToggleTaskSidebar }: ActionBarProps) {
   const updateThread = useThreadStore((s) => s.updateThread);
   const removeThread = useThreadStore((s) => s.removeThread);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
@@ -312,6 +314,13 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
         <Button variant="secondary" iconOnly icon={<Printer size={15} />} onClick={onPrint} title="Print" />
         <Button variant="secondary" iconOnly icon={<Download size={15} />} onClick={onExport} title="Export as .eml" />
         <Button variant="secondary" iconOnly icon={<ExternalLink size={15} />} onClick={onPopOut} title="Open in new window" />
+        <Button
+          variant="secondary"
+          iconOnly
+          icon={<ListTodo size={15} className={taskSidebarVisible ? "text-accent" : ""} />}
+          onClick={onToggleTaskSidebar}
+          title={taskSidebarVisible ? "Hide task panel" : "Show task panel"}
+        />
         <Button
           variant="secondary"
           iconOnly

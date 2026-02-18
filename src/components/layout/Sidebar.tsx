@@ -20,6 +20,7 @@ import {
   Trash2,
   Ban,
   Mail,
+  CheckSquare,
   Calendar,
   Settings,
   Plus,
@@ -40,6 +41,7 @@ import {
   FolderSearch,
   type LucideIcon,
 } from "lucide-react";
+import { useTaskStore } from "@/stores/taskStore";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -55,6 +57,7 @@ const NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "trash", label: "Trash", icon: Trash2 },
   { id: "spam", label: "Spam", icon: Ban },
   { id: "all", label: "All Mail", icon: Mail },
+  { id: "tasks", label: "Tasks", icon: CheckSquare },
   { id: "calendar", label: "Calendar", icon: Calendar },
 ];
 
@@ -198,6 +201,7 @@ const LABELS_COLLAPSED_COUNT = 3;
 export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const activeLabel = useActiveLabel();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const taskIncompleteCount = useTaskStore((s) => s.incompleteCount);
   const inboxViewMode = useUIStore((s) => s.inboxViewMode);
   const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
   const activeCategory = useActiveCategory();
@@ -337,6 +341,11 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                     <Icon size={18} className="shrink-0" />
                     {!collapsed && (
                       <span className="flex-1 truncate">{item.label}</span>
+                    )}
+                    {item.id === "tasks" && taskIncompleteCount > 0 && !collapsed && (
+                      <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
+                        {taskIncompleteCount}
+                      </span>
                     )}
                     {isInbox && !collapsed && (
                       <span

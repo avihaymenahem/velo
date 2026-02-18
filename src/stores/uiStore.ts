@@ -25,6 +25,7 @@ interface UIState {
   colorTheme: ColorThemeId;
   sendAndArchive: boolean;
   inboxViewMode: InboxViewMode;
+  taskSidebarVisible: boolean;
   isOnline: boolean;
   pendingOpsCount: number;
   setTheme: (theme: Theme) => void;
@@ -42,6 +43,8 @@ interface UIState {
   setColorTheme: (theme: ColorThemeId) => void;
   setSendAndArchive: (enabled: boolean) => void;
   setInboxViewMode: (mode: InboxViewMode) => void;
+  toggleTaskSidebar: () => void;
+  setTaskSidebarVisible: (visible: boolean) => void;
   setOnline: (online: boolean) => void;
   setPendingOpsCount: (count: number) => void;
 }
@@ -60,6 +63,7 @@ export const useUIStore = create<UIState>((set) => ({
   colorTheme: "indigo",
   sendAndArchive: false,
   inboxViewMode: "unified",
+  taskSidebarVisible: false,
   isOnline: true,
   pendingOpsCount: 0,
 
@@ -118,6 +122,13 @@ export const useUIStore = create<UIState>((set) => ({
     setSetting("inbox_view_mode", inboxViewMode).catch(() => {});
     set({ inboxViewMode });
   },
+  toggleTaskSidebar: () =>
+    set((state) => {
+      const visible = !state.taskSidebarVisible;
+      setSetting("task_sidebar_visible", String(visible)).catch(() => {});
+      return { taskSidebarVisible: visible };
+    }),
+  setTaskSidebarVisible: (taskSidebarVisible) => set({ taskSidebarVisible }),
   setOnline: (isOnline) => set({ isOnline }),
   setPendingOpsCount: (pendingOpsCount) => set({ pendingOpsCount }),
 }));

@@ -23,6 +23,7 @@ export const SHORTCUTS: ShortcutCategory[] = [
     { id: "nav.goPromotions", keys: "g then o", desc: "Go to Promotions" },
     { id: "nav.goSocial", keys: "g then c", desc: "Go to Social" },
     { id: "nav.goNewsletters", keys: "g then n", desc: "Go to Newsletters" },
+    { id: "nav.goTasks", keys: "g then k", desc: "Go to Tasks" },
     { id: "nav.escape", keys: "Escape", desc: "Close / Go back" },
   ]},
   { category: "Actions", items: [
@@ -37,6 +38,7 @@ export const SHORTCUTS: ShortcutCategory[] = [
     { id: "action.pin", keys: "p", desc: "Pin / Unpin" },
     { id: "action.unsubscribe", keys: "u", desc: "Unsubscribe" },
     { id: "action.mute", keys: "m", desc: "Mute / Unmute" },
+    { id: "action.createTaskFromEmail", keys: "t", desc: "Create task from email (AI)" },
     { id: "action.selectAll", keys: "Ctrl+A", desc: "Select all" },
     { id: "action.selectFromHere", keys: "Ctrl+Shift+A", desc: "Select all from here" },
   ]},

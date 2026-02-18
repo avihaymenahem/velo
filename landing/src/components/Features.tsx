@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import {
   Zap, Search, Clock, Send, Bell, Calendar,
   Filter, Layers, GripVertical, PenTool, Shield, Palette,
+  CheckSquare, PenSquare,
 } from 'lucide-react'
 
 const FEATURES = [
@@ -59,6 +60,16 @@ const FEATURES = [
     icon: Shield,
     title: 'Phishing detection',
     description: '10 heuristic rules — homograph attacks, URL shorteners, display mismatch, brand impersonation. Configurable sensitivity.',
+  },
+  {
+    icon: PenSquare,
+    title: 'AI auto-drafts',
+    description: 'Reply and the editor is pre-filled with an AI-generated draft that matches your writing style. Learned from your sent emails.',
+  },
+  {
+    icon: CheckSquare,
+    title: 'Task manager',
+    description: 'Full task management with priorities, due dates, subtasks, recurring tasks, and AI extraction from emails. Press t to turn any email into a task.',
   },
   {
     icon: Palette,

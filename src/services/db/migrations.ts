@@ -619,6 +619,65 @@ const MIGRATIONS = [
       );
     `,
   },
+  {
+    version: 18,
+    description: "AI auto-drafts writing style profiles and task manager",
+    sql: `
+      -- Writing style profiles for AI auto-drafts
+      CREATE TABLE IF NOT EXISTS writing_style_profiles (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        profile_text TEXT NOT NULL,
+        sample_count INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER DEFAULT (unixepoch()),
+        updated_at INTEGER DEFAULT (unixepoch()),
+        UNIQUE(account_id)
+      );
+
+      -- Tasks
+      CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        account_id TEXT,
+        title TEXT NOT NULL,
+        description TEXT,
+        priority TEXT DEFAULT 'none',
+        is_completed INTEGER DEFAULT 0,
+        completed_at INTEGER,
+        due_date INTEGER,
+        parent_id TEXT,
+        thread_id TEXT,
+        thread_account_id TEXT,
+        sort_order INTEGER DEFAULT 0,
+        recurrence_rule TEXT,
+        next_recurrence_at INTEGER,
+        tags_json TEXT DEFAULT '[]',
+        created_at INTEGER DEFAULT (unixepoch()),
+        updated_at INTEGER DEFAULT (unixepoch()),
+        FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_tasks_account ON tasks(account_id);
+      CREATE INDEX IF NOT EXISTS idx_tasks_completed_due ON tasks(is_completed, due_date);
+      CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_id);
+      CREATE INDEX IF NOT EXISTS idx_tasks_thread ON tasks(thread_account_id, thread_id);
+      CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_date);
+      CREATE INDEX IF NOT EXISTS idx_tasks_sort ON tasks(sort_order);
+
+      -- Task tags
+      CREATE TABLE IF NOT EXISTS task_tags (
+        tag TEXT NOT NULL,
+        account_id TEXT,
+        color TEXT,
+        sort_order INTEGER DEFAULT 0,
+        created_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (tag, account_id)
+      );
+
+      -- Default settings for auto-drafts
+      INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('ai_auto_draft_enabled', 'true'),
+        ('ai_writing_style_enabled', 'true');
+    `,
+  },
 ];
 
 /**
@@ -684,6 +743,19 @@ export async function runMigrations(): Promise<void> {
   );
   const appliedVersions = new Set(applied.map((r) => r.version));
 
+  // Repair: if migration 18 is marked applied but tasks table is missing,
+  // remove the stale record so it re-runs
+  if (appliedVersions.has(18)) {
+    const tables = await db.select<{ name: string }[]>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='tasks'",
+    );
+    if (tables.length === 0) {
+      console.warn("Migration v18 marked applied but tasks table missing — re-running");
+      await db.execute("DELETE FROM _migrations WHERE version = 18");
+      appliedVersions.delete(18);
+    }
+  }
+
   // Run pending migrations
   for (const migration of MIGRATIONS) {
     if (appliedVersions.has(migration.version)) continue;
@@ -695,25 +767,33 @@ export async function runMigrations(): Promise<void> {
     // Split SQL into individual statements, respecting BEGIN...END blocks
     const statements = splitStatements(migration.sql);
 
-    for (const statement of statements) {
-      try {
-        await db.execute(statement);
-      } catch (err) {
-        // Tolerate "duplicate column" errors from ALTER TABLE ADD COLUMN
-        // in case a migration was partially applied previously
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("duplicate column")) {
-          console.warn(`Skipping duplicate column in v${migration.version}: ${msg}`);
-        } else {
-          throw err;
+    // Use a transaction so migrations are all-or-nothing
+    await db.execute("BEGIN");
+    try {
+      for (const statement of statements) {
+        try {
+          await db.execute(statement);
+        } catch (err) {
+          // Tolerate "duplicate column" errors from ALTER TABLE ADD COLUMN
+          // in case a migration was partially applied previously
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("duplicate column")) {
+            console.warn(`Skipping duplicate column in v${migration.version}: ${msg}`);
+          } else {
+            throw err;
+          }
         }
       }
-    }
 
-    await db.execute(
-      "INSERT OR IGNORE INTO _migrations (version, description) VALUES ($1, $2)",
-      [migration.version, migration.description],
-    );
+      await db.execute(
+        "INSERT OR IGNORE INTO _migrations (version, description) VALUES ($1, $2)",
+        [migration.version, migration.description],
+      );
+      await db.execute("COMMIT");
+    } catch (err) {
+      await db.execute("ROLLBACK").catch(() => {});
+      throw err;
+    }
   }
 
   console.log("All migrations applied.");

@@ -237,6 +237,9 @@ async function executeAction(actionId: string): Promise<void> {
         navigateToLabel("inbox", { category: "Newsletters" });
       }
       break;
+    case "nav.goTasks":
+      navigateToLabel("tasks");
+      break;
     case "nav.escape": {
       if (useComposerStore.getState().isOpen) {
         useComposerStore.getState().closeComposer();
@@ -413,6 +416,12 @@ async function executeAction(actionId: string): Promise<void> {
             await archiveThread(activeAccountId, selectedId, []);
           }
         }
+      }
+      break;
+    }
+    case "action.createTaskFromEmail": {
+      if (selectedId) {
+        window.dispatchEvent(new CustomEvent("velo-extract-task", { detail: { threadId: selectedId } }));
       }
       break;
     }

@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Reply, ReplyAll, Forward, Send, Maximize2 } from "lucide-react";
+import { Reply, ReplyAll, Forward, Send, Maximize2, RotateCcw, X, Loader2 } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -11,6 +11,12 @@ import { buildRawEmail } from "@/utils/emailBuilder";
 import { upsertContact } from "@/services/db/contacts";
 import { getSetting } from "@/services/db/settings";
 import { getDefaultSignature } from "@/services/db/signatures";
+import {
+  isAutoDraftEnabled,
+  generateAutoDraft,
+  regenerateAutoDraft,
+  type AutoDraftMode,
+} from "@/services/ai/writingStyleService";
 import type { DbMessage } from "@/services/db/messages";
 import type { Thread } from "@/stores/threadStore";
 
@@ -28,11 +34,14 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
   const [mode, setMode] = useState<ReplyMode | null>(null);
   const [sending, setSending] = useState(false);
   const [signatureHtml, setSignatureHtml] = useState("");
+  const [autoDraftLoading, setAutoDraftLoading] = useState(false);
+  const [hasAutoDraft, setHasAutoDraft] = useState(false);
   const accounts = useAccountStore((s) => s.accounts);
   const activeAccount = accounts.find((a) => a.id === accountId);
   const openComposer = useComposerStore((s) => s.openComposer);
   const containerRef = useRef<HTMLDivElement>(null);
   const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoDraftAbortRef = useRef(false);
 
   const lastMessage = messages[messages.length - 1];
 
@@ -51,11 +60,41 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
     },
   });
 
+  const loadAutoDraft = useCallback(async (draftMode: AutoDraftMode) => {
+    if (!editor) return;
+    autoDraftAbortRef.current = false;
+    setAutoDraftLoading(true);
+    try {
+      const enabled = await isAutoDraftEnabled();
+      if (!enabled || autoDraftAbortRef.current) return;
+
+      const draft = await generateAutoDraft(thread.id, accountId, messages, draftMode);
+      if (autoDraftAbortRef.current || !draft) return;
+
+      // Only set content if the editor is still empty (user hasn't typed)
+      if (editor.isEmpty) {
+        editor.commands.setContent(draft);
+        setHasAutoDraft(true);
+      }
+    } catch (err) {
+      console.warn("Auto-draft generation failed:", err);
+    } finally {
+      setAutoDraftLoading(false);
+    }
+  }, [editor, thread.id, accountId, messages]);
+
   const activateMode = useCallback((newMode: ReplyMode) => {
     setMode(newMode);
+    setHasAutoDraft(false);
+    autoDraftAbortRef.current = true; // Cancel any in-flight draft
     if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
     focusTimerRef.current = setTimeout(() => editor?.commands.focus(), 50);
-  }, [editor]);
+
+    // Trigger auto-draft for reply/replyAll (not forward)
+    if (newMode === "reply" || newMode === "replyAll") {
+      loadAutoDraft(newMode);
+    }
+  }, [editor, loadAutoDraft]);
 
   // Load default signature
   useEffect(() => {
@@ -202,10 +241,46 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
     setMode(null);
   }, [editor, lastMessage, getRecipients, getSubject, mode, thread.id, openComposer]);
 
+  const handleRegenerateDraft = useCallback(async () => {
+    if (!editor || !mode || mode === "forward") return;
+    autoDraftAbortRef.current = false;
+    setAutoDraftLoading(true);
+    try {
+      const draft = await regenerateAutoDraft(thread.id, accountId, messages, mode);
+      if (autoDraftAbortRef.current || !draft) return;
+      editor.commands.setContent(draft);
+      setHasAutoDraft(true);
+    } catch (err) {
+      console.warn("Auto-draft regeneration failed:", err);
+    } finally {
+      setAutoDraftLoading(false);
+    }
+  }, [editor, mode, thread.id, accountId, messages]);
+
+  const handleClearDraft = useCallback(() => {
+    if (!editor) return;
+    editor.commands.setContent("");
+    setHasAutoDraft(false);
+    editor.commands.focus();
+  }, [editor]);
+
+  // Abort auto-draft on user typing
+  useEffect(() => {
+    if (!editor) return;
+    const onUpdate = () => {
+      if (autoDraftLoading) {
+        autoDraftAbortRef.current = true;
+      }
+    };
+    editor.on("update", onUpdate);
+    return () => { editor.off("update", onUpdate); };
+  }, [editor, autoDraftLoading]);
+
   // Cleanup focus timer on unmount
   useEffect(() => {
     return () => {
       if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+      autoDraftAbortRef.current = true;
     };
   }, []);
 
@@ -296,18 +371,51 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
       </div>
 
       {/* Editor */}
-      <EditorContent editor={editor} />
+      <div className="relative">
+        <EditorContent editor={editor} />
+        {autoDraftLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-bg-primary/60 backdrop-blur-[1px]">
+            <div className="flex items-center gap-2 text-xs text-text-secondary">
+              <Loader2 size={14} className="animate-spin" />
+              Generating draft...
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between px-3 py-2 border-t border-border-secondary bg-bg-secondary">
-        <button
-          onClick={handleExpandToComposer}
-          title="Expand to full composer"
-          className="flex items-center gap-1.5 px-2 py-1 text-xs text-text-tertiary hover:text-text-primary transition-colors"
-        >
-          <Maximize2 size={12} />
-          Expand
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleExpandToComposer}
+            title="Expand to full composer"
+            className="flex items-center gap-1.5 px-2 py-1 text-xs text-text-tertiary hover:text-text-primary transition-colors"
+          >
+            <Maximize2 size={12} />
+            Expand
+          </button>
+          {hasAutoDraft && mode !== "forward" && (
+            <>
+              <button
+                onClick={handleRegenerateDraft}
+                disabled={autoDraftLoading}
+                title="Regenerate AI draft"
+                className="flex items-center gap-1 px-2 py-1 text-xs text-text-tertiary hover:text-accent transition-colors disabled:opacity-50"
+              >
+                <RotateCcw size={11} />
+                Regenerate
+              </button>
+              <button
+                onClick={handleClearDraft}
+                title="Clear AI draft"
+                className="flex items-center gap-1 px-2 py-1 text-xs text-text-tertiary hover:text-danger transition-colors"
+              >
+                <X size={11} />
+                Clear
+              </button>
+            </>
+          )}
+        </div>
         <button
           onClick={handleSend}
           disabled={sending || (to.length === 0 && mode !== "forward")}

@@ -66,6 +66,8 @@ velo/
 │   │   ├── accounts/         # AddAccount, AddImapAccount, AccountSwitcher, SetupClientId
 │   │   ├── calendar/         # CalendarPage, MonthView, WeekView, DayView,
 │   │   │                     # EventCard, EventCreateModal
+│   │   ├── tasks/            # TasksPage, TaskItem, TaskSidebar, TaskQuickAdd,
+│   │   │                     # AiTaskExtractDialog
 │   │   ├── help/             # HelpPage, HelpSidebar, HelpSearchBar,
 │   │   │                     # HelpCard, HelpCardGrid, HelpTooltip
 │   │   ├── labels/           # LabelForm
@@ -79,7 +81,8 @@ velo/
 │   │   ├── imap/             # IMAP sync, folder mapper, auto-discovery,
 │   │   │                     # config builder, Tauri command wrappers
 │   │   ├── threading/        # JWZ threading engine for IMAP conversations
-│   │   ├── ai/               # AI service, 3 providers, categorization, Ask Inbox
+│   │   ├── ai/               # AI service, 3 providers, categorization, Ask Inbox,
+│   │   │                     # writing style analysis, auto-drafts, task extraction
 │   │   ├── google/           # Google Calendar API
 │   │   ├── composer/         # Draft auto-save
 │   │   ├── search/           # Query parser, SQL builder
@@ -94,12 +97,13 @@ velo/
 │   │   ├── unsubscribe/      # One-click unsubscribe (RFC 8058)
 │   │   ├── quickSteps/       # Quick step executor, types, defaults
 │   │   ├── queue/            # Offline queue processor
+│   │   ├── tasks/            # Task recurrence manager
 │   │   ├── emailActions.ts   # Centralized email action service (offline-aware)
 │   │   ├── badgeManager.ts   # Taskbar badge count
 │   │   ├── deepLinkHandler.ts # mailto: protocol handler
 │   │   └── globalShortcut.ts # System-wide compose shortcut
-│   ├── stores/               # Zustand stores (8): ui, account, thread,
-│   │                         # composer, label, contextMenu, shortcut, smartFolder
+│   ├── stores/               # Zustand stores (9): ui, account, thread,
+│   │                         # composer, label, contextMenu, shortcut, smartFolder, task
 │   ├── hooks/                # useKeyboardShortcuts, useClickOutside, useContextMenu
 │   ├── utils/                # crypto, date, emailBuilder, sanitize, imageBlocker,
 │   │                         # mailtoParser, fileUtils, templateVariables, noReply
@@ -147,7 +151,7 @@ All business logic lives in `src/services/` as plain async functions (except `Gm
 | `gmail/` | Gmail client, token management, sync engine |
 | `imap/` | IMAP sync, folder-to-label mapping, auto-discovery, Tauri command wrappers |
 | `threading/` | JWZ threading algorithm for IMAP message grouping |
-| `ai/` | AI service with 3 providers, categorization, Ask Inbox |
+| `ai/` | AI service with 3 providers, categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction |
 | `google/` | Google Calendar API |
 | `composer/` | Draft auto-save (3s debounce) |
 | `search/` | Gmail-style query parser, SQL builder |
@@ -162,12 +166,13 @@ All business logic lives in `src/services/` as plain async functions (except `Gm
 | `unsubscribe/` | One-click unsubscribe (RFC 8058) |
 | `quickSteps/` | Custom action chains with executor engine |
 | `queue/` | Offline queue processor with exponential backoff |
+| `tasks/` | Task recurrence manager |
 
 **Root-level services:** `emailActions.ts` (centralized offline-aware email actions), `badgeManager.ts` (taskbar badge), `deepLinkHandler.ts` (mailto: protocol), `globalShortcut.ts` (system-wide compose)
 
 ## UI Layer
 
-Eight Zustand stores manage ephemeral UI state:
+Nine Zustand stores manage ephemeral UI state:
 
 | Store | Purpose |
 |-------|---------|
@@ -179,12 +184,13 @@ Eight Zustand stores manage ephemeral UI state:
 | `contextMenuStore` | Right-click context menu state |
 | `shortcutStore` | Custom keyboard shortcut bindings |
 | `smartFolderStore` | Saved searches with dynamic query tokens |
+| `taskStore` | Task list, filters, grouping, thread tasks, incomplete count |
 
 ## Database
 
-SQLite via Tauri SQL plugin. 17 migrations, 33 tables total.
+SQLite via Tauri SQL plugin. 18 migrations, 36 tables total.
 
-Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS5 index, `auth_results`, IMAP headers, `imap_uid`, `imap_folder`), `threads` (with `is_pinned`, `is_muted`), `thread_labels`, `labels` (with `imap_folder_path`, `imap_special_use`), `contacts`, `attachments` (with `imap_part_id`), `filter_rules`, `scheduled_emails`, `templates`, `signatures`, `image_allowlist`, `settings`, `ai_cache`, `thread_categories`, `calendar_events`, `follow_up_reminders`, `notification_vips`, `unsubscribe_actions`, `bundle_rules`, `bundled_threads`, `send_as_aliases`, `smart_folders`, `link_scan_results`, `phishing_allowlist`, `quick_steps`, `folder_sync_state` (IMAP sync tracking), `pending_operations` (offline action queue), `local_drafts` (offline draft persistence).
+Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS5 index, `auth_results`, IMAP headers, `imap_uid`, `imap_folder`), `threads` (with `is_pinned`, `is_muted`), `thread_labels`, `labels` (with `imap_folder_path`, `imap_special_use`), `contacts`, `attachments` (with `imap_part_id`), `filter_rules`, `scheduled_emails`, `templates`, `signatures`, `image_allowlist`, `settings`, `ai_cache`, `thread_categories`, `calendar_events`, `follow_up_reminders`, `notification_vips`, `unsubscribe_actions`, `bundle_rules`, `bundled_threads`, `send_as_aliases`, `smart_folders`, `link_scan_results`, `phishing_allowlist`, `quick_steps`, `folder_sync_state` (IMAP sync tracking), `pending_operations` (offline action queue), `local_drafts` (offline draft persistence), `writing_style_profiles` (AI writing style per account), `tasks` (full task management with priorities, subtasks, recurrence), `task_tags` (custom task tag colors).
 
 ## Startup Sequence
 

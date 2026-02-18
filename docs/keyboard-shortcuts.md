@@ -18,6 +18,7 @@ Velo is designed to be used entirely from the keyboard. All shortcuts are custom
 | `g` then `o` | Go to Promotions |
 | `g` then `c` | Go to Social |
 | `g` then `n` | Go to Newsletters |
+| `g` then `k` | Go to Tasks |
 
 ## Actions
 
@@ -34,6 +35,7 @@ Velo is designed to be used entirely from the keyboard. All shortcuts are custom
 | `#` | Trash (permanent delete if already in trash) |
 | `!` | Spam / not spam |
 | `u` | Unsubscribe |
+| `t` | Create task from email (AI) |
 | `Ctrl+Enter` | Send email |
 | `Ctrl+A` | Select all threads |
 | `Ctrl+Shift+A` | Select all from current position |

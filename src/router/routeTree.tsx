@@ -12,6 +12,7 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 const SettingsPage = lazy(() => import("@/components/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const HelpPage = lazy(() => import("@/components/help/HelpPage").then((m) => ({ default: m.HelpPage })));
 const CalendarPage = lazy(() => import("@/components/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
+const TasksPage = lazy(() => import("@/components/tasks/TasksPage").then((m) => ({ default: m.TasksPage })));
 
 // ---------- Search param validation ----------
 const VALID_CATEGORIES = ["Primary", "Updates", "Promotions", "Social", "Newsletters"] as const;
@@ -144,6 +145,23 @@ export const settingsTabRoute = createRoute({
   component: SettingsTabPage,
 });
 
+// ---------- /tasks ----------
+function TasksPageWrapper() {
+  return (
+    <ErrorBoundary name="TasksPage">
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading tasks...</div>}>
+        <TasksPage />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+export const tasksRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "tasks",
+  component: TasksPageWrapper,
+});
+
 // ---------- /calendar ----------
 export const calendarRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -175,6 +193,7 @@ export const routeTree = rootRoute.addChildren([
   smartFolderRoute.addChildren([smartFolderThreadRoute]),
   settingsIndexRoute,
   settingsTabRoute,
+  tasksRoute,
   calendarRoute,
   helpIndexRoute,
   helpTopicRoute,

@@ -153,3 +153,22 @@ export async function deleteAllMessagesForAccount(
     [accountId],
   );
 }
+
+/**
+ * Get recent sent messages for an account, matching from_address to account email.
+ * Used for writing style analysis.
+ */
+export async function getRecentSentMessages(
+  accountId: string,
+  accountEmail: string,
+  limit: number = 15,
+): Promise<DbMessage[]> {
+  const db = await getDb();
+  return db.select<DbMessage[]>(
+    `SELECT * FROM messages
+     WHERE account_id = $1 AND LOWER(from_address) = LOWER($2)
+       AND body_text IS NOT NULL AND LENGTH(body_text) > 50
+     ORDER BY date DESC LIMIT $3`,
+    [accountId, accountEmail, limit],
+  );
+}

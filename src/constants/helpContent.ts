@@ -51,6 +51,10 @@ import {
   MailPlus,
   Server,
   WifiOff,
+  CheckSquare,
+  ListTodo,
+  Repeat,
+  PenSquare,
 } from "lucide-react";
 
 // ---------- Types ----------
@@ -700,6 +704,24 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         ],
       },
       {
+        id: "auto-drafts",
+        icon: PenSquare,
+        title: "AI auto-draft replies",
+        summary: "Reply editor auto-fills with an AI-generated draft matching your writing style.",
+        description:
+          "When you click Reply or Reply All, the editor is automatically populated with an AI-generated draft that matches your writing voice. The AI learns your style by analyzing your 15 most recent sent emails — it picks up your tone, greeting patterns, sign-off style, and typical phrasing. The style profile is cached per account so analysis only happens once. Drafts are also cached per thread and reply mode. You can regenerate the draft, clear it and start fresh, or simply edit it. If you start typing before the draft loads, the auto-populate is cancelled so you're never interrupted. Auto-drafts work for Reply and Reply All, not Forward.",
+        tips: [
+          { text: "Toggle auto-drafts in Settings > AI > Auto-Draft Replies." },
+          { text: "Writing style is learned from your 15 most recent sent emails." },
+          { text: "Click Regenerate to get a new draft for the same thread." },
+          { text: "Click Clear to remove the draft and write from scratch." },
+          { text: "Typing before the draft loads cancels auto-populate." },
+          { text: "Drafts are cached — re-opening the same reply is instant." },
+          { text: "Click Reanalyze in Settings to refresh your writing style profile." },
+        ],
+        relatedSettingsTab: "ai",
+      },
+      {
         id: "ask-inbox",
         icon: MailQuestion,
         title: "Ask Inbox",
@@ -880,6 +902,73 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Supports multiple Google calendars with color coding." },
           { text: "Calendar uses the same Google OAuth as your email." },
           { text: "Events refresh automatically in the background." },
+        ],
+      },
+    ],
+  },
+  {
+    id: "tasks",
+    label: "Tasks",
+    icon: CheckSquare,
+    cards: [
+      {
+        id: "task-manager",
+        icon: ListTodo,
+        title: "Task manager",
+        summary: "Full task management with priorities, due dates, and subtasks.",
+        description:
+          "Velo includes a built-in task manager accessible from the sidebar or via the g then k shortcut. Create tasks with titles, descriptions, priorities (none, low, medium, high, urgent), due dates, and tags. Tasks can have one level of subtasks for breaking down complex items. Drag to reorder tasks, filter by status or priority, and group by priority, due date, or tag. Completed tasks can be shown or hidden. The task sidebar panel shows tasks linked to the current email thread.",
+        tips: [
+          { text: "Go to Tasks page", shortcut: "g k" },
+          { text: "Open tasks from the Tasks item in the sidebar." },
+          { text: "Quick-add a task from the input at the bottom of the task sidebar." },
+          { text: "The sidebar badge shows your incomplete task count." },
+          { text: "Filter tasks by status (all, active, completed) or priority." },
+          { text: "Group tasks by priority, due date, or tag." },
+        ],
+      },
+      {
+        id: "ai-task-extraction",
+        icon: Sparkles,
+        title: "AI task extraction",
+        summary: "Press t to extract a task from the current email with AI.",
+        description:
+          "When viewing an email thread, press t to have AI analyze the conversation and extract an actionable task. The AI identifies the task title, description, suggested due date, and priority from the email content. A dialog shows the extracted task with editable fields — adjust the title, description, priority, or due date before creating. The task is linked to the email thread so you can always jump back to the original context. Also available from the command palette as 'Create Task from Email (AI)'.",
+        tips: [
+          { text: "Extract task from email", shortcut: "t" },
+          { text: "Also available in the command palette (Ctrl+K → 'Create Task from Email')." },
+          { text: "Edit the extracted fields before creating the task." },
+          { text: "The task links back to the original email thread." },
+          { text: "Requires an active AI provider (Claude, GPT, or Gemini)." },
+        ],
+        relatedSettingsTab: "ai",
+      },
+      {
+        id: "task-sidebar",
+        icon: ListTodo,
+        title: "Task sidebar panel",
+        summary: "View and manage tasks linked to the current thread.",
+        description:
+          "Toggle the task sidebar panel from the action bar (ListTodo icon) to see tasks associated with the current email thread. The panel shows linked tasks with their status, priority, and due date. You can quickly add new tasks from the panel, toggle completion, or click through to the full Tasks page. Tasks created via AI extraction are automatically linked to their source thread.",
+        tips: [
+          { text: "Toggle the task panel from the action bar button." },
+          { text: "Quick-add tasks with the input at the bottom of the panel." },
+          { text: "Click 'View all tasks' to go to the full Tasks page." },
+          { text: "AI-extracted tasks are automatically linked to the email." },
+        ],
+      },
+      {
+        id: "recurring-tasks",
+        icon: Repeat,
+        title: "Recurring tasks",
+        summary: "Tasks that automatically repeat on a schedule.",
+        description:
+          "Create tasks that recur on a schedule — daily, weekly, monthly, or yearly with configurable intervals. When you complete a recurring task, the next occurrence is automatically created with the due date advanced by the recurrence interval. This is useful for regular reviews, weekly reports, monthly check-ins, or any repeating responsibility. The recurrence icon appears on tasks that have a schedule set.",
+        tips: [
+          { text: "Set recurrence when creating or editing a task." },
+          { text: "Options: daily, weekly, monthly, yearly with interval." },
+          { text: "Completing a recurring task creates the next occurrence." },
+          { text: "The recurrence icon indicates a task has a schedule." },
         ],
       },
     ],
