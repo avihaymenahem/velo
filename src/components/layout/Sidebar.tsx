@@ -234,16 +234,23 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     }
   }, [activeAccountId, loadSmartFolders, refreshSmartFolderCounts]);
 
-  // Reload labels and smart folder counts on sync completion
+  // Reload labels and smart folder counts on sync completion (debounced to avoid waterfall from multiple emitters)
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const handler = () => {
-      if (activeAccountId) {
-        loadLabels(activeAccountId);
-        refreshSmartFolderCounts(activeAccountId);
-      }
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (activeAccountId) {
+          loadLabels(activeAccountId);
+          refreshSmartFolderCounts(activeAccountId);
+        }
+      }, 500);
     };
     window.addEventListener("velo-sync-done", handler);
-    return () => window.removeEventListener("velo-sync-done", handler);
+    return () => {
+      window.removeEventListener("velo-sync-done", handler);
+      if (timer) clearTimeout(timer);
+    };
   }, [activeAccountId, loadLabels, refreshSmartFolderCounts]);
 
   const handleDeleteLabel = useCallback(async (labelId: string) => {

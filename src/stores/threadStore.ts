@@ -19,6 +19,7 @@ export interface Thread {
 
 interface ThreadState {
   threads: Thread[];
+  threadMap: Map<string, Thread>;
   selectedThreadId: string | null;
   selectedThreadIds: Set<string>;
   isLoading: boolean;
@@ -41,13 +42,14 @@ interface ThreadState {
 
 export const useThreadStore = create<ThreadState>((set, get) => ({
   threads: [],
+  threadMap: new Map(),
   selectedThreadId: null,
   selectedThreadIds: new Set(),
   isLoading: false,
   searchQuery: "",
   searchThreadIds: null,
 
-  setThreads: (threads) => set({ threads }),
+  setThreads: (threads) => set({ threads, threadMap: new Map(threads.map((t) => [t.id, t])) }),
   selectThread: (selectedThreadId) => set({ selectedThreadId, selectedThreadIds: new Set() }),
   toggleThreadSelection: (id) =>
     set((state) => {
@@ -94,28 +96,38 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   },
   setLoading: (isLoading) => set({ isLoading }),
   updateThread: (id, updates) =>
-    set((state) => ({
-      threads: state.threads.map((t) =>
+    set((state) => {
+      const threads = state.threads.map((t) =>
         t.id === id ? { ...t, ...updates } : t,
-      ),
-    })),
+      );
+      const threadMap = new Map(state.threadMap);
+      const existing = threadMap.get(id);
+      if (existing) threadMap.set(id, { ...existing, ...updates });
+      return { threads, threadMap };
+    }),
   removeThread: (id) =>
-    set((state) => ({
-      threads: state.threads.filter((t) => t.id !== id),
-      selectedThreadId: state.selectedThreadId === id ? null : state.selectedThreadId,
-      selectedThreadIds: (() => {
-        const next = new Set(state.selectedThreadIds);
-        next.delete(id);
-        return next;
-      })(),
-    })),
+    set((state) => {
+      const threadMap = new Map(state.threadMap);
+      threadMap.delete(id);
+      const next = new Set(state.selectedThreadIds);
+      next.delete(id);
+      return {
+        threads: state.threads.filter((t) => t.id !== id),
+        threadMap,
+        selectedThreadId: state.selectedThreadId === id ? null : state.selectedThreadId,
+        selectedThreadIds: next,
+      };
+    }),
   removeThreads: (ids) =>
     set((state) => {
       const idsSet = new Set(ids);
+      const threadMap = new Map(state.threadMap);
+      for (const id of ids) threadMap.delete(id);
       const next = new Set(state.selectedThreadIds);
       for (const id of ids) next.delete(id);
       return {
         threads: state.threads.filter((t) => !idsSet.has(t.id)),
+        threadMap,
         selectedThreadId: state.selectedThreadId && idsSet.has(state.selectedThreadId) ? null : state.selectedThreadId,
         selectedThreadIds: next,
       };

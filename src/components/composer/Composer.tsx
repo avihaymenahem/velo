@@ -32,39 +32,30 @@ import { readFileAsBase64 } from "@/utils/fileUtils";
 import { interpolateVariables } from "@/utils/templateVariables";
 
 export function Composer() {
-  const {
-    isOpen,
-    mode,
-    to,
-    cc,
-    bcc,
-    subject,
-    bodyHtml,
-    threadId,
-    inReplyToMessageId,
-    showCcBcc,
-    draftId,
-    attachments,
-    isSaving,
-    lastSavedAt,
-    fromEmail,
-    viewMode,
-    signatureHtml,
-    closeComposer,
-    setTo,
-    setCc,
-    setBcc,
-    setSubject,
-    setBodyHtml,
-    setShowCcBcc,
-    setUndoSendTimer,
-    setUndoSendVisible,
-    setFromEmail,
-    setViewMode,
-    setSignatureHtml,
-    setSignatureId,
-    addAttachment,
-  } = useComposerStore();
+  // Individual selectors — only re-render when each specific value changes
+  const isOpen = useComposerStore((s) => s.isOpen);
+  const mode = useComposerStore((s) => s.mode);
+  const to = useComposerStore((s) => s.to);
+  const cc = useComposerStore((s) => s.cc);
+  const bcc = useComposerStore((s) => s.bcc);
+  const subject = useComposerStore((s) => s.subject);
+  const showCcBcc = useComposerStore((s) => s.showCcBcc);
+  const fromEmail = useComposerStore((s) => s.fromEmail);
+  const viewMode = useComposerStore((s) => s.viewMode);
+  const signatureHtml = useComposerStore((s) => s.signatureHtml);
+  const isSaving = useComposerStore((s) => s.isSaving);
+  const lastSavedAt = useComposerStore((s) => s.lastSavedAt);
+  // Note: bodyHtml intentionally NOT subscribed — TipTap manages its own editor state.
+  // Subscribing would cause full re-renders on every keystroke.
+  const closeComposer = useComposerStore((s) => s.closeComposer);
+  const setTo = useComposerStore((s) => s.setTo);
+  const setCc = useComposerStore((s) => s.setCc);
+  const setBcc = useComposerStore((s) => s.setBcc);
+  const setSubject = useComposerStore((s) => s.setSubject);
+  const setShowCcBcc = useComposerStore((s) => s.setShowCcBcc);
+  const setFromEmail = useComposerStore((s) => s.setFromEmail);
+  const setViewMode = useComposerStore((s) => s.setViewMode);
+  const addAttachment = useComposerStore((s) => s.addAttachment);
 
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const accounts = useAccountStore((s) => s.accounts);
@@ -92,9 +83,9 @@ export function Composer() {
         allowBase64: true,
       }),
     ],
-    content: bodyHtml,
+    content: useComposerStore.getState().bodyHtml,
     onUpdate: ({ editor: ed }) => {
-      setBodyHtml(ed.getHTML());
+      useComposerStore.getState().setBodyHtml(ed.getHTML());
 
       // Check for template shortcut triggers
       const templates = templateShortcutsRef.current;
@@ -159,24 +150,24 @@ export function Composer() {
       getTemplatesForAccount(activeAccountId),
     ]).then(([sig, dbAliases, templates]) => {
       if (cancelled) return;
+      const store = useComposerStore.getState();
 
       // Signature
       if (sig) {
-        setSignatureHtml(sig.body_html);
-        setSignatureId(sig.id);
+        store.setSignatureHtml(sig.body_html);
+        store.setSignatureId(sig.id);
       }
 
       // Aliases + fromEmail resolution
       const mapped = dbAliases.map(mapDbAlias);
       setAliases(mapped);
-      if (!fromEmail && mapped.length > 0) {
-        const { mode: currentMode, to: currentTo, cc: currentCc } = useComposerStore.getState();
-        if (currentMode === "reply" || currentMode === "replyAll" || currentMode === "forward") {
-          const resolved = resolveFromAddress(mapped, currentTo.join(", "), currentCc.join(", "));
-          if (resolved) setFromEmail(resolved.email);
+      if (!store.fromEmail && mapped.length > 0) {
+        if (store.mode === "reply" || store.mode === "replyAll" || store.mode === "forward") {
+          const resolved = resolveFromAddress(mapped, store.to.join(", "), store.cc.join(", "));
+          if (resolved) store.setFromEmail(resolved.email);
         } else {
           const defaultAlias = mapped.find((a) => a.isDefault) ?? mapped.find((a) => a.isPrimary) ?? mapped[0];
-          if (defaultAlias) setFromEmail(defaultAlias.email);
+          if (defaultAlias) store.setFromEmail(defaultAlias.email);
         }
       }
 
@@ -185,7 +176,7 @@ export function Composer() {
     });
 
     return () => { cancelled = true; };
-  }, [isOpen, activeAccountId, fromEmail, setFromEmail, setSignatureHtml, setSignatureId]);
+  }, [isOpen, activeAccountId]);
 
   // Start/stop draft auto-save
   useEffect(() => {
@@ -243,24 +234,25 @@ export function Composer() {
 
   const handleSend = useCallback(async () => {
     if (!activeAccountId || !activeAccount || sendingRef.current) return;
-    if (to.length === 0) return;
+    const state = useComposerStore.getState();
+    if (state.to.length === 0) return;
 
     sendingRef.current = true;
     stopAutoSave();
 
     const html = getFullHtml();
-    const senderEmail = fromEmail ?? activeAccount.email;
+    const senderEmail = state.fromEmail ?? activeAccount.email;
     const raw = buildRawEmail({
       from: senderEmail,
-      to,
-      cc: cc.length > 0 ? cc : undefined,
-      bcc: bcc.length > 0 ? bcc : undefined,
-      subject,
+      to: state.to,
+      cc: state.cc.length > 0 ? state.cc : undefined,
+      bcc: state.bcc.length > 0 ? state.bcc : undefined,
+      subject: state.subject,
       htmlBody: html,
-      inReplyTo: inReplyToMessageId ?? undefined,
-      threadId: threadId ?? undefined,
-      attachments: attachments.length > 0
-        ? attachments.map((a) => ({
+      inReplyTo: state.inReplyToMessageId ?? undefined,
+      threadId: state.threadId ?? undefined,
+      attachments: state.attachments.length > 0
+        ? state.attachments.map((a) => ({
             filename: a.filename,
             mimeType: a.mimeType,
             content: a.content,
@@ -271,14 +263,14 @@ export function Composer() {
     // Get undo send delay
     const delaySetting = await getSetting("undo_send_delay_seconds");
     const delay = parseInt(delaySetting ?? "5", 10) * 1000;
-    const currentDraftId = draftId;
+    const currentDraftId = state.draftId;
 
     // Show undo send UI
-    setUndoSendVisible(true);
+    state.setUndoSendVisible(true);
 
     const timer = setTimeout(async () => {
       try {
-        await sendEmail(activeAccountId, raw, threadId ?? undefined);
+        await sendEmail(activeAccountId, raw, state.threadId ?? undefined);
 
         // Delete draft if it was saved
         if (currentDraftId) {
@@ -286,52 +278,35 @@ export function Composer() {
         }
 
         // Send & archive: remove from inbox if replying to a thread
-        if (useUIStore.getState().sendAndArchive && threadId) {
-          try { await archiveThread(activeAccountId, threadId, []); } catch { /* ignore */ }
+        if (useUIStore.getState().sendAndArchive && state.threadId) {
+          try { await archiveThread(activeAccountId, state.threadId, []); } catch { /* ignore */ }
         }
 
         // Update contacts frequency
-        for (const addr of [...to, ...cc, ...bcc]) {
+        for (const addr of [...state.to, ...state.cc, ...state.bcc]) {
           await upsertContact(addr, null);
         }
       } catch (err) {
         console.error("Failed to send email:", err);
       } finally {
-        setUndoSendVisible(false);
+        useComposerStore.getState().setUndoSendVisible(false);
         sendingRef.current = false;
       }
     }, delay);
 
-    setUndoSendTimer(timer);
+    state.setUndoSendTimer(timer);
     closeComposer();
-  }, [
-    activeAccountId,
-    activeAccount,
-    to,
-    cc,
-    bcc,
-    subject,
-    editor,
-    threadId,
-    inReplyToMessageId,
-    attachments,
-    draftId,
-    fromEmail,
-    signatureHtml,
-    closeComposer,
-    setUndoSendTimer,
-    setUndoSendVisible,
-    getFullHtml,
-  ]);
+  }, [activeAccountId, activeAccount, closeComposer, getFullHtml]);
 
   const handleSchedule = useCallback(async (scheduledAt: number) => {
     if (!activeAccountId || !activeAccount) return;
-    if (to.length === 0) return;
+    const state = useComposerStore.getState();
+    if (state.to.length === 0) return;
 
     const html = getFullHtml();
 
-    const attachmentData = attachments.length > 0
-      ? JSON.stringify(attachments.map((a) => ({
+    const attachmentData = state.attachments.length > 0
+      ? JSON.stringify(state.attachments.map((a) => ({
           filename: a.filename,
           mimeType: a.mimeType,
           content: a.content,
@@ -340,13 +315,13 @@ export function Composer() {
 
     await insertScheduledEmail({
       accountId: activeAccountId,
-      toAddresses: to.join(", "),
-      ccAddresses: cc.length > 0 ? cc.join(", ") : null,
-      bccAddresses: bcc.length > 0 ? bcc.join(", ") : null,
-      subject,
+      toAddresses: state.to.join(", "),
+      ccAddresses: state.cc.length > 0 ? state.cc.join(", ") : null,
+      bccAddresses: state.bcc.length > 0 ? state.bcc.join(", ") : null,
+      subject: state.subject,
       bodyHtml: html,
-      replyToMessageId: inReplyToMessageId,
-      threadId,
+      replyToMessageId: state.inReplyToMessageId,
+      threadId: state.threadId,
       scheduledAt,
       signatureId: null,
     });
@@ -372,39 +347,27 @@ export function Composer() {
 
     stopAutoSave();
     // Delete the draft if exists
-    if (draftId) {
+    if (state.draftId) {
       try {
-        await deleteDraftAction(activeAccountId, draftId);
+        await deleteDraftAction(activeAccountId, state.draftId);
       } catch { /* ignore */ }
     }
 
     setShowSchedule(false);
     closeComposer();
-  }, [
-    activeAccountId,
-    activeAccount,
-    to,
-    cc,
-    bcc,
-    subject,
-    threadId,
-    inReplyToMessageId,
-    attachments,
-    draftId,
-    closeComposer,
-    getFullHtml,
-  ]);
+  }, [activeAccountId, activeAccount, closeComposer, getFullHtml]);
 
   const handleDiscard = useCallback(async () => {
     stopAutoSave();
     // Delete the draft if it was saved
-    if (draftId && activeAccountId) {
+    const currentDraftId = useComposerStore.getState().draftId;
+    if (currentDraftId && activeAccountId) {
       try {
-        await deleteDraftAction(activeAccountId, draftId);
+        await deleteDraftAction(activeAccountId, currentDraftId);
       } catch { /* ignore */ }
     }
     closeComposer();
-  }, [draftId, activeAccountId, closeComposer]);
+  }, [activeAccountId, closeComposer]);
 
   const handlePopOutComposer = useCallback(async () => {
     try {

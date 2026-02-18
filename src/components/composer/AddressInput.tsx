@@ -20,21 +20,26 @@ export function AddressInput({
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
       if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
   }, []);
 
   const handleInputChange = useCallback(
-    async (value: string) => {
+    (value: string) => {
       setInputValue(value);
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
       if (value.length >= 2) {
-        const results = await searchContacts(value, 5);
-        setSuggestions(results);
-        setShowSuggestions(results.length > 0);
-        setSelectedIdx(-1);
+        searchTimerRef.current = setTimeout(async () => {
+          const results = await searchContacts(value, 5);
+          setSuggestions(results);
+          setShowSuggestions(results.length > 0);
+          setSelectedIdx(-1);
+        }, 200);
       } else {
         setSuggestions([]);
         setShowSuggestions(false);
