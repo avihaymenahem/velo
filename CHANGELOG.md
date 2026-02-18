@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.17](https://github.com/avihaymenahem/velo/compare/velo-v0.3.16...velo-v0.3.17) (2026-02-18)
+
+
+### Bug Fixes
+
+* guard against undefined payload in parseIdToken ([120b0d7](https://github.com/avihaymenahem/velo/commit/120b0d7668791773a976b192c45c5e20bedfbcba))
+* handle missing router context in pop-out thread windows ([b484d86](https://github.com/avihaymenahem/velo/commit/b484d86e7b68b7950c432b9d077b5258ed8fdb15))
+
 ## [0.3.16](https://github.com/avihaymenahem/velo/compare/velo-v0.3.15...velo-v0.3.16) (2026-02-18)
 
 
