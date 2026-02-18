@@ -283,14 +283,39 @@ describe("imapInitialSync", () => {
     expect(secondCallArgs.threadId).toBe(secondCallArgs.id);
   });
 
+  it("creates placeholder thread before each message to satisfy FK constraint", async () => {
+    const msg1 = createMockImapMessage({ uid: 1, message_id: "<m1@test>", subject: "Hello", date: Math.floor(Date.now() / 1000) });
+    const msg2 = createMockImapMessage({ uid: 2, message_id: "<m2@test>", subject: "World", date: Math.floor(Date.now() / 1000) });
+    setupFolderWithMessages("INBOX", [msg1, msg2]);
+
+    await imapInitialSync("acc-1");
+
+    // For each message, upsertThread should be called BEFORE upsertMessage
+    // to satisfy the FK constraint (messages.thread_id → threads.id).
+    // Phase 2: 2 placeholder threads + Phase 4: 1 or 2 final threads
+    const threadCalls = mockUpsertThread.mock.invocationCallOrder;
+    const messageCalls = mockUpsertMessage.mock.invocationCallOrder;
+
+    // The first placeholder thread must be created before the first message
+    expect(threadCalls[0]!).toBeLessThan(messageCalls[0]!);
+    // The second placeholder thread must be created before the second message
+    expect(threadCalls[1]!).toBeLessThan(messageCalls[1]!);
+
+    // Verify placeholder threads use the message ID as thread ID
+    const firstThreadCall = mockUpsertThread.mock.calls[0]![0];
+    const firstMsgCall = mockUpsertMessage.mock.calls[0]![0];
+    expect(firstThreadCall.id).toBe(firstMsgCall.id);
+    expect(firstThreadCall.id).toBe(firstMsgCall.threadId);
+  });
+
   it("updates thread IDs after threading phase", async () => {
     const msg1 = createMockImapMessage({ uid: 1, message_id: "<m1@test>", subject: "Hello", date: Math.floor(Date.now() / 1000) });
     setupFolderWithMessages("INBOX", [msg1]);
 
     await imapInitialSync("acc-1");
 
-    // Thread record should be created
-    expect(mockUpsertThread).toHaveBeenCalledTimes(1);
+    // Thread record should be created: once as placeholder in Phase 2, once final in Phase 4
+    expect(mockUpsertThread).toHaveBeenCalledTimes(2);
 
     // Thread IDs should be batch-updated via updateMessageThreadIds
     expect(mockUpdateMessageThreadIds).toHaveBeenCalledTimes(1);

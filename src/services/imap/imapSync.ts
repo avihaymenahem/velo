@@ -412,8 +412,21 @@ export async function imapInitialSync(
             folderMapping.labelId,
           );
 
-          // Store message to DB immediately with placeholder threadId
+          // Store message to DB immediately with placeholder threadId.
+          // Create a placeholder thread first to satisfy the FK constraint.
           parsed.threadId = parsed.id;
+          await upsertThread({
+            id: parsed.id,
+            accountId,
+            subject: parsed.subject,
+            snippet: parsed.snippet,
+            lastMessageAt: parsed.date,
+            messageCount: 1,
+            isRead: parsed.isRead,
+            isStarred: parsed.isStarred,
+            isImportant: false,
+            hasAttachments: parsed.hasAttachments,
+          });
           await upsertMessage({
             id: parsed.id,
             accountId,
