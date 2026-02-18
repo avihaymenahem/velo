@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock all dependencies for imapInitialSync tests
+// vi.mock() calls are hoisted — must use inline factories, not external references
 vi.mock("./tauriCommands", () => ({
   imapListFolders: vi.fn(),
   imapGetFolderStatus: vi.fn(),
@@ -16,6 +16,7 @@ vi.mock("./imapConfigBuilder", () => ({
     security: "ssl",
     username: "user@example.com",
     password: "secret",
+    auth_method: "password",
   })),
 }));
 vi.mock("./folderMapper", () => ({
@@ -59,11 +60,16 @@ vi.mock("../db/pendingOperations", () => ({
 }));
 
 import { imapMessageToParsedMessage, imapInitialSync } from "./imapSync";
-import { createMockImapMessage, createMockImapAccount, createMockImapFolder } from "@/test/mocks";
+import {
+  createMockImapMessage,
+  createMockImapAccount,
+  createMockImapFolder,
+  createMockImapFetchResult,
+} from "@/test/mocks";
 import { imapListFolders, imapFetchMessages, imapSearchAllUids } from "./tauriCommands";
 import { getAccount } from "../db/accounts";
 import { upsertMessage, updateMessageThreadIds } from "../db/messages";
-import { upsertThread } from "../db/threads";
+import { upsertThread, setThreadLabels } from "../db/threads";
 import { upsertAttachment } from "../db/attachments";
 
 describe("imapMessageToParsedMessage", () => {
@@ -246,6 +252,7 @@ describe("imapInitialSync", () => {
     mockGetAccount.mockResolvedValue(createMockImapAccount({ id: "acc-1" }));
   });
 
+  /** Configure mocks to return a single folder with the given messages. */
   function setupFolderWithMessages(folder: string, messages: ReturnType<typeof createMockImapMessage>[]) {
     const mockFolder = createMockImapFolder({
       path: folder,
@@ -254,10 +261,7 @@ describe("imapInitialSync", () => {
     });
     mockImapListFolders.mockResolvedValue([mockFolder]);
     mockImapSearchAllUids.mockResolvedValue(messages.map((m) => m.uid));
-    mockImapFetchMessages.mockResolvedValue({
-      messages,
-      folder_status: { exists: messages.length, unseen: 0, uidvalidity: 1, uidnext: 100 },
-    });
+    mockImapFetchMessages.mockResolvedValue(createMockImapFetchResult(messages));
     return mockFolder;
   }
 

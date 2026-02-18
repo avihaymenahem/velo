@@ -1,8 +1,13 @@
 import type { ParsedMessage } from "@/services/gmail/messageParser";
 import type { GmailMessage } from "@/services/gmail/client";
 import type { DbAccount } from "@/services/db/accounts";
-import type { ImapMessage } from "@/services/imap/tauriCommands";
-import type { ImapFolder } from "@/services/imap/tauriCommands";
+import type {
+  ImapMessage,
+  ImapFolder,
+  ImapConfig,
+  ImapFolderStatus,
+  ImapFetchResult,
+} from "@/services/imap/tauriCommands";
 import type { QuickStep } from "@/services/quickSteps/types";
 import type { SendAsAlias } from "@/services/db/sendAsAliases";
 
@@ -227,6 +232,46 @@ export function createMockImapFolder(
     exists: 100,
     unseen: 10,
     ...overrides,
+  };
+}
+
+export function createMockImapConfig(
+  overrides: Partial<ImapConfig> = {},
+): ImapConfig {
+  return {
+    host: "imap.example.com",
+    port: 993,
+    security: "tls",
+    username: "user@example.com",
+    password: "secret",
+    auth_method: "password",
+    ...overrides,
+  };
+}
+
+export function createMockImapFolderStatus(
+  overrides: Partial<ImapFolderStatus> = {},
+): ImapFolderStatus {
+  return {
+    uidvalidity: 1,
+    uidnext: 100,
+    exists: 0,
+    unseen: 0,
+    highest_modseq: null,
+    ...overrides,
+  };
+}
+
+export function createMockImapFetchResult(
+  messages: ImapMessage[] = [],
+  statusOverrides: Partial<ImapFolderStatus> = {},
+): ImapFetchResult {
+  return {
+    messages,
+    folder_status: createMockImapFolderStatus({
+      exists: messages.length,
+      ...statusOverrides,
+    }),
   };
 }
 

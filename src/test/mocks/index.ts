@@ -7,6 +7,9 @@ export {
   createMockDbAccount,
   createMockImapMessage,
   createMockImapFolder,
+  createMockImapConfig,
+  createMockImapFolderStatus,
+  createMockImapFetchResult,
   createMockQuickStep,
   createMockSendAsAlias,
 } from "./entities.mock";
