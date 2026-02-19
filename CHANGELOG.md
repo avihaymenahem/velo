@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.3](https://github.com/avihaymenahem/velo/compare/velo-v0.4.2...velo-v0.4.3) (2026-02-19)
+
+
+### Features
+
+* **sync:** add per-folder sync via F5 shortcut and sidebar context menu ([d11c642](https://github.com/avihaymenahem/velo/commit/d11c642013ed538aaad67f56158e6d9ba37695e9)), closes [#101](https://github.com/avihaymenahem/velo/issues/101)
+
+
+### Bug Fixes
+
+* **ci:** auto-sync Homebrew tap when workflow files change ([2958a35](https://github.com/avihaymenahem/velo/commit/2958a35a2ac01c29bdf5f3e3ec9c359a5bf131dd))
+* **ci:** fix Homebrew cask 404 and deprecation warning ([b39d402](https://github.com/avihaymenahem/velo/commit/b39d402bd36f3415c25ecb160dc4c5ec92d67195))
+* **ci:** verify DMG exists before updating Homebrew cask ([2cdc3d2](https://github.com/avihaymenahem/velo/commit/2cdc3d2fd3e54f5c5dcb99d1c8fe92fe59305861))
+* **sync:** clear sync spinner on velo-sync-done event instead of promise ([a502f04](https://github.com/avihaymenahem/velo/commit/a502f040969f8dc4ba29ecacc057aec26c184e6f))
+
 ## [0.4.2](https://github.com/avihaymenahem/velo/compare/velo-v0.4.1...velo-v0.4.2) (2026-02-19)
 
 
