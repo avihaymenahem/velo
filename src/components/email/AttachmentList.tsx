@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { getAttachmentsForMessage, type DbAttachment } from "@/services/db/attachments";
-import { getGmailClient } from "@/services/gmail/tokenManager";
+import { getEmailProvider } from "@/services/email/providerFactory";
 import { Modal } from "@/components/ui/Modal";
 import { Download, Eye } from "lucide-react";
 import { formatFileSize, isImage, isPdf, isText, canPreview, getFileIcon } from "@/utils/fileTypeHelpers";
@@ -82,9 +82,10 @@ function AttachmentPreview({
   const fetchData = useCallback(async (): Promise<Uint8Array> => {
     if (bytesRef.current) return bytesRef.current;
 
-    const client = await getGmailClient(accountId);
-    const response = await client.getAttachment(messageId, attachment.gmail_attachment_id!);
+    const provider = await getEmailProvider(accountId);
+    const response = await provider.fetchAttachment(messageId, attachment.gmail_attachment_id!);
 
+    // Normalize URL-safe base64 (Gmail API) to standard base64
     const base64 = response.data.replace(/-/g, "+").replace(/_/g, "/");
     const binaryStr = atob(base64);
     const bytes = new Uint8Array(binaryStr.length);

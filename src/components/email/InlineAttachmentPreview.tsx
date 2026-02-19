@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { DbAttachment } from "@/services/db/attachments";
-import { getGmailClient } from "@/services/gmail/tokenManager";
+import { getEmailProvider } from "@/services/email/providerFactory";
 import { FileText } from "lucide-react";
 import { formatFileSize, isImage, isPdf } from "@/utils/fileTypeHelpers";
 
@@ -94,9 +94,10 @@ function ImageThumbnail({
     setLoading(true);
 
     try {
-      const client = await getGmailClient(accountId);
-      const response = await client.getAttachment(messageId, attachment.gmail_attachment_id);
+      const provider = await getEmailProvider(accountId);
+      const response = await provider.fetchAttachment(messageId, attachment.gmail_attachment_id);
 
+      // Normalize URL-safe base64 (Gmail API) to standard base64
       const base64 = response.data.replace(/-/g, "+").replace(/_/g, "/");
       const binaryStr = atob(base64);
       const bytes = new Uint8Array(binaryStr.length);
