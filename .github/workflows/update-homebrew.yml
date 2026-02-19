@@ -6,6 +6,11 @@ on:
       version:
         description: "Version to sync (e.g. 0.3.14). Defaults to latest release."
         required: false
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/update-homebrew.yml
+      - .github/workflows/release.yml
 
 jobs:
   update-homebrew:
