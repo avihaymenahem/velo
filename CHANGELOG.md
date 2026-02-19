@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.2](https://github.com/avihaymenahem/velo/compare/velo-v0.4.1...velo-v0.4.2) (2026-02-19)
+
+
+### Features
+
+* **signatures:** add HTML source editor toggle and sanitize signature output ([e1ca851](https://github.com/avihaymenahem/velo/commit/e1ca8512dc5f54278d64cda0f1fc8721f97a525d)), closes [#99](https://github.com/avihaymenahem/velo/issues/99)
+
+
+### Bug Fixes
+
+* **attachments:** use EmailProvider for IMAP attachment preview and download ([228ca5e](https://github.com/avihaymenahem/velo/commit/228ca5e86be56e080c3a109acbdd07e63c63bdd4)), closes [#100](https://github.com/avihaymenahem/velo/issues/100)
+* **settings:** use Tauri OS plugin for reliable platform detection ([07b6890](https://github.com/avihaymenahem/velo/commit/07b6890f9a7daeba666414ccf7b66c2e626902a2))
+
 ## [0.4.1](https://github.com/avihaymenahem/velo/compare/velo-v0.4.0...velo-v0.4.1) (2026-02-18)
 
 
