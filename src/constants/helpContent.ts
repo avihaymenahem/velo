@@ -55,6 +55,10 @@ import {
   ListTodo,
   Repeat,
   PenSquare,
+  Printer,
+  Code,
+  RefreshCw,
+  ListFilter,
 } from "lucide-react";
 
 // ---------- Types ----------
@@ -242,6 +246,49 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "\"Manual only\" never auto-marks — you control it yourself." },
         ],
         relatedSettingsTab: "general",
+      },
+      {
+        id: "read-filter",
+        icon: ListFilter,
+        title: "Read / Unread filter",
+        summary: "Filter the email list to show all, unread, or read threads.",
+        description:
+          "Use the filter dropdown at the top of the email list to narrow down what's shown. Choose 'All' to see every thread, 'Unread' to focus on threads that still need attention, or 'Read' to review threads you've already opened. The filter applies to whatever folder or label you're currently viewing. Your filter preference is saved and restored across sessions.",
+        tips: [
+          { text: "The filter dropdown is in the email list header, next to the thread count." },
+          { text: "Options: All, Unread, Read." },
+          { text: "Combine with labels or smart folders for precise filtering." },
+          { text: "Your filter preference persists across restarts." },
+        ],
+        relatedSettingsTab: "general",
+      },
+      {
+        id: "print-export",
+        icon: Printer,
+        title: "Print & export threads",
+        summary: "Print a thread or export it as an .eml file.",
+        description:
+          "From the action bar, you can print the entire thread or export it as an .eml file. Print generates a clean, formatted view of the full conversation with headers and timestamps, then opens your system print dialog. Export saves the thread as a standard RFC 2822 .eml file that can be opened in any email client — useful for backup, legal records, or sharing outside the app.",
+        tips: [
+          { text: "Click the Print icon in the action bar to print the thread." },
+          { text: "Click the Download icon in the action bar to export as .eml." },
+          { text: "The .eml format is a universal standard readable by any email client." },
+          { text: "Print view includes all messages, senders, and timestamps." },
+        ],
+      },
+      {
+        id: "raw-message",
+        icon: Code,
+        title: "View raw message source",
+        summary: "Inspect the raw MIME source of any email.",
+        description:
+          "Right-click on any message in a thread and select 'View Source' to see the full raw MIME source code. This shows all headers (including routing, authentication, and custom headers), the raw message body, and MIME structure. Useful for debugging delivery issues, verifying authentication headers, or understanding how an email was constructed.",
+        tips: [
+          { text: "Right-click a message and choose 'View Source'." },
+          { text: "Shows all headers: From, To, Authentication-Results, DKIM, etc." },
+          { text: "Useful for debugging delivery or spam filter issues." },
+          { text: "The raw view opens in a scrollable modal." },
+        ],
       },
     ],
   },
@@ -433,8 +480,11 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         tips: [
           { text: "View all shortcuts", shortcut: "?" },
           { text: "Navigation: j/k (up/down), o (open), Escape (back)" },
+          { text: "In-thread: Arrow Up/Down to navigate between messages" },
           { text: "Actions: e (archive), s (star), # (trash), r (reply)" },
           { text: "Two-key: g then i (Inbox), g then s (Starred), g then t (Sent)" },
+          { text: "Ask Inbox (AI)", shortcut: "i" },
+          { text: "Sync current folder", shortcut: "F5" },
           { text: "Customize all shortcuts in Settings > Shortcuts." },
           { text: "Shortcuts are disabled in text inputs to prevent conflicts." },
         ],
@@ -555,6 +605,20 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Shift+click to select a range of threads." },
           { text: "All keyboard actions (archive, trash, star) work on the selection." },
           { text: "Press Escape to clear the selection." },
+        ],
+      },
+      {
+        id: "bulk-actions",
+        icon: ListFilter,
+        title: "Bulk actions bar",
+        summary: "A toolbar appears when multiple threads are selected.",
+        description:
+          "When you select two or more threads, a bulk actions bar appears at the top of the email list. It provides one-click buttons for the most common batch operations: Archive, Delete, Mark as Spam, and Clear Selection. This is faster than using keyboard shortcuts when you want to visually confirm your selection before acting. The bar also shows how many threads are currently selected.",
+        tips: [
+          { text: "Select multiple threads, then use the bar for quick batch actions." },
+          { text: "Available actions: Archive, Delete, Spam, Clear Selection." },
+          { text: "The bar shows the count of selected threads." },
+          { text: "Keyboard shortcuts also work on the selection alongside the bar." },
         ],
       },
       {
@@ -1104,6 +1168,19 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Pop-out windows are fully functional — read, reply, and act." },
           { text: "Multiple threads can be open in separate windows." },
           { text: "Pop-out windows are independent of the main app window." },
+        ],
+      },
+      {
+        id: "manual-sync",
+        icon: RefreshCw,
+        title: "Manual sync",
+        summary: "Trigger an immediate sync of the current folder.",
+        description:
+          "Press F5 to immediately sync the current folder or label instead of waiting for the next 60-second background sync cycle. This is useful when you're expecting an email and don't want to wait, or after making changes in another client. For Gmail, this fetches new history changes; for IMAP, it checks for new UIDs in the current folder.",
+        tips: [
+          { text: "Sync current folder", shortcut: "F5" },
+          { text: "Background sync runs every 60 seconds automatically." },
+          { text: "Manual sync is useful when you're expecting a new email." },
         ],
       },
       {

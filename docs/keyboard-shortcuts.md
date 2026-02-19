@@ -40,12 +40,21 @@ Velo is designed to be used entirely from the keyboard. All shortcuts are custom
 | `Ctrl+A` | Select all threads |
 | `Ctrl+Shift+A` | Select all from current position |
 
+## In-thread
+
+| Key | Action |
+|-----|--------|
+| `↓` (Arrow Down) | Next message in thread |
+| `↑` (Arrow Up) | Previous message in thread |
+
 ## App
 
 | Key | Action |
 |-----|--------|
 | `/` or `Ctrl+K` | Command palette |
 | `?` | Keyboard shortcuts help |
+| `i` | Ask Inbox (AI) |
+| `F5` | Sync current folder |
 | `Ctrl+Shift+E` | Toggle sidebar |
 
 ## Multi-select
