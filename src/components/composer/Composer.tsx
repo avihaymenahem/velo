@@ -30,6 +30,7 @@ import { startAutoSave, stopAutoSave } from "@/services/composer/draftAutoSave";
 import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
 import { readFileAsBase64 } from "@/utils/fileUtils";
 import { interpolateVariables } from "@/utils/templateVariables";
+import { sanitizeHtml } from "@/utils/sanitize";
 
 export function Composer() {
   // Individual selectors — only re-render when each specific value changes
@@ -229,7 +230,7 @@ export function Composer() {
   const getFullHtml = useCallback(() => {
     const editorHtml = editor?.getHTML() ?? "";
     if (!signatureHtml) return editorHtml;
-    return `${editorHtml}<div style="margin-top:16px;border-top:1px solid #e5e5e5;padding-top:12px">${signatureHtml}</div>`;
+    return `${editorHtml}<div style="margin-top:16px;border-top:1px solid #e5e5e5;padding-top:12px">${sanitizeHtml(signatureHtml)}</div>`;
   }, [editor, signatureHtml]);
 
   const handleSend = useCallback(async () => {
@@ -541,7 +542,7 @@ export function Composer() {
           {signatureHtml && (
             <div
               className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary"
-              dangerouslySetInnerHTML={{ __html: signatureHtml }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }}
             />
           )}
         </div>

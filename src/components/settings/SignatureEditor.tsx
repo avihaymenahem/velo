@@ -3,7 +3,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
-import { Trash2, Pencil } from "lucide-react";
+import { Trash2, Pencil, Code } from "lucide-react";
 import { TextField } from "@/components/ui/TextField";
 import { EditorToolbar } from "@/components/composer/EditorToolbar";
 import { useAccountStore } from "@/stores/accountStore";
@@ -22,6 +22,8 @@ export function SignatureEditor() {
   const [name, setName] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [isHtmlMode, setIsHtmlMode] = useState(false);
+  const [rawHtml, setRawHtml] = useState("");
 
   const editor = useEditor({
     extensions: [
@@ -53,13 +55,27 @@ export function SignatureEditor() {
     setIsDefault(false);
     setEditingId(null);
     setShowForm(false);
+    setIsHtmlMode(false);
+    setRawHtml("");
     editor?.commands.setContent("");
   }, [editor]);
+
+  const toggleHtmlMode = useCallback(() => {
+    if (!editor) return;
+    if (isHtmlMode) {
+      // HTML → WYSIWYG: push rawHtml into editor
+      editor.commands.setContent(rawHtml);
+    } else {
+      // WYSIWYG → HTML: capture editor content
+      setRawHtml(editor.getHTML());
+    }
+    setIsHtmlMode(!isHtmlMode);
+  }, [editor, isHtmlMode, rawHtml]);
 
   const handleSave = useCallback(async () => {
     if (!activeAccountId || !editor || !name.trim()) return;
 
-    const bodyHtml = editor.getHTML();
+    const bodyHtml = isHtmlMode ? rawHtml : editor.getHTML();
 
     if (editingId) {
       await updateSignature(editingId, { name: name.trim(), bodyHtml, isDefault });
@@ -74,7 +90,7 @@ export function SignatureEditor() {
 
     resetForm();
     await loadSignatures();
-  }, [activeAccountId, editor, name, isDefault, editingId, resetForm, loadSignatures]);
+  }, [activeAccountId, editor, name, isDefault, editingId, isHtmlMode, rawHtml, resetForm, loadSignatures]);
 
   const handleEdit = useCallback((sig: DbSignature) => {
     setEditingId(sig.id);
@@ -133,8 +149,31 @@ export function SignatureEditor() {
             placeholder="Signature name"
           />
           <div className="border border-border-primary rounded overflow-hidden bg-bg-tertiary">
-            <EditorToolbar editor={editor} />
-            <EditorContent editor={editor} />
+            <div className="flex items-center justify-between">
+              {isHtmlMode ? (
+                <span className="px-2 py-1 text-xs text-text-secondary">HTML source</span>
+              ) : (
+                <EditorToolbar editor={editor} />
+              )}
+              <button
+                type="button"
+                onClick={toggleHtmlMode}
+                className={`p-1.5 mr-1 rounded transition-colors ${isHtmlMode ? "text-accent bg-accent/10" : "text-text-tertiary hover:text-text-primary"}`}
+                title={isHtmlMode ? "Switch to visual editor" : "Edit HTML source"}
+              >
+                <Code size={14} />
+              </button>
+            </div>
+            {isHtmlMode ? (
+              <textarea
+                value={rawHtml}
+                onChange={(e) => setRawHtml(e.target.value)}
+                className="w-full px-3 py-2 min-h-[80px] bg-bg-tertiary text-text-primary text-xs font-mono focus:outline-none resize-y"
+                spellCheck={false}
+              />
+            ) : (
+              <EditorContent editor={editor} />
+            )}
           </div>
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1.5 text-xs text-text-secondary">
