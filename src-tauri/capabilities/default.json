@@ -64,6 +64,7 @@
     "core:window:allow-set-badge-count",
     "http:default",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "os:default"
   ]
 }

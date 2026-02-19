@@ -1386,6 +1386,7 @@ function DeveloperTab() {
   const [appVersion, setAppVersion] = useState("");
   const [tauriVersion, setTauriVersion] = useState("");
   const [webviewVersion, setWebviewVersion] = useState("");
+  const [platformLabel, setPlatformLabel] = useState("...");
   const [checkingForUpdate, setCheckingForUpdate] = useState(false);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [updateCheckDone, setUpdateCheckDone] = useState(false);
@@ -1403,6 +1404,21 @@ function DeveloperTab() {
       const chromeMatch = /Chrome\/(\S+)/.exec(ua);
       const webkitMatch = /AppleWebKit\/(\S+)/.exec(ua);
       setWebviewVersion(edgMatch?.[1] ?? chromeMatch?.[1] ?? webkitMatch?.[1] ?? "Unknown");
+
+      // Detect platform via Tauri OS plugin (reliable native arch detection)
+      const { platform, arch } = await import("@tauri-apps/plugin-os");
+      const p = platform();
+      const a = arch();
+      const archLabel = a === "aarch64" || a === "arm" ? "ARM" : a === "x86_64" ? "x64" : a;
+      if (p === "macos") {
+        setPlatformLabel(a === "aarch64" ? "macOS (Apple Silicon)" : `macOS (${archLabel})`);
+      } else if (p === "windows") {
+        setPlatformLabel(`Windows (${archLabel})`);
+      } else if (p === "linux") {
+        setPlatformLabel(`Linux (${archLabel})`);
+      } else {
+        setPlatformLabel(`${p} (${archLabel})`);
+      }
 
       // Check if there's already a known update
       const { getAvailableUpdate } = await import("@/services/updateManager");
@@ -1449,7 +1465,7 @@ function DeveloperTab() {
         <InfoRow label="App version" value={appVersion || "..."} />
         <InfoRow label="Tauri version" value={tauriVersion || "..."} />
         <InfoRow label="WebView version" value={webviewVersion || "..."} />
-        <InfoRow label="Platform" value={getPlatformLabel()} />
+        <InfoRow label="Platform" value={platformLabel} />
       </Section>
 
       <Section title="Updates">
@@ -1612,37 +1628,6 @@ function AboutTab() {
   );
 }
 
-function getPlatformLabel(): string {
-  const ua = navigator.userAgent;
-  if (ua.includes("Windows")) {
-    if (ua.includes("ARM") || ua.includes("arm64")) return "Windows (ARM)";
-    if (ua.includes("Win64") || ua.includes("x64") || ua.includes("WOW64")) return "Windows (x64)";
-    return "Windows";
-  }
-  if (ua.includes("Mac OS X") || ua.includes("Macintosh")) {
-    // WebKit on macOS always reports "Intel" in navigator.platform.
-    // Check for ARM hints in the user agent or use GL renderer as heuristic.
-    if (ua.includes("ARM") || ua.includes("arm64")) return "macOS (Apple Silicon)";
-    // Try WebGL renderer — Apple Silicon reports "Apple M1/M2/M3/M4" GPU
-    try {
-      const canvas = document.createElement("canvas");
-      const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
-      if (gl) {
-        const ext = gl.getExtension("WEBGL_debug_renderer_info");
-        if (ext) {
-          const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string;
-          if (/Apple M\d/i.test(renderer)) return "macOS (Apple Silicon)";
-        }
-      }
-    } catch { /* ignore */ }
-    return "macOS (Intel)";
-  }
-  if (ua.includes("Linux")) {
-    if (ua.includes("aarch64") || ua.includes("arm")) return "Linux (ARM)";
-    return "Linux (x64)";
-  }
-  return navigator.platform;
-}
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
