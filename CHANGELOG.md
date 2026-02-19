@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.4](https://github.com/avihaymenahem/velo/compare/velo-v0.4.3...velo-v0.4.4) (2026-02-19)
+
+
+### Bug Fixes
+
+* **ci:** fix version parsing in standalone update-homebrew workflow ([41b3390](https://github.com/avihaymenahem/velo/commit/41b3390652b6f2055c7cb523a2153d6d4359b069))
+* **ci:** remove invalid makeLatest input and fix Homebrew update skip ([236e81b](https://github.com/avihaymenahem/velo/commit/236e81ba33b95a134bd7852840809039c24561c0))
+
 ## [0.4.3](https://github.com/avihaymenahem/velo/compare/velo-v0.4.2...velo-v0.4.3) (2026-02-19)
 
 
