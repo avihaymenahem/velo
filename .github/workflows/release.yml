@@ -185,7 +185,7 @@ jobs:
 
   update-homebrew:
     needs: build-macos
-    if: always() && needs.build-macos.result == 'success'
+    if: github.event_name == 'release' && needs.build-macos.result == 'success'
     runs-on: macos-latest
     steps:
       - name: Get version from tag
@@ -237,8 +237,6 @@ jobs:
               url :url
               strategy :github_latest
             end
-
-            depends_on macos: ">= :high_sierra"
 
             app "Velo.app"
 
