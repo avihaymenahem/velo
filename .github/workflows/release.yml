@@ -194,7 +194,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Download DMG and compute SHA256
+      - name: Wait for DMG and compute SHA256
         id: sha
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -203,7 +203,20 @@ jobs:
           DMG_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Velo_${VERSION}_universal.dmg"
 
           echo "Downloading DMG from: ${DMG_URL}"
-          curl -sL -o Velo.dmg "$DMG_URL"
+          for i in 1 2 3 4 5; do
+            HTTP_CODE=$(curl -sL -o Velo.dmg -w "%{http_code}" "$DMG_URL")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Download succeeded (attempt $i)"
+              break
+            fi
+            echo "Attempt $i failed (HTTP $HTTP_CODE), retrying in 60s..."
+            rm -f Velo.dmg
+            if [ "$i" = "5" ]; then
+              echo "::error::DMG not available after 5 attempts"
+              exit 1
+            fi
+            sleep 60
+          done
 
           SHA256=$(shasum -a 256 Velo.dmg | awk '{print $1}')
           echo "SHA256: ${SHA256}"
