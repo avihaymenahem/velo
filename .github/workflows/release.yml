@@ -2,6 +2,11 @@ name: Build & Release
 
 on:
   workflow_call:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g. velo-v0.4.3)"
+        type: string
+        required: false
   workflow_dispatch:
   release:
     types: [created]
@@ -78,7 +83,6 @@ jobs:
           releaseBody: "See the assets below to download for your platform."
           releaseDraft: false
           prerelease: false
-          makeLatest: true
           updaterJsonKeepUniversal: true
           args: ${{ matrix.args }}
 
@@ -151,7 +155,6 @@ jobs:
           releaseBody: "See the assets below to download for your platform."
           releaseDraft: false
           prerelease: false
-          makeLatest: true
           updaterJsonKeepUniversal: true
           args: --target universal-apple-darwin
 
@@ -175,7 +178,6 @@ jobs:
             > Or right-click the app and select "Open" on first launch.
           releaseDraft: false
           prerelease: false
-          makeLatest: true
           updaterJsonKeepUniversal: true
           args: --target universal-apple-darwin
 
@@ -185,14 +187,25 @@ jobs:
 
   update-homebrew:
     needs: build-macos
-    if: github.event_name == 'release' && needs.build-macos.result == 'success'
+    if: needs.build-macos.result == 'success'
     runs-on: macos-latest
     steps:
-      - name: Get version from tag
+      - name: Get version
         id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            VERSION="${{ inputs.tag_name }}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${GITHUB_REF_NAME}"
+          else
+            VERSION=$(gh release view --repo ${{ github.repository }} --json tagName -q '.tagName')
+          fi
+          # Strip any prefix up to and including 'v' (handles velo-v0.4.3, v0.4.3, etc.)
+          VERSION="${VERSION##*v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Using version: ${VERSION}"
 
       - name: Wait for DMG and compute SHA256
         id: sha
