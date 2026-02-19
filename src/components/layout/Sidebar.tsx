@@ -39,6 +39,7 @@ import {
   MailOpen,
   Paperclip,
   FolderSearch,
+  Loader2,
   type LucideIcon,
 } from "lucide-react";
 import { useTaskStore } from "@/stores/taskStore";
@@ -74,6 +75,7 @@ function DroppableNavItem({
   isActive,
   collapsed,
   onClick,
+  onContextMenu,
   title,
   children,
 }: {
@@ -81,6 +83,7 @@ function DroppableNavItem({
   isActive: boolean;
   collapsed: boolean;
   onClick: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
   title?: string;
   children: (isOver: boolean) => React.ReactNode;
 }) {
@@ -90,6 +93,7 @@ function DroppableNavItem({
     <button
       ref={setNodeRef}
       onClick={onClick}
+      onContextMenu={onContextMenu}
       title={title}
       className={`flex items-center w-full py-2 text-sm transition-colors press-scale ${
         collapsed ? "justify-center px-0" : "gap-3 px-3 text-left"
@@ -222,6 +226,12 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const [showNewLabelForm, setShowNewLabelForm] = useState(false);
 
   const openMenu = useContextMenuStore((s) => s.openMenu);
+  const isSyncingFolder = useUIStore((s) => s.isSyncingFolder);
+
+  const handleNavContextMenu = useCallback((e: React.MouseEvent, navId: string) => {
+    e.preventDefault();
+    openMenu("sidebarNav", { x: e.clientX, y: e.clientY }, { navId });
+  }, [openMenu]);
 
   // Load labels when active account changes
   useEffect(() => {
@@ -334,11 +344,16 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                     navigateToLabel(item.id);
                   }
                 }}
+                onContextMenu={(e) => handleNavContextMenu(e, item.id)}
                 title={collapsed ? item.label : undefined}
               >
                 {() => (
                   <>
-                    <Icon size={18} className="shrink-0" />
+                    {isSyncingFolder === item.id ? (
+                      <Loader2 size={18} className="shrink-0 animate-spin text-accent" />
+                    ) : (
+                      <Icon size={18} className="shrink-0" />
+                    )}
                     {!collapsed && (
                       <span className="flex-1 truncate">{item.label}</span>
                     )}

@@ -13,6 +13,7 @@ import { getGmailClient } from "@/services/gmail/tokenManager";
 import { getMessagesForThread } from "@/services/db/messages";
 import { parseUnsubscribeUrl } from "@/components/email/MessageItem";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { triggerSync } from "@/services/gmail/syncManager";
 
 /**
  * Parse a key binding string and check if it matches a keyboard event.
@@ -123,6 +124,16 @@ export function useKeyboardShortcuts() {
         if (e.key === "Enter") {
           // Send email shortcut handled by composer
           return;
+        }
+        return;
+      }
+
+      // F5 sync works even when input is focused
+      if (e.key === "F5") {
+        e.preventDefault();
+        const syncActionId = singleKey.get("F5");
+        if (syncActionId) {
+          await executeAction(syncActionId);
         }
         return;
       }
@@ -451,5 +462,15 @@ async function executeAction(actionId: string): Promise<void> {
     case "app.help":
       window.dispatchEvent(new Event("velo-toggle-shortcuts-help"));
       break;
+    case "app.syncFolder": {
+      if (activeAccountId) {
+        const currentLabel = getActiveLabel();
+        useUIStore.getState().setSyncingFolder(currentLabel);
+        triggerSync([activeAccountId]).finally(() => {
+          useUIStore.getState().setSyncingFolder(null);
+        });
+      }
+      break;
+    }
   }
 }
