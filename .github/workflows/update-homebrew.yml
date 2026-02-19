@@ -24,7 +24,8 @@ jobs:
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
           else
-            VERSION=$(gh release view --repo ${{ github.repository }} --json tagName -q '.tagName' | sed 's/^v//')
+            TAG=$(gh release view --repo ${{ github.repository }} --json tagName -q '.tagName')
+            VERSION="${TAG##*v}"
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Using version: ${VERSION}"
