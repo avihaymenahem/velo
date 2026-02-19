@@ -36,7 +36,10 @@ import {
   VolumeX,
   Zap,
   Code,
+  RefreshCw,
 } from "lucide-react";
+import { triggerSync } from "@/services/gmail/syncManager";
+import { useUIStore } from "@/stores/uiStore";
 import { setThreadCategory, ALL_CATEGORIES } from "@/services/db/threadCategories";
 
 function buildQuote(msg: { from_name: string | null; from_address: string | null; date: string | number; body_html: string | null; body_text: string | null }): string {
@@ -82,6 +85,9 @@ export function ContextMenuPortal() {
       {menuType === "sidebarLabel" && (
         <SidebarLabelMenu position={position} data={data} onClose={closeMenu} />
       )}
+      {menuType === "sidebarNav" && (
+        <SidebarNavMenu position={position} data={data} onClose={closeMenu} />
+      )}
       {menuType === "thread" && (
         <ThreadMenu
           position={position}
@@ -120,8 +126,26 @@ function SidebarLabelMenu({
 }) {
   const onEdit = data["onEdit"] as (() => void) | undefined;
   const onDelete = data["onDelete"] as (() => void) | undefined;
+  const activeAccountId = useAccountStore((s) => s.activeAccountId);
+
+  const handleSync = async () => {
+    if (!activeAccountId) return;
+    useUIStore.getState().setSyncingFolder("label");
+    try {
+      await triggerSync([activeAccountId]);
+    } finally {
+      useUIStore.getState().setSyncingFolder(null);
+    }
+  };
 
   const items: ContextMenuItem[] = [
+    {
+      id: "sync-folder",
+      label: "Sync this folder",
+      icon: RefreshCw,
+      action: handleSync,
+    },
+    { id: "sep-sync", label: "", separator: true },
     {
       id: "edit-label",
       label: "Edit label",
@@ -134,6 +158,40 @@ function SidebarLabelMenu({
       icon: Trash2,
       danger: true,
       action: () => onDelete?.(),
+    },
+  ];
+
+  return <ContextMenu items={items} position={position} onClose={onClose} />;
+}
+
+function SidebarNavMenu({
+  position,
+  data,
+  onClose,
+}: {
+  position: { x: number; y: number };
+  data: Record<string, unknown>;
+  onClose: () => void;
+}) {
+  const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const navId = data["navId"] as string;
+
+  const handleSync = async () => {
+    if (!activeAccountId) return;
+    useUIStore.getState().setSyncingFolder(navId);
+    try {
+      await triggerSync([activeAccountId]);
+    } finally {
+      useUIStore.getState().setSyncingFolder(null);
+    }
+  };
+
+  const items: ContextMenuItem[] = [
+    {
+      id: "sync-folder",
+      label: "Sync this folder",
+      icon: RefreshCw,
+      action: handleSync,
     },
   ];
 

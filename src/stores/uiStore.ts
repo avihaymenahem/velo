@@ -28,6 +28,7 @@ interface UIState {
   taskSidebarVisible: boolean;
   isOnline: boolean;
   pendingOpsCount: number;
+  isSyncingFolder: string | null;
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -47,6 +48,7 @@ interface UIState {
   setTaskSidebarVisible: (visible: boolean) => void;
   setOnline: (online: boolean) => void;
   setPendingOpsCount: (count: number) => void;
+  setSyncingFolder: (folder: string | null) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -66,6 +68,7 @@ export const useUIStore = create<UIState>((set) => ({
   taskSidebarVisible: false,
   isOnline: true,
   pendingOpsCount: 0,
+  isSyncingFolder: null,
 
   setTheme: (theme) => set({ theme }),
   toggleSidebar: () =>
@@ -131,4 +134,5 @@ export const useUIStore = create<UIState>((set) => ({
   setTaskSidebarVisible: (taskSidebarVisible) => set({ taskSidebarVisible }),
   setOnline: (isOnline) => set({ isOnline }),
   setPendingOpsCount: (pendingOpsCount) => set({ pendingOpsCount }),
+  setSyncingFolder: (isSyncingFolder) => set({ isSyncingFolder }),
 }));
