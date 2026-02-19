@@ -258,6 +258,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           loadLabels(activeAccountId);
           refreshSmartFolderCounts(activeAccountId);
         }
+        useUIStore.getState().setSyncingFolder(null);
       }, 500);
     };
     window.addEventListener("velo-sync-done", handler);

@@ -128,14 +128,11 @@ function SidebarLabelMenu({
   const onDelete = data["onDelete"] as (() => void) | undefined;
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
 
-  const handleSync = async () => {
+  const handleSync = () => {
     if (!activeAccountId) return;
-    useUIStore.getState().setSyncingFolder("label");
-    try {
-      await triggerSync([activeAccountId]);
-    } finally {
-      useUIStore.getState().setSyncingFolder(null);
-    }
+    const labelId = data["labelId"] as string | undefined;
+    useUIStore.getState().setSyncingFolder(labelId ?? "label");
+    triggerSync([activeAccountId]);
   };
 
   const items: ContextMenuItem[] = [
@@ -176,14 +173,10 @@ function SidebarNavMenu({
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const navId = data["navId"] as string;
 
-  const handleSync = async () => {
+  const handleSync = () => {
     if (!activeAccountId) return;
     useUIStore.getState().setSyncingFolder(navId);
-    try {
-      await triggerSync([activeAccountId]);
-    } finally {
-      useUIStore.getState().setSyncingFolder(null);
-    }
+    triggerSync([activeAccountId]);
   };
 
   const items: ContextMenuItem[] = [

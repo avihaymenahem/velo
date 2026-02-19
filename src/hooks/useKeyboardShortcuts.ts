@@ -466,9 +466,7 @@ async function executeAction(actionId: string): Promise<void> {
       if (activeAccountId) {
         const currentLabel = getActiveLabel();
         useUIStore.getState().setSyncingFolder(currentLabel);
-        triggerSync([activeAccountId]).finally(() => {
-          useUIStore.getState().setSyncingFolder(null);
-        });
+        triggerSync([activeAccountId]);
       }
       break;
     }
