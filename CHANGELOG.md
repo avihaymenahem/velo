@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.8](https://github.com/avihaymenahem/velo/compare/velo-v0.4.7...velo-v0.4.8) (2026-02-20)
+
+
+### Bug Fixes
+
+* save IMAP/SMTP sent messages to local DB and Sent folder ([3133ee9](https://github.com/avihaymenahem/velo/commit/3133ee9b24324cd2e6e2098a8e66ad48d6cccbe0)), closes [#121](https://github.com/avihaymenahem/velo/issues/121)
+
 ## [0.4.7](https://github.com/avihaymenahem/velo/compare/velo-v0.4.6...velo-v0.4.7) (2026-02-20)
 
 
