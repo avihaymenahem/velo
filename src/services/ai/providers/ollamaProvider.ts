@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { fetch } from "@tauri-apps/plugin-http";
 import type { AiProviderClient, AiCompletionRequest } from "../types";
 
 let instance: OpenAI | null = null;
@@ -10,7 +11,7 @@ function getClient(serverUrl: string, model: string): OpenAI {
     instance = new OpenAI({
       baseURL: `${serverUrl.replace(/\/+$/, "")}/v1`,
       apiKey: "ollama",
-      dangerouslyAllowBrowser: true,
+      fetch,
     });
     cachedKey = cacheKey;
   }
