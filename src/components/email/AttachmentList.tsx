@@ -210,7 +210,8 @@ export function AttachmentPreview({
       panelClassName="max-w-[90vw] max-h-[85vh] flex flex-col"
       renderHeader={header}
     >
-      <div className="flex-1 overflow-auto min-h-[200px] flex items-center justify-center p-4">
+      {/* Allow native right-click in preview (save image, copy, etc.) */}
+      <div className="flex-1 overflow-auto min-h-[200px] flex items-center justify-center p-4" data-native-context-menu>
         {loading && (
           <p className="text-sm text-text-tertiary">Loading preview...</p>
         )}

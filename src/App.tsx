@@ -134,8 +134,10 @@ export default function App() {
   }, []);
 
   // Suppress default browser context menu globally (Tauri app should feel native)
+  // Elements with data-native-context-menu opt out so the browser menu is available
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest?.("[data-native-context-menu]")) return;
       e.preventDefault();
     };
     document.addEventListener("contextmenu", handler);
