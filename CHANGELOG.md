@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.9](https://github.com/avihaymenahem/velo/compare/velo-v0.4.8...velo-v0.4.9) (2026-02-20)
+
+
+### Bug Fixes
+
+* resolve IMAP attachment fetching and display ([2c40b51](https://github.com/avihaymenahem/velo/commit/2c40b51d87a7c83de6204c170ab057bc11efc08e)), closes [#124](https://github.com/avihaymenahem/velo/issues/124)
+
 ## [0.4.8](https://github.com/avihaymenahem/velo/compare/velo-v0.4.7...velo-v0.4.8) (2026-02-20)
 
 
