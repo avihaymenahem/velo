@@ -21,6 +21,10 @@ vi.mock("@/utils/timestamp", () => ({
 describe("GmailClient.request", () => {
   let client: GmailClient;
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     vi.restoreAllMocks();
     client = new GmailClient("acc-1", "client-id", {

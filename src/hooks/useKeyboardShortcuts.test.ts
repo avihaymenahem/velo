@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock all external dependencies before importing the hook
+// Mock dependencies needed for the hook to mount and dispatch events.
+// The hook reads store state and calls navigate/emailActions — only mock
+// what's needed for the three event-dispatch tests below.
 vi.mock("@/stores/uiStore", () => ({
   useUIStore: { getState: () => ({ inboxViewMode: "unified", toggleSidebar: vi.fn() }) },
 }));
@@ -46,8 +48,12 @@ vi.mock("@/router/navigate", () => ({
   getActiveLabel: () => "inbox",
   getSelectedThreadId: () => null,
 }));
-vi.mock("@/services/gmail/tokenManager", () => ({
-  getGmailClient: vi.fn(),
+vi.mock("@/services/emailActions", () => ({
+  archiveThread: vi.fn(),
+  trashThread: vi.fn(),
+  permanentDeleteThread: vi.fn(),
+  starThread: vi.fn(),
+  spamThread: vi.fn(),
 }));
 vi.mock("@/services/db/threads", () => ({
   deleteThread: vi.fn(),
@@ -56,18 +62,12 @@ vi.mock("@/services/db/threads", () => ({
   muteThread: vi.fn(),
   unmuteThread: vi.fn(),
 }));
-vi.mock("@/services/gmail/draftDeletion", () => ({
-  deleteDraftsForThread: vi.fn(),
-}));
-vi.mock("@/services/db/messages", () => ({
-  getMessagesForThread: vi.fn(),
-}));
-vi.mock("@/components/email/MessageItem", () => ({
-  parseUnsubscribeUrl: vi.fn(),
-}));
-vi.mock("@tauri-apps/plugin-opener", () => ({
-  openUrl: vi.fn(),
-}));
+vi.mock("@/services/gmail/draftDeletion", () => ({ deleteDraftsForThread: vi.fn() }));
+vi.mock("@/services/gmail/tokenManager", () => ({ getGmailClient: vi.fn() }));
+vi.mock("@/services/db/messages", () => ({ getMessagesForThread: vi.fn() }));
+vi.mock("@/components/email/MessageItem", () => ({ parseUnsubscribeUrl: vi.fn() }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
+vi.mock("@/services/gmail/syncManager", () => ({ triggerSync: vi.fn() }));
 
 import { renderHook } from "@testing-library/react";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts";

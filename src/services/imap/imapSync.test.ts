@@ -293,13 +293,16 @@ describe("imapInitialSync", () => {
     // For each message, upsertThread should be called BEFORE upsertMessage
     // to satisfy the FK constraint (messages.thread_id → threads.id).
     // Phase 2: 2 placeholder threads + Phase 4: 1 or 2 final threads
-    const threadCalls = mockUpsertThread.mock.invocationCallOrder;
-    const messageCalls = mockUpsertMessage.mock.invocationCallOrder;
+    expect(mockUpsertThread.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(mockUpsertMessage).toHaveBeenCalledTimes(2);
 
-    // The first placeholder thread must be created before the first message
-    expect(threadCalls[0]!).toBeLessThan(messageCalls[0]!);
-    // The second placeholder thread must be created before the second message
-    expect(threadCalls[1]!).toBeLessThan(messageCalls[1]!);
+    // Each placeholder thread must be created before its corresponding message.
+    // Verify by checking that the nth thread call preceded the nth message call.
+    for (let i = 0; i < 2; i++) {
+      const threadOrder = mockUpsertThread.mock.invocationCallOrder[i]!;
+      const messageOrder = mockUpsertMessage.mock.invocationCallOrder[i]!;
+      expect(threadOrder).toBeLessThan(messageOrder);
+    }
 
     // Verify placeholder threads use the message ID as thread ID
     const firstThreadCall = mockUpsertThread.mock.calls[0]![0];

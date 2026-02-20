@@ -5,6 +5,7 @@ vi.mock("@/services/db/smartFolders", () => ({
   insertSmartFolder: vi.fn(() => Promise.resolve("new-id")),
   updateSmartFolder: vi.fn(() => Promise.resolve()),
   deleteSmartFolder: vi.fn(() => Promise.resolve()),
+  updateSmartFolderSortOrder: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@/services/search/smartFolderQuery", () => ({

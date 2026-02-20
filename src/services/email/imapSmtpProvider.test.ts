@@ -40,10 +40,6 @@ vi.mock("../imap/messageHelper", () => ({
   findSpecialFolder: vi.fn(),
 }));
 
-vi.mock("../oauth/oauthTokenManager", () => ({
-  ensureFreshToken: vi.fn().mockResolvedValue("mock-oauth-token"),
-}));
-
 vi.mock("../db/messages", () => ({
   upsertMessage: vi.fn(),
 }));
