@@ -753,6 +753,23 @@ const MIGRATIONS = [
         WHERE account_id IN (SELECT id FROM accounts WHERE provider = 'imap');
     `,
   },
+  {
+    version: 22,
+    description: "Add smart label rules table for AI-powered auto-labeling",
+    sql: `
+      CREATE TABLE smart_label_rules (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        label_id TEXT NOT NULL,
+        ai_description TEXT NOT NULL,
+        criteria_json TEXT,
+        is_enabled INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0,
+        created_at INTEGER DEFAULT (unixepoch())
+      );
+      CREATE INDEX idx_smart_label_rules_account ON smart_label_rules(account_id);
+    `,
+  },
 ];
 
 /**

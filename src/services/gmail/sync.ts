@@ -408,6 +408,11 @@ export async function deltaSync(
             } catch (err) {
               console.error(`Failed to apply filters to thread ${threadId}:`, err);
             }
+
+            // Apply smart labels (fire-and-forget, non-blocking)
+            import("@/services/smartLabels/smartLabelManager")
+              .then(({ applySmartLabelsToMessages }) => applySmartLabelsToMessages(accountId, newMessages))
+              .catch((err) => console.error("Smart label error:", err));
           }
         } catch (err) {
           console.error(`Failed to re-sync thread ${threadId}:`, err);
