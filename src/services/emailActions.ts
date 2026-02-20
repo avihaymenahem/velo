@@ -464,16 +464,23 @@ export function removeThreadLabel(
   });
 }
 
-export function sendEmail(
+export async function sendEmail(
   accountId: string,
   rawBase64Url: string,
   threadId?: string,
 ): Promise<ActionResult> {
-  return executeEmailAction(accountId, {
+  const result = await executeEmailAction(accountId, {
     type: "sendMessage",
     rawBase64Url,
     threadId,
   });
+
+  // Notify the UI to refresh (so sent message appears in Sent folder)
+  if (result.success) {
+    window.dispatchEvent(new Event("velo-sync-done"));
+  }
+
+  return result;
 }
 
 export function createDraft(

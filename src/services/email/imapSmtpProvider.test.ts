@@ -44,6 +44,16 @@ vi.mock("../oauth/oauthTokenManager", () => ({
   ensureFreshToken: vi.fn().mockResolvedValue("mock-oauth-token"),
 }));
 
+vi.mock("../db/messages", () => ({
+  upsertMessage: vi.fn(),
+}));
+
+vi.mock("../db/threads", () => ({
+  upsertThread: vi.fn(),
+  setThreadLabels: vi.fn(),
+  getThreadLabelIds: vi.fn().mockResolvedValue([]),
+}));
+
 import { getAccount } from "../db/accounts";
 import { buildImapConfig, buildSmtpConfig } from "../imap/imapConfigBuilder";
 import { mapFolderToLabel, getSyncableFolders } from "../imap/folderMapper";
@@ -58,6 +68,8 @@ import {
   smtpTestConnection,
 } from "../imap/tauriCommands";
 import { findSpecialFolder } from "../imap/messageHelper";
+import { upsertMessage } from "../db/messages";
+import { upsertThread, setThreadLabels, getThreadLabelIds } from "../db/threads";
 
 const mockImapConfig = {
   host: "imap.example.com",
@@ -410,7 +422,11 @@ describe("ImapSmtpProvider", () => {
   // ---------- Send / Draft operations ----------
 
   describe("sendMessage", () => {
-    it("sends via SMTP and copies to Sent folder", async () => {
+    // A valid base64url-encoded RFC 2822 email for testing
+    const rawEmail = "From: user@example.com\r\nTo: bob@example.com\r\nSubject: Test\r\nDate: Thu, 20 Feb 2025 12:00:00 GMT\r\nMessage-ID: <test123@example.com>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nHello World";
+    const rawBase64Url = btoa(rawEmail).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+    it("sends via SMTP, saves locally, and copies to Sent folder", async () => {
       vi.mocked(smtpSendEmail).mockResolvedValue({
         success: true,
         message: "OK",
@@ -418,14 +434,59 @@ describe("ImapSmtpProvider", () => {
       vi.mocked(findSpecialFolder).mockResolvedValue("Sent Items");
       vi.mocked(imapAppendMessage).mockResolvedValue(undefined);
 
-      const result = await provider.sendMessage("base64data");
+      const result = await provider.sendMessage(rawBase64Url);
 
-      expect(smtpSendEmail).toHaveBeenCalledWith(mockSmtpConfig, "base64data");
+      expect(smtpSendEmail).toHaveBeenCalledWith(mockSmtpConfig, rawBase64Url);
+      // Should save message to local DB
+      expect(upsertThread).toHaveBeenCalled();
+      expect(setThreadLabels).toHaveBeenCalledWith(
+        "acc-1",
+        expect.stringMatching(/^imap-sent-/),
+        ["SENT"],
+      );
+      expect(upsertMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: "acc-1",
+          fromAddress: "user@example.com",
+          toAddresses: "bob@example.com",
+          subject: "Test",
+          isRead: true,
+        }),
+      );
+      // Should copy to server Sent folder
       expect(imapAppendMessage).toHaveBeenCalledWith(
         mockImapConfig,
         "Sent Items",
-        "base64data",
+        rawBase64Url,
         "(\\Seen)",
+      );
+      expect(result.id).toMatch(/^imap-sent-/);
+    });
+
+    it("adds SENT label to existing thread when replying", async () => {
+      vi.mocked(smtpSendEmail).mockResolvedValue({
+        success: true,
+        message: "OK",
+      });
+      vi.mocked(findSpecialFolder).mockResolvedValue("Sent");
+      vi.mocked(imapAppendMessage).mockResolvedValue(undefined);
+      vi.mocked(getThreadLabelIds).mockResolvedValue(["INBOX"]);
+
+      const result = await provider.sendMessage(rawBase64Url, "existing-thread-1");
+
+      // Should add SENT to existing labels
+      expect(setThreadLabels).toHaveBeenCalledWith(
+        "acc-1",
+        "existing-thread-1",
+        ["INBOX", "SENT"],
+      );
+      // Should NOT create a new thread (reply uses existing thread)
+      expect(upsertThread).not.toHaveBeenCalled();
+      // Should save message with existing thread ID
+      expect(upsertMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          threadId: "existing-thread-1",
+        }),
       );
       expect(result.id).toMatch(/^imap-sent-/);
     });
@@ -436,7 +497,7 @@ describe("ImapSmtpProvider", () => {
         message: "Authentication failed",
       });
 
-      await expect(provider.sendMessage("base64data")).rejects.toThrow(
+      await expect(provider.sendMessage(rawBase64Url)).rejects.toThrow(
         "SMTP send failed: Authentication failed",
       );
     });
@@ -451,9 +512,11 @@ describe("ImapSmtpProvider", () => {
         new Error("APPEND failed"),
       );
 
-      const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const result = await provider.sendMessage("base64data");
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const result = await provider.sendMessage(rawBase64Url);
       expect(result.id).toMatch(/^imap-sent-/);
+      // Should still have saved locally
+      expect(upsertMessage).toHaveBeenCalled();
       spy.mockRestore();
     });
   });

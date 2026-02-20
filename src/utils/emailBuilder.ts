@@ -87,7 +87,18 @@ function extractInlineImages(html: string): { html: string; images: InlineImage[
   return { html: processed, images };
 }
 
+/**
+ * Generate a unique Message-ID for outgoing emails.
+ */
+function generateMessageId(from: string): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).slice(2, 10);
+  const domain = from.includes("@") ? from.split("@")[1] : "velomail.local";
+  return `<${timestamp}.${random}@${domain}>`;
+}
+
 export function buildRawEmail(draft: EmailDraft): string {
+  const messageId = generateMessageId(draft.from);
   const lines: string[] = [
     `From: ${draft.from}`,
     `To: ${draft.to.join(", ")}`,
@@ -100,6 +111,8 @@ export function buildRawEmail(draft: EmailDraft): string {
     lines.push(`Bcc: ${draft.bcc.join(", ")}`);
   }
 
+  lines.push(`Date: ${new Date().toUTCString()}`);
+  lines.push(`Message-ID: ${messageId}`);
   lines.push(`Subject: ${draft.subject}`);
   lines.push(`MIME-Version: 1.0`);
 

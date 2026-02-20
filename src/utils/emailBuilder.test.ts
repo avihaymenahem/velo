@@ -26,6 +26,19 @@ describe("emailBuilder", () => {
     expect(decoded).toContain("<p>Hello World</p>");
   });
 
+  it("includes Date and Message-ID headers", () => {
+    const raw = buildRawEmail({
+      from: "sender@example.com",
+      to: ["to@example.com"],
+      subject: "Test",
+      htmlBody: "<p>Hi</p>",
+    });
+
+    const decoded = decodeBase64Url(raw);
+    expect(decoded).toMatch(/Date: .+/);
+    expect(decoded).toMatch(/Message-ID: <.+@example\.com>/);
+  });
+
   it("includes CC and BCC headers", () => {
     const raw = buildRawEmail({
       from: "sender@example.com",
