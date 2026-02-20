@@ -81,8 +81,8 @@ velo/
 │   │   ├── imap/             # IMAP sync, folder mapper, auto-discovery,
 │   │   │                     # config builder, Tauri command wrappers
 │   │   ├── threading/        # JWZ threading engine for IMAP conversations
-│   │   ├── ai/               # AI service, 3 providers, categorization, Ask Inbox,
-│   │   │                     # writing style analysis, auto-drafts, task extraction
+│   │   ├── ai/               # AI service, 4 providers (Claude/OpenAI/Gemini/Ollama),
+│   │   │                     # categorization, Ask Inbox, writing style, auto-drafts, tasks
 │   │   ├── google/           # Google Calendar API
 │   │   ├── composer/         # Draft auto-save
 │   │   ├── search/           # Query parser, SQL builder
@@ -151,7 +151,7 @@ All business logic lives in `src/services/` as plain async functions (except `Gm
 | `gmail/` | Gmail client, token management, sync engine |
 | `imap/` | IMAP sync, folder-to-label mapping, auto-discovery, Tauri command wrappers |
 | `threading/` | JWZ threading algorithm for IMAP message grouping |
-| `ai/` | AI service with 3 providers, categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction |
+| `ai/` | AI service with 4 providers (Claude/OpenAI/Gemini/Ollama), categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction |
 | `google/` | Google Calendar API |
 | `composer/` | Draft auto-save (3s debounce) |
 | `search/` | Gmail-style query parser, SQL builder |

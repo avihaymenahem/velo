@@ -76,11 +76,11 @@ Most email clients are slow, bloated, or send your data to someone else's server
 
 ### AI
 
-Three providers -- choose one or mix and match:
+Four providers -- choose one or mix and match:
 
-| | Anthropic | OpenAI | Google |
-|--|-----------|--------|--------|
-| | Claude | GPT | Gemini |
+| | Anthropic | OpenAI | Google | Local AI |
+|--|-----------|--------|--------|----------|
+| | Claude | GPT | Gemini | Ollama / LMStudio |
 
 Thread summaries, smart reply suggestions, AI compose & reply, text transform (improve/shorten/formalize), Ask My Inbox (natural language search). All results cached locally.
 
@@ -130,7 +130,7 @@ npm run tauri dev
 
 **IMAP/SMTP setup:** Click "Add IMAP Account" in the account switcher. Enter your email and password -- Velo auto-discovers server settings for popular providers (Outlook, Yahoo, iCloud, Fastmail, etc.). For other providers, enter IMAP/SMTP server details manually. No Google Cloud project needed.
 
-**AI setup (optional):** Add an API key for [Anthropic](https://console.anthropic.com/), [OpenAI](https://platform.openai.com/), or [Google Gemini](https://aistudio.google.com/) in Settings.
+**AI setup (optional):** Add an API key for [Anthropic](https://console.anthropic.com/), [OpenAI](https://platform.openai.com/), or [Google Gemini](https://aistudio.google.com/) in Settings. Or connect to a local [Ollama](https://ollama.com/) or [LMStudio](https://lmstudio.ai/) server -- no API key needed.
 
 See [Development Guide](docs/development.md) for all commands, testing, and build instructions.
 
@@ -146,7 +146,7 @@ See [Development Guide](docs/development.md) for all commands, testing, and buil
 | **Editor** | TipTap v3 |
 | **Email** | Gmail API, IMAP/SMTP (via async-imap + lettre in Rust) |
 | **Database** | SQLite + FTS5 (33 tables) |
-| **AI** | Claude, GPT, Gemini |
+| **AI** | Claude, GPT, Gemini, Ollama/LMStudio |
 | **Testing** | Vitest + Testing Library |
 
 See [Architecture](docs/architecture.md) for detailed design, data flow, and project structure.

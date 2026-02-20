@@ -34,7 +34,7 @@ Velo is a desktop application. Your emails, tokens, and settings are stored loca
 
 - **Gmail**: OAuth 2.0 with PKCE -- no client secret stored. Tokens are encrypted with AES-256-GCM before being saved to the local database.
 - **IMAP/SMTP**: Passwords and app passwords are encrypted with AES-256-GCM in the local SQLite database.
-- **AI API keys**: Stored in the local SQLite settings table. Keys are sent directly to the respective provider (Anthropic, OpenAI, Google) over HTTPS -- never to any Velo server.
+- **AI API keys**: Stored in the local SQLite settings table. Keys are sent directly to the respective provider (Anthropic, OpenAI, Google) over HTTPS -- never to any Velo server. Local AI (Ollama/LMStudio) requires no API key and communicates only with your local machine.
 
 ### Email Rendering
 
@@ -45,7 +45,7 @@ Velo is a desktop application. Your emails, tokens, and settings are stored loca
 ### Network
 
 - All API connections use HTTPS
-- Content Security Policy restricts network requests to known domains (googleapis.com, anthropic.com, openai.com, generativelanguage.googleapis.com, gravatar.com, googleusercontent.com)
+- Content Security Policy restricts network requests to known domains (googleapis.com, anthropic.com, openai.com, generativelanguage.googleapis.com, gravatar.com, googleusercontent.com) and localhost for local AI (Ollama/LMStudio)
 - No telemetry, analytics, or tracking
 
 ### Dependencies

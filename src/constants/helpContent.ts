@@ -713,10 +713,10 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "AI overview",
         summary: "Choose your AI provider and bring your own key.",
         description:
-          "The app supports three AI providers: Anthropic Claude, OpenAI GPT, and Google Gemini. You bring your own API key, which means your email data is sent directly to the provider's API — there's no middleman or third-party server involved. API keys are stored securely in your local database. AI features include thread summaries, smart replies, compose assistance, text transformation, and natural language inbox queries. You can enable or disable AI features globally, and choose which provider to use.",
+          "The app supports four AI providers: Anthropic Claude, OpenAI GPT, Google Gemini, and local models via Ollama or LMStudio. For cloud providers, you bring your own API key — your email data is sent directly to the provider's API with no middleman. For local AI, your data never leaves your machine. API keys are stored securely in your local database. AI features include thread summaries, smart replies, compose assistance, text transformation, and natural language inbox queries. You can enable or disable AI features globally, and choose which provider to use.",
         tips: [
-          { text: "Add your API key in Settings > AI." },
-          { text: "Supported providers: Claude, OpenAI, and Gemini." },
+          { text: "Add your API key in Settings > AI, or connect to a local Ollama/LMStudio server." },
+          { text: "Supported providers: Claude, OpenAI, Gemini, and Ollama/LMStudio." },
           { text: "Your data goes directly to the provider API — no middleman." },
           { text: "API keys are stored securely in your local database." },
           { text: "AI results are cached locally to reduce API calls." },
@@ -1003,7 +1003,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Also available in the command palette (Ctrl+K → 'Create Task from Email')." },
           { text: "Edit the extracted fields before creating the task." },
           { text: "The task links back to the original email thread." },
-          { text: "Requires an active AI provider (Claude, GPT, or Gemini)." },
+          { text: "Requires an active AI provider (Claude, GPT, Gemini, or Ollama)." },
         ],
         relatedSettingsTab: "ai",
       },
@@ -1232,7 +1232,7 @@ export const CONTEXTUAL_TIPS: Record<string, ContextualTip> = {
   },
   "ai-provider": {
     title: "AI provider",
-    body: "Choose between Claude, OpenAI, or Gemini. Bring your own API key — your data is sent directly to the provider, never through a middleman.",
+    body: "Choose between Claude, OpenAI, Gemini, or Local AI (Ollama/LMStudio). Cloud providers require an API key — your data goes directly to the provider. Local AI keeps everything on your machine.",
     helpTopic: "ai-features",
   },
   "search-operators": {

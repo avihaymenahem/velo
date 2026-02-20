@@ -100,3 +100,4 @@ To enable AI features, add your API key for one or more providers in Settings:
 - **Anthropic** -- [Get API key](https://console.anthropic.com/)
 - **OpenAI** -- [Get API key](https://platform.openai.com/)
 - **Google Gemini** -- [Get API key](https://aistudio.google.com/)
+- **Local AI (Ollama / LMStudio)** -- No API key needed. Install [Ollama](https://ollama.com/) or [LMStudio](https://lmstudio.ai/), start the server, then select "Local AI" in Settings and enter the server URL (default: `http://localhost:11434`) and model name.
