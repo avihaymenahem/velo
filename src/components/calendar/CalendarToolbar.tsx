@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarDays } from "lucide-react";
 
 export type CalendarView = "day" | "week" | "month";
 
@@ -10,6 +10,8 @@ interface CalendarToolbarProps {
   onToday: () => void;
   onViewChange: (view: CalendarView) => void;
   onCreateEvent: () => void;
+  onToggleCalendarList?: () => void;
+  showCalendarListButton?: boolean;
 }
 
 export function CalendarToolbar({
@@ -20,6 +22,8 @@ export function CalendarToolbar({
   onToday,
   onViewChange,
   onCreateEvent,
+  onToggleCalendarList,
+  showCalendarListButton,
 }: CalendarToolbarProps) {
   const title = formatTitle(currentDate, view);
 
@@ -50,6 +54,15 @@ export function CalendarToolbar({
       </div>
 
       <div className="flex items-center gap-2">
+        {showCalendarListButton && onToggleCalendarList && (
+          <button
+            onClick={onToggleCalendarList}
+            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
+            title="Toggle calendar list"
+          >
+            <CalendarDays size={16} />
+          </button>
+        )}
         <div className="flex bg-bg-tertiary rounded-md p-0.5">
           {(["day", "week", "month"] as CalendarView[]).map((v) => (
             <button

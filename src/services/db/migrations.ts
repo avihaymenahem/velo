@@ -678,6 +678,46 @@ const MIGRATIONS = [
         ('ai_writing_style_enabled', 'true');
     `,
   },
+  {
+    version: 19,
+    description: "CalDAV calendar integration",
+    sql: `
+      -- Multi-calendar support
+      CREATE TABLE IF NOT EXISTS calendars (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL DEFAULT 'google',
+        remote_id TEXT NOT NULL,
+        display_name TEXT,
+        color TEXT,
+        is_primary INTEGER DEFAULT 0,
+        is_visible INTEGER DEFAULT 1,
+        sync_token TEXT,
+        ctag TEXT,
+        created_at INTEGER DEFAULT (unixepoch()),
+        updated_at INTEGER DEFAULT (unixepoch()),
+        UNIQUE(account_id, remote_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_calendars_account ON calendars(account_id);
+
+      -- Extend calendar_events with multi-calendar and CalDAV fields
+      ALTER TABLE calendar_events ADD COLUMN calendar_id TEXT REFERENCES calendars(id) ON DELETE CASCADE;
+      ALTER TABLE calendar_events ADD COLUMN remote_event_id TEXT;
+      ALTER TABLE calendar_events ADD COLUMN etag TEXT;
+      ALTER TABLE calendar_events ADD COLUMN ical_data TEXT;
+      ALTER TABLE calendar_events ADD COLUMN uid TEXT;
+
+      CREATE INDEX IF NOT EXISTS idx_cal_events_calendar ON calendar_events(calendar_id);
+
+      -- CalDAV fields on accounts
+      ALTER TABLE accounts ADD COLUMN caldav_url TEXT;
+      ALTER TABLE accounts ADD COLUMN caldav_username TEXT;
+      ALTER TABLE accounts ADD COLUMN caldav_password TEXT;
+      ALTER TABLE accounts ADD COLUMN caldav_principal_url TEXT;
+      ALTER TABLE accounts ADD COLUMN caldav_home_url TEXT;
+      ALTER TABLE accounts ADD COLUMN calendar_provider TEXT;
+    `,
+  },
 ];
 
 /**

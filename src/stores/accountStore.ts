@@ -7,6 +7,7 @@ export interface Account {
   displayName: string | null;
   avatarUrl: string | null;
   isActive: boolean;
+  provider?: string;
 }
 
 interface AccountState {

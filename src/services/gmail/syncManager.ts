@@ -7,6 +7,9 @@ import { deleteAllMessagesForAccount } from "../db/messages";
 import { imapInitialSync, imapDeltaSync } from "../imap/imapSync";
 import { clearAllFolderSyncStates } from "../db/folderSyncState";
 import { ensureFreshToken } from "../oauth/oauthTokenManager";
+import { hasCalendarSupport, getCalendarProvider } from "../calendar/providerFactory";
+import { getVisibleCalendars, upsertCalendar, updateCalendarSyncToken } from "../db/calendars";
+import { upsertCalendarEvent, deleteEventByRemoteId } from "../db/calendarEvents";
 
 const SYNC_INTERVAL_MS = 60_000; // 60 seconds — delta syncs are lightweight (single API call when idle)
 
@@ -120,6 +123,80 @@ async function syncImapAccount(accountId: string): Promise<void> {
 }
 
 /**
+ * Sync calendars for a single account via the CalendarProvider abstraction.
+ * Discovers calendars, syncs events for each visible calendar, stores results in DB.
+ */
+async function syncCalendarForAccount(accountId: string): Promise<void> {
+  try {
+    const supported = await hasCalendarSupport(accountId);
+    if (!supported) return;
+
+    const provider = await getCalendarProvider(accountId);
+
+    // Discover/update calendars
+    const calendarInfos = await provider.listCalendars();
+    for (const cal of calendarInfos) {
+      await upsertCalendar({
+        accountId,
+        provider: provider.type,
+        remoteId: cal.remoteId,
+        displayName: cal.displayName,
+        color: cal.color,
+        isPrimary: cal.isPrimary,
+      });
+    }
+
+    // Sync events for each visible calendar
+    const visibleCals = await getVisibleCalendars(accountId);
+    for (const cal of visibleCals) {
+      try {
+        const syncResult = await provider.syncEvents(cal.remote_id, cal.sync_token ?? undefined);
+
+        // Upsert created/updated events
+        for (const event of [...syncResult.created, ...syncResult.updated]) {
+          await upsertCalendarEvent({
+            accountId,
+            googleEventId: event.remoteEventId,
+            summary: event.summary,
+            description: event.description,
+            location: event.location,
+            startTime: event.startTime,
+            endTime: event.endTime,
+            isAllDay: event.isAllDay,
+            status: event.status,
+            organizerEmail: event.organizerEmail,
+            attendeesJson: event.attendeesJson,
+            htmlLink: event.htmlLink,
+            calendarId: cal.id,
+            remoteEventId: event.remoteEventId,
+            etag: event.etag,
+            icalData: event.icalData,
+            uid: event.uid,
+          });
+        }
+
+        // Delete removed events
+        for (const remoteId of syncResult.deletedRemoteIds) {
+          await deleteEventByRemoteId(cal.id, remoteId);
+        }
+
+        // Update sync token
+        if (syncResult.newSyncToken || syncResult.newCtag) {
+          await updateCalendarSyncToken(cal.id, syncResult.newSyncToken, syncResult.newCtag);
+        }
+      } catch (err) {
+        console.warn(`[syncManager] Calendar sync failed for ${cal.display_name ?? cal.remote_id}:`, err);
+      }
+    }
+
+    // Emit event for UI update
+    window.dispatchEvent(new CustomEvent("velo-calendar-sync-done"));
+  } catch (err) {
+    console.warn(`[syncManager] Calendar sync failed for account ${accountId}:`, err);
+  }
+}
+
+/**
  * Run a sync for a single account (initial or delta).
  * Routes to Gmail or IMAP sync based on account provider.
  */
@@ -141,6 +218,13 @@ async function syncAccountInternal(accountId: string): Promise<void> {
 
     console.log(`[syncManager] Syncing account ${accountId} (provider=${account.provider}, history_id=${account.history_id ?? "null"})`);
 
+    if (account.provider === "caldav") {
+      // CalDAV-only accounts — skip email sync, only sync calendar
+      await syncCalendarForAccount(accountId);
+      statusCallback?.(accountId, "done");
+      return;
+    }
+
     if (account.provider === "imap") {
       await syncImapAccount(accountId);
     } else {
@@ -151,6 +235,11 @@ async function syncAccountInternal(accountId: string): Promise<void> {
     // Also emit for delta syncs that fell back to initial (recovery re-sync)
     // since those emit progress via statusCallback inside syncImapAccount.
     statusCallback?.(accountId, "done");
+
+    // Sync calendar alongside email (non-blocking — calendar errors don't affect email sync)
+    syncCalendarForAccount(accountId).catch((err) => {
+      console.warn(`[syncManager] Calendar sync error for ${accountId}:`, err);
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error(`[syncManager] Sync failed for account ${accountId}:`, message);

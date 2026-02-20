@@ -2,8 +2,10 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { TextField } from "@/components/ui/TextField";
+import type { DbCalendar } from "@/services/db/calendars";
 
 interface EventCreateModalProps {
+  calendars?: DbCalendar[];
   onClose: () => void;
   onCreate: (event: {
     summary: string;
@@ -11,21 +13,32 @@ interface EventCreateModalProps {
     location: string;
     startTime: string;
     endTime: string;
+    calendarId?: string;
   }) => void;
 }
 
-export function EventCreateModal({ onClose, onCreate }: EventCreateModalProps) {
+export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateModalProps) {
   const [summary, setSummary] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [startTime, setStartTime] = useState(getDefaultStart());
   const [endTime, setEndTime] = useState(getDefaultEnd());
+  const [calendarId, setCalendarId] = useState<string>(
+    calendars?.find((c) => c.is_primary)?.id ?? calendars?.[0]?.id ?? "",
+  );
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!summary.trim()) return;
-    onCreate({ summary: summary.trim(), description, location, startTime, endTime });
-  }, [summary, description, location, startTime, endTime, onCreate]);
+    onCreate({
+      summary: summary.trim(),
+      description,
+      location,
+      startTime,
+      endTime,
+      calendarId: calendarId || undefined,
+    });
+  }, [summary, description, location, startTime, endTime, calendarId, onCreate]);
 
   return (
     <Modal isOpen={true} onClose={onClose} title="Create Event" width="w-full max-w-md">
@@ -38,6 +51,24 @@ export function EventCreateModal({ onClose, onCreate }: EventCreateModalProps) {
           placeholder="Event title"
           autoFocus
         />
+
+        {calendars && calendars.length > 1 && (
+          <div>
+            <label className="text-xs text-text-secondary block mb-1">Calendar</label>
+            <select
+              value={calendarId}
+              onChange={(e) => setCalendarId(e.target.value)}
+              className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
+            >
+              {calendars.map((cal) => (
+                <option key={cal.id} value={cal.id}>
+                  {cal.display_name ?? "Calendar"}
+                  {cal.is_primary ? " (Primary)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <TextField

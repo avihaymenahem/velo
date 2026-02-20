@@ -27,6 +27,12 @@ export interface DbAccount {
   oauth_client_id: string | null;
   oauth_client_secret: string | null;
   imap_username: string | null;
+  caldav_url: string | null;
+  caldav_username: string | null;
+  caldav_password: string | null;
+  caldav_principal_url: string | null;
+  caldav_home_url: string | null;
+  calendar_provider: string | null;
 }
 
 async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
@@ -56,6 +62,13 @@ async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
       account.oauth_client_secret = await decryptValue(account.oauth_client_secret);
     } catch (err) {
       console.warn("Failed to decrypt OAuth client secret, using raw value:", err);
+    }
+  }
+  if (account.caldav_password && isEncrypted(account.caldav_password)) {
+    try {
+      account.caldav_password = await decryptValue(account.caldav_password);
+    } catch (err) {
+      console.warn("Failed to decrypt CalDAV password, using raw value:", err);
     }
   }
   return account;
@@ -200,6 +213,63 @@ export async function insertImapAccount(account: {
       account.authMethod,
       encPassword,
       account.imapUsername || null,
+    ],
+  );
+}
+
+export async function insertCalDavAccount(account: {
+  id: string;
+  email: string;
+  displayName: string | null;
+  caldavUrl: string;
+  caldavUsername: string;
+  caldavPassword: string;
+  caldavPrincipalUrl?: string | null;
+  caldavHomeUrl?: string | null;
+}): Promise<void> {
+  const db = await getDb();
+  const encPassword = await encryptValue(account.caldavPassword);
+  await db.execute(
+    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, provider, calendar_provider, caldav_url, caldav_username, caldav_password, caldav_principal_url, caldav_home_url)
+     VALUES ($1, $2, $3, NULL, NULL, NULL, 'caldav', 'caldav', $4, $5, $6, $7, $8)`,
+    [
+      account.id,
+      account.email,
+      account.displayName,
+      account.caldavUrl,
+      account.caldavUsername,
+      encPassword,
+      account.caldavPrincipalUrl ?? null,
+      account.caldavHomeUrl ?? null,
+    ],
+  );
+}
+
+export async function updateAccountCalDav(
+  accountId: string,
+  fields: {
+    caldavUrl: string;
+    caldavUsername: string;
+    caldavPassword: string;
+    caldavPrincipalUrl?: string | null;
+    caldavHomeUrl?: string | null;
+    calendarProvider: string;
+  },
+): Promise<void> {
+  const db = await getDb();
+  const encPassword = await encryptValue(fields.caldavPassword);
+  await db.execute(
+    `UPDATE accounts SET caldav_url = $1, caldav_username = $2, caldav_password = $3,
+       caldav_principal_url = $4, caldav_home_url = $5, calendar_provider = $6,
+       updated_at = unixepoch() WHERE id = $7`,
+    [
+      fields.caldavUrl,
+      fields.caldavUsername,
+      encPassword,
+      fields.caldavPrincipalUrl ?? null,
+      fields.caldavHomeUrl ?? null,
+      fields.calendarProvider,
+      accountId,
     ],
   );
 }

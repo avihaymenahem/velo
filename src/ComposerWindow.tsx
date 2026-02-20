@@ -51,6 +51,7 @@ export default function ComposerWindow() {
           displayName: a.display_name,
           avatarUrl: a.avatar_url,
           isActive: a.is_active === 1,
+          provider: a.provider,
         }));
         setAccounts(mapped);
 

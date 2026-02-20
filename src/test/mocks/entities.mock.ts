@@ -117,6 +117,12 @@ export function createMockGmailAccount(
     oauth_client_id: null,
     oauth_client_secret: null,
     imap_username: null,
+    caldav_url: null,
+    caldav_username: null,
+    caldav_password: null,
+    caldav_principal_url: null,
+    caldav_home_url: null,
+    calendar_provider: null,
     ...overrides,
   };
 }
@@ -150,6 +156,12 @@ export function createMockImapAccount(
     oauth_client_id: null,
     oauth_client_secret: null,
     imap_username: null,
+    caldav_url: null,
+    caldav_username: null,
+    caldav_password: null,
+    caldav_principal_url: null,
+    caldav_home_url: null,
+    calendar_provider: null,
     ...overrides,
   };
 }
@@ -183,6 +195,12 @@ export function createMockDbAccount(
     oauth_client_id: null,
     oauth_client_secret: null,
     imap_username: null,
+    caldav_url: null,
+    caldav_username: null,
+    caldav_password: null,
+    caldav_principal_url: null,
+    caldav_home_url: null,
+    calendar_provider: null,
     ...overrides,
   };
 }
