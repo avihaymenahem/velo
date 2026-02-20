@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.5](https://github.com/avihaymenahem/velo/compare/velo-v0.4.4...velo-v0.4.5) (2026-02-20)
+
+
+### Bug Fixes
+
+* attachments not showing in attachment list ([fdf8c75](https://github.com/avihaymenahem/velo/commit/fdf8c75ed5d42e29fdd90e96c88b2b33a90d48b4))
+
 ## [0.4.4](https://github.com/avihaymenahem/velo/compare/velo-v0.4.3...velo-v0.4.4) (2026-02-19)
 
 
