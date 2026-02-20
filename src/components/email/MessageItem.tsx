@@ -1,4 +1,4 @@
-import { memo, useState, useRef, useEffect, forwardRef } from "react";
+import { memo, useState, useRef, useEffect, useMemo, forwardRef } from "react";
 import { formatFullDate } from "@/utils/date";
 import { EmailRenderer } from "./EmailRenderer";
 import { InlineAttachmentPreview } from "./InlineAttachmentPreview";
@@ -24,7 +24,6 @@ interface MessageItemProps {
 export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(function MessageItem({ message, isLast, blockImages, senderAllowlisted, accountId, threadId, isSpam, focused, onContextMenu }, ref) {
   const [expanded, setExpanded] = useState(isLast);
   const [attachments, setAttachments] = useState<DbAttachment[]>([]);
-  const [, setPreviewAttachment] = useState<DbAttachment | null>(null);
   const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
   const attachmentsLoadedRef = useRef(false);
 
@@ -61,6 +60,18 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
       loadAttachments();
     }
   };
+
+  // Scan HTML body for cid: references — these images are already rendered inline
+  const referencedCids = useMemo(() => {
+    const cids = new Set<string>();
+    if (!message.body_html) return cids;
+    const regex = /\bcid:([^"'\s)]+)/gi;
+    let m;
+    while ((m = regex.exec(message.body_html)) !== null) {
+      cids.add(m[1]!);
+    }
+    return cids;
+  }, [message.body_html]);
 
   const fromDisplay = message.from_name ?? message.from_address ?? "Unknown";
 
@@ -131,6 +142,8 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
               senderAddress={message.from_address}
               accountId={message.account_id}
               senderAllowlisted={senderAllowlisted}
+              messageId={message.id}
+              inlineAttachments={attachments.filter((a) => a.content_id)}
             />
           ) : (
             <div className="py-8 text-center text-text-tertiary text-sm">Loading...</div>
@@ -140,13 +153,15 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
             accountId={message.account_id}
             messageId={message.id}
             attachments={attachments}
-            onAttachmentClick={setPreviewAttachment}
+            referencedCids={referencedCids}
+            onAttachmentClick={() => {}}
           />
 
           <AttachmentList
             accountId={message.account_id}
             messageId={message.id}
             attachments={attachments}
+            referencedCids={referencedCids}
           />
         </div>
       )}

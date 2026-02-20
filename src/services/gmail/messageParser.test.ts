@@ -64,6 +64,60 @@ describe("parseGmailMessage", () => {
     expect(parsed.fromName).toBeNull();
   });
 
+  it("should mark attachment with CID but with filename as not inline", () => {
+    const msg = createMockGmailMessage();
+    msg.payload.parts!.push({
+      partId: "2",
+      mimeType: "application/pdf",
+      filename: "report.pdf",
+      headers: [
+        { name: "Content-ID", value: "<part1.abc@example.com>" },
+        { name: "Content-Disposition", value: "attachment; filename=\"report.pdf\"" },
+      ],
+      body: { attachmentId: "att-1", size: 5000 },
+    });
+
+    const parsed = parseGmailMessage(msg);
+    expect(parsed.attachments).toHaveLength(1);
+    expect(parsed.attachments[0]!.isInline).toBe(false);
+    expect(parsed.attachments[0]!.contentId).toBe("part1.abc@example.com");
+  });
+
+  it("should mark CID image without filename as inline", () => {
+    const msg = createMockGmailMessage();
+    msg.payload.parts!.push({
+      partId: "2",
+      mimeType: "image/png",
+      filename: "",
+      headers: [
+        { name: "Content-ID", value: "<img001@example.com>" },
+        { name: "Content-Disposition", value: "inline" },
+      ],
+      body: { attachmentId: "att-1", size: 2000 },
+    });
+
+    const parsed = parseGmailMessage(msg);
+    expect(parsed.attachments).toHaveLength(1);
+    expect(parsed.attachments[0]!.isInline).toBe(true);
+  });
+
+  it("should mark named file with inline disposition as not inline", () => {
+    const msg = createMockGmailMessage();
+    msg.payload.parts!.push({
+      partId: "2",
+      mimeType: "image/jpeg",
+      filename: "photo.jpg",
+      headers: [
+        { name: "Content-Disposition", value: "inline; filename=\"photo.jpg\"" },
+      ],
+      body: { attachmentId: "att-1", size: 3000 },
+    });
+
+    const parsed = parseGmailMessage(msg);
+    expect(parsed.attachments).toHaveLength(1);
+    expect(parsed.attachments[0]!.isInline).toBe(false);
+  });
+
   it("should preserve label IDs", () => {
     const parsed = parseGmailMessage(
       createMockGmailMessage({

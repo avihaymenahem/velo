@@ -1,10 +1,11 @@
-import { useRef, useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useRef, useCallback, useLayoutEffect, useMemo, useState, useEffect } from "react";
 import { ImageOff } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { stripRemoteImages, hasBlockedImages } from "@/utils/imageBlocker";
 import { addToAllowlist } from "@/services/db/imageAllowlist";
 import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { useUIStore } from "@/stores/uiStore";
+import type { DbAttachment } from "@/services/db/attachments";
 
 interface EmailRendererProps {
   html: string | null;
@@ -13,6 +14,8 @@ interface EmailRendererProps {
   senderAddress?: string | null;
   accountId?: string | null;
   senderAllowlisted?: boolean;
+  messageId?: string | null;
+  inlineAttachments?: DbAttachment[];
 }
 
 export function EmailRenderer({
@@ -22,17 +25,63 @@ export function EmailRenderer({
   senderAddress,
   accountId,
   senderAllowlisted = false,
+  messageId,
+  inlineAttachments,
 }: EmailRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
   const rafRef = useRef<number>(0);
   const [overrideShow, setOverrideShow] = useState(false);
+  const [cidMap, setCidMap] = useState<Map<string, string>>(new Map());
 
   const theme = useUIStore((s) => s.theme);
   const isDark = theme === "dark"
     || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   const shouldBlock = blockImages && !senderAllowlisted && !overrideShow;
+
+  // Resolve cid: references by fetching inline attachment data
+  useEffect(() => {
+    if (!accountId || !messageId || !inlineAttachments?.length) return;
+
+    const cidAttachments = inlineAttachments.filter(
+      (a) => a.content_id && a.gmail_attachment_id,
+    );
+    if (cidAttachments.length === 0) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { getEmailProvider } = await import("@/services/email/providerFactory");
+        const provider = await getEmailProvider(accountId);
+        const resolved = new Map<string, string>();
+
+        await Promise.all(
+          cidAttachments.map(async (att) => {
+            try {
+              const response = await provider.fetchAttachment(
+                messageId,
+                att.gmail_attachment_id!,
+              );
+              const base64 = response.data.replace(/-/g, "+").replace(/_/g, "/");
+              resolved.set(att.content_id!, `data:${att.mime_type ?? "image/png"};base64,${base64}`);
+            } catch {
+              // Skip individual failures
+            }
+          }),
+        );
+
+        if (!cancelled && resolved.size > 0) {
+          setCidMap(resolved);
+        }
+      } catch {
+        // Non-critical — images just won't render
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [accountId, messageId, inlineAttachments]);
 
   // Sanitize once — reused by both content and blocked-image check
   const sanitizedBody = useMemo(() => {
@@ -50,8 +99,16 @@ export function EmailRenderer({
       body = stripRemoteImages(body);
     }
 
+    // Replace cid: references with resolved data URIs
+    if (cidMap.size > 0) {
+      body = body.replace(
+        /\bcid:([^"'\s)]+)/gi,
+        (match, cidRef: string) => cidMap.get(cidRef) ?? match,
+      );
+    }
+
     return body;
-  }, [sanitizedBody, text, shouldBlock]);
+  }, [sanitizedBody, text, shouldBlock, cidMap]);
 
   const blocked = useMemo(() => {
     if (!shouldBlock || !sanitizedBody) return false;

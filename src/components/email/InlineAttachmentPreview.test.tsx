@@ -68,12 +68,27 @@ describe("InlineAttachmentPreview", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("renders nothing when all attachments are inline", () => {
+  it("renders nothing when all attachments are true inline (no filename)", () => {
     const { container } = render(
       <InlineAttachmentPreview
         accountId="acc-1"
         messageId="msg-1"
-        attachments={[makeAttachment({ is_inline: 1 })]}
+        attachments={[makeAttachment({ is_inline: 1, filename: null })]}
+        onAttachmentClick={onAttachmentClick}
+      />,
+    );
+
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("renders nothing when all attachments have CIDs referenced in the HTML body", () => {
+    const referencedCids = new Set(["img001@example.com"]);
+    const { container } = render(
+      <InlineAttachmentPreview
+        accountId="acc-1"
+        messageId="msg-1"
+        attachments={[makeAttachment({ content_id: "img001@example.com", filename: "photo.png", mime_type: "image/png" })]}
+        referencedCids={referencedCids}
         onAttachmentClick={onAttachmentClick}
       />,
     );

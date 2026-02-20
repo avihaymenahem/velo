@@ -7,17 +7,35 @@ import { Modal } from "@/components/ui/Modal";
 import { Download, Eye } from "lucide-react";
 import { formatFileSize, isImage, isPdf, isText, canPreview, getFileIcon } from "@/utils/fileTypeHelpers";
 
+/** Dedup attachments by filename+size (content-based) */
+function dedup(attachments: DbAttachment[]): DbAttachment[] {
+  const seen = new Set<string>();
+  return attachments.filter((a) => {
+    const key = `${a.filename}:${a.size}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 interface AttachmentListProps {
   accountId: string;
   messageId: string;
   attachments: DbAttachment[];
+  referencedCids?: Set<string>;
 }
 
-export function AttachmentList({ accountId, messageId, attachments }: AttachmentListProps) {
+export function AttachmentList({ accountId, messageId, attachments, referencedCids }: AttachmentListProps) {
   const [preview, setPreview] = useState<DbAttachment | null>(null);
 
-  // Filter out inline attachments — only show regular file attachments
-  const fileAttachments = attachments.filter((a) => !a.is_inline);
+  // Filter out CID images rendered in the email body and true inline parts, then dedup
+  const fileAttachments = dedup(attachments.filter((a) => {
+    // Skip attachments whose CID is referenced in the email body (already rendered inline)
+    if (a.content_id && referencedCids?.has(a.content_id)) return false;
+    // True inline: marked inline with no filename
+    if (a.is_inline && !a.filename) return false;
+    return true;
+  }));
 
   if (fileAttachments.length === 0) return null;
 
