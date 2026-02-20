@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.6](https://github.com/avihaymenahem/velo/compare/velo-v0.4.5...velo-v0.4.6) (2026-02-20)
+
+
+### Features
+
+* add CalDAV calendar integration for IMAP and standalone accounts ([08e05ff](https://github.com/avihaymenahem/velo/commit/08e05ff571652c73cce6261a3c5f875a6a013e9a)), closes [#113](https://github.com/avihaymenahem/velo/issues/113)
+
 ## [0.4.5](https://github.com/avihaymenahem/velo/compare/velo-v0.4.4...velo-v0.4.5) (2026-02-20)
 
 
