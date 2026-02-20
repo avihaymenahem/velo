@@ -123,23 +123,28 @@ function extractAttachments(part: GmailMessagePart): ParsedAttachment[] {
 }
 
 function collectAttachments(part: GmailMessagePart, results: ParsedAttachment[]): void {
-  if (part.body.attachmentId && part.filename && part.filename.length > 0) {
+  if (part.body.attachmentId) {
     const contentIdHeader = part.headers?.find(
       (h) => h.name.toLowerCase() === "content-id",
     );
     const contentDisposition = part.headers?.find(
       (h) => h.name.toLowerCase() === "content-disposition",
     );
+    const hasFilename = part.filename && part.filename.length > 0;
+    const hasCid = !!contentIdHeader?.value;
     const isInline = contentDisposition?.value?.toLowerCase().startsWith("inline") ?? false;
 
-    results.push({
-      filename: part.filename,
-      mimeType: part.mimeType,
-      size: part.body.size,
-      gmailAttachmentId: part.body.attachmentId,
-      contentId: contentIdHeader?.value?.replace(/[<>]/g, "") ?? null,
-      isInline,
-    });
+    // Collect parts with a filename (regular attachments) or a Content-ID (CID inline images)
+    if (hasFilename || hasCid) {
+      results.push({
+        filename: part.filename || contentIdHeader?.value?.replace(/[<>]/g, "") || "inline",
+        mimeType: part.mimeType,
+        size: part.body.size,
+        gmailAttachmentId: part.body.attachmentId,
+        contentId: contentIdHeader?.value?.replace(/[<>]/g, "") ?? null,
+        isInline: isInline && !hasFilename,
+      });
+    }
   }
 
   if (part.parts) {

@@ -4,10 +4,22 @@ import { getEmailProvider } from "@/services/email/providerFactory";
 import { FileText } from "lucide-react";
 import { formatFileSize, isImage, isPdf } from "@/utils/fileTypeHelpers";
 
+/** Dedup attachments by filename+size (content-based) */
+function dedup(attachments: DbAttachment[]): DbAttachment[] {
+  const seen = new Set<string>();
+  return attachments.filter((a) => {
+    const key = `${a.filename}:${a.size}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 interface InlineAttachmentPreviewProps {
   accountId: string;
   messageId: string;
   attachments: DbAttachment[];
+  referencedCids?: Set<string>;
   onAttachmentClick: (attachment: DbAttachment) => void;
 }
 
@@ -15,12 +27,16 @@ export function InlineAttachmentPreview({
   accountId,
   messageId,
   attachments,
+  referencedCids,
   onAttachmentClick,
 }: InlineAttachmentPreviewProps) {
-  // Filter to previewable non-inline attachments
-  const previewableAttachments = attachments.filter(
-    (a) => !a.is_inline && (isImage(a.mime_type) || isPdf(a.mime_type, a.filename)),
-  );
+  // Filter to previewable non-inline attachments, dedup, exclude CID-referenced
+  const previewableAttachments = dedup(attachments.filter((a) => {
+    // Skip attachments whose CID is referenced in the email body
+    if (a.content_id && referencedCids?.has(a.content_id)) return false;
+    if (a.is_inline && !a.filename) return false;
+    return isImage(a.mime_type) || isPdf(a.mime_type, a.filename);
+  }));
 
   if (previewableAttachments.length === 0) return null;
 

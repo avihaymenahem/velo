@@ -58,22 +58,34 @@ describe("AttachmentList", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("renders nothing when all attachments are inline", () => {
+  it("renders nothing when all attachments are true inline (no filename)", () => {
     const { container } = render(
       <AttachmentList
         accountId="acc-1"
         messageId="msg-1"
-        attachments={[makeAttachment({ is_inline: 1 })]}
+        attachments={[makeAttachment({ is_inline: 1, filename: null })]}
       />,
     );
 
     expect(container.innerHTML).toBe("");
   });
 
+  it("shows attachment with is_inline flag if it has a filename", () => {
+    render(
+      <AttachmentList
+        accountId="acc-1"
+        messageId="msg-1"
+        attachments={[makeAttachment({ is_inline: 1, filename: "report.pdf", mime_type: "application/pdf" })]}
+      />,
+    );
+
+    expect(screen.getByText("report.pdf")).toBeInTheDocument();
+  });
+
   it("renders attachment count and names", () => {
     const attachments = [
-      makeAttachment({ id: "att-1", filename: "photo.png" }),
-      makeAttachment({ id: "att-2", filename: "doc.pdf", mime_type: "application/pdf" }),
+      makeAttachment({ id: "att-1", gmail_attachment_id: "gid-1", filename: "photo.png" }),
+      makeAttachment({ id: "att-2", gmail_attachment_id: "gid-2", filename: "doc.pdf", mime_type: "application/pdf" }),
     ];
 
     render(
@@ -180,6 +192,76 @@ describe("AttachmentList", () => {
       expect(save).toHaveBeenCalled();
       expect(writeFile).toHaveBeenCalled();
     });
+  });
+
+  it("hides attachments whose CID is referenced in the HTML body", () => {
+    const referencedCids = new Set(["img001@example.com"]);
+    const { container } = render(
+      <AttachmentList
+        accountId="acc-1"
+        messageId="msg-1"
+        attachments={[makeAttachment({ content_id: "img001@example.com", filename: "photo.png", mime_type: "image/png" })]}
+        referencedCids={referencedCids}
+      />,
+    );
+
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("shows attachments with content_id when not referenced in HTML body", () => {
+    const referencedCids = new Set<string>();
+    render(
+      <AttachmentList
+        accountId="acc-1"
+        messageId="msg-1"
+        attachments={[makeAttachment({ content_id: "img001@example.com", filename: "photo.png", mime_type: "image/png" })]}
+        referencedCids={referencedCids}
+      />,
+    );
+
+    expect(screen.getByText("photo.png")).toBeInTheDocument();
+  });
+
+  it("shows non-image CID attachments with real filename when not referenced", () => {
+    render(
+      <AttachmentList
+        accountId="acc-1"
+        messageId="msg-1"
+        attachments={[makeAttachment({ content_id: "part1@example.com", mime_type: "application/pdf", filename: "report.pdf" })]}
+      />,
+    );
+
+    expect(screen.getByText("report.pdf")).toBeInTheDocument();
+  });
+
+  it("deduplicates attachments by filename+size (different gmail_attachment_id)", () => {
+    render(
+      <AttachmentList
+        accountId="acc-1"
+        messageId="msg-1"
+        attachments={[
+          makeAttachment({ id: "att-1", gmail_attachment_id: "gid-1", filename: "photo.png", size: 1024 }),
+          makeAttachment({ id: "att-2", gmail_attachment_id: "gid-2", filename: "photo.png", size: 1024 }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("1 attachment")).toBeInTheDocument();
+  });
+
+  it("does not dedup attachments with different filenames", () => {
+    render(
+      <AttachmentList
+        accountId="acc-1"
+        messageId="msg-1"
+        attachments={[
+          makeAttachment({ id: "att-1", gmail_attachment_id: "gid-1", filename: "photo.png", size: 1024 }),
+          makeAttachment({ id: "att-2", gmail_attachment_id: "gid-2", filename: "photo2.png", size: 1024 }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("2 attachments")).toBeInTheDocument();
   });
 
   it("shows error state when preview fetch fails", async () => {
