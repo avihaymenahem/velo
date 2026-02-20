@@ -25,10 +25,16 @@ vi.mock("./providers/geminiProvider", () => ({
   clearGeminiProvider: vi.fn(),
 }));
 
+vi.mock("./providers/ollamaProvider", () => ({
+  createOllamaProvider: vi.fn(() => createMockAiProvider("ollama response")),
+  clearOllamaProvider: vi.fn(),
+}));
+
 import { getSetting } from "@/services/db/settings";
 import { createClaudeProvider, clearClaudeProvider } from "./providers/claudeProvider";
 import { createOpenAIProvider } from "./providers/openaiProvider";
 import { createGeminiProvider } from "./providers/geminiProvider";
+import { createOllamaProvider } from "./providers/ollamaProvider";
 import {
   getActiveProvider,
   getActiveProviderName,
@@ -58,6 +64,11 @@ describe("providerManager", () => {
     it("returns gemini when ai_provider is gemini", async () => {
       mockGetSetting.mockResolvedValue("gemini");
       expect(await getActiveProviderName()).toBe("gemini");
+    });
+
+    it("returns ollama when ai_provider is ollama", async () => {
+      mockGetSetting.mockResolvedValue("ollama");
+      expect(await getActiveProviderName()).toBe("ollama");
     });
 
     it("defaults to claude for unknown provider value", async () => {
@@ -100,6 +111,28 @@ describe("providerManager", () => {
       expect(createGeminiProvider).toHaveBeenCalledWith("AItest");
     });
 
+    it("creates ollama provider with server url and model", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_provider") return "ollama";
+        if (key === "ollama_server_url") return "http://localhost:11434";
+        if (key === "ollama_model") return "llama3.2";
+        return null;
+      });
+
+      await getActiveProvider();
+      expect(createOllamaProvider).toHaveBeenCalledWith("http://localhost:11434", "llama3.2");
+    });
+
+    it("uses default ollama url and model when not configured", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_provider") return "ollama";
+        return null;
+      });
+
+      await getActiveProvider();
+      expect(createOllamaProvider).toHaveBeenCalledWith("http://localhost:11434", "llama3.2");
+    });
+
     it("throws NOT_CONFIGURED when API key is missing", async () => {
       mockGetSetting.mockImplementation(async (key: string) => {
         if (key === "ai_provider") return "openai";
@@ -119,6 +152,19 @@ describe("providerManager", () => {
       await getActiveProvider();
       await getActiveProvider();
       expect(createClaudeProvider).toHaveBeenCalledTimes(1);
+    });
+
+    it("caches ollama provider and reuses on subsequent calls", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_provider") return "ollama";
+        if (key === "ollama_server_url") return "http://localhost:11434";
+        if (key === "ollama_model") return "llama3.2";
+        return null;
+      });
+
+      await getActiveProvider();
+      await getActiveProvider();
+      expect(createOllamaProvider).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -162,6 +208,27 @@ describe("providerManager", () => {
       });
 
       expect(await isAiAvailable()).toBe(true);
+    });
+
+    it("returns true for ollama when server url is configured", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_enabled") return "true";
+        if (key === "ai_provider") return "ollama";
+        if (key === "ollama_server_url") return "http://localhost:11434";
+        return null;
+      });
+
+      expect(await isAiAvailable()).toBe(true);
+    });
+
+    it("returns false for ollama when server url is not configured", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_enabled") return "true";
+        if (key === "ai_provider") return "ollama";
+        return null;
+      });
+
+      expect(await isAiAvailable()).toBe(false);
     });
   });
 

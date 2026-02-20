@@ -4,8 +4,9 @@ import type { AiProvider, AiProviderClient } from "./types";
 import { createClaudeProvider, clearClaudeProvider } from "./providers/claudeProvider";
 import { createOpenAIProvider, clearOpenAIProvider } from "./providers/openaiProvider";
 import { createGeminiProvider, clearGeminiProvider } from "./providers/geminiProvider";
+import { createOllamaProvider, clearOllamaProvider } from "./providers/ollamaProvider";
 
-const API_KEY_SETTINGS: Record<AiProvider, string> = {
+const API_KEY_SETTINGS: Record<Exclude<AiProvider, "ollama">, string> = {
   claude: "claude_api_key",
   openai: "openai_api_key",
   gemini: "gemini_api_key",
@@ -15,12 +16,27 @@ let cachedProvider: { name: AiProvider; key: string; client: AiProviderClient } 
 
 export async function getActiveProviderName(): Promise<AiProvider> {
   const setting = await getSetting("ai_provider");
-  if (setting === "openai" || setting === "gemini") return setting;
+  if (setting === "openai" || setting === "gemini" || setting === "ollama") return setting;
   return "claude";
 }
 
 export async function getActiveProvider(): Promise<AiProviderClient> {
   const providerName = await getActiveProviderName();
+
+  if (providerName === "ollama") {
+    const serverUrl = (await getSetting("ollama_server_url")) ?? "http://localhost:11434";
+    const model = (await getSetting("ollama_model")) ?? "llama3.2";
+    const cacheKey = `${serverUrl}|${model}`;
+
+    if (cachedProvider && cachedProvider.name === "ollama" && cachedProvider.key === cacheKey) {
+      return cachedProvider.client;
+    }
+
+    const client = createOllamaProvider(serverUrl, model);
+    cachedProvider = { name: "ollama", key: cacheKey, client };
+    return client;
+  }
+
   const keySetting = API_KEY_SETTINGS[providerName];
   const apiKey = await getSecureSetting(keySetting);
 
@@ -54,6 +70,12 @@ export async function isAiAvailable(): Promise<boolean> {
     const enabled = await getSetting("ai_enabled");
     if (enabled === "false") return false;
     const providerName = await getActiveProviderName();
+
+    if (providerName === "ollama") {
+      const serverUrl = await getSetting("ollama_server_url");
+      return !!serverUrl;
+    }
+
     const keySetting = API_KEY_SETTINGS[providerName];
     const key = await getSecureSetting(keySetting);
     return !!key;
@@ -67,4 +89,5 @@ export function clearProviderClients(): void {
   clearClaudeProvider();
   clearOpenAIProvider();
   clearGeminiProvider();
+  clearOllamaProvider();
 }

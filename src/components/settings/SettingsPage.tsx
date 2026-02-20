@@ -103,10 +103,12 @@ export function SettingsPage() {
   const [phishingDetectionEnabled, setPhishingDetectionEnabled] = useState(true);
   const [phishingSensitivity, setPhishingSensitivity] = useState<"low" | "default" | "high">("default");
   const [autostartEnabled, setAutostartEnabled] = useState(false);
-  const [aiProvider, setAiProvider] = useState<"claude" | "openai" | "gemini">("claude");
+  const [aiProvider, setAiProvider] = useState<"claude" | "openai" | "gemini" | "ollama">("claude");
   const [claudeApiKey, setClaudeApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [ollamaServerUrl, setOllamaServerUrl] = useState("http://localhost:11434");
+  const [ollamaModel, setOllamaModel] = useState("llama3.2");
   const [aiEnabled, setAiEnabled] = useState(true);
   const [aiAutoCategorize, setAiAutoCategorize] = useState(true);
   const [aiAutoSummarize, setAiAutoSummarize] = useState(true);
@@ -158,7 +160,11 @@ export function SettingsPage() {
 
       // Load AI settings
       const provider = await getSetting("ai_provider");
-      if (provider === "openai" || provider === "gemini") setAiProvider(provider);
+      if (provider === "openai" || provider === "gemini" || provider === "ollama") setAiProvider(provider);
+      const ollamaUrl = await getSetting("ollama_server_url");
+      if (ollamaUrl) setOllamaServerUrl(ollamaUrl);
+      const ollamaModelVal = await getSetting("ollama_model");
+      if (ollamaModelVal) setOllamaModel(ollamaModelVal);
       const aiKey = await getSecureSetting("claude_api_key");
       setClaudeApiKey(aiKey ?? "");
       const oaiKey = await getSecureSetting("openai_api_key");
@@ -1002,7 +1008,7 @@ export function SettingsPage() {
                       <select
                         value={aiProvider}
                         onChange={async (e) => {
-                          const val = e.target.value as "claude" | "openai" | "gemini";
+                          const val = e.target.value as "claude" | "openai" | "gemini" | "ollama";
                           setAiProvider(val);
                           setAiTestResult(null);
                           await setSetting("ai_provider", val);
@@ -1014,105 +1020,172 @@ export function SettingsPage() {
                         <option value="claude">Claude (Anthropic)</option>
                         <option value="openai">OpenAI</option>
                         <option value="gemini">Gemini (Google)</option>
+                        <option value="ollama">Local AI (Ollama / LMStudio)</option>
                       </select>
                     </SettingRow>
                     <p className="text-xs text-text-tertiary">
                       {aiProvider === "claude" && "Uses Claude Haiku — fast and affordable."}
                       {aiProvider === "openai" && "Uses GPT-4o Mini — fast and affordable."}
                       {aiProvider === "gemini" && "Uses Gemini 2.0 Flash — fast and affordable."}
+                      {aiProvider === "ollama" && "Connect to a local Ollama or LMStudio server. No API key required."}
                     </p>
                   </Section>
 
-                  <Section title="API Key">
-                    <div className="space-y-3">
-                      <TextField
-                        label={
-                          aiProvider === "claude" ? "Anthropic API Key"
-                          : aiProvider === "openai" ? "OpenAI API Key"
-                          : "Google AI API Key"
-                        }
-                        size="md"
-                        type="password"
-                        value={
-                          aiProvider === "claude" ? claudeApiKey
-                          : aiProvider === "openai" ? openaiApiKey
-                          : geminiApiKey
-                        }
-                        onChange={(e) => {
-                          if (aiProvider === "claude") setClaudeApiKey(e.target.value);
-                          else if (aiProvider === "openai") setOpenaiApiKey(e.target.value);
-                          else setGeminiApiKey(e.target.value);
-                        }}
-                        placeholder={
-                          aiProvider === "claude" ? "sk-ant-..."
-                          : aiProvider === "openai" ? "sk-..."
-                          : "AI..."
-                        }
-                      />
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="primary"
+                  {aiProvider === "ollama" ? (
+                    <Section title="Local Server">
+                      <div className="space-y-3">
+                        <TextField
+                          label="Server URL"
                           size="md"
-                          onClick={async () => {
-                            const keySettingMap = {
-                              claude: "claude_api_key",
-                              openai: "openai_api_key",
-                              gemini: "gemini_api_key",
-                            } as const;
-                            const keyValue =
-                              aiProvider === "claude" ? claudeApiKey.trim()
-                              : aiProvider === "openai" ? openaiApiKey.trim()
-                              : geminiApiKey.trim();
-                            if (keyValue) {
-                              await setSecureSetting(keySettingMap[aiProvider], keyValue);
+                          value={ollamaServerUrl}
+                          onChange={(e) => setOllamaServerUrl(e.target.value)}
+                          placeholder="http://localhost:11434"
+                        />
+                        <TextField
+                          label="Model Name"
+                          size="md"
+                          value={ollamaModel}
+                          onChange={(e) => setOllamaModel(e.target.value)}
+                          placeholder="llama3.2"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="primary"
+                            size="md"
+                            onClick={async () => {
+                              await setSetting("ollama_server_url", ollamaServerUrl.trim());
+                              await setSetting("ollama_model", ollamaModel.trim());
                               const { clearProviderClients } = await import("@/services/ai/providerManager");
                               clearProviderClients();
-                            }
-                            setAiKeySaved(true);
-                            setTimeout(() => setAiKeySaved(false), 2000);
-                          }}
-                          disabled={
-                            !(aiProvider === "claude" ? claudeApiKey.trim()
-                            : aiProvider === "openai" ? openaiApiKey.trim()
-                            : geminiApiKey.trim())
-                          }
-                        >
-                          {aiKeySaved ? "Saved!" : "Save Key"}
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="md"
-                          onClick={async () => {
-                            setAiTesting(true);
-                            setAiTestResult(null);
-                            try {
-                              const { testConnection } = await import("@/services/ai/aiService");
-                              const ok = await testConnection();
-                              setAiTestResult(ok ? "success" : "fail");
-                            } catch {
-                              setAiTestResult("fail");
-                            } finally {
-                              setAiTesting(false);
-                            }
-                          }}
-                          disabled={
-                            !(aiProvider === "claude" ? claudeApiKey.trim()
-                            : aiProvider === "openai" ? openaiApiKey.trim()
-                            : geminiApiKey.trim()) || aiTesting
-                          }
-                          className="bg-bg-tertiary text-text-primary border border-border-primary"
-                        >
-                          {aiTesting ? "Testing..." : "Test Connection"}
-                        </Button>
-                        {aiTestResult === "success" && (
-                          <span className="text-xs text-success">Connected!</span>
-                        )}
-                        {aiTestResult === "fail" && (
-                          <span className="text-xs text-danger">Connection failed</span>
-                        )}
+                              setAiKeySaved(true);
+                              setTimeout(() => setAiKeySaved(false), 2000);
+                            }}
+                            disabled={!ollamaServerUrl.trim() || !ollamaModel.trim()}
+                          >
+                            {aiKeySaved ? "Saved!" : "Save"}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="md"
+                            onClick={async () => {
+                              setAiTesting(true);
+                              setAiTestResult(null);
+                              try {
+                                const { testConnection } = await import("@/services/ai/aiService");
+                                const ok = await testConnection();
+                                setAiTestResult(ok ? "success" : "fail");
+                              } catch {
+                                setAiTestResult("fail");
+                              } finally {
+                                setAiTesting(false);
+                              }
+                            }}
+                            disabled={!ollamaServerUrl.trim() || !ollamaModel.trim() || aiTesting}
+                            className="bg-bg-tertiary text-text-primary border border-border-primary"
+                          >
+                            {aiTesting ? "Testing..." : "Test Connection"}
+                          </Button>
+                          {aiTestResult === "success" && (
+                            <span className="text-xs text-success">Connected!</span>
+                          )}
+                          {aiTestResult === "fail" && (
+                            <span className="text-xs text-danger">Connection failed</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </Section>
+                    </Section>
+                  ) : (
+                    <Section title="API Key">
+                      <div className="space-y-3">
+                        <TextField
+                          label={
+                            aiProvider === "claude" ? "Anthropic API Key"
+                            : aiProvider === "openai" ? "OpenAI API Key"
+                            : "Google AI API Key"
+                          }
+                          size="md"
+                          type="password"
+                          value={
+                            aiProvider === "claude" ? claudeApiKey
+                            : aiProvider === "openai" ? openaiApiKey
+                            : geminiApiKey
+                          }
+                          onChange={(e) => {
+                            if (aiProvider === "claude") setClaudeApiKey(e.target.value);
+                            else if (aiProvider === "openai") setOpenaiApiKey(e.target.value);
+                            else setGeminiApiKey(e.target.value);
+                          }}
+                          placeholder={
+                            aiProvider === "claude" ? "sk-ant-..."
+                            : aiProvider === "openai" ? "sk-..."
+                            : "AI..."
+                          }
+                        />
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="primary"
+                            size="md"
+                            onClick={async () => {
+                              const keySettingMap = {
+                                claude: "claude_api_key",
+                                openai: "openai_api_key",
+                                gemini: "gemini_api_key",
+                              } as const;
+                              const keyValue =
+                                aiProvider === "claude" ? claudeApiKey.trim()
+                                : aiProvider === "openai" ? openaiApiKey.trim()
+                                : geminiApiKey.trim();
+                              if (keyValue) {
+                                await setSecureSetting(keySettingMap[aiProvider], keyValue);
+                                const { clearProviderClients } = await import("@/services/ai/providerManager");
+                                clearProviderClients();
+                              }
+                              setAiKeySaved(true);
+                              setTimeout(() => setAiKeySaved(false), 2000);
+                            }}
+                            disabled={
+                              !(aiProvider === "claude" ? claudeApiKey.trim()
+                              : aiProvider === "openai" ? openaiApiKey.trim()
+                              : geminiApiKey.trim())
+                            }
+                          >
+                            {aiKeySaved ? "Saved!" : "Save Key"}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="md"
+                            onClick={async () => {
+                              setAiTesting(true);
+                              setAiTestResult(null);
+                              try {
+                                const { testConnection } = await import("@/services/ai/aiService");
+                                const ok = await testConnection();
+                                setAiTestResult(ok ? "success" : "fail");
+                              } catch {
+                                setAiTestResult("fail");
+                              } finally {
+                                setAiTesting(false);
+                              }
+                            }}
+                            disabled={
+                              !(aiProvider === "claude" ? claudeApiKey.trim()
+                              : aiProvider === "openai" ? openaiApiKey.trim()
+                              : geminiApiKey.trim()) || aiTesting
+                            }
+                            className="bg-bg-tertiary text-text-primary border border-border-primary"
+                          >
+                            {aiTesting ? "Testing..." : "Test Connection"}
+                          </Button>
+                          {aiTestResult === "success" && (
+                            <span className="text-xs text-success">Connected!</span>
+                          )}
+                          {aiTestResult === "fail" && (
+                            <span className="text-xs text-danger">Connection failed</span>
+                          )}
+                        </div>
+                      </div>
+                    </Section>
+                  )}
 
                   <Section title="Features">
                     <ToggleRow
