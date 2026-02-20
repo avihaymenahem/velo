@@ -718,6 +718,41 @@ const MIGRATIONS = [
       ALTER TABLE accounts ADD COLUMN calendar_provider TEXT;
     `,
   },
+  {
+    version: 20,
+    description: "Fix IMAP attachment part IDs and trigger resync",
+    sql: `
+      -- Delete IMAP attachment records that have wrong sequential part IDs.
+      -- They will be re-created with correct MIME section paths on next sync.
+      DELETE FROM attachments
+        WHERE account_id IN (SELECT id FROM accounts WHERE provider = 'imap');
+
+      -- Reset IMAP folder sync state so delta sync re-fetches all messages,
+      -- which will re-store attachments with correct part IDs.
+      DELETE FROM folder_sync_state
+        WHERE account_id IN (SELECT id FROM accounts WHERE provider = 'imap');
+    `,
+  },
+  {
+    version: 21,
+    description: "Force IMAP full resync for corrected attachment part IDs",
+    sql: `
+      -- Clear history_id so syncManager routes IMAP accounts through
+      -- imapInitialSync (which stores attachments per-message) instead of
+      -- the delta path that may skip already-known UIDs.
+      UPDATE accounts SET history_id = NULL
+        WHERE provider = 'imap';
+
+      -- Ensure folder sync state is clear (may have been partially
+      -- repopulated if v20 migration's sync failed due to DB lock).
+      DELETE FROM folder_sync_state
+        WHERE account_id IN (SELECT id FROM accounts WHERE provider = 'imap');
+
+      -- Ensure stale attachment records are gone.
+      DELETE FROM attachments
+        WHERE account_id IN (SELECT id FROM accounts WHERE provider = 'imap');
+    `,
+  },
 ];
 
 /**
@@ -837,4 +872,31 @@ export async function runMigrations(): Promise<void> {
   }
 
   console.log("All migrations applied.");
+
+  // One-time repair: force IMAP attachment resync with corrected Rust binary.
+  // Migrations 20/21 may have run before the Rust fix was compiled in.
+  // This uses a settings flag so it only runs once.
+  const repairFlag = await db.select<{ value: string }[]>(
+    "SELECT value FROM settings WHERE key = 'imap_attachment_repair_v1'",
+  );
+  if (repairFlag.length === 0) {
+    const imapAccounts = await db.select<{ id: string }[]>(
+      "SELECT id FROM accounts WHERE provider = 'imap'",
+    );
+    if (imapAccounts.length > 0) {
+      console.log("[repair] Forcing IMAP attachment resync with corrected part IDs...");
+      await db.execute(
+        "DELETE FROM attachments WHERE account_id IN (SELECT id FROM accounts WHERE provider = 'imap')",
+      );
+      await db.execute(
+        "DELETE FROM folder_sync_state WHERE account_id IN (SELECT id FROM accounts WHERE provider = 'imap')",
+      );
+      await db.execute(
+        "UPDATE accounts SET history_id = NULL WHERE provider = 'imap'",
+      );
+    }
+    await db.execute(
+      "INSERT OR REPLACE INTO settings (key, value) VALUES ('imap_attachment_repair_v1', '1')",
+    );
+  }
 }

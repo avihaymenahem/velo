@@ -474,7 +474,11 @@ pub async fn get_folder_status(
 }
 
 /// Fetch a specific MIME part (attachment) by UID and part ID.
-/// Returns the raw bytes base64-encoded.
+/// Returns the decoded binary data as standard base64.
+///
+/// Fetches the full message via `BODY.PEEK[]`, parses it with `mail-parser`
+/// (which handles all content-transfer-encoding decoding), and extracts
+/// the requested part's decoded bytes.
 pub async fn fetch_attachment(
     session: &mut ImapSession,
     folder: &str,
@@ -486,10 +490,9 @@ pub async fn fetch_attachment(
         .await
         .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
 
-    let query = format!("BODY.PEEK[{part_id}]");
     let uid_str = uid.to_string();
     let fetches = session
-        .uid_fetch(&uid_str, &query)
+        .uid_fetch(&uid_str, "BODY.PEEK[]")
         .await
         .map_err(|e| format!("UID FETCH attachment failed: {e}"))?;
 
@@ -502,15 +505,48 @@ pub async fn fetch_attachment(
 
     let fetch = fetches
         .first()
-        .ok_or_else(|| format!("No response for UID {uid} part {part_id}"))?;
+        .ok_or_else(|| format!("No response for UID {uid}"))?;
 
-    // The body() method returns the full BODY[] content; for partial fetches
-    // it is still accessible via body().
-    let data = fetch
+    let raw = fetch
         .body()
-        .ok_or_else(|| format!("No body data for part {part_id}"))?;
+        .ok_or_else(|| format!("No body for UID {uid}"))?;
 
-    Ok(base64::engine::general_purpose::STANDARD.encode(data))
+    // Parse the full message — mail-parser decodes content-transfer-encoding
+    let parser = MessageParser::default();
+    let message = parser
+        .parse(raw)
+        .ok_or_else(|| format!("Failed to parse message UID {uid}"))?;
+
+    // Build section map and find the part index for the requested section path
+    let section_map = build_imap_section_map(&message);
+    let target_part_idx = section_map
+        .iter()
+        .find(|(_, section)| section.as_str() == part_id)
+        .map(|(&idx, _)| idx)
+        .ok_or_else(|| format!("Section {part_id} not found in message UID {uid}"))?;
+
+    let part = message
+        .parts
+        .get(target_part_idx)
+        .ok_or_else(|| format!("Part index {target_part_idx} out of range for UID {uid}"))?;
+
+    // Extract the decoded binary content from the part
+    let data = match &part.body {
+        mail_parser::PartType::Binary(data) | mail_parser::PartType::InlineBinary(data) => {
+            data.as_ref().to_vec()
+        }
+        mail_parser::PartType::Text(text) => text.as_bytes().to_vec(),
+        mail_parser::PartType::Html(html) => html.as_bytes().to_vec(),
+        mail_parser::PartType::Message(msg) => {
+            // Nested message — encode the raw bytes
+            msg.raw_message.as_ref().to_vec()
+        }
+        mail_parser::PartType::Multipart(_) => {
+            return Err(format!("Part {part_id} is a multipart container, not a leaf part"));
+        }
+    };
+
+    Ok(base64::engine::general_purpose::STANDARD.encode(&data))
 }
 
 /// Fetch the raw RFC822 source of a single message by UID.
@@ -1301,11 +1337,36 @@ fn parse_message(
         message.header(mail_parser::HeaderName::Other("Authentication-Results".into())),
     );
 
+    // Build a map from mail-parser part index → IMAP MIME section path.
+    // IMAP numbers children of multipart containers starting at 1 (e.g. "1", "2", "1.2.3").
+    // mail-parser stores all parts flat in a Vec, with Multipart variants holding child indices.
+    let section_map = build_imap_section_map(&message);
+
+    log::debug!(
+        "IMAP parse UID {uid}: {} parts, {} attachment indices {:?}, section_map: {:?}",
+        message.parts.len(),
+        message.attachments.len(),
+        message.attachments,
+        section_map,
+    );
+
     // Attachments
     let attachments: Vec<ImapAttachment> = message
-        .attachments()
-        .enumerate()
-        .map(|(i, att)| {
+        .attachments
+        .iter()
+        .filter_map(|&part_idx| {
+            let att = message.parts.get(part_idx)?;
+            let section = match section_map.get(&part_idx) {
+                Some(s) => s.clone(),
+                None => {
+                    log::warn!(
+                        "IMAP UID {uid}: attachment at part index {part_idx} not found in section map (map has {} entries)",
+                        section_map.len(),
+                    );
+                    return None;
+                }
+            };
+
             let mime_type = att
                 .content_type()
                 .map(|ct| {
@@ -1315,8 +1376,8 @@ fn parse_message(
                 })
                 .unwrap_or_else(|| "application/octet-stream".to_string());
 
-            ImapAttachment {
-                part_id: format!("{}", i + 1),
+            Some(ImapAttachment {
+                part_id: section,
                 filename: att
                     .attachment_name()
                     .unwrap_or("attachment")
@@ -1325,7 +1386,7 @@ fn parse_message(
                 size: att.len() as u32,
                 content_id: att.content_id().map(|s| s.to_string()),
                 is_inline: att.content_disposition().map_or(false, |cd| cd.is_inline()),
-            }
+            })
         })
         .collect();
 
@@ -1355,6 +1416,53 @@ fn parse_message(
         auth_results,
         attachments,
     })
+}
+
+/// Build a mapping from mail-parser part index → IMAP MIME section path string.
+///
+/// IMAP section numbering: children of a multipart container are numbered 1, 2, 3, ...
+/// Nested multipart children get dot-separated paths (e.g., "1.2" for the 2nd child of the 1st child).
+/// For non-multipart messages, the single body is section "1".
+fn build_imap_section_map(message: &mail_parser::Message) -> std::collections::HashMap<usize, String> {
+    use mail_parser::PartType;
+
+    let mut map = std::collections::HashMap::new();
+
+    fn walk(
+        parts: &[mail_parser::MessagePart],
+        part_idx: usize,
+        prefix: &str,
+        map: &mut std::collections::HashMap<usize, String>,
+    ) {
+        if let Some(part) = parts.get(part_idx) {
+            if let PartType::Multipart(children) = &part.body {
+                for (i, &child_idx) in children.iter().enumerate() {
+                    let section = if prefix.is_empty() {
+                        format!("{}", i + 1)
+                    } else {
+                        format!("{}.{}", prefix, i + 1)
+                    };
+                    walk(parts, child_idx, &section, map);
+                }
+            } else {
+                // Leaf part — use the section path as-is
+                let section = if prefix.is_empty() {
+                    // Non-multipart message: the body is section "1"
+                    "1".to_string()
+                } else {
+                    prefix.to_string()
+                };
+                map.insert(part_idx, section);
+            }
+        }
+    }
+
+    // Start from part 0 (root) with empty prefix
+    if !message.parts.is_empty() {
+        walk(&message.parts, 0, "", &mut map);
+    }
+
+    map
 }
 
 /// Extract a text value from a HeaderValue, if present.
