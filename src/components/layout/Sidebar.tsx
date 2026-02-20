@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { AccountSwitcher } from "../accounts/AccountSwitcher";
 import { LabelForm } from "../labels/LabelForm";
@@ -49,7 +49,7 @@ interface SidebarProps {
   onAddAccount: () => void;
 }
 
-const NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
+export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "inbox", label: "Inbox", icon: Inbox },
   { id: "starred", label: "Starred", icon: Star },
   { id: "snoozed", label: "Snoozed", icon: Clock },
@@ -60,6 +60,9 @@ const NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "all", label: "All Mail", icon: Mail },
   { id: "tasks", label: "Tasks", icon: CheckSquare },
   { id: "calendar", label: "Calendar", icon: Calendar },
+  { id: "attachments", label: "Attachments", icon: Paperclip },
+  { id: "smart-folders", label: "Smart Folders", icon: FolderSearch },
+  { id: "labels", label: "Labels", icon: Tag },
 ];
 
 const CATEGORY_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
@@ -205,6 +208,7 @@ const LABELS_COLLAPSED_COUNT = 3;
 export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const activeLabel = useActiveLabel();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const sidebarNavConfig = useUIStore((s) => s.sidebarNavConfig);
   const taskIncompleteCount = useTaskStore((s) => s.incompleteCount);
   const inboxViewMode = useUIStore((s) => s.inboxViewMode);
   const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
@@ -219,6 +223,33 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const loadSmartFolders = useSmartFolderStore((s) => s.loadFolders);
   const refreshSmartFolderCounts = useSmartFolderStore((s) => s.refreshUnreadCounts);
   const createSmartFolder = useSmartFolderStore((s) => s.createFolder);
+  const SECTION_IDS = new Set(["smart-folders", "labels"]);
+
+  const { visibleNavItems, showSmartFolders, showLabels } = useMemo(() => {
+    if (!sidebarNavConfig) {
+      const navOnly = ALL_NAV_ITEMS.filter((i) => !SECTION_IDS.has(i.id));
+      return { visibleNavItems: navOnly, showSmartFolders: true, showLabels: true };
+    }
+    const itemMap = new Map(ALL_NAV_ITEMS.map((item) => [item.id, item]));
+    const result: typeof ALL_NAV_ITEMS = [];
+    const seen = new Set<string>();
+    let smartFoldersVisible = true;
+    let labelsVisible = true;
+    for (const entry of sidebarNavConfig) {
+      seen.add(entry.id);
+      if (entry.id === "smart-folders") { smartFoldersVisible = entry.visible; continue; }
+      if (entry.id === "labels") { labelsVisible = entry.visible; continue; }
+      if (entry.visible && itemMap.has(entry.id)) {
+        result.push(itemMap.get(entry.id)!);
+      }
+    }
+    // Append any new items not present in the saved config
+    for (const item of ALL_NAV_ITEMS) {
+      if (!seen.has(item.id) && !SECTION_IDS.has(item.id)) result.push(item);
+    }
+    return { visibleNavItems: result, showSmartFolders: smartFoldersVisible, showLabels: labelsVisible };
+  }, [sidebarNavConfig]);
+
   const [labelsExpanded, setLabelsExpanded] = useState(false);
 
   // Inline label editing state
@@ -329,7 +360,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-2">
-        {NAV_ITEMS.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isInbox = item.id === "inbox";
           return (
@@ -421,7 +452,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
         })}
 
         {/* Smart Folders */}
-        {(smartFolders.length > 0 || !collapsed) && (
+        {showSmartFolders && (smartFolders.length > 0 || !collapsed) && (
           <>
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">
@@ -476,7 +507,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
         )}
 
         {/* User labels */}
-        {(labels.length > 0 || !collapsed) && (
+        {showLabels && (labels.length > 0 || !collapsed) && (
           <>
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">

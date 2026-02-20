@@ -265,6 +265,15 @@ export default function App() {
           ui.setTaskSidebarVisible(true);
         }
 
+        // Restore sidebar nav config
+        const savedNavConfig = await getSetting("sidebar_nav_config");
+        if (savedNavConfig) {
+          try {
+            const parsed = JSON.parse(savedNavConfig);
+            if (Array.isArray(parsed)) ui.restoreSidebarNavConfig(parsed);
+          } catch { /* ignore malformed JSON */ }
+        }
+
         // Load custom keyboard shortcuts
         await useShortcutStore.getState().loadKeyMap();
 

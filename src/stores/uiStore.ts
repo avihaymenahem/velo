@@ -11,6 +11,11 @@ export type MarkAsReadBehavior = "instant" | "2s" | "manual";
 export type FontScale = "small" | "default" | "large" | "xlarge";
 export type InboxViewMode = "unified" | "split";
 
+export interface SidebarNavItem {
+  id: string;
+  visible: boolean;
+}
+
 interface UIState {
   theme: Theme;
   sidebarCollapsed: boolean;
@@ -26,6 +31,7 @@ interface UIState {
   sendAndArchive: boolean;
   inboxViewMode: InboxViewMode;
   taskSidebarVisible: boolean;
+  sidebarNavConfig: SidebarNavItem[] | null;
   isOnline: boolean;
   pendingOpsCount: number;
   isSyncingFolder: string | null;
@@ -46,6 +52,8 @@ interface UIState {
   setInboxViewMode: (mode: InboxViewMode) => void;
   toggleTaskSidebar: () => void;
   setTaskSidebarVisible: (visible: boolean) => void;
+  setSidebarNavConfig: (config: SidebarNavItem[]) => void;
+  restoreSidebarNavConfig: (config: SidebarNavItem[]) => void;
   setOnline: (online: boolean) => void;
   setPendingOpsCount: (count: number) => void;
   setSyncingFolder: (folder: string | null) => void;
@@ -66,6 +74,7 @@ export const useUIStore = create<UIState>((set) => ({
   sendAndArchive: false,
   inboxViewMode: "unified",
   taskSidebarVisible: false,
+  sidebarNavConfig: null,
   isOnline: true,
   pendingOpsCount: 0,
   isSyncingFolder: null,
@@ -132,6 +141,11 @@ export const useUIStore = create<UIState>((set) => ({
       return { taskSidebarVisible: visible };
     }),
   setTaskSidebarVisible: (taskSidebarVisible) => set({ taskSidebarVisible }),
+  setSidebarNavConfig: (sidebarNavConfig) => {
+    setSetting("sidebar_nav_config", JSON.stringify(sidebarNavConfig)).catch(() => {});
+    set({ sidebarNavConfig });
+  },
+  restoreSidebarNavConfig: (sidebarNavConfig) => set({ sidebarNavConfig }),
   setOnline: (isOnline) => set({ isOnline }),
   setPendingOpsCount: (pendingOpsCount) => set({ pendingOpsCount }),
   setSyncingFolder: (isSyncingFolder) => set({ isSyncingFolder }),

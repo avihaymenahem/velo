@@ -158,6 +158,32 @@ describe("uiStore", () => {
     expect(useUIStore.getState().colorTheme).toBe("emerald");
   });
 
+  it("sidebarNavConfig should default to null", () => {
+    expect(useUIStore.getState().sidebarNavConfig).toBe(null);
+  });
+
+  it("setSidebarNavConfig should persist to DB and update state", () => {
+    const config = [
+      { id: "inbox", visible: true },
+      { id: "starred", visible: false },
+      { id: "sent", visible: true },
+    ];
+    useUIStore.getState().setSidebarNavConfig(config);
+    expect(setSetting).toHaveBeenCalledWith("sidebar_nav_config", JSON.stringify(config));
+    expect(useUIStore.getState().sidebarNavConfig).toEqual(config);
+  });
+
+  it("restoreSidebarNavConfig should update state without persisting", () => {
+    const config = [
+      { id: "inbox", visible: true },
+      { id: "tasks", visible: true },
+    ];
+    vi.clearAllMocks();
+    useUIStore.getState().restoreSidebarNavConfig(config);
+    expect(useUIStore.getState().sidebarNavConfig).toEqual(config);
+    expect(setSetting).not.toHaveBeenCalled();
+  });
+
   it("inboxViewMode should default to unified", () => {
     expect(useUIStore.getState().inboxViewMode).toBe("unified");
   });
