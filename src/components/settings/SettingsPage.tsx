@@ -44,6 +44,7 @@ import { ContactEditor } from "./ContactEditor";
 import { SubscriptionManager } from "./SubscriptionManager";
 import { SmartFolderEditor } from "./SmartFolderEditor";
 import { QuickStepEditor } from "./QuickStepEditor";
+import { SmartLabelEditor } from "./SmartLabelEditor";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
@@ -775,6 +776,13 @@ export function SettingsPage() {
                       Filters automatically apply actions to new incoming emails during sync.
                     </p>
                     <FilterEditor />
+                  </Section>
+
+                  <Section title="Smart Labels">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Describe what emails should get a label using plain English. AI automatically labels matching emails during sync.
+                    </p>
+                    <SmartLabelEditor />
                   </Section>
 
                   <Section title="Smart Folders">

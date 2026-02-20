@@ -12,6 +12,7 @@ import {
   CATEGORIZE_PROMPT,
   SMART_REPLY_PROMPT,
   ASK_INBOX_PROMPT,
+  SMART_LABEL_PROMPT,
   EXTRACT_TASK_PROMPT,
 } from "./prompts";
 
@@ -179,6 +180,48 @@ export async function categorizeThreads(
   }
 
   return categories;
+}
+
+export async function classifyThreadsBySmartLabels(
+  threads: { id: string; subject: string; snippet: string; fromAddress: string }[],
+  labelRules: { labelId: string; description: string }[],
+): Promise<Map<string, string[]>> {
+  const labelDefs = labelRules
+    .map((r) => `LABEL_ID:${r.labelId} — ${r.description}`)
+    .join("\n");
+
+  const threadData = threads
+    .map((t) => `<email_content>ID:${t.id} | From:${t.fromAddress} | Subject:${t.subject} | ${t.snippet}</email_content>`)
+    .join("\n");
+
+  const userContent = `Label definitions:\n${labelDefs}\n\nThreads:\n${threadData}`;
+
+  const validThreadIds = new Set(threads.map((t) => t.id));
+  const validLabelIds = new Set(labelRules.map((r) => r.labelId));
+
+  const result = await callAi(SMART_LABEL_PROMPT, userContent);
+  const assignments = new Map<string, string[]>();
+
+  for (const line of result.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const colonIdx = trimmed.indexOf(":");
+    if (colonIdx === -1) continue;
+    const threadId = trimmed.slice(0, colonIdx).trim();
+    const labelsPart = trimmed.slice(colonIdx + 1).trim();
+    if (!threadId || !labelsPart || !validThreadIds.has(threadId)) continue;
+
+    const labelIds = labelsPart
+      .split(",")
+      .map((l) => l.trim())
+      .filter((l) => validLabelIds.has(l));
+
+    if (labelIds.length > 0) {
+      assignments.set(threadId, labelIds);
+    }
+  }
+
+  return assignments;
 }
 
 export async function extractTaskFromThread(

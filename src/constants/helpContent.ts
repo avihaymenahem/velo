@@ -60,6 +60,7 @@ import {
   RefreshCw,
   ListFilter,
   Paperclip,
+  Tags,
 } from "lucide-react";
 
 // ---------- Types ----------
@@ -543,6 +544,23 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Actions: apply label, archive, trash, star, mark as read." },
           { text: "Multiple matching filters merge their actions." },
           { text: "Filters run on every new message during background sync." },
+        ],
+        relatedSettingsTab: "mail-rules",
+      },
+      {
+        id: "smart-labels",
+        icon: Tags,
+        title: "Smart labels",
+        summary: "AI-powered auto-labeling using plain English descriptions.",
+        description:
+          "Describe what emails should receive a label using natural language — for example, 'Job applications and career opportunities' — and AI automatically labels matching emails during every sync. You can also add optional traditional criteria (from, subject, etc.) for instant deterministic matching before the AI fallback. Smart labels support multi-label assignment, so a single thread can match several rules at once. Use the 'Apply to existing emails' button to backfill labels onto your current inbox.",
+        tips: [
+          { text: "Create smart labels in Settings > Mail Rules > Smart Labels." },
+          { text: "Write a plain-English description of what the label should match." },
+          { text: "Optional: add traditional criteria (from, subject) for instant matching without AI." },
+          { text: "Click 'Apply to existing emails' to label your current inbox retroactively." },
+          { text: "Smart labels run automatically on every new email during sync." },
+          { text: "Requires an active AI provider (Claude, GPT, or Gemini)." },
         ],
         relatedSettingsTab: "mail-rules",
       },
@@ -1276,6 +1294,11 @@ export const CONTEXTUAL_TIPS: Record<string, ContextualTip> = {
   "filters": {
     title: "Automatic filters",
     body: "Filters run on every new message during sync. Criteria use AND logic, and when multiple filters match, their actions are merged.",
+    helpTopic: "organization",
+  },
+  "smart-labels": {
+    title: "Smart labels",
+    body: "Describe what emails should get a label in plain English. AI auto-labels matching emails during sync. Optional criteria provide instant matching without AI.",
     helpTopic: "organization",
   },
 };
