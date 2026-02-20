@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.7](https://github.com/avihaymenahem/velo/compare/velo-v0.4.6...velo-v0.4.7) (2026-02-20)
+
+
+### Features
+
+* add local AI support via Ollama and LMStudio ([1cee002](https://github.com/avihaymenahem/velo/commit/1cee00291df37c46ba2d46a95346152a6ac7dc1f)), closes [#98](https://github.com/avihaymenahem/velo/issues/98)
+
 ## [0.4.6](https://github.com/avihaymenahem/velo/compare/velo-v0.4.5...velo-v0.4.6) (2026-02-20)
 
 
