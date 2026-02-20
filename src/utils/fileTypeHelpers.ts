@@ -23,6 +23,27 @@ export function canPreview(mimeType: string | null, filename: string | null): bo
   return isImage(mimeType) || isPdf(mimeType, filename) || isText(mimeType);
 }
 
+export function isDocument(mimeType: string | null, filename?: string | null): boolean {
+  if (mimeType) {
+    if (mimeType.includes("msword") || mimeType.includes("wordprocessingml") || mimeType.includes("opendocument.text") || mimeType === "application/rtf") return true;
+  }
+  const ext = filename?.toLowerCase();
+  return ext?.endsWith(".doc") || ext?.endsWith(".docx") || ext?.endsWith(".odt") || ext?.endsWith(".rtf") || false;
+}
+
+export function isSpreadsheet(mimeType: string | null, filename?: string | null): boolean {
+  if (mimeType) {
+    if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || mimeType === "text/csv") return true;
+  }
+  const ext = filename?.toLowerCase();
+  return ext?.endsWith(".xls") || ext?.endsWith(".xlsx") || ext?.endsWith(".ods") || ext?.endsWith(".csv") || false;
+}
+
+export function isArchive(mimeType: string | null): boolean {
+  if (!mimeType) return false;
+  return mimeType.includes("zip") || mimeType.includes("compressed") || mimeType.includes("archive") || mimeType.includes("tar") || mimeType === "application/gzip" || mimeType === "application/x-gzip";
+}
+
 export function getFileIcon(mimeType: string | null): string {
   if (!mimeType) return "\u{1F4CE}";
   if (mimeType.startsWith("image/")) return "\u{1F5BC}";

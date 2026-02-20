@@ -59,6 +59,7 @@ import {
   Code,
   RefreshCw,
   ListFilter,
+  Paperclip,
 } from "lucide-react";
 
 // ---------- Types ----------
@@ -622,6 +623,22 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         ],
       },
       {
+        id: "attachment-library",
+        icon: Paperclip,
+        title: "Attachment library",
+        summary: "Browse and search all your attachments in one place.",
+        description:
+          "The Attachment Library gives you a searchable, filterable view of every attachment across all your emails. Find files without remembering which email they were in. Filter by file type (images, PDFs, documents, spreadsheets, archives), sender, date range, or file size. Switch between grid and list views. Preview images and PDFs inline, download files, or jump directly to the original email thread.",
+        tips: [
+          { text: "Go to Attachments", shortcut: "g a" },
+          { text: "Open Attachments from the sidebar navigation (Paperclip icon)." },
+          { text: "Search by filename, subject, or sender name." },
+          { text: "Filter by type, sender, date range, or file size." },
+          { text: "Click an attachment to preview, download, or jump to the email." },
+          { text: "Switch between grid and list views with the toggle in the header." },
+        ],
+      },
+      {
         id: "drag-drop",
         icon: GripVertical,
         title: "Drag & drop",
@@ -1099,6 +1116,22 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Collapse sidebar to icons-only for more screen space." },
           { text: "Drag the list/pane divider to adjust widths." },
           { text: "All layout preferences persist across restarts." },
+        ],
+        relatedSettingsTab: "general",
+      },
+      {
+        id: "sidebar-customization",
+        icon: Layout,
+        title: "Sidebar customization",
+        summary: "Hide, show, and reorder sidebar navigation items.",
+        description:
+          "Control which items appear in your sidebar and their order. Go to Settings > General > Sidebar to toggle visibility of any navigation item (Starred, Snoozed, Sent, Drafts, Trash, Spam, All Mail, Tasks, Calendar, Attachments) and reorder them with up/down arrows. You can also hide the Smart Folders and Labels sections entirely. Inbox is always visible and cannot be hidden. Use \"Reset to defaults\" to restore the original layout. Changes take effect immediately and persist across restarts.",
+        tips: [
+          { text: "Hide items you rarely use to reduce sidebar clutter." },
+          { text: "Reorder items to put your most-used folders on top." },
+          { text: "Toggle off Smart Folders or Labels to hide those sections." },
+          { text: "Inbox is always visible — it cannot be hidden." },
+          { text: "Click \"Reset to defaults\" to restore the original order." },
         ],
         relatedSettingsTab: "general",
       },

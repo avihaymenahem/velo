@@ -50,7 +50,7 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 ```
 velo/
 ├── src/
-│   ├── components/           # React components (13 groups, ~90 files)
+│   ├── components/           # React components (14 groups, ~93 files)
 │   │   ├── layout/           # Sidebar, EmailList, ReadingPane, TitleBar
 │   │   ├── email/            # ThreadView, MessageItem, EmailRenderer,
 │   │   │                     # ContactSidebar, SmartReplySuggestions,
@@ -66,6 +66,7 @@ velo/
 │   │   ├── accounts/         # AddAccount, AddImapAccount, AccountSwitcher, SetupClientId
 │   │   ├── calendar/         # CalendarPage, MonthView, WeekView, DayView,
 │   │   │                     # EventCard, EventCreateModal
+│   │   ├── attachments/      # AttachmentLibrary, AttachmentGridItem, AttachmentListItem
 │   │   ├── tasks/            # TasksPage, TaskItem, TaskSidebar, TaskQuickAdd,
 │   │   │                     # AiTaskExtractDialog
 │   │   ├── help/             # HelpPage, HelpSidebar, HelpSearchBar,
@@ -176,7 +177,7 @@ Nine Zustand stores manage ephemeral UI state:
 
 | Store | Purpose |
 |-------|---------|
-| `uiStore` | Theme, sidebar, reading pane, density, font scale, selections, online status, pending ops count |
+| `uiStore` | Theme, sidebar, sidebar nav config, reading pane, density, font scale, selections, online status, pending ops count |
 | `accountStore` | Account list, active account |
 | `threadStore` | Thread list, selected thread, loading state |
 | `composerStore` | Compose state, recipients, body, attachments |

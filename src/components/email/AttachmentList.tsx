@@ -78,7 +78,7 @@ export function AttachmentList({ accountId, messageId, attachments, referencedCi
   );
 }
 
-function AttachmentPreview({
+export function AttachmentPreview({
   attachment,
   accountId,
   messageId,

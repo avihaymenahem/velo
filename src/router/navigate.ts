@@ -23,6 +23,11 @@ export function navigateToLabel(
     return;
   }
 
+  if (label === "attachments") {
+    router.navigate({ to: "/attachments" });
+    return;
+  }
+
   if (label === "calendar") {
     router.navigate({ to: "/calendar" });
     return;
@@ -203,6 +208,9 @@ export function getActiveLabel(): string {
     }
     if (match.routeId === "/settings/$tab" || match.routeId === "/settings") {
       return "settings";
+    }
+    if (match.routeId === "/attachments") {
+      return "attachments";
     }
     if (match.routeId === "/tasks") {
       return "tasks";

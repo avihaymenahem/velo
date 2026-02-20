@@ -67,7 +67,7 @@ Tauri v2 desktop app: Rust backend + React 19 frontend communicating via Tauri I
 
 ### Component organization
 
-13 groups, ~90 component files:
+14 groups, ~93 component files:
 - `layout/` — Sidebar, EmailList, ReadingPane, TitleBar
 - `email/` — ThreadView, ThreadCard, MessageItem, EmailRenderer, ActionBar, AttachmentList, SnoozeDialog, ContactSidebar, FollowUpDialog, InlineAttachmentPreview, InlineReply, SmartReplySuggestions, ThreadSummary, AuthBadge, AuthWarningBanner, PhishingBanner, LinkConfirmDialog, CategoryTabs
 - `composer/` — Composer (TipTap v3 rich text editor), AddressInput, EditorToolbar, AttachmentPicker, ScheduleSendDialog, SignatureSelector, TemplatePicker, UndoSendToast, AiAssistPanel, FromSelector
@@ -75,6 +75,7 @@ Tauri v2 desktop app: Rust backend + React 19 frontend communicating via Tauri I
 - `settings/` — SettingsPage, FilterEditor, LabelEditor, SignatureEditor, TemplateEditor, ContactEditor, SubscriptionManager, QuickStepEditor, SmartFolderEditor
 - `accounts/` — AddAccount, AddImapAccount, AccountSwitcher, SetupClientId
 - `calendar/` — CalendarPage, CalendarReauthBanner, CalendarToolbar, DayView, WeekView, MonthView, EventCard, EventCreateModal
+- `attachments/` — AttachmentLibrary, AttachmentGridItem, AttachmentListItem
 - `tasks/` — TasksPage, TaskItem, TaskQuickAdd, TaskSidebar, AiTaskExtractDialog
 - `help/` — HelpPage, HelpSidebar, HelpSearchBar, HelpCard, HelpCardGrid, HelpTooltip
 - `labels/` — LabelForm
@@ -88,7 +89,7 @@ Thread pop-out windows via `ThreadWindow.tsx`. Entry point in `main.tsx` checks 
 ### Startup sequence (App.tsx)
 
 1. `runMigrations()`
-2. Restore persisted settings: theme, color theme, sidebar, contact sidebar, reading pane position, read filter, email list width, email density, default reply mode, mark-as-read behavior, send & archive, font scale, inbox view mode, phishing detection
+2. Restore persisted settings: theme, color theme, sidebar, contact sidebar, reading pane position, read filter, email list width, email density, default reply mode, mark-as-read behavior, send & archive, font scale, inbox view mode, phishing detection, sidebar nav config
 3. Load custom keyboard shortcuts (`shortcutStore.loadKeyMap()`)
 4. `getAllAccounts()` → `initializeClients()` (Gmail API clients) / create IMAP providers → `fetchSendAsAliases()` per Gmail account
 5. `startBackgroundSync()` (60s interval), `backfillUncategorizedThreads()`
@@ -142,6 +143,7 @@ Custom window events: `velo-sync-done`, `velo-toggle-command-palette`, `velo-tog
 | `g` then `c` | Go to Social |
 | `g` then `n` | Go to Newsletters |
 | `g` then `k` | Go to Tasks |
+| `g` then `a` | Go to Attachments |
 
 Multi-select: click to toggle, Shift+click for range. All keyboard actions work on multi-selected threads.
 
@@ -163,7 +165,7 @@ Tailwind CSS v4 — uses `@import "tailwindcss"`, `@theme {}` for custom propert
 
 Vitest + jsdom. Setup file: `src/test/setup.ts` (imports `@testing-library/jest-dom/vitest`). Config: `globals: true` (no imports needed for `describe`, `it`, `expect`). Tests are colocated with source files (e.g., `uiStore.test.ts` next to `uiStore.ts`). Zustand test pattern: `useStore.setState()` in beforeEach, assert via `.getState()`.
 
-111 test files across stores (8), services (56), utils (13), components (27), constants (3), router (1), hooks (2), and config (1).
+124 test files across stores (8), services (65), utils (14), components (30), constants (3), router (1), hooks (2), and config (1).
 
 ## Database
 

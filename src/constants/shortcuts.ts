@@ -26,6 +26,7 @@ export const SHORTCUTS: ShortcutCategory[] = [
     { id: "nav.goSocial", keys: "g then c", desc: "Go to Social" },
     { id: "nav.goNewsletters", keys: "g then n", desc: "Go to Newsletters" },
     { id: "nav.goTasks", keys: "g then k", desc: "Go to Tasks" },
+    { id: "nav.goAttachments", keys: "g then a", desc: "Go to Attachments" },
     { id: "nav.escape", keys: "Escape", desc: "Close / Go back" },
   ]},
   { category: "Actions", items: [

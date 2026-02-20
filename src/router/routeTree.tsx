@@ -13,6 +13,7 @@ const SettingsPage = lazy(() => import("@/components/settings/SettingsPage").the
 const HelpPage = lazy(() => import("@/components/help/HelpPage").then((m) => ({ default: m.HelpPage })));
 const CalendarPage = lazy(() => import("@/components/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
 const TasksPage = lazy(() => import("@/components/tasks/TasksPage").then((m) => ({ default: m.TasksPage })));
+const AttachmentLibrary = lazy(() => import("@/components/attachments/AttachmentLibrary").then((m) => ({ default: m.AttachmentLibrary })));
 
 // ---------- Search param validation ----------
 const VALID_CATEGORIES = ["Primary", "Updates", "Promotions", "Social", "Newsletters"] as const;
@@ -145,6 +146,23 @@ export const settingsTabRoute = createRoute({
   component: SettingsTabPage,
 });
 
+// ---------- /attachments ----------
+function AttachmentLibraryWrapper() {
+  return (
+    <ErrorBoundary name="AttachmentLibrary">
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading attachments...</div>}>
+        <AttachmentLibrary />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+export const attachmentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "attachments",
+  component: AttachmentLibraryWrapper,
+});
+
 // ---------- /tasks ----------
 function TasksPageWrapper() {
   return (
@@ -193,6 +211,7 @@ export const routeTree = rootRoute.addChildren([
   smartFolderRoute.addChildren([smartFolderThreadRoute]),
   settingsIndexRoute,
   settingsTabRoute,
+  attachmentsRoute,
   tasksRoute,
   calendarRoute,
   helpIndexRoute,
