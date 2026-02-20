@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.10](https://github.com/avihaymenahem/velo/compare/velo-v0.4.9...velo-v0.4.10) (2026-02-20)
+
+
+### Features
+
+* add AI smart labels for automatic email labeling ([986a7ae](https://github.com/avihaymenahem/velo/commit/986a7aef3f13171f0a0cebd8f523aa67a7cb34f5))
+* add attachment library, keyboard shortcut, and update docs ([b69f042](https://github.com/avihaymenahem/velo/commit/b69f042e74b42ba4680ee60730959e7de08e6dc7))
+* add sidebar nav item reordering and visibility customization ([3f96837](https://github.com/avihaymenahem/velo/commit/3f96837dfeaf65647889633d297766b6e5be079c))
+
+
+### Bug Fixes
+
+* resolve context menu bugs on attachment preview and submenu opening ([f1d26b9](https://github.com/avihaymenahem/velo/commit/f1d26b97410a596f8562e175470dddf9eafba433))
+
 ## [0.4.9](https://github.com/avihaymenahem/velo/compare/velo-v0.4.8...velo-v0.4.9) (2026-02-20)
 
 
