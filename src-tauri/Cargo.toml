@@ -48,3 +48,6 @@ reqwest = { version = "0.12", default-features = false, features = ["native-tls"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = ["Win32_UI_Shell"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tray-item = { version = "0.10.0", default-features = false, features = ["ksni"] }

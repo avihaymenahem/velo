@@ -1,0 +1,47 @@
+app-id: com.velomail.app
+runtime: org.gnome.Platform
+runtime-version: "46"
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node20
+command: velo
+build-options:
+  append-path: /usr/lib/sdk/node20/bin
+  env:
+    CARGO_HOME: /run/build/velo/flatpak-cargo
+    RUSTUP_HOME: /run/build/velo/flatpak-rustup
+    LD_LIBRARY_PATH: /app/lib
+    PKG_CONFIG_PATH: /app/lib/pkgconfig
+  build-args:
+    - --share=network
+
+modules:
+  - name: velo
+    buildsystem: simple
+    build-commands:
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --no-modify-path
+      - npm ci
+      - export PATH="$CARGO_HOME/bin:$PATH" && npx tauri build --no-bundle
+      - install -Dm755 src-tauri/target/release/velo /app/bin/velo
+      - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.velomail.app.png
+      - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.velomail.app.png
+      - install -Dm644 src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.velomail.app.png
+      - install -Dm644 com.velomail.app.desktop /app/share/applications/com.velomail.app.desktop
+      - install -Dm644 com.velomail.app.metainfo.xml /app/share/metainfo/com.velomail.app.metainfo.xml
+    sources:
+      - type: dir
+        path: .
+        skip:
+          - src-tauri/target
+          - node_modules
+
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --share=network
+  - --device=dri
+  - --filesystem=xdg-download:rw
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.freedesktop.portal.Desktop # File picker, open/save dialogs
+  - --talk-name=org.kde.StatusNotifierWatcher # D-Bus StatusNotifierItem for KSNI

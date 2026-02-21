@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<component type="desktop-application">
+  <id>com.velomail.app</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+  <name>Velo</name>
+  <summary>Fast, beautiful desktop email client</summary>
+  <description>
+    <p>Velo is a fast and beautiful desktop email client, built with modern web technologies.</p>
+  </description>
+  <url type="homepage">https://github.com/avihaymenahem/velo</url>
+  <url type="bugtracker">https://github.com/avihaymenahem/velo/issues</url>
+  <launchable type="desktop-id">com.velomail.app.desktop</launchable>
+  <releases>
+    <release version="0.4.10" date="2026-02-20" /> <!-- x-release-please-version -->
+  </releases>
+  <developer id="app.velomail">
+    <name>Velo Team</name>
+  </developer>
+  <content_rating type="oars-1.1" />
+  <icons>
+    <icon type="cached" width="128" height="128">/app/share/icons/hicolor/128x128/apps/com.velomail.app.png</icon>
+    <icon type="cached" width="256" height="256">/app/share/icons/hicolor/256x256/apps/com.velomail.app.png</icon>
+  </icons>
+</component>

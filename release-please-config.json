@@ -13,6 +13,14 @@
         {
           "type": "generic",
           "path": "src-tauri/Cargo.toml"
+        },
+        {
+          "type": "generic",
+          "path": "com.velomail.app.metainfo.xml"
+        },
+        {
+          "type": "generic",
+          "path": "velo.spec"
         }
       ]
     }

@@ -4,6 +4,8 @@ node_modules/
 # Build outputs
 dist/
 build/
+test-buildroot/
+.flatpak-builder/
 
 # Tauri
 src-tauri/target/
@@ -67,3 +69,11 @@ coverage/
 *.tmp
 *.temp
 .cache/
+
+# Packaging Artifacts
+build-dir/
+repo/
+velo-*.tar.gz
+*.flatpak
+*.rpm
+*.src.rpm
