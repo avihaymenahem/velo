@@ -1,16 +1,17 @@
 name: Update Homebrew Tap
 
 on:
+  workflow_call:
+    inputs:
+      tag_name:
+        description: "Release tag name (e.g. v0.5.0)"
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       version:
         description: "Version to sync (e.g. 0.3.14). Defaults to latest release."
         required: false
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/update-homebrew.yml
-      - .github/workflows/release.yml
 
 jobs:
   update-homebrew:
@@ -21,12 +22,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="${{ github.event.inputs.version }}"
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            VERSION="${{ inputs.tag_name }}"
+          elif [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
           else
             TAG=$(gh release view --repo ${{ github.repository }} --json tagName -q '.tagName')
             VERSION="${TAG##*v}"
           fi
+          # Strip any prefix up to and including 'v' (handles velo-v0.4.3, v0.4.3, etc.)
+          VERSION="${VERSION##*v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Using version: ${VERSION}"
 

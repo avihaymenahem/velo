@@ -1,9 +1,15 @@
 name: Build & Package
 
 on:
-  push:
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      tag_name:
+        description: "Release tag name"
+        type: string
+        required: true
+
+permissions:
+  contents: write
 
 jobs:
   build-flatpak:
@@ -30,11 +36,10 @@ jobs:
           flatpak-builder --user --force-clean --repo=repo build-dir com.velomail.app.yml
           flatpak build-bundle repo velo.flatpak com.velomail.app
 
-      - name: Upload Flatpak artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: velo-flatpak-bundle
-          path: velo.flatpak
+      - name: Upload Flatpak to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ inputs.tag_name }}" velo.flatpak --clobber
 
   build-srpm:
     name: Build SRPM
@@ -45,7 +50,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install RPM build tools
-        run: dnf install -y rpm-build spectool rpmdevtools jq
+        run: dnf install -y rpm-build spectool rpmdevtools jq gh
 
       - name: Get version
         run: echo "APP_VERSION=$(jq -r .version src-tauri/tauri.conf.json)" >> $GITHUB_ENV
@@ -69,8 +74,7 @@ jobs:
       - name: Build Source RPM
         run: rpmbuild -bs ~/rpmbuild/SPECS/velo.spec
 
-      - name: Upload SRPM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: velo-srpm
-          path: ~/rpmbuild/SRPMS/*.src.rpm
+      - name: Upload SRPM to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ inputs.tag_name }}" ~/rpmbuild/SRPMS/*.src.rpm --clobber
