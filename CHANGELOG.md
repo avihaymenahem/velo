@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.14](https://github.com/avihaymenahem/velo/compare/velo-v0.4.13...velo-v0.4.14) (2026-02-21)
+
+
+### Features
+
+* accept self-signed certificates for IMAP/SMTP ([#148](https://github.com/avihaymenahem/velo/issues/148)) ([a5f7cec](https://github.com/avihaymenahem/velo/commit/a5f7cec2d8a4bd2701acd96a36fd62c8ac00c93a))
+
+
+### Bug Fixes
+
+* add --repo flag to gh release upload in SRPM job ([5b863c0](https://github.com/avihaymenahem/velo/commit/5b863c0048a49635b560d921dacbc04ef96b6a15))
+* add TCP timeouts and keepalive to IMAP client ([#147](https://github.com/avihaymenahem/velo/issues/147)) ([a77b474](https://github.com/avihaymenahem/velo/commit/a77b474bcc3f59abf49e5c67665cffdb7459058d))
+* resolve local AI (Ollama/LMStudio) connection failures ([adfc09f](https://github.com/avihaymenahem/velo/commit/adfc09f6900ab40c11b73767a24fad07d97547c2)), closes [#145](https://github.com/avihaymenahem/velo/issues/145)
+
 ## [0.4.13](https://github.com/avihaymenahem/velo/compare/velo-v0.4.12...velo-v0.4.13) (2026-02-21)
 
 
