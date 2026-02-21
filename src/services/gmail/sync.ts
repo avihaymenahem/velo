@@ -244,7 +244,7 @@ export async function initialSync(
         console.error(`Failed to sync thread ${stub.id}:`, err);
       }
     }),
-    5,
+    10,
   );
 
   // Store the latest history ID for delta sync
@@ -418,7 +418,7 @@ export async function deltaSync(
           console.error(`Failed to re-sync thread ${threadId}:`, err);
         }
       }),
-      5,
+      10,
     );
 
     await updateAccountSyncState(accountId, latestHistoryId);

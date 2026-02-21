@@ -55,3 +55,26 @@ export function createMockAiProvider(response = "ai response") {
     testConnection: vi.fn(() => Promise.resolve(true)),
   };
 }
+
+/**
+ * Create a mock fetch Response object for testing HTTP clients.
+ */
+export function createMockFetchResponse(
+  overrides: {
+    status?: number;
+    ok?: boolean;
+    data?: unknown;
+    text?: string;
+    headers?: Record<string, string>;
+  } = {},
+): Response {
+  const status = overrides.status ?? 200;
+  const ok = overrides.ok ?? (status >= 200 && status < 300);
+  return {
+    ok,
+    status,
+    headers: new Headers(overrides.headers ?? {}),
+    json: () => Promise.resolve(overrides.data ?? {}),
+    text: () => Promise.resolve(overrides.text ?? ""),
+  } as unknown as Response;
+}

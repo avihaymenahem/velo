@@ -4,6 +4,8 @@ import { encryptValue } from "@/utils/crypto";
 import { getCurrentUnixTimestamp } from "@/utils/timestamp";
 
 const GMAIL_API_BASE = "https://www.googleapis.com/gmail/v1";
+const MAX_RETRY_ATTEMPTS = 3;
+const INITIAL_BACKOFF_MS = 1000;
 
 interface TokenInfo {
   accessToken: string;
@@ -67,6 +69,31 @@ export class GmailClient {
     );
   }
 
+  /**
+   * Fetch with automatic retry on 429 (rate limit) responses.
+   * Uses Retry-After header when available, otherwise exponential backoff.
+   */
+  private async fetchWithRetry(
+    url: string,
+    options: RequestInit,
+  ): Promise<Response> {
+    let lastResponse: Response | undefined;
+    for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+      const response = await fetch(url, options);
+      if (response.status !== 429) return response;
+
+      lastResponse = response;
+      if (attempt === MAX_RETRY_ATTEMPTS - 1) break;
+
+      const retryAfter = response.headers.get("Retry-After");
+      const delayMs = retryAfter
+        ? parseInt(retryAfter, 10) * 1000
+        : INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    return lastResponse!;
+  }
+
   async request<T>(
     path: string,
     options: RequestInit = {},
@@ -76,7 +103,7 @@ export class GmailClient {
       ? path
       : `${GMAIL_API_BASE}/users/me${path}`;
 
-    const response = await fetch(url, {
+    const response = await this.fetchWithRetry(url, {
       ...options,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -94,7 +121,7 @@ export class GmailClient {
       }
       await this.refreshPromise;
       const retryToken = this.tokenInfo.accessToken;
-      const retry = await fetch(url, {
+      const retry = await this.fetchWithRetry(url, {
         ...options,
         headers: {
           Authorization: `Bearer ${retryToken}`,
