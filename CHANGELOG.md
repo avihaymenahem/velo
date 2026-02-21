@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.12](https://github.com/avihaymenahem/velo/compare/velo-v0.4.11...velo-v0.4.12) (2026-02-21)
+
+
+### Features
+
+* consolidate release pipeline — packaging and homebrew on release only ([7e4ac8c](https://github.com/avihaymenahem/velo/commit/7e4ac8cc40da62c8d23716b4f5c21fea27e263c3))
+* pass releaseId from release-please to tauri-action ([9587dfd](https://github.com/avihaymenahem/velo/commit/9587dfdd1eae8d2b3364c93ddb07533087246cd9))
+
+
+### Bug Fixes
+
+* move release-please annotation to own line in RPM spec ([134746f](https://github.com/avihaymenahem/velo/commit/134746f1c5c5d209d609bec9c8376fe688f6d0d0))
+* update velo.spec version to 0.4.11 and fix release-please annotation ([d1d08b2](https://github.com/avihaymenahem/velo/commit/d1d08b2ee6951c71fb6ae7d8bcfceadff465e827))
+
 ## [0.4.11](https://github.com/avihaymenahem/velo/compare/velo-v0.4.10...velo-v0.4.11) (2026-02-21)
 
 
