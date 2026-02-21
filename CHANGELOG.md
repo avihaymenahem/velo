@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.15](https://github.com/avihaymenahem/velo/compare/velo-v0.4.14...velo-v0.4.15) (2026-02-21)
+
+
+### Bug Fixes
+
+* smart folder unread count SQL error and sync progress visibility ([7c2eb4e](https://github.com/avihaymenahem/velo/commit/7c2eb4edb6fa2d14f847d194e86fe48d3ee94ee0))
+
 ## [0.4.14](https://github.com/avihaymenahem/velo/compare/velo-v0.4.13...velo-v0.4.14) (2026-02-21)
 
 

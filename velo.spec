@@ -1,6 +1,6 @@
 %global app_name velo
 # x-release-please-start-version
-%global app_version 0.4.14
+%global app_version 0.4.15
 # x-release-please-end
 %global app_release 1
 
