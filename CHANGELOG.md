@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.11](https://github.com/avihaymenahem/velo/compare/velo-v0.4.10...velo-v0.4.11) (2026-02-21)
+
+
+### Features
+
+* add Flatpak and RPM packaging for Linux distribution ([95c1e29](https://github.com/avihaymenahem/velo/commit/95c1e2954a465982c3feec8d90bbe1aee8fb8c86))
+* parallelize Gmail sync and add 429 rate limit retry ([ff3580b](https://github.com/avihaymenahem/velo/commit/ff3580b29807c844a81cb79586168700c84c1dc3))
+
+
+### Bug Fixes
+
+* align test files — remove stale mocks, add cleanup, fix brittle assertions ([4acf9e3](https://github.com/avihaymenahem/velo/commit/4acf9e3343e377a989f80bc26bd650f988e5bf47))
+* use Tauri native fetch for local AI to bypass CORS ([6e84ab2](https://github.com/avihaymenahem/velo/commit/6e84ab2884c261db0ed0a4fec6d223295355a7dc)), closes [#127](https://github.com/avihaymenahem/velo/issues/127)
+
 ## [0.4.10](https://github.com/avihaymenahem/velo/compare/velo-v0.4.9...velo-v0.4.10) (2026-02-20)
 
 
