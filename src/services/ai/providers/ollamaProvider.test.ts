@@ -29,6 +29,7 @@ describe("ollamaProvider", () => {
       expect(OpenAI).toHaveBeenCalledWith({
         baseURL: "http://localhost:11434/v1",
         apiKey: "ollama",
+        dangerouslyAllowBrowser: true,
         fetch: expect.any(Function),
       });
     });
@@ -39,6 +40,7 @@ describe("ollamaProvider", () => {
       expect(OpenAI).toHaveBeenCalledWith({
         baseURL: "http://localhost:11434/v1",
         apiKey: "ollama",
+        dangerouslyAllowBrowser: true,
         fetch: expect.any(Function),
       });
     });
