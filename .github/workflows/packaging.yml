@@ -1,0 +1,74 @@
+name: Build & Package
+
+on:
+  pull_request:
+
+jobs:
+  build-flatpak:
+    name: Build Flatpak
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Flatpak and Builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+
+      - name: Setup Flatpak remote and install SDK
+        run: |
+          flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak --user install -y flathub org.gnome.Platform/x86_64/46
+          flatpak --user install -y flathub org.gnome.Sdk/x86_64/46
+          flatpak --user install -y flathub org.freedesktop.Sdk.Extension.node20/x86_64/23.08
+
+      - name: Build Flatpak bundle
+        run: |
+          flatpak-builder --user --force-clean --repo=repo build-dir com.velomail.app.yml
+          flatpak build-bundle repo velo.flatpak com.velomail.app
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: velo-flatpak-bundle
+          path: velo.flatpak
+
+  build-srpm:
+    name: Build SRPM
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install RPM build tools
+        run: dnf install -y rpm-build spectool rpmdevtools jq
+
+      - name: Get version
+        run: echo "APP_VERSION=$(jq -r .version src-tauri/tauri.conf.json)" >> $GITHUB_ENV
+
+      - name: Create source tarball
+        run: |
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='*.flatpak' \
+            --exclude='*.tar.gz' \
+            --transform "s/^\./velo-${{ env.APP_VERSION }}/" \
+            -czf "/tmp/velo-${{ env.APP_VERSION }}.tar.gz" .
+
+      - name: Set up RPM build environment
+        run: |
+          rpmdev-setuptree
+          cp velo.spec ~/rpmbuild/SPECS/
+          cp "/tmp/velo-${{ env.APP_VERSION }}.tar.gz" ~/rpmbuild/SOURCES/
+
+      - name: Build Source RPM
+        run: rpmbuild -bs ~/rpmbuild/SPECS/velo.spec
+
+      - name: Upload SRPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: velo-srpm
+          path: ~/rpmbuild/SRPMS/*.src.rpm

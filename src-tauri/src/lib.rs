@@ -1,8 +1,9 @@
+#[cfg(not(target_os = "linux"))]
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconId},
-    Emitter, Manager,
 };
+use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::MacosLauncher;
 
 mod commands;
@@ -23,10 +24,20 @@ fn close_splashscreen(app: tauri::AppHandle) {
 
 #[tauri::command]
 fn set_tray_tooltip(app: tauri::AppHandle, tooltip: String) -> Result<(), String> {
-    let tray = app
-        .tray_by_id(&TrayIconId::new("main-tray"))
-        .ok_or_else(|| "Tray icon not found".to_string())?;
-    tray.set_tooltip(Some(&tooltip)).map_err(|e| e.to_string())
+    #[cfg(not(target_os = "linux"))]
+    {
+        let tray = app
+            .tray_by_id(&TrayIconId::new("main-tray"))
+            .ok_or_else(|| "Tray icon not found".to_string())?;
+        tray.set_tooltip(Some(&tooltip)).map_err(|e| e.to_string())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = tooltip;
+        let _ = app;
+        log::debug!("set_tray_tooltip is not supported on Linux (KSNI tray)");
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -42,8 +53,8 @@ pub fn run() {
     // instead of "Windows PowerShell"
     #[cfg(windows)]
     {
-        use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
         use windows::core::w;
+        use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
         unsafe {
             let _ = SetCurrentProcessExplicitAppUserModelID(w!("com.velomail.app"));
         }
@@ -115,48 +126,100 @@ pub fn run() {
                 )?;
             }
 
-            // Build system tray menu
-            let show = MenuItem::with_id(app, "show", "Show Velo", true, None::<&str>)?;
-            let check_mail =
-                MenuItem::with_id(app, "check_mail", "Check for Mail", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &check_mail, &quit])?;
+            #[cfg(not(target_os = "linux"))]
+            {
+                // Build system tray menu
+                let show = MenuItem::with_id(app, "show", "Show Velo", true, None::<&str>)?;
+                let check_mail =
+                    MenuItem::with_id(app, "check_mail", "Check for Mail", true, None::<&str>)?;
+                let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+                let menu = Menu::with_items(app, &[&show, &check_mail, &quit])?;
 
-            let icon = app.default_window_icon().cloned()
-                .expect("app should have a default icon configured in tauri.conf.json bundle");
+                let icon = app
+                    .default_window_icon()
+                    .cloned()
+                    .expect("app should have a default icon configured in tauri.conf.json bundle");
 
-            TrayIconBuilder::with_id("main-tray")
-                .icon(icon)
-                .tooltip("Velo")
-                .menu(&menu)
-                .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
+                TrayIconBuilder::with_id("main-tray")
+                    .icon(icon)
+                    .tooltip("Velo")
+                    .menu(&menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app, event| match event.id.as_ref() {
+                        "show" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                        "check_mail" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.emit("tray-check-mail", ());
+                            }
+                        }
+                        "quit" => {
+                            app.exit(0);
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
+                            let app = tray.app_handle();
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                    })
+                    .build(app)?;
+            }
+
+            #[cfg(target_os = "linux")]
+            {
+                use tray_item::{IconSource, TrayItem};
+
+                let app_handle = app.handle().clone();
+
+                std::thread::spawn(move || {
+                    let mut tray = match TrayItem::new("Velo", IconSource::Resource("mail-read")) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            log::warn!("Failed to create system tray: {e}");
+                            return;
+                        }
+                    };
+
+                    let app_handle_show = app_handle.clone();
+                    if let Err(e) = tray.add_menu_item("Show Velo", move || {
+                        if let Some(window) = app_handle_show.get_webview_window("main") {
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
+                    }) {
+                        log::warn!("Failed to add tray menu item 'Show Velo': {e}");
                     }
-                    "check_mail" => {
-                        if let Some(window) = app.get_webview_window("main") {
+
+                    let app_handle_check = app_handle.clone();
+                    if let Err(e) = tray.add_menu_item("Check for Mail", move || {
+                        if let Some(window) = app_handle_check.get_webview_window("main") {
                             let _ = window.emit("tray-check-mail", ());
                         }
+                    }) {
+                        log::warn!("Failed to add tray menu item 'Check for Mail': {e}");
                     }
-                    "quit" => {
-                        app.exit(0);
+
+                    let app_handle_quit = app_handle.clone();
+                    if let Err(e) = tray.add_menu_item("Quit", move || {
+                        app_handle_quit.exit(0);
+                    }) {
+                        log::warn!("Failed to add tray menu item 'Quit': {e}");
                     }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+
+                    loop {
+                        std::thread::park();
                     }
-                })
-                .build(app)?;
+                });
+            }
 
             // On Windows/Linux, remove decorations for custom titlebar.
             // macOS uses titleBarStyle: "overlay" from config instead, which
