@@ -1,6 +1,7 @@
 %global app_name velo
-# x-release-please-version
-%global app_version 0.4.11
+# x-release-please-start-version
+%global app_version 0.4.12
+# x-release-please-end
 %global app_release 1
 
 Name:    %{app_name}

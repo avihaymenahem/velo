@@ -68,6 +68,8 @@ jobs:
       - name: Set up RPM build environment
         run: |
           rpmdev-setuptree
+          # Ensure spec version matches the actual release version
+          sed -i "s/^%global app_version.*/%global app_version ${{ env.APP_VERSION }}/" velo.spec
           cp velo.spec ~/rpmbuild/SPECS/
           cp "/tmp/velo-${{ env.APP_VERSION }}.tar.gz" ~/rpmbuild/SOURCES/
 

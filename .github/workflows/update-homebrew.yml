@@ -23,23 +23,29 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "${{ inputs.tag_name }}" ]; then
-            VERSION="${{ inputs.tag_name }}"
+            # Called from release-please workflow — tag_name is the full tag (e.g. velo-v0.4.12)
+            TAG="${{ inputs.tag_name }}"
           elif [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
+            # Manual dispatch with a version — look up the actual tag from releases
+            TAG=$(gh release list --repo ${{ github.repository }} --json tagName -q "[.[] | select(.tagName | test(\"${{ inputs.version }}\"))][0].tagName")
+            if [ -z "$TAG" ]; then
+              TAG="velo-v${{ inputs.version }}"
+            fi
           else
+            # Manual dispatch without version — use latest release
             TAG=$(gh release view --repo ${{ github.repository }} --json tagName -q '.tagName')
-            VERSION="${TAG##*v}"
           fi
-          # Strip any prefix up to and including 'v' (handles velo-v0.4.3, v0.4.3, etc.)
-          VERSION="${VERSION##*v}"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Using version: ${VERSION}"
+          BARE_VERSION="${TAG##*v}"
+          echo "version=${BARE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Using version: ${BARE_VERSION} (tag: ${TAG})"
 
       - name: Wait for DMG and compute SHA256
         id: sha
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          DMG_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Velo_${VERSION}_universal.dmg"
+          TAG="${{ steps.version.outputs.tag }}"
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/Velo_${VERSION}_universal.dmg"
 
           echo "Downloading DMG from: ${DMG_URL}"
           for i in 1 2 3 4 5; do
@@ -78,7 +84,7 @@ jobs:
             version "${VERSION}"
             sha256 "${SHA256}"
 
-            url "https://github.com/avihaymenahem/velo/releases/download/v#{version}/Velo_#{version}_universal.dmg",
+            url "https://github.com/avihaymenahem/velo/releases/download/velo-v#{version}/Velo_#{version}_universal.dmg",
                 verified: "github.com/avihaymenahem/velo/"
 
             name "Velo"

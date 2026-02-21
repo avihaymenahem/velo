@@ -6776,7 +6776,7 @@ checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "velo"
-version = "0.4.4"
+version = "0.4.12"
 dependencies = [
  "async-imap",
  "base64 0.22.1",
