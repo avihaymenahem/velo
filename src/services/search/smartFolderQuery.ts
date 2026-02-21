@@ -71,7 +71,7 @@ export function getSmartFolderUnreadCount(
 
   // Replace SELECT ... FROM with SELECT COUNT(DISTINCT ...) FROM and remove LIMIT
   const countSql = baseSql
-    .replace(/SELECT DISTINCT[\s\S]*?(?=FROM)/i, "SELECT COUNT(DISTINCT m.id) as count ")
+    .replace(/SELECT DISTINCT[\s\S]*?(?=\bFROM\s)/i, "SELECT COUNT(DISTINCT m.id) as count ")
     .replace(/ORDER BY[\s\S]*?(?=LIMIT|$)/i, "")
     .replace(/LIMIT \$\d+/i, "");
 

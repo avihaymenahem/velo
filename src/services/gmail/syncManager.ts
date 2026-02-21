@@ -208,13 +208,7 @@ async function syncAccountInternal(accountId: string): Promise<void> {
       throw new Error("Account not found");
     }
 
-    // Only show the "Syncing..." status bar for initial syncs (no history_id).
-    // Delta syncs are lightweight background ops that run every 15s — showing
-    // the bar each time makes it appear permanently stuck.
-    const isInitialSync = !account.history_id;
-    if (isInitialSync) {
-      statusCallback?.(accountId, "syncing");
-    }
+    statusCallback?.(accountId, "syncing");
 
     console.log(`[syncManager] Syncing account ${accountId} (provider=${account.provider}, history_id=${account.history_id ?? "null"})`);
 

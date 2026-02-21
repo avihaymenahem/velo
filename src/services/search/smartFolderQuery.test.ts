@@ -116,6 +116,14 @@ describe("getSmartFolderUnreadCount", () => {
     const { sql } = getSmartFolderUnreadCount("is:starred", "acc-1");
     expect(sql).not.toMatch(/LIMIT/i);
   });
+
+  it("does not corrupt FROM keyword by matching column names like from_name", () => {
+    const { sql } = getSmartFolderUnreadCount("is:unread", "acc-1");
+    // The regex should replace up to the SQL FROM keyword, not stop at "from" in "from_name"
+    expect(sql).toMatch(/^SELECT COUNT\(DISTINCT m\.id\) as count\s+FROM\b/i);
+    expect(sql).not.toContain("from_name");
+    expect(sql).not.toContain("from_address");
+  });
 });
 
 describe("mapSmartFolderRows", () => {
