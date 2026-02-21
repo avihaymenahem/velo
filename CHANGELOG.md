@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.13](https://github.com/avihaymenahem/velo/compare/velo-v0.4.12...velo-v0.4.13) (2026-02-21)
+
+
+### Bug Fixes
+
+* align release pipeline version sync for SRPM and Homebrew ([ebf21ff](https://github.com/avihaymenahem/velo/commit/ebf21ffe3f22bbbaeeb9d8e598df876f23c8c34f))
+
 ## [0.4.12](https://github.com/avihaymenahem/velo/compare/velo-v0.4.11...velo-v0.4.12) (2026-02-21)
 
 
