@@ -770,6 +770,11 @@ const MIGRATIONS = [
       CREATE INDEX idx_smart_label_rules_account ON smart_label_rules(account_id);
     `,
   },
+  {
+    version: 23,
+    description: "Accept self-signed certificates for IMAP/SMTP",
+    sql: `ALTER TABLE accounts ADD COLUMN accept_invalid_certs INTEGER DEFAULT 0;`,
+  },
 ];
 
 /**

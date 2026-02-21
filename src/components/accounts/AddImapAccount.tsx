@@ -46,6 +46,7 @@ interface FormState {
   password: string;
   smtpPassword: string;
   samePassword: boolean;
+  acceptInvalidCerts: boolean;
   // OAuth2 fields
   authMode: AuthMode;
   oauthProvider: string | null;
@@ -70,6 +71,7 @@ const initialFormState: FormState = {
   password: "",
   smtpPassword: "",
   samePassword: true,
+  acceptInvalidCerts: false,
   authMode: "password",
   oauthProvider: null,
   oauthClientId: "",
@@ -153,6 +155,7 @@ export function AddImapAccount({
         smtpHost: result.settings.smtpHost,
         smtpPort: result.settings.smtpPort,
         smtpSecurity: result.settings.smtpSecurity,
+        acceptInvalidCerts: result.acceptInvalidCerts ?? false,
         // Auto-select OAuth2 if it's the only option (e.g. Outlook)
         authMode: result.authMethods[0] === "oauth2" ? "oauth2" : prev.authMode,
         oauthProvider: result.oauthProviderId ?? null,
@@ -291,6 +294,7 @@ export function AddImapAccount({
             username: form.imapUsername || (isOAuth ? (form.oauthEmail ?? form.email) : form.email),
             password: isOAuth ? (form.oauthAccessToken ?? "") : form.password,
             auth_method: isOAuth ? "oauth2" : "password",
+            accept_invalid_certs: form.acceptInvalidCerts,
           },
         },
       );
@@ -319,6 +323,7 @@ export function AddImapAccount({
             username: form.imapUsername || (isOAuth ? (form.oauthEmail ?? form.email) : form.email),
             password: smtpPassword,
             auth_method: isOAuth ? "oauth2" : "password",
+            accept_invalid_certs: form.acceptInvalidCerts,
           },
         },
       );
@@ -364,6 +369,7 @@ export function AddImapAccount({
           oauthClientId: form.oauthClientId.trim(),
           oauthClientSecret: form.oauthClientSecret.trim() || null,
           imapUsername,
+          acceptInvalidCerts: form.acceptInvalidCerts,
         });
       } else {
         await insertImapAccount({
@@ -380,6 +386,7 @@ export function AddImapAccount({
           authMethod: "password",
           password: form.samePassword ? form.password : form.password,
           imapUsername,
+          acceptInvalidCerts: form.acceptInvalidCerts,
         });
       }
 
@@ -699,6 +706,24 @@ export function AddImapAccount({
           </select>
         </div>
       </div>
+      <div className="flex items-center gap-2">
+        <input
+          id="accept-invalid-certs"
+          type="checkbox"
+          checked={form.acceptInvalidCerts}
+          onChange={(e) => updateForm("acceptInvalidCerts", e.target.checked)}
+          className="rounded border-border-primary text-accent focus:ring-accent"
+        />
+        <label
+          htmlFor="accept-invalid-certs"
+          className="text-sm text-text-secondary"
+        >
+          Accept self-signed certificates
+        </label>
+      </div>
+      <p className="text-xs text-text-tertiary -mt-2 ml-6">
+        Enable for local mail bridges like ProtonMail Bridge
+      </p>
     </div>
   );
 

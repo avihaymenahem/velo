@@ -171,6 +171,7 @@ describe("accounts", () => {
         "password",
         "enc:my-app-password", // encrypted
         null, // imap_username
+        0, // accept_invalid_certs
       ]);
     });
 

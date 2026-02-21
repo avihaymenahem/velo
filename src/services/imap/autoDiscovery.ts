@@ -17,6 +17,8 @@ interface WellKnownProvider {
   authMethods: AuthMethod[];
   /** OAuth provider ID (matches oauth/providers.ts registry) */
   oauthProviderId?: string;
+  /** Accept self-signed TLS certificates (for local mail bridges) */
+  acceptInvalidCerts?: boolean;
 }
 
 const wellKnownProviders: WellKnownProvider[] = [
@@ -112,6 +114,7 @@ const wellKnownProviders: WellKnownProvider[] = [
       smtpSecurity: "starttls",
     },
     authMethods: ["password"],
+    acceptInvalidCerts: true,
   },
   {
     domains: ["gmx.com", "gmx.net", "gmx.de"],
@@ -166,6 +169,7 @@ export interface WellKnownProviderResult {
   settings: ServerSettings;
   authMethods: AuthMethod[];
   oauthProviderId?: string;
+  acceptInvalidCerts?: boolean;
 }
 
 /**
@@ -182,6 +186,7 @@ export function findWellKnownProvider(
         settings: { ...provider.settings },
         authMethods: provider.authMethods,
         oauthProviderId: provider.oauthProviderId,
+        acceptInvalidCerts: provider.acceptInvalidCerts,
       };
     }
   }

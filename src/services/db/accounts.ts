@@ -33,6 +33,7 @@ export interface DbAccount {
   caldav_principal_url: string | null;
   caldav_home_url: string | null;
   calendar_provider: string | null;
+  accept_invalid_certs: number;
 }
 
 async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
@@ -193,12 +194,13 @@ export async function insertImapAccount(account: {
   authMethod: string;
   password: string;
   imapUsername?: string | null;
+  acceptInvalidCerts?: boolean;
 }): Promise<void> {
   const db = await getDb();
   const encPassword = await encryptValue(account.password);
   await db.execute(
-    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password, imap_username)
-     VALUES ($1, $2, $3, $4, NULL, NULL, 'imap', $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password, imap_username, accept_invalid_certs)
+     VALUES ($1, $2, $3, $4, NULL, NULL, 'imap', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
     [
       account.id,
       account.email,
@@ -213,6 +215,7 @@ export async function insertImapAccount(account: {
       account.authMethod,
       encPassword,
       account.imapUsername || null,
+      account.acceptInvalidCerts ? 1 : 0,
     ],
   );
 }
@@ -292,6 +295,7 @@ export async function insertOAuthImapAccount(account: {
   oauthClientId: string;
   oauthClientSecret: string | null;
   imapUsername?: string | null;
+  acceptInvalidCerts?: boolean;
 }): Promise<void> {
   const db = await getDb();
   const encAccessToken = await encryptValue(account.accessToken);
@@ -300,8 +304,8 @@ export async function insertOAuthImapAccount(account: {
     ? await encryptValue(account.oauthClientSecret)
     : null;
   await db.execute(
-    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, token_expires_at, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password, oauth_provider, oauth_client_id, oauth_client_secret, imap_username)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, 'imap', $8, $9, $10, $11, $12, $13, 'oauth2', NULL, $14, $15, $16, $17)`,
+    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, token_expires_at, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password, oauth_provider, oauth_client_id, oauth_client_secret, imap_username, accept_invalid_certs)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'imap', $8, $9, $10, $11, $12, $13, 'oauth2', NULL, $14, $15, $16, $17, $18)`,
     [
       account.id,
       account.email,
@@ -320,6 +324,7 @@ export async function insertOAuthImapAccount(account: {
       account.oauthClientId,
       encClientSecret,
       account.imapUsername || null,
+      account.acceptInvalidCerts ? 1 : 0,
     ],
   );
 }

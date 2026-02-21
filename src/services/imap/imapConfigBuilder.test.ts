@@ -14,6 +14,7 @@ describe("buildImapConfig", () => {
       username: "user@example.com",
       password: "secret123",
       auth_method: "password",
+      accept_invalid_certs: false,
     });
   });
 
@@ -90,6 +91,7 @@ describe("buildSmtpConfig", () => {
       username: "user@example.com",
       password: "secret123",
       auth_method: "password",
+      accept_invalid_certs: false,
     });
   });
 
@@ -141,5 +143,23 @@ describe("imap_username override", () => {
     const account = createMockDbAccount({ imap_username: "" as string | null });
     const config = buildImapConfig(account);
     expect(config.username).toBe("user@example.com");
+  });
+});
+
+describe("accept_invalid_certs", () => {
+  it("defaults to false when account flag is 0", () => {
+    const account = createMockDbAccount({ accept_invalid_certs: 0 });
+    const imapConfig = buildImapConfig(account);
+    const smtpConfig = buildSmtpConfig(account);
+    expect(imapConfig.accept_invalid_certs).toBe(false);
+    expect(smtpConfig.accept_invalid_certs).toBe(false);
+  });
+
+  it("sets to true when account flag is 1", () => {
+    const account = createMockDbAccount({ accept_invalid_certs: 1 });
+    const imapConfig = buildImapConfig(account);
+    const smtpConfig = buildSmtpConfig(account);
+    expect(imapConfig.accept_invalid_certs).toBe(true);
+    expect(smtpConfig.accept_invalid_certs).toBe(true);
   });
 });

@@ -9,6 +9,7 @@ export interface ImapConfig {
   username: string;
   password: string; // plaintext password or OAuth2 access token
   auth_method: 'password' | 'oauth2';
+  accept_invalid_certs?: boolean;
 }
 
 export interface ImapFolder {
@@ -94,6 +95,7 @@ export interface SmtpConfig {
   username: string;
   password: string;
   auth_method: 'password' | 'oauth2';
+  accept_invalid_certs?: boolean;
 }
 
 export interface SmtpSendResult {

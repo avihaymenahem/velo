@@ -1,6 +1,9 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use lettre::{
-    transport::smtp::authentication::{Credentials, Mechanism},
+    transport::smtp::{
+        authentication::{Credentials, Mechanism},
+        client::{Tls, TlsParametersBuilder},
+    },
     AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
 };
 
@@ -29,21 +32,41 @@ fn build_transport(
     let transport = match config.security.as_str() {
         "tls" => {
             // Implicit TLS (typically port 465)
-            AsyncSmtpTransport::<Tokio1Executor>::relay(&config.host)
+            let mut builder = AsyncSmtpTransport::<Tokio1Executor>::relay(&config.host)
                 .map_err(|e| format!("SMTP relay error: {}", e))?
                 .port(config.port)
                 .credentials(credentials)
-                .authentication(auth_mechanisms)
-                .build()
+                .authentication(auth_mechanisms);
+
+            if config.accept_invalid_certs {
+                let tls_params = TlsParametersBuilder::new(config.host.clone())
+                    .dangerous_accept_invalid_certs(true)
+                    .dangerous_accept_invalid_hostnames(true)
+                    .build()
+                    .map_err(|e| format!("SMTP TLS params error: {}", e))?;
+                builder = builder.tls(Tls::Required(tls_params));
+            }
+
+            builder.build()
         }
         "starttls" => {
             // STARTTLS (typically port 587)
-            AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.host)
+            let mut builder = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.host)
                 .map_err(|e| format!("SMTP STARTTLS error: {}", e))?
                 .port(config.port)
                 .credentials(credentials)
-                .authentication(auth_mechanisms)
-                .build()
+                .authentication(auth_mechanisms);
+
+            if config.accept_invalid_certs {
+                let tls_params = TlsParametersBuilder::new(config.host.clone())
+                    .dangerous_accept_invalid_certs(true)
+                    .dangerous_accept_invalid_hostnames(true)
+                    .build()
+                    .map_err(|e| format!("SMTP TLS params error: {}", e))?;
+                builder = builder.tls(Tls::Required(tls_params));
+            }
+
+            builder.build()
         }
         _ => {
             // Plain / no encryption (typically port 25) — not recommended

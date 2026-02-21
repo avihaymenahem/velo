@@ -50,6 +50,7 @@ export function buildImapConfig(
     username: account.imap_username || account.email,
     password,
     auth_method: authMethod,
+    accept_invalid_certs: !!account.accept_invalid_certs,
   };
 }
 
@@ -81,5 +82,6 @@ export function buildSmtpConfig(
     username: account.imap_username || account.email,
     password,
     auth_method: authMethod,
+    accept_invalid_certs: !!account.accept_invalid_certs,
   };
 }

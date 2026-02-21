@@ -8,6 +8,8 @@ pub struct ImapConfig {
     pub username: String,
     pub password: String, // plaintext password or OAuth2 access token
     pub auth_method: String, // "password" or "oauth2"
+    #[serde(default)]
+    pub accept_invalid_certs: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
