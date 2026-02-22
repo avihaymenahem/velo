@@ -752,6 +752,9 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         tips: [
           { text: "Add your API key in Settings > AI." },
           { text: "Supported providers: Claude, OpenAI, and Gemini." },
+          {
+            text: "Choose which model to use for each provider in Settings (e.g., Claude Haiku 4.5, GPT-4o Mini, Gemini 2.5 Flash).",
+          },
           { text: "Your data goes directly to the provider API — no middleman." },
           { text: "API keys are stored securely in your local database." },
           { text: "AI results are cached locally to reduce API calls." },

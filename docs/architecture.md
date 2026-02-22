@@ -31,7 +31,7 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 | **Backend** | Rust |
 | **Database** | SQLite (via tauri-plugin-sql) |
 | **Search** | FTS5 with trigram tokenizer |
-| **AI** | Anthropic Claude, OpenAI GPT, Google Gemini |
+| **AI** | Anthropic Claude, OpenAI GPT, Google Gemini (user-selectable models per provider) |
 | **Icons** | Lucide React |
 | **Drag & Drop** | @dnd-kit |
 | **Testing** | Vitest + Testing Library |
@@ -152,7 +152,7 @@ All business logic lives in `src/services/` as plain async functions (except `Gm
 | `gmail/` | Gmail client, token management, sync engine |
 | `imap/` | IMAP sync, folder-to-label mapping, auto-discovery, Tauri command wrappers |
 | `threading/` | JWZ threading algorithm for IMAP message grouping |
-| `ai/` | AI service with 3 providers, categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction |
+| `ai/` | AI service with 3 providers (selectable models), categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction |
 | `google/` | Google Calendar API |
 | `composer/` | Draft auto-save (3s debounce) |
 | `search/` | Gmail-style query parser, SQL builder |

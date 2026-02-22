@@ -15,7 +15,7 @@
 
 <p align="center">
   <a href="#features">Features</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;
-  <a href="#getting-started">Getting Started</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;
+  <a href="#installation">Installation</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;
   <a href="docs/keyboard-shortcuts.md">Shortcuts</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;
   <a href="docs/architecture.md">Architecture</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;
   <a href="docs/development.md">Development</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;
@@ -76,13 +76,15 @@ Most email clients are slow, bloated, or send your data to someone else's server
 
 ### AI
 
-Three providers -- choose one or mix and match:
+Three providers with selectable models -- choose one or mix and match:
 
-| | Anthropic | OpenAI | Google |
-|--|-----------|--------|--------|
-| | Claude | GPT | Gemini |
+| Provider | Models |
+|----------|--------|
+| **Anthropic Claude** | Haiku 4.5, Sonnet 4, Opus 4 |
+| **OpenAI** | GPT-4o Mini, GPT-4o, GPT-4.1 Nano, GPT-4.1 Mini, GPT-4.1 |
+| **Google Gemini** | 2.5 Flash, 2.5 Pro |
 
-Thread summaries, smart reply suggestions, AI compose & reply, text transform (improve/shorten/formalize), Ask My Inbox (natural language search). All results cached locally.
+Thread summaries, smart reply suggestions, AI compose & reply, text transform (improve/shorten/formalize), Ask My Inbox (natural language search). Pick which model to use per provider in Settings. All results cached locally.
 
 ### Calendar
 
@@ -115,7 +117,25 @@ Google Calendar sync with month, week, and day views. Create events without leav
 
 ---
 
-## Getting Started
+## Installation
+
+Download the latest release for your platform:
+
+**[Download Velo](https://github.com/avihaymenahem/velo/releases/latest)** -- Windows `.msi` / `.exe` &nbsp;&bull;&nbsp; macOS `.dmg` &nbsp;&bull;&nbsp; Linux `.deb` / `.AppImage`
+
+No build tools or programming knowledge required -- just download, install, and run.
+
+### Account setup
+
+**Gmail:** Create OAuth credentials in [Google Cloud Console](https://console.cloud.google.com/) (enable Gmail API + Calendar API), then enter your Client ID in Velo's Settings. No client secret needed (PKCE).
+
+**IMAP/SMTP:** Click "Add IMAP Account" in the account switcher. Enter your email and password -- Velo auto-discovers server settings for popular providers (Outlook, Yahoo, iCloud, Fastmail, etc.). For other providers, enter IMAP/SMTP server details manually. No Google Cloud project needed.
+
+**AI (optional):** Add an API key for [Anthropic](https://console.anthropic.com/), [OpenAI](https://platform.openai.com/), or [Google Gemini](https://aistudio.google.com/) in Settings. Then select which model to use for each provider.
+
+### Building from source
+
+For developers who want to build Velo themselves or contribute:
 
 ```bash
 git clone https://github.com/avihaymenahem/velo.git
@@ -125,12 +145,6 @@ npm run tauri dev
 ```
 
 **Prerequisites:** [Node.js](https://nodejs.org/) v18+, [Rust](https://www.rust-lang.org/tools/install), [Tauri v2 deps](https://v2.tauri.app/start/prerequisites/)
-
-**Gmail setup:** Create OAuth credentials in [Google Cloud Console](https://console.cloud.google.com/) (enable Gmail API + Calendar API), then enter your Client ID in Velo's Settings. No client secret needed (PKCE).
-
-**IMAP/SMTP setup:** Click "Add IMAP Account" in the account switcher. Enter your email and password -- Velo auto-discovers server settings for popular providers (Outlook, Yahoo, iCloud, Fastmail, etc.). For other providers, enter IMAP/SMTP server details manually. No Google Cloud project needed.
-
-**AI setup (optional):** Add an API key for [Anthropic](https://console.anthropic.com/), [OpenAI](https://platform.openai.com/), or [Google Gemini](https://aistudio.google.com/) in Settings.
 
 See [Development Guide](docs/development.md) for all commands, testing, and build instructions.
 
