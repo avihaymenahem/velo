@@ -94,6 +94,8 @@ export function SettingsPage() {
   const setSendAndArchive = useUIStore((s) => s.setSendAndArchive);
   const inboxViewMode = useUIStore((s) => s.inboxViewMode);
   const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
+  const reduceMotion = useUIStore((s) => s.reduceMotion);
+  const setReduceMotion = useUIStore((s) => s.setReduceMotion);
   const accounts = useAccountStore((s) => s.accounts);
   const removeAccountFromStore = useAccountStore((s) => s.removeAccount);
   const { tab } = useParams({ strict: false }) as { tab?: string };
@@ -497,6 +499,12 @@ export function SettingsPage() {
                         <option value="split">Split (Categories)</option>
                       </select>
                     </SettingRow>
+                    <ToggleRow
+                      label="Reduce motion"
+                      description="Disable animated background effects (fixes flickering on some GPUs)"
+                      checked={reduceMotion}
+                      onToggle={() => setReduceMotion(!reduceMotion)}
+                    />
                   </Section>
 
                   <SidebarNavEditor />

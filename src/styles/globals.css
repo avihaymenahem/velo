@@ -116,8 +116,11 @@ body {
   filter: blur(80px);
   opacity: 0.5;
   animation: blobMove 20s ease-in-out infinite alternate;
-  will-change: transform;
-  transform: translateZ(0);
+}
+
+/* When user enables "Reduce motion" in settings, hide animated blobs entirely */
+.reduce-motion .animated-bg {
+  display: none;
 }
 
 .animated-bg .blob:nth-child(1) {
@@ -420,8 +423,11 @@ body {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
+    animation: none !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .animated-bg {
+    display: none;
   }
 }

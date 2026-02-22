@@ -198,4 +198,18 @@ describe("uiStore", () => {
     expect(useUIStore.getState().inboxViewMode).toBe("unified");
   });
 
+  it("reduceMotion should default to false", () => {
+    expect(useUIStore.getState().reduceMotion).toBe(false);
+  });
+
+  it("setReduceMotion should persist to DB and update state", () => {
+    useUIStore.getState().setReduceMotion(true);
+    expect(setSetting).toHaveBeenCalledWith("reduce_motion", "true");
+    expect(useUIStore.getState().reduceMotion).toBe(true);
+
+    useUIStore.getState().setReduceMotion(false);
+    expect(setSetting).toHaveBeenCalledWith("reduce_motion", "false");
+    expect(useUIStore.getState().reduceMotion).toBe(false);
+  });
+
 });

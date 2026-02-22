@@ -96,6 +96,7 @@ export default function App() {
   const theme = useUIStore((s) => s.theme);
   const fontScale = useUIStore((s) => s.fontScale);
   const colorTheme = useUIStore((s) => s.colorTheme);
+  const reduceMotion = useUIStore((s) => s.reduceMotion);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -259,6 +260,12 @@ export default function App() {
         const savedViewMode = await getSetting("inbox_view_mode");
         if (savedViewMode === "unified" || savedViewMode === "split") {
           ui.setInboxViewMode(savedViewMode);
+        }
+
+        // Restore reduce motion preference
+        const savedReduceMotion = await getSetting("reduce_motion");
+        if (savedReduceMotion === "true") {
+          ui.setReduceMotion(true);
         }
 
         // Restore task sidebar visibility
@@ -433,6 +440,12 @@ export default function App() {
     root.classList.remove("font-scale-small", "font-scale-default", "font-scale-large", "font-scale-xlarge");
     root.classList.add(`font-scale-${fontScale}`);
   }, [fontScale]);
+
+  // Sync reduce-motion class to <html> element
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("reduce-motion", reduceMotion);
+  }, [reduceMotion]);
 
   // Apply color theme CSS custom properties to <html>
   useEffect(() => {
