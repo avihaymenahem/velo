@@ -4,7 +4,7 @@ import {
   imapGetFolderStatus,
   imapFetchMessages,
   imapFetchNewUids,
-  imapSearchAllUids,
+  imapSyncFolder,
   imapDeltaCheck,
 } from "./tauriCommands";
 import { buildImapConfig } from "./imapConfigBuilder";
@@ -36,6 +36,28 @@ import { getPendingOpsForResource } from "../db/pendingOperations";
 // ---------------------------------------------------------------------------
 
 const BATCH_SIZE = 50;
+
+// ---------------------------------------------------------------------------
+// Circuit breaker for connection storms
+// ---------------------------------------------------------------------------
+
+/** After this many consecutive connection failures, add a cooldown delay. */
+const CIRCUIT_BREAKER_THRESHOLD = 3;
+/** Delay (ms) to wait after hitting the circuit breaker threshold. */
+const CIRCUIT_BREAKER_DELAY_MS = 15_000;
+/** After this many consecutive failures, skip remaining folders entirely. */
+const CIRCUIT_BREAKER_MAX_FAILURES = 5;
+/** Delay (ms) between folder syncs during initial sync to avoid connection bursts. */
+const INTER_FOLDER_DELAY_MS = 1_000;
+
+function isConnectionError(err: unknown): boolean {
+  const msg = String(err).toLowerCase();
+  return msg.includes("timed out") || msg.includes("connection") || msg.includes("tcp");
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // ---------------------------------------------------------------------------
 // Progress reporting
@@ -365,15 +387,44 @@ export async function imapInitialSync(
   let fetchedTotal = 0;
   let totalMessagesFound = 0;
   let storedCount = 0;
+  let consecutiveFailures = 0;
 
-  for (const folder of syncableFolders) {
+  for (let folderIdx = 0; folderIdx < syncableFolders.length; folderIdx++) {
+    const folder = syncableFolders[folderIdx]!;
     if (folder.exists === 0) continue;
+
+    // Circuit breaker: skip remaining folders after too many consecutive failures
+    if (consecutiveFailures >= CIRCUIT_BREAKER_MAX_FAILURES) {
+      console.warn(
+        `[imapSync] Circuit breaker: ${consecutiveFailures} consecutive connection failures, ` +
+        `skipping remaining ${syncableFolders.length - folderIdx} folders`,
+      );
+      break;
+    }
+
+    // Circuit breaker: add cooldown delay after threshold failures
+    if (consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
+      console.warn(
+        `[imapSync] Circuit breaker: ${consecutiveFailures} consecutive failures, ` +
+        `waiting ${CIRCUIT_BREAKER_DELAY_MS / 1000}s before next folder`,
+      );
+      await delay(CIRCUIT_BREAKER_DELAY_MS);
+    }
+
+    // Inter-folder delay to avoid connection bursts (skip before first folder)
+    if (folderIdx > 0) {
+      await delay(INTER_FOLDER_DELAY_MS);
+    }
 
     const folderMapping = mapFolderToLabel(folder);
 
     try {
-      // Use UID SEARCH ALL to get real UIDs (avoids sparse UID gap problem)
-      const uidsToFetch = await imapSearchAllUids(config, folder.raw_path);
+      // Use single-connection sync: UID SEARCH ALL + batched UID FETCH in one session
+      const syncResult = await imapSyncFolder(config, folder.raw_path, BATCH_SIZE);
+      const uidsToFetch = syncResult.uids;
+
+      // Reset circuit breaker on success
+      consecutiveFailures = 0;
 
       if (uidsToFetch.length === 0) continue;
 
@@ -384,130 +435,121 @@ export async function imapInitialSync(
       let folderFetchedCount = 0;
       let folderStoredCount = 0;
       let lastUid = 0;
-      let uidvalidity = 0;
+      const uidvalidity = syncResult.folder_status.uidvalidity;
 
-      // Fetch and store in batches — message bodies are written to DB immediately
-      // and NOT accumulated in memory
-      for (let i = 0; i < uidsToFetch.length; i += BATCH_SIZE) {
-        const batch = uidsToFetch.slice(i, i + BATCH_SIZE);
-        const result = await imapFetchMessages(config, folder.raw_path, batch);
+      for (const msg of syncResult.messages) {
+        if (msg.uid > lastUid) lastUid = msg.uid;
 
-        uidvalidity = result.folder_status.uidvalidity;
+        folderFetchedCount++;
 
-        for (const msg of result.messages) {
-          if (msg.uid > lastUid) lastUid = msg.uid;
+        // Date filter
+        if (msg.date === 0) {
+          dateFallbackCount++;
+          msg.date = nowSeconds;
+        }
+        if (msg.date < cutoffDate) continue;
 
-          folderFetchedCount++;
+        const { parsed, threadable } = imapMessageToParsedMessage(
+          msg,
+          accountId,
+          folderMapping.labelId,
+        );
 
-          // Date filter
-          if (msg.date === 0) {
-            dateFallbackCount++;
-            msg.date = nowSeconds;
-          }
-          if (msg.date < cutoffDate) continue;
+        // Store message to DB immediately with placeholder threadId.
+        // Create a placeholder thread first to satisfy the FK constraint.
+        parsed.threadId = parsed.id;
+        await upsertThread({
+          id: parsed.id,
+          accountId,
+          subject: parsed.subject,
+          snippet: parsed.snippet,
+          lastMessageAt: parsed.date,
+          messageCount: 1,
+          isRead: parsed.isRead,
+          isStarred: parsed.isStarred,
+          isImportant: false,
+          hasAttachments: parsed.hasAttachments,
+        });
+        await upsertMessage({
+          id: parsed.id,
+          accountId,
+          threadId: parsed.id, // placeholder — updated after threading
+          fromAddress: parsed.fromAddress,
+          fromName: parsed.fromName,
+          toAddresses: parsed.toAddresses,
+          ccAddresses: parsed.ccAddresses,
+          bccAddresses: parsed.bccAddresses,
+          replyTo: parsed.replyTo,
+          subject: parsed.subject,
+          snippet: parsed.snippet,
+          date: parsed.date,
+          isRead: parsed.isRead,
+          isStarred: parsed.isStarred,
+          bodyHtml: parsed.bodyHtml,
+          bodyText: parsed.bodyText,
+          rawSize: parsed.rawSize,
+          internalDate: parsed.internalDate,
+          listUnsubscribe: parsed.listUnsubscribe,
+          listUnsubscribePost: parsed.listUnsubscribePost,
+          authResults: parsed.authResults,
+          messageIdHeader: msg.message_id ?? null,
+          referencesHeader: msg.references ?? null,
+          inReplyToHeader: msg.in_reply_to ?? null,
+          imapUid: msg.uid ?? null,
+          imapFolder: msg.folder ?? null,
+        });
 
-          const { parsed, threadable } = imapMessageToParsedMessage(
-            msg,
+        // Store attachments
+        await Promise.all(parsed.attachments.map((att) =>
+          upsertAttachment({
+            id: `${parsed.id}_${att.gmailAttachmentId}`,
+            messageId: parsed.id,
             accountId,
-            folderMapping.labelId,
-          );
+            filename: att.filename,
+            mimeType: att.mimeType,
+            size: att.size,
+            gmailAttachmentId: att.gmailAttachmentId,
+            contentId: att.contentId,
+            isInline: att.isInline,
+          }),
+        ));
 
-          // Store message to DB immediately with placeholder threadId.
-          // Create a placeholder thread first to satisfy the FK constraint.
-          parsed.threadId = parsed.id;
-          await upsertThread({
-            id: parsed.id,
-            accountId,
-            subject: parsed.subject,
-            snippet: parsed.snippet,
-            lastMessageAt: parsed.date,
-            messageCount: 1,
-            isRead: parsed.isRead,
-            isStarred: parsed.isStarred,
-            isImportant: false,
-            hasAttachments: parsed.hasAttachments,
-          });
-          await upsertMessage({
-            id: parsed.id,
-            accountId,
-            threadId: parsed.id, // placeholder — updated after threading
-            fromAddress: parsed.fromAddress,
-            fromName: parsed.fromName,
-            toAddresses: parsed.toAddresses,
-            ccAddresses: parsed.ccAddresses,
-            bccAddresses: parsed.bccAddresses,
-            replyTo: parsed.replyTo,
-            subject: parsed.subject,
-            snippet: parsed.snippet,
-            date: parsed.date,
-            isRead: parsed.isRead,
-            isStarred: parsed.isStarred,
-            bodyHtml: parsed.bodyHtml,
-            bodyText: parsed.bodyText,
-            rawSize: parsed.rawSize,
-            internalDate: parsed.internalDate,
-            listUnsubscribe: parsed.listUnsubscribe,
-            listUnsubscribePost: parsed.listUnsubscribePost,
-            authResults: parsed.authResults,
-            messageIdHeader: msg.message_id ?? null,
-            referencesHeader: msg.references ?? null,
-            inReplyToHeader: msg.in_reply_to ?? null,
-            imapUid: msg.uid ?? null,
-            imapFolder: msg.folder ?? null,
-          });
+        folderStoredCount++;
 
-          // Store attachments
-          await Promise.all(parsed.attachments.map((att) =>
-            upsertAttachment({
-              id: `${parsed.id}_${att.gmailAttachmentId}`,
-              messageId: parsed.id,
-              accountId,
-              filename: att.filename,
-              mimeType: att.mimeType,
-              size: att.size,
-              gmailAttachmentId: att.gmailAttachmentId,
-              contentId: att.contentId,
-              isInline: att.isInline,
-            }),
-          ));
+        // Keep only lightweight data in memory for threading
+        const meta: MessageMeta = {
+          id: parsed.id,
+          rfcMessageId: threadable.messageId,
+          labelIds: parsed.labelIds,
+          isRead: parsed.isRead,
+          isStarred: parsed.isStarred,
+          hasAttachments: parsed.hasAttachments,
+          subject: parsed.subject,
+          snippet: parsed.snippet,
+          date: parsed.date,
+        };
+        allMeta.set(parsed.id, meta);
+        allThreadable.push(threadable);
 
-          folderStoredCount++;
-
-          // Keep only lightweight data in memory for threading
-          const meta: MessageMeta = {
-            id: parsed.id,
-            rfcMessageId: threadable.messageId,
-            labelIds: parsed.labelIds,
-            isRead: parsed.isRead,
-            isStarred: parsed.isStarred,
-            hasAttachments: parsed.hasAttachments,
-            subject: parsed.subject,
-            snippet: parsed.snippet,
-            date: parsed.date,
-          };
-          allMeta.set(parsed.id, meta);
-          allThreadable.push(threadable);
-
-          // Build cross-folder label map
-          let labels = labelsByRfcId.get(threadable.messageId);
-          if (!labels) {
-            labels = new Set();
-            labelsByRfcId.set(threadable.messageId, labels);
-          }
-          for (const lid of parsed.labelIds) {
-            labels.add(lid);
-          }
-
-          // parsed + msg (with bodies) go out of scope after this iteration → GC can reclaim
+        // Build cross-folder label map
+        let labels = labelsByRfcId.get(threadable.messageId);
+        if (!labels) {
+          labels = new Set();
+          labelsByRfcId.set(threadable.messageId, labels);
+        }
+        for (const lid of parsed.labelIds) {
+          labels.add(lid);
         }
 
-        onProgress?.({
-          phase: "messages",
-          current: fetchedTotal + Math.min(i + BATCH_SIZE, uidsToFetch.length),
-          total: totalEstimate,
-          folder: folder.path,
-        });
+        // parsed + msg (with bodies) go out of scope after this iteration → GC can reclaim
       }
+
+      onProgress?.({
+        phase: "messages",
+        current: fetchedTotal + uidsToFetch.length,
+        total: totalEstimate,
+        folder: folder.path,
+      });
 
       totalMessagesFound += folderFetchedCount;
       storedCount += folderStoredCount;
@@ -534,6 +576,9 @@ export async function imapInitialSync(
       });
     } catch (err) {
       console.error(`[imapSync] Failed to sync folder ${folder.path}:`, err);
+      if (isConnectionError(err)) {
+        consecutiveFailures++;
+      }
       // Continue with next folder
     }
   }
@@ -664,20 +709,30 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
   const newFolders = syncableFolders.filter((f) => !syncStateMap.has(f.raw_path));
   const existingFolders = syncableFolders.filter((f) => syncStateMap.has(f.raw_path));
 
-  // Handle new folders individually (need full UID SEARCH ALL)
+  // Handle new folders individually using single-connection sync
+  let consecutiveFailures = 0;
   for (const folder of newFolders) {
+    // Circuit breaker: skip remaining new folders after too many failures
+    if (consecutiveFailures >= CIRCUIT_BREAKER_MAX_FAILURES) {
+      console.warn(
+        `[imapSync] Delta sync circuit breaker: ${consecutiveFailures} consecutive failures, skipping remaining new folders`,
+      );
+      break;
+    }
+    if (consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
+      await delay(CIRCUIT_BREAKER_DELAY_MS);
+    }
+
     const folderMapping = mapFolderToLabel(folder);
     try {
-      const uidsToFetch = await imapSearchAllUids(config, folder.raw_path);
-      if (uidsToFetch.length === 0) continue;
+      const syncResult = await imapSyncFolder(config, folder.raw_path, BATCH_SIZE);
+      consecutiveFailures = 0;
 
-      const { messages, lastUid, uidvalidity } = await fetchMessagesInBatches(
-        config,
-        folder.raw_path,
-        uidsToFetch,
-      );
+      if (syncResult.uids.length === 0) continue;
 
-      for (const msg of messages) {
+      let lastUid = 0;
+      for (const msg of syncResult.messages) {
+        if (msg.uid > lastUid) lastUid = msg.uid;
         const { parsed, threadable } = imapMessageToParsedMessage(
           msg,
           accountId,
@@ -691,13 +746,16 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
       await upsertFolderSyncState({
         account_id: accountId,
         folder_path: folder.raw_path,
-        uidvalidity,
+        uidvalidity: syncResult.folder_status.uidvalidity,
         last_uid: lastUid,
         modseq: null,
         last_sync_at: Math.floor(Date.now() / 1000),
       });
     } catch (err) {
       console.error(`Delta sync failed for new folder ${folder.path}:`, err);
+      if (isConnectionError(err)) {
+        consecutiveFailures++;
+      }
     }
   }
 
@@ -767,16 +825,12 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
               `(was ${savedState.uidvalidity}, now ${deltaResult.uidvalidity}). ` +
               `Doing full resync of this folder.`,
           );
-          const uidsToFetch = await imapSearchAllUids(config, folder.raw_path);
-          if (uidsToFetch.length === 0) continue;
+          const syncResult = await imapSyncFolder(config, folder.raw_path, BATCH_SIZE);
+          if (syncResult.uids.length === 0) continue;
 
-          const { messages, lastUid, uidvalidity } = await fetchMessagesInBatches(
-            config,
-            folder.raw_path,
-            uidsToFetch,
-          );
-
-          for (const msg of messages) {
+          let lastUid = 0;
+          for (const msg of syncResult.messages) {
+            if (msg.uid > lastUid) lastUid = msg.uid;
             const { parsed, threadable } = imapMessageToParsedMessage(
               msg,
               accountId,
@@ -790,7 +844,7 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
           await upsertFolderSyncState({
             account_id: accountId,
             folder_path: folder.raw_path,
-            uidvalidity,
+            uidvalidity: syncResult.folder_status.uidvalidity,
             last_uid: lastUid,
             modseq: null,
             last_sync_at: Math.floor(Date.now() / 1000),

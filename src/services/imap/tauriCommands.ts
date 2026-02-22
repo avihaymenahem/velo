@@ -71,6 +71,14 @@ export interface ImapFetchResult {
   folder_status: ImapFolderStatus;
 }
 
+// ---------- Folder sync result (single-connection search + fetch) ----------
+
+export interface ImapFolderSyncResult {
+  uids: number[];
+  messages: ImapMessage[];
+  folder_status: ImapFolderStatus;
+}
+
 // ---------- Delta check types ----------
 
 export interface DeltaCheckRequest {
@@ -262,6 +270,19 @@ export async function imapDeltaCheck(
   folders: DeltaCheckRequest[]
 ): Promise<DeltaCheckResult[]> {
   return invoke<DeltaCheckResult[]>('imap_delta_check', { config, folders });
+}
+
+/**
+ * Sync a folder in a single IMAP connection: SELECT → UID SEARCH ALL → batched UID FETCH.
+ * Returns all UIDs and fetched messages in one round-trip, avoiding the connection storm
+ * caused by separate imapSearchAllUids + imapFetchMessages calls.
+ */
+export async function imapSyncFolder(
+  config: ImapConfig,
+  folder: string,
+  batchSize: number,
+): Promise<ImapFolderSyncResult> {
+  return invoke<ImapFolderSyncResult>('imap_sync_folder', { config, folder, batchSize });
 }
 
 /**
