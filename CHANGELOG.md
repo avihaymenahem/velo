@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.16](https://github.com/avihaymenahem/velo/compare/velo-v0.4.15...velo-v0.4.16) (2026-02-22)
+
+
+### Features
+
+* add model selection dropdowns for AI providers ([#158](https://github.com/avihaymenahem/velo/issues/158)) ([74244ca](https://github.com/avihaymenahem/velo/commit/74244caf5c0072272abad7c3e7481eb1674eb2ef))
+
+
+### Bug Fixes
+
+* add reduce motion setting to prevent animated background strobe on some Windows GPUs ([981f2b5](https://github.com/avihaymenahem/velo/commit/981f2b51aabf95e7335f08ef8ce7c0f4ec9b0ca7)), closes [#156](https://github.com/avihaymenahem/velo/issues/156)
+* reduce IMAP sync connection storm with single-connection folder sync ([6b90b7a](https://github.com/avihaymenahem/velo/commit/6b90b7a1bfa0a2a048de6b0746acbf01511eb9cb)), closes [#147](https://github.com/avihaymenahem/velo/issues/147)
+
 ## [0.4.15](https://github.com/avihaymenahem/velo/compare/velo-v0.4.14...velo-v0.4.15) (2026-02-21)
 
 
