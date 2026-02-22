@@ -78,7 +78,7 @@ describe("providerManager", () => {
   });
 
   describe("getActiveProvider", () => {
-    it("creates claude provider when provider is claude", async () => {
+    it("creates claude provider with default model", async () => {
       mockGetSetting.mockImplementation(async (key: string) => {
         if (key === "ai_provider") return "claude";
         if (key === "claude_api_key") return "sk-ant-test";
@@ -86,10 +86,10 @@ describe("providerManager", () => {
       });
 
       await getActiveProvider();
-      expect(createClaudeProvider).toHaveBeenCalledWith("sk-ant-test");
+      expect(createClaudeProvider).toHaveBeenCalledWith("sk-ant-test", "claude-haiku-4-5-20251001");
     });
 
-    it("creates openai provider when provider is openai", async () => {
+    it("creates openai provider with default model", async () => {
       mockGetSetting.mockImplementation(async (key: string) => {
         if (key === "ai_provider") return "openai";
         if (key === "openai_api_key") return "sk-test";
@@ -97,10 +97,10 @@ describe("providerManager", () => {
       });
 
       await getActiveProvider();
-      expect(createOpenAIProvider).toHaveBeenCalledWith("sk-test");
+      expect(createOpenAIProvider).toHaveBeenCalledWith("sk-test", "gpt-4o-mini");
     });
 
-    it("creates gemini provider when provider is gemini", async () => {
+    it("creates gemini provider with default model", async () => {
       mockGetSetting.mockImplementation(async (key: string) => {
         if (key === "ai_provider") return "gemini";
         if (key === "gemini_api_key") return "AItest";
@@ -108,7 +108,43 @@ describe("providerManager", () => {
       });
 
       await getActiveProvider();
-      expect(createGeminiProvider).toHaveBeenCalledWith("AItest");
+      expect(createGeminiProvider).toHaveBeenCalledWith("AItest", "gemini-2.5-flash-preview-05-20");
+    });
+
+    it("uses custom model from settings when configured", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_provider") return "claude";
+        if (key === "claude_api_key") return "sk-ant-test";
+        if (key === "claude_model") return "claude-sonnet-4-20250514";
+        return null;
+      });
+
+      await getActiveProvider();
+      expect(createClaudeProvider).toHaveBeenCalledWith("sk-ant-test", "claude-sonnet-4-20250514");
+    });
+
+    it("invalidates cache when model changes", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_provider") return "openai";
+        if (key === "openai_api_key") return "sk-test";
+        if (key === "openai_model") return "gpt-4o-mini";
+        return null;
+      });
+
+      await getActiveProvider();
+      expect(createOpenAIProvider).toHaveBeenCalledTimes(1);
+
+      // Change model
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_provider") return "openai";
+        if (key === "openai_api_key") return "sk-test";
+        if (key === "openai_model") return "gpt-4o";
+        return null;
+      });
+
+      await getActiveProvider();
+      expect(createOpenAIProvider).toHaveBeenCalledTimes(2);
+      expect(createOpenAIProvider).toHaveBeenLastCalledWith("sk-test", "gpt-4o");
     });
 
     it("creates ollama provider with server url and model", async () => {

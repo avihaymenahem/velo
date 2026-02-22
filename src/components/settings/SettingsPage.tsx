@@ -4,6 +4,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { navigateToLabel, navigateToSettings } from "@/router/navigate";
 import { useAccountStore } from "@/stores/accountStore";
 import { getSetting, setSetting, getSecureSetting, setSecureSetting } from "@/services/db/settings";
+import { PROVIDER_MODELS } from "@/services/ai/types";
 import { deleteAccount } from "@/services/db/accounts";
 import { removeClient, reauthorizeAccount } from "@/services/gmail/tokenManager";
 import { triggerSync, forceFullSync, resyncAccount } from "@/services/gmail/syncManager";
@@ -115,6 +116,9 @@ export function SettingsPage() {
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [ollamaServerUrl, setOllamaServerUrl] = useState("http://localhost:11434");
   const [ollamaModel, setOllamaModel] = useState("llama3.2");
+  const [claudeModel, setClaudeModel] = useState("claude-haiku-4-5-20251001");
+  const [openaiModel, setOpenaiModel] = useState("gpt-4o-mini");
+  const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash-preview-05-20");
   const [aiEnabled, setAiEnabled] = useState(true);
   const [aiAutoCategorize, setAiAutoCategorize] = useState(true);
   const [aiAutoSummarize, setAiAutoSummarize] = useState(true);
@@ -171,6 +175,12 @@ export function SettingsPage() {
       if (ollamaUrl) setOllamaServerUrl(ollamaUrl);
       const ollamaModelVal = await getSetting("ollama_model");
       if (ollamaModelVal) setOllamaModel(ollamaModelVal);
+      const claudeModelVal = await getSetting("claude_model");
+      if (claudeModelVal) setClaudeModel(claudeModelVal);
+      const openaiModelVal = await getSetting("openai_model");
+      if (openaiModelVal) setOpenaiModel(openaiModelVal);
+      const geminiModelVal = await getSetting("gemini_model");
+      if (geminiModelVal) setGeminiModel(geminiModelVal);
       const aiKey = await getSecureSetting("claude_api_key");
       setClaudeApiKey(aiKey ?? "");
       const oaiKey = await getSecureSetting("openai_api_key");
@@ -1039,9 +1049,9 @@ export function SettingsPage() {
                       </select>
                     </SettingRow>
                     <p className="text-xs text-text-tertiary">
-                      {aiProvider === "claude" && "Uses Claude Haiku — fast and affordable."}
-                      {aiProvider === "openai" && "Uses GPT-4o Mini — fast and affordable."}
-                      {aiProvider === "gemini" && "Uses Gemini 2.0 Flash — fast and affordable."}
+                      {aiProvider === "claude" && `Uses ${PROVIDER_MODELS.claude.find((m) => m.id === claudeModel)?.label ?? claudeModel}.`}
+                      {aiProvider === "openai" && `Uses ${PROVIDER_MODELS.openai.find((m) => m.id === openaiModel)?.label ?? openaiModel}.`}
+                      {aiProvider === "gemini" && `Uses ${PROVIDER_MODELS.gemini.find((m) => m.id === geminiModel)?.label ?? geminiModel}.`}
                       {aiProvider === "ollama" && "Connect to a local Ollama or LMStudio server. No API key required."}
                     </p>
                   </Section>
@@ -1136,6 +1146,34 @@ export function SettingsPage() {
                             : "AI..."
                           }
                         />
+                        <SettingRow label="Model">
+                          <select
+                            value={
+                              aiProvider === "claude" ? claudeModel
+                              : aiProvider === "openai" ? openaiModel
+                              : geminiModel
+                            }
+                            onChange={async (e) => {
+                              const val = e.target.value;
+                              const modelSettingMap = {
+                                claude: "claude_model",
+                                openai: "openai_model",
+                                gemini: "gemini_model",
+                              } as const;
+                              if (aiProvider === "claude") setClaudeModel(val);
+                              else if (aiProvider === "openai") setOpenaiModel(val);
+                              else setGeminiModel(val);
+                              await setSetting(modelSettingMap[aiProvider], val);
+                              const { clearProviderClients } = await import("@/services/ai/providerManager");
+                              clearProviderClients();
+                            }}
+                            className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                          >
+                            {PROVIDER_MODELS[aiProvider].map((m) => (
+                              <option key={m.id} value={m.id}>{m.label}</option>
+                            ))}
+                          </select>
+                        </SettingRow>
                         <div className="flex items-center gap-2">
                           <Button
                             variant="primary"
