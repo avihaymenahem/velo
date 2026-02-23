@@ -98,7 +98,6 @@ body {
 
 .dark body {
   background: linear-gradient(135deg, #0c1222 0%, #151030 35%, #1a0a2e 65%, #0f172a 100%);
-  background-attachment: fixed;
 }
 
 /* Animated gradient blobs behind content */
