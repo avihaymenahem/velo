@@ -29,6 +29,7 @@ import {
   Pin,
   Ban,
   Tag,
+  FolderInput,
   ExternalLink,
   Pencil,
   Copy,
@@ -523,6 +524,15 @@ function ThreadMenu({
           children: labelItems,
         }]
       : []),
+    {
+      id: "move-to-folder",
+      label: "Move to Folder",
+      icon: FolderInput,
+      shortcut: "v",
+      action: () => {
+        window.dispatchEvent(new CustomEvent("velo-move-to-folder", { detail: { threadIds: [...targetIds] } }));
+      },
+    },
     {
       id: "move-to-category",
       label: "Move to Category",

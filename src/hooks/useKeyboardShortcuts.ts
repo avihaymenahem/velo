@@ -453,6 +453,14 @@ async function executeAction(actionId: string): Promise<void> {
       }
       break;
     }
+    case "action.moveToFolder": {
+      const multiMoveIds = useThreadStore.getState().selectedThreadIds;
+      const moveThreadIds = multiMoveIds.size > 0 ? [...multiMoveIds] : selectedId ? [selectedId] : [];
+      if (moveThreadIds.length > 0) {
+        window.dispatchEvent(new CustomEvent("velo-move-to-folder", { detail: { threadIds: moveThreadIds } }));
+      }
+      break;
+    }
     case "app.commandPalette":
       window.dispatchEvent(new Event("velo-toggle-command-palette"));
       break;

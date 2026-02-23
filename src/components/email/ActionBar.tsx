@@ -10,7 +10,7 @@ import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { SnoozeDialog } from "./SnoozeDialog";
 import { FollowUpDialog } from "./FollowUpDialog";
-import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen, ListTodo } from "lucide-react";
+import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, FolderInput, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen, ListTodo } from "lucide-react";
 import type { DbMessage } from "@/services/db/messages";
 import { insertFollowUpReminder, getFollowUpForThread, cancelFollowUpForThread } from "@/services/db/followUpReminders";
 import { Button } from "@/components/ui/Button";
@@ -261,6 +261,16 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
           icon={<Ban size={15} />}
           onClick={handleSpam}
           title={isSpamView ? "Not Spam (!)" : "Report Spam (!)"}
+        />
+        <Button
+          variant="secondary"
+          iconOnly
+          icon={<FolderInput size={15} />}
+          onClick={() => {
+            if (!activeAccountId) return;
+            window.dispatchEvent(new CustomEvent("velo-move-to-folder", { detail: { threadIds: [thread.id] } }));
+          }}
+          title="Move to folder (v)"
         />
         <Button
           variant="secondary"

@@ -42,6 +42,7 @@ export const SHORTCUTS: ShortcutCategory[] = [
     { id: "action.unsubscribe", keys: "u", desc: "Unsubscribe" },
     { id: "action.mute", keys: "m", desc: "Mute / Unmute" },
     { id: "action.createTaskFromEmail", keys: "t", desc: "Create task from email (AI)" },
+    { id: "action.moveToFolder", keys: "v", desc: "Move to folder/label" },
     { id: "action.selectAll", keys: "Ctrl+A", desc: "Select all" },
     { id: "action.selectFromHere", keys: "Ctrl+Shift+A", desc: "Select all from here" },
   ]},

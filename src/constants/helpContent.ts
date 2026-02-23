@@ -61,6 +61,7 @@ import {
   ListFilter,
   Paperclip,
   Tags,
+  FolderInput,
 } from "lucide-react";
 
 // ---------- Types ----------
@@ -608,6 +609,21 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "Also works with Delete or Backspace keys." },
           { text: "Deleting from Trash permanently removes the thread." },
           { text: "Archived threads return to inbox when new replies arrive." },
+        ],
+      },
+      {
+        id: "move-to-folder",
+        icon: FolderInput,
+        title: "Move to folder",
+        summary: "Quickly move threads to any folder or label.",
+        description:
+          "Press V to open a searchable popup where you can pick a destination folder or label. Type to filter the list, use arrow keys to navigate, and press Enter to move the thread. For Gmail, moving adds the destination label and removes the thread from your current location. For IMAP accounts, the thread is moved to the selected folder on the server. Works with multi-select — move multiple threads at once.",
+        tips: [
+          { text: "Open the move-to dialog", shortcut: "v" },
+          { text: "Type to search and filter destinations." },
+          { text: "Navigate with arrow keys, select with Enter." },
+          { text: "Also available from the action bar and right-click menu." },
+          { text: "Works with multi-selected threads for batch moves." },
         ],
       },
       {

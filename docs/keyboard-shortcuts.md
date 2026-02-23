@@ -37,6 +37,7 @@ Velo is designed to be used entirely from the keyboard. All shortcuts are custom
 | `!` | Spam / not spam |
 | `u` | Unsubscribe |
 | `t` | Create task from email (AI) |
+| `v` | Move to folder/label |
 | `Ctrl+Enter` | Send email |
 | `Ctrl+A` | Select all threads |
 | `Ctrl+Shift+A` | Select all from current position |
