@@ -112,15 +112,17 @@ export function SettingsPage() {
   const [phishingDetectionEnabled, setPhishingDetectionEnabled] = useState(true);
   const [phishingSensitivity, setPhishingSensitivity] = useState<"low" | "default" | "high">("default");
   const [autostartEnabled, setAutostartEnabled] = useState(false);
-  const [aiProvider, setAiProvider] = useState<"claude" | "openai" | "gemini" | "ollama">("claude");
+  const [aiProvider, setAiProvider] = useState<"claude" | "openai" | "gemini" | "ollama" | "copilot">("claude");
   const [claudeApiKey, setClaudeApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [copilotApiKey, setCopilotApiKey] = useState("");
   const [ollamaServerUrl, setOllamaServerUrl] = useState("http://localhost:11434");
   const [ollamaModel, setOllamaModel] = useState("llama3.2");
   const [claudeModel, setClaudeModel] = useState("claude-haiku-4-5-20251001");
   const [openaiModel, setOpenaiModel] = useState("gpt-4o-mini");
   const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash-preview-05-20");
+  const [copilotModel, setCopilotModel] = useState("openai/gpt-4o-mini");
   const [aiEnabled, setAiEnabled] = useState(true);
   const [aiAutoCategorize, setAiAutoCategorize] = useState(true);
   const [aiAutoSummarize, setAiAutoSummarize] = useState(true);
@@ -172,7 +174,7 @@ export function SettingsPage() {
 
       // Load AI settings
       const provider = await getSetting("ai_provider");
-      if (provider === "openai" || provider === "gemini" || provider === "ollama") setAiProvider(provider);
+      if (provider === "openai" || provider === "gemini" || provider === "ollama" || provider === "copilot") setAiProvider(provider);
       const ollamaUrl = await getSetting("ollama_server_url");
       if (ollamaUrl) setOllamaServerUrl(ollamaUrl);
       const ollamaModelVal = await getSetting("ollama_model");
@@ -189,6 +191,10 @@ export function SettingsPage() {
       setOpenaiApiKey(oaiKey ?? "");
       const gemKey = await getSecureSetting("gemini_api_key");
       setGeminiApiKey(gemKey ?? "");
+      const copKey = await getSecureSetting("copilot_api_key");
+      setCopilotApiKey(copKey ?? "");
+      const copilotModelVal = await getSetting("copilot_model");
+      if (copilotModelVal) setCopilotModel(copilotModelVal);
       const aiEn = await getSetting("ai_enabled");
       setAiEnabled(aiEn !== "false");
       const aiCat = await getSetting("ai_auto_categorize");
@@ -1041,7 +1047,7 @@ export function SettingsPage() {
                       <select
                         value={aiProvider}
                         onChange={async (e) => {
-                          const val = e.target.value as "claude" | "openai" | "gemini" | "ollama";
+                          const val = e.target.value as "claude" | "openai" | "gemini" | "ollama" | "copilot";
                           setAiProvider(val);
                           setAiTestResult(null);
                           await setSetting("ai_provider", val);
@@ -1054,6 +1060,7 @@ export function SettingsPage() {
                         <option value="openai">OpenAI</option>
                         <option value="gemini">Gemini (Google)</option>
                         <option value="ollama">Local AI (Ollama / LMStudio)</option>
+                        <option value="copilot">GitHub Copilot</option>
                       </select>
                     </SettingRow>
                     <p className="text-xs text-text-tertiary">
@@ -1061,6 +1068,7 @@ export function SettingsPage() {
                       {aiProvider === "openai" && `Uses ${PROVIDER_MODELS.openai.find((m) => m.id === openaiModel)?.label ?? openaiModel}.`}
                       {aiProvider === "gemini" && `Uses ${PROVIDER_MODELS.gemini.find((m) => m.id === geminiModel)?.label ?? geminiModel}.`}
                       {aiProvider === "ollama" && "Connect to a local Ollama or LMStudio server. No API key required."}
+                      {aiProvider === "copilot" && `Uses ${PROVIDER_MODELS.copilot.find((m) => m.id === copilotModel)?.label ?? copilotModel}. Requires a GitHub PAT with models:read permission.`}
                     </p>
                   </Section>
 
@@ -1134,6 +1142,7 @@ export function SettingsPage() {
                           label={
                             aiProvider === "claude" ? "Anthropic API Key"
                             : aiProvider === "openai" ? "OpenAI API Key"
+                            : aiProvider === "copilot" ? "GitHub Personal Access Token"
                             : "Google AI API Key"
                           }
                           size="md"
@@ -1141,16 +1150,19 @@ export function SettingsPage() {
                           value={
                             aiProvider === "claude" ? claudeApiKey
                             : aiProvider === "openai" ? openaiApiKey
+                            : aiProvider === "copilot" ? copilotApiKey
                             : geminiApiKey
                           }
                           onChange={(e) => {
                             if (aiProvider === "claude") setClaudeApiKey(e.target.value);
                             else if (aiProvider === "openai") setOpenaiApiKey(e.target.value);
+                            else if (aiProvider === "copilot") setCopilotApiKey(e.target.value);
                             else setGeminiApiKey(e.target.value);
                           }}
                           placeholder={
                             aiProvider === "claude" ? "sk-ant-..."
                             : aiProvider === "openai" ? "sk-..."
+                            : aiProvider === "copilot" ? "ghp_..."
                             : "AI..."
                           }
                         />
@@ -1159,6 +1171,7 @@ export function SettingsPage() {
                             value={
                               aiProvider === "claude" ? claudeModel
                               : aiProvider === "openai" ? openaiModel
+                              : aiProvider === "copilot" ? copilotModel
                               : geminiModel
                             }
                             onChange={async (e) => {
@@ -1167,9 +1180,11 @@ export function SettingsPage() {
                                 claude: "claude_model",
                                 openai: "openai_model",
                                 gemini: "gemini_model",
+                                copilot: "copilot_model",
                               } as const;
                               if (aiProvider === "claude") setClaudeModel(val);
                               else if (aiProvider === "openai") setOpenaiModel(val);
+                              else if (aiProvider === "copilot") setCopilotModel(val);
                               else setGeminiModel(val);
                               await setSetting(modelSettingMap[aiProvider], val);
                               const { clearProviderClients } = await import("@/services/ai/providerManager");
@@ -1191,10 +1206,12 @@ export function SettingsPage() {
                                 claude: "claude_api_key",
                                 openai: "openai_api_key",
                                 gemini: "gemini_api_key",
+                                copilot: "copilot_api_key",
                               } as const;
                               const keyValue =
                                 aiProvider === "claude" ? claudeApiKey.trim()
                                 : aiProvider === "openai" ? openaiApiKey.trim()
+                                : aiProvider === "copilot" ? copilotApiKey.trim()
                                 : geminiApiKey.trim();
                               if (keyValue) {
                                 await setSecureSetting(keySettingMap[aiProvider], keyValue);
@@ -1207,6 +1224,7 @@ export function SettingsPage() {
                             disabled={
                               !(aiProvider === "claude" ? claudeApiKey.trim()
                               : aiProvider === "openai" ? openaiApiKey.trim()
+                              : aiProvider === "copilot" ? copilotApiKey.trim()
                               : geminiApiKey.trim())
                             }
                           >
@@ -1231,6 +1249,7 @@ export function SettingsPage() {
                             disabled={
                               !(aiProvider === "claude" ? claudeApiKey.trim()
                               : aiProvider === "openai" ? openaiApiKey.trim()
+                              : aiProvider === "copilot" ? copilotApiKey.trim()
                               : geminiApiKey.trim()) || aiTesting
                             }
                             className="bg-bg-tertiary text-text-primary border border-border-primary"

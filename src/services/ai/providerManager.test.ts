@@ -30,11 +30,17 @@ vi.mock("./providers/ollamaProvider", () => ({
   clearOllamaProvider: vi.fn(),
 }));
 
+vi.mock("./providers/copilotProvider", () => ({
+  createCopilotProvider: vi.fn(() => createMockAiProvider("copilot response")),
+  clearCopilotProvider: vi.fn(),
+}));
+
 import { getSetting } from "@/services/db/settings";
 import { createClaudeProvider, clearClaudeProvider } from "./providers/claudeProvider";
 import { createOpenAIProvider } from "./providers/openaiProvider";
 import { createGeminiProvider } from "./providers/geminiProvider";
 import { createOllamaProvider } from "./providers/ollamaProvider";
+import { createCopilotProvider } from "./providers/copilotProvider";
 import {
   getActiveProvider,
   getActiveProviderName,
@@ -69,6 +75,11 @@ describe("providerManager", () => {
     it("returns ollama when ai_provider is ollama", async () => {
       mockGetSetting.mockResolvedValue("ollama");
       expect(await getActiveProviderName()).toBe("ollama");
+    });
+
+    it("returns copilot when ai_provider is copilot", async () => {
+      mockGetSetting.mockResolvedValue("copilot");
+      expect(await getActiveProviderName()).toBe("copilot");
     });
 
     it("defaults to claude for unknown provider value", async () => {
@@ -145,6 +156,17 @@ describe("providerManager", () => {
       await getActiveProvider();
       expect(createOpenAIProvider).toHaveBeenCalledTimes(2);
       expect(createOpenAIProvider).toHaveBeenLastCalledWith("sk-test", "gpt-4o");
+    });
+
+    it("creates copilot provider with default model", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_provider") return "copilot";
+        if (key === "copilot_api_key") return "ghp_test123";
+        return null;
+      });
+
+      await getActiveProvider();
+      expect(createCopilotProvider).toHaveBeenCalledWith("ghp_test123", "openai/gpt-4o-mini");
     });
 
     it("creates ollama provider with server url and model", async () => {
@@ -240,6 +262,17 @@ describe("providerManager", () => {
       mockGetSetting.mockImplementation(async (key: string) => {
         if (key === "ai_provider") return null;
         if (key === "claude_api_key") return "sk-ant-test";
+        return null;
+      });
+
+      expect(await isAiAvailable()).toBe(true);
+    });
+
+    it("returns true for copilot when API key exists", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_enabled") return "true";
+        if (key === "ai_provider") return "copilot";
+        if (key === "copilot_api_key") return "ghp_test123";
         return null;
       });
 

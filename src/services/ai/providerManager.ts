@@ -6,18 +6,20 @@ import { createClaudeProvider, clearClaudeProvider } from "./providers/claudePro
 import { createOpenAIProvider, clearOpenAIProvider } from "./providers/openaiProvider";
 import { createGeminiProvider, clearGeminiProvider } from "./providers/geminiProvider";
 import { createOllamaProvider, clearOllamaProvider } from "./providers/ollamaProvider";
+import { createCopilotProvider, clearCopilotProvider } from "./providers/copilotProvider";
 
 const API_KEY_SETTINGS: Record<Exclude<AiProvider, "ollama">, string> = {
   claude: "claude_api_key",
   openai: "openai_api_key",
   gemini: "gemini_api_key",
+  copilot: "copilot_api_key",
 };
 
 let cachedProvider: { name: AiProvider; key: string; client: AiProviderClient } | null = null;
 
 export async function getActiveProviderName(): Promise<AiProvider> {
   const setting = await getSetting("ai_provider");
-  if (setting === "openai" || setting === "gemini" || setting === "ollama") return setting;
+  if (setting === "openai" || setting === "gemini" || setting === "ollama" || setting === "copilot") return setting;
   return "claude";
 }
 
@@ -63,6 +65,9 @@ export async function getActiveProvider(): Promise<AiProviderClient> {
     case "gemini":
       client = createGeminiProvider(apiKey, model);
       break;
+    case "copilot":
+      client = createCopilotProvider(apiKey, model);
+      break;
   }
 
   cachedProvider = { name: providerName, key: cacheKey, client };
@@ -94,4 +99,5 @@ export function clearProviderClients(): void {
   clearOpenAIProvider();
   clearGeminiProvider();
   clearOllamaProvider();
+  clearCopilotProvider();
 }
