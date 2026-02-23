@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.17](https://github.com/avihaymenahem/velo/compare/velo-v0.4.16...velo-v0.4.17) (2026-02-23)
+
+
+### Features
+
+* add GitHub Copilot (GitHub Models) as 5th AI provider ([9b8e162](https://github.com/avihaymenahem/velo/commit/9b8e1628d9cd784bb3e1a5d3a310724e198ce1cd))
+* add Move to Folder/Label shortcut (V key) ([751aeaa](https://github.com/avihaymenahem/velo/commit/751aeaa4b98002ebdc99156ce76a256786ccf042))
+
+
+### Bug Fixes
+
+* use server-side IMAP SINCE date filter to prevent sync timeouts on large folders ([99d9301](https://github.com/avihaymenahem/velo/commit/99d9301f836b24b2917b1aae05980073a86f4f3d)), closes [#147](https://github.com/avihaymenahem/velo/issues/147)
+
 ## [0.4.16](https://github.com/avihaymenahem/velo/compare/velo-v0.4.15...velo-v0.4.16) (2026-02-22)
 
 
