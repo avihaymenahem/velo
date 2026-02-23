@@ -246,9 +246,10 @@ pub async fn imap_sync_folder(
     config: ImapConfig,
     folder: String,
     batch_size: u32,
+    since_date: Option<String>,
 ) -> Result<ImapFolderSyncResult, String> {
     let mut session = imap_client::connect(&config).await?;
-    let result = imap_client::sync_folder(&mut session, &folder, batch_size).await;
+    let result = imap_client::sync_folder(&mut session, &folder, batch_size, since_date).await;
     let _ = session.logout().await;
     result
 }

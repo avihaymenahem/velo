@@ -273,16 +273,17 @@ export async function imapDeltaCheck(
 }
 
 /**
- * Sync a folder in a single IMAP connection: SELECT → UID SEARCH ALL → batched UID FETCH.
- * Returns all UIDs and fetched messages in one round-trip, avoiding the connection storm
- * caused by separate imapSearchAllUids + imapFetchMessages calls.
+ * Sync a folder in a single IMAP connection: SELECT → UID SEARCH → batched UID FETCH.
+ * When `sinceDate` is provided (format `DD-Mon-YYYY`), uses `UID SEARCH SINCE <date>`
+ * to only fetch messages from that date onward, avoiding timeouts on large folders.
  */
 export async function imapSyncFolder(
   config: ImapConfig,
   folder: string,
   batchSize: number,
+  sinceDate?: string | null,
 ): Promise<ImapFolderSyncResult> {
-  return invoke<ImapFolderSyncResult>('imap_sync_folder', { config, folder, batchSize });
+  return invoke<ImapFolderSyncResult>('imap_sync_folder', { config, folder, batchSize, sinceDate: sinceDate ?? null });
 }
 
 /**

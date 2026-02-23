@@ -60,7 +60,7 @@ vi.mock("../db/pendingOperations", () => ({
   getPendingOpsForResource: vi.fn(() => []),
 }));
 
-import { imapMessageToParsedMessage, imapInitialSync } from "./imapSync";
+import { imapMessageToParsedMessage, imapInitialSync, formatImapDate, computeSinceDate } from "./imapSync";
 import {
   createMockImapMessage,
   createMockImapAccount,
@@ -421,12 +421,13 @@ describe("imapInitialSync", () => {
 
     await imapInitialSync("acc-1");
 
-    // Should use imapSyncFolder (single connection) instead of separate search + fetch
+    // Should use imapSyncFolder (single connection) with server-side SINCE date filter
     expect(mockImapSyncFolder).toHaveBeenCalledTimes(1);
     expect(mockImapSyncFolder).toHaveBeenCalledWith(
       expect.objectContaining({ host: "imap.example.com" }),
       "INBOX",
       50, // BATCH_SIZE
+      expect.stringMatching(/^\d{1,2}-[A-Z][a-z]{2}-\d{4}$/), // sinceDate in DD-Mon-YYYY format
     );
   });
 
@@ -486,5 +487,39 @@ describe("imapInitialSync", () => {
 
     // All folders should be attempted since these aren't connection errors
     expect(mockImapSyncFolder).toHaveBeenCalledTimes(6);
+  });
+});
+
+describe("formatImapDate", () => {
+  it("formats a date as DD-Mon-YYYY for IMAP SINCE criterion", () => {
+    // 2024-03-15 UTC
+    const date = new Date(Date.UTC(2024, 2, 15));
+    expect(formatImapDate(date)).toBe("15-Mar-2024");
+  });
+
+  it("handles single-digit days without zero-padding", () => {
+    const date = new Date(Date.UTC(2024, 0, 5));
+    expect(formatImapDate(date)).toBe("5-Jan-2024");
+  });
+
+  it("handles December correctly", () => {
+    const date = new Date(Date.UTC(2024, 11, 31));
+    expect(formatImapDate(date)).toBe("31-Dec-2024");
+  });
+});
+
+describe("computeSinceDate", () => {
+  it("returns a date daysBack+1 days ago in DD-Mon-YYYY format", () => {
+    const result = computeSinceDate(365);
+    // Should match DD-Mon-YYYY format
+    expect(result).toMatch(/^\d{1,2}-[A-Z][a-z]{2}-\d{4}$/);
+  });
+
+  it("adds 1-day safety margin", () => {
+    // For daysBack=0, should still go back 1 day
+    const result = computeSinceDate(0);
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    expect(result).toBe(formatImapDate(yesterday));
   });
 });

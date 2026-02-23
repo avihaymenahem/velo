@@ -743,7 +743,10 @@ pub async fn delta_check_folders(
     Ok(results)
 }
 
-/// Sync a folder in a single IMAP session: SELECT → UID SEARCH ALL → batched UID FETCH.
+/// Sync a folder in a single IMAP session: SELECT → UID SEARCH → batched UID FETCH.
+///
+/// When `since_date` is provided (format `DD-Mon-YYYY`), uses `UID SEARCH SINCE <date>`
+/// to only fetch messages from that date onward, avoiding timeouts on large folders.
 ///
 /// This avoids creating multiple TCP connections per folder (one for search,
 /// one per batch for fetch) which causes connection storms on servers with
@@ -752,6 +755,7 @@ pub async fn sync_folder(
     session: &mut ImapSession,
     folder: &str,
     batch_size: u32,
+    since_date: Option<String>,
 ) -> Result<ImapFolderSyncResult, String> {
     // SELECT the folder
     let mailbox = tokio::time::timeout(IMAP_CMD_TIMEOUT, session.select(folder))
@@ -767,17 +771,21 @@ pub async fn sync_folder(
         highest_modseq: mailbox.highest_modseq,
     };
 
-    // UID SEARCH ALL to get real UIDs
-    let uids_raw = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search("ALL"))
+    // UID SEARCH with optional SINCE date filter (RFC 3501 §6.4.4)
+    let search_query = match &since_date {
+        Some(date) => format!("SINCE {date}"),
+        None => "ALL".to_string(),
+    };
+    let uids_raw = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&search_query))
         .await
-        .map_err(|_| format!("UID SEARCH ALL {folder} timed out after {}s — check your server settings or network connection", IMAP_SEARCH_TIMEOUT.as_secs()))?
-        .map_err(|e| format!("UID SEARCH ALL {folder} failed: {e}"))?;
+        .map_err(|_| format!("UID SEARCH {search_query} {folder} timed out after {}s — check your server settings or network connection", IMAP_SEARCH_TIMEOUT.as_secs()))?
+        .map_err(|e| format!("UID SEARCH {search_query} {folder} failed: {e}"))?;
 
     let mut uids: Vec<u32> = uids_raw.into_iter().collect();
     uids.sort();
 
     log::info!(
-        "IMAP sync_folder {folder}: {} UIDs found, uidvalidity={}, batch_size={}",
+        "IMAP sync_folder {folder}: {} UIDs found (search={search_query}), uidvalidity={}, batch_size={}",
         uids.len(),
         folder_status.uidvalidity,
         batch_size,

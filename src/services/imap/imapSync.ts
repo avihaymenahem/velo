@@ -60,6 +60,36 @@ function delay(ms: number): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// IMAP SINCE date helpers
+// ---------------------------------------------------------------------------
+
+const IMAP_MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+] as const;
+
+/**
+ * Format a Date as `DD-Mon-YYYY` for the IMAP SINCE search criterion (RFC 3501 §6.4.4).
+ */
+export function formatImapDate(date: Date): string {
+  const day = date.getUTCDate();
+  const month = IMAP_MONTH_NAMES[date.getUTCMonth()];
+  const year = date.getUTCFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+/**
+ * Compute a `DD-Mon-YYYY` SINCE date string for the given `daysBack` value.
+ * Subtracts an extra day as a safety margin for timezone differences
+ * (IMAP SINCE has date-only granularity, no time component).
+ */
+export function computeSinceDate(daysBack: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - daysBack - 1);
+  return formatImapDate(date);
+}
+
+// ---------------------------------------------------------------------------
 // Progress reporting
 // ---------------------------------------------------------------------------
 
@@ -419,8 +449,9 @@ export async function imapInitialSync(
     const folderMapping = mapFolderToLabel(folder);
 
     try {
-      // Use single-connection sync: UID SEARCH ALL + batched UID FETCH in one session
-      const syncResult = await imapSyncFolder(config, folder.raw_path, BATCH_SIZE);
+      // Use single-connection sync with server-side date filter
+      const sinceDate = computeSinceDate(daysBack);
+      const syncResult = await imapSyncFolder(config, folder.raw_path, BATCH_SIZE, sinceDate);
       const uidsToFetch = syncResult.uids;
 
       // Reset circuit breaker on success
@@ -683,7 +714,7 @@ export async function imapInitialSync(
  * Perform delta sync for an IMAP account.
  * Fetches only new messages since the last sync using stored UID state.
  */
-export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
+export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<SyncResult> {
   const account = await getAccount(accountId);
   if (!account) {
     throw new Error(`Account ${accountId} not found`);
@@ -725,7 +756,8 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
 
     const folderMapping = mapFolderToLabel(folder);
     try {
-      const syncResult = await imapSyncFolder(config, folder.raw_path, BATCH_SIZE);
+      const sinceDate = computeSinceDate(daysBack);
+      const syncResult = await imapSyncFolder(config, folder.raw_path, BATCH_SIZE, sinceDate);
       consecutiveFailures = 0;
 
       if (syncResult.uids.length === 0) continue;
@@ -825,7 +857,8 @@ export async function imapDeltaSync(accountId: string): Promise<SyncResult> {
               `(was ${savedState.uidvalidity}, now ${deltaResult.uidvalidity}). ` +
               `Doing full resync of this folder.`,
           );
-          const syncResult = await imapSyncFolder(config, folder.raw_path, BATCH_SIZE);
+          const sinceDate = computeSinceDate(daysBack);
+          const syncResult = await imapSyncFolder(config, folder.raw_path, BATCH_SIZE, sinceDate);
           if (syncResult.uids.length === 0) continue;
 
           let lastUid = 0;
