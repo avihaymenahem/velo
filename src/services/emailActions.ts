@@ -4,6 +4,7 @@ import { getEmailProvider } from "@/services/email/providerFactory";
 import { enqueuePendingOperation } from "@/services/db/pendingOperations";
 import { classifyError } from "@/utils/networkErrors";
 import { getDb } from "@/services/db/connection";
+import { navigateToThread, getSelectedThreadId } from "@/router/navigate";
 
 // ---------------------------------------------------------------------------
 // Action types
@@ -72,6 +73,21 @@ export interface ActionResult {
 // Optimistic UI helpers
 // ---------------------------------------------------------------------------
 
+function getNextThreadId(currentId: string): string | null {
+  // Only auto-advance if the removed thread is the one being viewed
+  const selectedId = getSelectedThreadId();
+  if (selectedId !== currentId) return null;
+  const { threads } = useThreadStore.getState();
+  const idx = threads.findIndex((t) => t.id === currentId);
+  if (idx === -1) return null;
+  // Prefer next thread, fall back to previous
+  const next = threads[idx + 1];
+  if (next) return next.id;
+  const prev = threads[idx - 1];
+  if (prev) return prev.id;
+  return null;
+}
+
 function applyOptimisticUpdate(action: EmailAction): void {
   const store = useThreadStore.getState();
   switch (action.type) {
@@ -79,16 +95,19 @@ function applyOptimisticUpdate(action: EmailAction): void {
     case "trash":
     case "permanentDelete":
     case "spam":
+    case "moveToFolder": {
+      const nextId = getNextThreadId(action.threadId);
       store.removeThread(action.threadId);
+      if (nextId) {
+        navigateToThread(nextId);
+      }
       break;
+    }
     case "markRead":
       store.updateThread(action.threadId, { isRead: action.read });
       break;
     case "star":
       store.updateThread(action.threadId, { isStarred: action.starred });
-      break;
-    case "moveToFolder":
-      store.removeThread(action.threadId);
       break;
     case "addLabel":
     case "removeLabel":
