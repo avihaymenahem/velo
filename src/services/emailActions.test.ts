@@ -45,9 +45,11 @@ import { enqueuePendingOperation } from "@/services/db/pendingOperations";
 import {
   archiveThread,
   trashThread,
+  permanentDeleteThread,
   starThread,
   markThreadRead,
   spamThread,
+  moveThread,
   executeEmailAction,
 } from "./emailActions";
 import { navigateToThread, getSelectedThreadId } from "@/router/navigate";
@@ -242,6 +244,30 @@ describe("emailActions", () => {
 
       await spamThread("acct-1", "t1", ["m1"], true);
       expect(navigateToThread).toHaveBeenCalledWith("t2");
+    });
+
+    it("navigates on permanentDelete action", async () => {
+      vi.mocked(getSelectedThreadId).mockReturnValue("t2");
+      vi.mocked(useThreadStore.getState).mockReturnValue(createMockThreadStoreState({
+        threads,
+        updateThread: mockUpdateThread,
+        removeThread: mockRemoveThread,
+      }) as never);
+
+      await permanentDeleteThread("acct-1", "t2", ["m1"]);
+      expect(navigateToThread).toHaveBeenCalledWith("t3");
+    });
+
+    it("navigates on moveToFolder action", async () => {
+      vi.mocked(getSelectedThreadId).mockReturnValue("t2");
+      vi.mocked(useThreadStore.getState).mockReturnValue(createMockThreadStoreState({
+        threads,
+        updateThread: mockUpdateThread,
+        removeThread: mockRemoveThread,
+      }) as never);
+
+      await moveThread("acct-1", "t2", ["m1"], "Archive");
+      expect(navigateToThread).toHaveBeenCalledWith("t3");
     });
   });
 
