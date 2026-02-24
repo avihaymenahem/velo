@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.18](https://github.com/avihaymenahem/velo/compare/velo-v0.4.17...velo-v0.4.18) (2026-02-24)
+
+
+### Features
+
+* auto-advance to next thread after removal actions ([520ea01](https://github.com/avihaymenahem/velo/commit/520ea01ab78bbd7a8cc8fa019246fe4a7d181034))
+
+
+### Bug Fixes
+
+* use background-image instead of background shorthand in dark mode ([9107b50](https://github.com/avihaymenahem/velo/commit/9107b5081c37082469decc47b178fcd7c15540fb)), closes [#168](https://github.com/avihaymenahem/velo/issues/168)
+
 ## [0.4.17](https://github.com/avihaymenahem/velo/compare/velo-v0.4.16...velo-v0.4.17) (2026-02-23)
 
 
