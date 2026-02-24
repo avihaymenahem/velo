@@ -2,14 +2,18 @@ import { getGmailClient } from "./tokenManager";
 import { initialSync, deltaSync, type SyncProgress } from "./sync";
 import { getAccount, clearAccountHistoryId } from "../db/accounts";
 import { getSetting } from "../db/settings";
-import { getThreadCountForAccount, deleteAllThreadsForAccount } from "../db/threads";
-import { deleteAllMessagesForAccount } from "../db/messages";
+import { getThreadCountForAccount, deleteAllThreadsForAccount, getThreadsWithoutUrgency } from "../db/threads";
+import { deleteAllMessagesForAccount, getMessagesForThread } from "../db/messages";
 import { imapInitialSync, imapDeltaSync } from "../imap/imapSync";
 import { clearAllFolderSyncStates } from "../db/folderSyncState";
 import { ensureFreshToken } from "../oauth/oauthTokenManager";
 import { hasCalendarSupport, getCalendarProvider } from "../calendar/providerFactory";
 import { getVisibleCalendars, upsertCalendar, updateCalendarSyncToken } from "../db/calendars";
 import { upsertCalendarEvent, deleteEventByRemoteId } from "../db/calendarEvents";
+import { batchScoreUrgency } from "../ai/aiService";
+import { extractTask } from "../ai/taskExtraction";
+import { insertTask } from "../db/tasks";
+import { getTasksForThread } from "../db/tasks";
 
 const SYNC_INTERVAL_MS = 60_000; // 60 seconds — delta syncs are lightweight (single API call when idle)
 
@@ -197,6 +201,65 @@ async function syncCalendarForAccount(accountId: string): Promise<void> {
 }
 
 /**
+ * Run AI post-sync processing for an account: urgency scoring and auto task extraction.
+ * Both features are guarded by settings and wrapped in try/catch — sync never fails due to AI errors.
+ */
+async function runPostSyncAi(accountId: string): Promise<void> {
+  // Urgency scoring — run if enabled
+  try {
+    const urgencyEnabled = await getSetting("ai_urgency_enabled");
+    if (urgencyEnabled === "true") {
+      const threadsToScore = await getThreadsWithoutUrgency(accountId, 50);
+      if (threadsToScore.length > 0) {
+        const threadData = threadsToScore.map((t) => ({
+          id: t.id,
+          subject: t.subject ?? "",
+          snippet: t.snippet ?? "",
+          fromAddress: t.from_address ?? "",
+        }));
+        await batchScoreUrgency(accountId, threadData);
+      }
+    }
+  } catch (e) {
+    console.error("Urgency scoring failed (non-fatal):", e);
+  }
+
+  // Auto task extraction — run if enabled
+  try {
+    const autoTasksEnabled = await getSetting("ai_auto_tasks_enabled");
+    if (autoTasksEnabled === "true") {
+      // Get recent threads that don't already have tasks linked
+      const recentThreads = await getThreadsWithoutUrgency(accountId, 20);
+      for (const thread of recentThreads) {
+        try {
+          // Skip if tasks already exist for this thread
+          const existingTasks = await getTasksForThread(accountId, thread.id);
+          if (existingTasks.length > 0) continue;
+
+          const messages = await getMessagesForThread(accountId, thread.id);
+          if (messages.length === 0) continue;
+
+          const extracted = await extractTask(thread.id, accountId, messages);
+          await insertTask({
+            accountId,
+            title: extracted.title,
+            description: extracted.description,
+            priority: extracted.priority,
+            dueDate: extracted.dueDate,
+            threadId: thread.id,
+            threadAccountId: accountId,
+          });
+        } catch {
+          // Ignore per-thread failures — don't break the loop
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Auto task extraction failed (non-fatal):", e);
+  }
+}
+
+/**
  * Run a sync for a single account (initial or delta).
  * Routes to Gmail or IMAP sync based on account provider.
  */
@@ -229,6 +292,11 @@ async function syncAccountInternal(accountId: string): Promise<void> {
     // Also emit for delta syncs that fell back to initial (recovery re-sync)
     // since those emit progress via statusCallback inside syncImapAccount.
     statusCallback?.(accountId, "done");
+
+    // Run AI post-sync processing (non-blocking — errors don't affect sync)
+    runPostSyncAi(accountId).catch((err) => {
+      console.warn(`[syncManager] AI post-sync processing error for ${accountId}:`, err);
+    });
 
     // Sync calendar alongside email (non-blocking — calendar errors don't affect email sync)
     syncCalendarForAccount(accountId).catch((err) => {
