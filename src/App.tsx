@@ -387,12 +387,12 @@ export default function App() {
         if (progress) {
           if (progress.phase === "messages") {
             setSyncStatus(
-              `Syncing: ${progress.current}/${progress.total} threads`,
+              `Syncing: ${progress.current}/${progress.total} messages`,
             );
           } else if (progress.phase === "labels") {
             setSyncStatus("Syncing labels...");
           } else if (progress.phase === "threads") {
-            setSyncStatus(`Fetching threads... (${progress.current})`);
+            setSyncStatus(`Building threads... (${progress.current}/${progress.total})`);
           }
         } else {
           setSyncStatus("Syncing...");

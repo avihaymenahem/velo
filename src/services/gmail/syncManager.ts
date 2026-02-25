@@ -13,6 +13,15 @@ import { upsertCalendarEvent, deleteEventByRemoteId } from "../db/calendarEvents
 
 const SYNC_INTERVAL_MS = 60_000; // 60 seconds — delta syncs are lightweight (single API call when idle)
 
+/** Map IMAP sync phases to the SyncProgress phases the UI understands. */
+function mapImapPhase(phase: string): "labels" | "threads" | "messages" | "done" {
+  if (phase === "folders") return "labels";
+  if (phase === "threading" || phase === "storing_threads") return "threads";
+  if (phase === "messages") return "messages";
+  if (phase === "done") return "done";
+  return phase as "labels" | "threads" | "messages" | "done";
+}
+
 let syncTimer: ReturnType<typeof setInterval> | null = null;
 let syncPromise: Promise<void> | null = null;
 let pendingAccountIds: string[] | null = null;
@@ -103,7 +112,7 @@ async function syncImapAccount(accountId: string): Promise<void> {
         await clearAllFolderSyncStates(accountId);
         await imapInitialSync(accountId, syncDays, (progress) => {
           statusCallback?.(accountId, "syncing", {
-            phase: progress.phase === "folders" ? "labels" : progress.phase === "threading" ? "messages" : progress.phase as "labels" | "threads" | "messages" | "done",
+            phase: mapImapPhase(progress.phase),
             current: progress.current,
             total: progress.total,
           });
@@ -114,7 +123,7 @@ async function syncImapAccount(accountId: string): Promise<void> {
     // First time — full initial sync
     await imapInitialSync(accountId, syncDays, (progress) => {
       statusCallback?.(accountId, "syncing", {
-        phase: progress.phase === "folders" ? "labels" : progress.phase === "threading" ? "messages" : progress.phase as "labels" | "threads" | "messages" | "done",
+        phase: mapImapPhase(progress.phase),
         current: progress.current,
         total: progress.total,
       });

@@ -1,7 +1,7 @@
 use crate::imap::client as imap_client;
 use crate::imap::types::{
     DeltaCheckRequest, DeltaCheckResult, ImapConfig, ImapFetchResult, ImapFolder,
-    ImapFolderStatus, ImapFolderSyncResult, ImapMessage,
+    ImapFolderSearchResult, ImapFolderStatus, ImapFolderSyncResult, ImapMessage,
 };
 use crate::smtp::client as smtp_client;
 use crate::smtp::types::{SmtpConfig, SmtpSendResult};
@@ -239,6 +239,18 @@ fn base64url_decode(input: &str) -> Result<Vec<u8>, String> {
     engine
         .decode(input)
         .map_err(|e| format!("base64url decode failed: {e}"))
+}
+
+#[tauri::command]
+pub async fn imap_search_folder(
+    config: ImapConfig,
+    folder: String,
+    since_date: Option<String>,
+) -> Result<ImapFolderSearchResult, String> {
+    let mut session = imap_client::connect(&config).await?;
+    let result = imap_client::search_folder(&mut session, &folder, since_date).await;
+    let _ = session.logout().await;
+    result
 }
 
 #[tauri::command]

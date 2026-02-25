@@ -743,6 +743,54 @@ pub async fn delta_check_folders(
     Ok(results)
 }
 
+/// Search a folder: SELECT → UID SEARCH, returning UIDs and folder status without fetching bodies.
+///
+/// This is a lightweight alternative to `sync_folder` for callers that want to
+/// fetch messages in smaller IPC-friendly chunks on the TypeScript side.
+pub async fn search_folder(
+    session: &mut ImapSession,
+    folder: &str,
+    since_date: Option<String>,
+) -> Result<ImapFolderSearchResult, String> {
+    // SELECT the folder
+    let mailbox = tokio::time::timeout(IMAP_CMD_TIMEOUT, session.select(folder))
+        .await
+        .map_err(|_| format!("SELECT {folder} timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))?
+        .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
+
+    let folder_status = ImapFolderStatus {
+        uidvalidity: mailbox.uid_validity.unwrap_or(0),
+        uidnext: mailbox.uid_next.unwrap_or(0),
+        exists: mailbox.exists,
+        unseen: mailbox.unseen.unwrap_or(0),
+        highest_modseq: mailbox.highest_modseq,
+    };
+
+    // UID SEARCH with optional SINCE date filter (RFC 3501 §6.4.4)
+    let search_query = match &since_date {
+        Some(date) => format!("SINCE {date}"),
+        None => "ALL".to_string(),
+    };
+    let uids_raw = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&search_query))
+        .await
+        .map_err(|_| format!("UID SEARCH {search_query} {folder} timed out after {}s — check your server settings or network connection", IMAP_SEARCH_TIMEOUT.as_secs()))?
+        .map_err(|e| format!("UID SEARCH {search_query} {folder} failed: {e}"))?;
+
+    let mut uids: Vec<u32> = uids_raw.into_iter().collect();
+    uids.sort();
+
+    log::info!(
+        "IMAP search_folder {folder}: {} UIDs found (search={search_query}), uidvalidity={}",
+        uids.len(),
+        folder_status.uidvalidity,
+    );
+
+    Ok(ImapFolderSearchResult {
+        uids,
+        folder_status,
+    })
+}
+
 /// Sync a folder in a single IMAP session: SELECT → UID SEARCH → batched UID FETCH.
 ///
 /// When `since_date` is provided (format `DD-Mon-YYYY`), uses `UID SEARCH SINCE <date>`

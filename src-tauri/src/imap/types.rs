@@ -84,6 +84,12 @@ pub struct ImapFolderSyncResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImapFolderSearchResult {
+    pub uids: Vec<u32>,
+    pub folder_status: ImapFolderStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeltaCheckRequest {
     pub folder: String,
     pub last_uid: u32,

@@ -71,6 +71,13 @@ export interface ImapFetchResult {
   folder_status: ImapFolderStatus;
 }
 
+// ---------- Folder search result (lightweight: UIDs + status only) ----------
+
+export interface ImapFolderSearchResult {
+  uids: number[];
+  folder_status: ImapFolderStatus;
+}
+
 // ---------- Folder sync result (single-connection search + fetch) ----------
 
 export interface ImapFolderSyncResult {
@@ -284,6 +291,19 @@ export async function imapSyncFolder(
   sinceDate?: string | null,
 ): Promise<ImapFolderSyncResult> {
   return invoke<ImapFolderSyncResult>('imap_sync_folder', { config, folder, batchSize, sinceDate: sinceDate ?? null });
+}
+
+/**
+ * Search a folder for UIDs without fetching message bodies.
+ * Returns UIDs and folder status — lightweight alternative to `imapSyncFolder`
+ * for callers that fetch messages in smaller IPC-friendly chunks.
+ */
+export async function imapSearchFolder(
+  config: ImapConfig,
+  folder: string,
+  sinceDate?: string | null,
+): Promise<ImapFolderSearchResult> {
+  return invoke<ImapFolderSearchResult>('imap_search_folder', { config, folder, sinceDate: sinceDate ?? null });
 }
 
 /**
