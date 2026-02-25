@@ -10,7 +10,8 @@ import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { markThreadRead } from "@/services/emailActions";
 import { getSetting } from "@/services/db/settings";
 import { getAllowlistedSenders } from "@/services/db/imageAllowlist";
-import { VolumeX } from "lucide-react";
+import { VolumeX, Calendar, X } from "lucide-react";
+import type { MeetingDetectionResult } from "@/services/ai/types";
 import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { isNoReplyAddress } from "@/utils/noReply";
 import { ThreadSummary } from "./ThreadSummary";
@@ -59,6 +60,8 @@ async function handlePopOut(thread: Thread) {
 
 export function ThreadView({ thread }: ThreadViewProps) {
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const accounts = useAccountStore((s) => s.accounts);
+  const activeAccount = accounts.find((a) => a.id === activeAccountId);
   const contactSidebarVisible = useUIStore((s) => s.contactSidebarVisible);
   const toggleContactSidebar = useUIStore((s) => s.toggleContactSidebar);
   const taskSidebarVisible = useUIStore((s) => s.taskSidebarVisible);
@@ -103,6 +106,25 @@ export function ThreadView({ thread }: ThreadViewProps) {
 
     return () => { cancelled = true; };
   }, [activeAccountId, messages]);
+
+  // Meeting detection: run when messages are loaded
+  useEffect(() => {
+    if (!activeAccountId || messages.length === 0) return;
+    let cancelled = false;
+
+    getSetting("ai_meeting_detection_enabled").then(async (enabled) => {
+      if (cancelled || enabled === "false") return;
+      try {
+        const { detectMeetingIntent } = await import("@/services/ai/aiService");
+        const result = await detectMeetingIntent(thread.id, activeAccountId, messages);
+        if (!cancelled) setMeetingResult(result);
+      } catch {
+        // Silently ignore detection errors
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [activeAccountId, thread.id, messages]);
 
   // Auto-mark unread threads as read when opened (respects mark-as-read setting)
   const markAsReadBehavior = useUIStore((s) => s.markAsReadBehavior);
@@ -276,6 +298,8 @@ export function ThreadView({ thread }: ThreadViewProps) {
     accountId: string;
   } | null>(null);
 
+  const [meetingResult, setMeetingResult] = useState<MeetingDetectionResult | null>(null);
+
   // Listen for "View Source" event from context menu
   useEffect(() => {
     const handler = (e: Event) => {
@@ -412,6 +436,58 @@ export function ThreadView({ thread }: ThreadViewProps) {
             {messages.length} message{messages.length !== 1 ? "s" : ""} in this thread
           </div>
         </div>
+
+        {/* Meeting detection banner */}
+        {meetingResult && (meetingResult.confidence === "medium" || meetingResult.confidence === "high") && (
+          <div className="mx-4 mt-2 bg-accent-light border border-accent rounded-md px-3 py-2 flex items-center gap-2 text-sm">
+            <Calendar size={15} className="text-accent shrink-0" />
+            <div className="flex-1 min-w-0">
+              <span className="font-medium text-text-primary truncate">
+                Meeting detected: {meetingResult.title}
+              </span>
+              {meetingResult.dateTime && (
+                <span className="text-text-tertiary text-xs ml-2">
+                  {new Date(meetingResult.dateTime).toLocaleString()}
+                </span>
+              )}
+            </div>
+            {activeAccount?.provider === "gmail_api" && (
+              <button
+                onClick={async () => {
+                  if (!activeAccountId) return;
+                  try {
+                    const { getGmailClient } = await import("@/services/gmail/tokenManager");
+                    const { createCalendarEvent } = await import("@/services/google/calendar");
+                    const client = await getGmailClient(activeAccountId);
+                    const startIso = meetingResult.dateTime ?? new Date().toISOString();
+                    const endMs = new Date(startIso).getTime() + (meetingResult.durationMinutes ?? 60) * 60 * 1000;
+                    const endIso = new Date(endMs).toISOString();
+                    await createCalendarEvent(client, {
+                      summary: meetingResult.title,
+                      location: meetingResult.location,
+                      start: { dateTime: startIso },
+                      end: { dateTime: endIso },
+                      attendees: meetingResult.attendees.map((email) => ({ email })),
+                    });
+                    setMeetingResult(null);
+                  } catch (err) {
+                    console.error("Failed to create calendar event:", err);
+                  }
+                }}
+                className="shrink-0 text-xs px-2.5 py-1 rounded-md bg-accent text-white hover:bg-accent-hover transition-colors"
+              >
+                Create event
+              </button>
+            )}
+            <button
+              onClick={() => setMeetingResult(null)}
+              className="shrink-0 text-text-tertiary hover:text-text-primary transition-colors"
+              aria-label="Dismiss meeting detection"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* AI Summary */}
         {activeAccountId && (

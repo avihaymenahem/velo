@@ -15,6 +15,7 @@ export interface Thread {
   labelIds: string[];
   fromName: string | null;
   fromAddress: string | null;
+  aiUrgency: "low" | "medium" | "high" | null;
 }
 
 interface ThreadState {

@@ -775,6 +775,11 @@ const MIGRATIONS = [
     description: "Accept self-signed certificates for IMAP/SMTP",
     sql: `ALTER TABLE accounts ADD COLUMN accept_invalid_certs INTEGER DEFAULT 0;`,
   },
+  {
+    version: 24,
+    description: "Add ai_urgency column for AI-based thread priority scoring",
+    sql: `ALTER TABLE threads ADD COLUMN ai_urgency TEXT;`,
+  },
 ];
 
 /**
