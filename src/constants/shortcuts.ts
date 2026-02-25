@@ -53,6 +53,7 @@ export const SHORTCUTS: ShortcutCategory[] = [
     { id: "app.askInbox", keys: "i", desc: "Ask AI about your inbox" },
     { id: "app.help", keys: "?", desc: "Show keyboard shortcuts" },
     { id: "app.syncFolder", keys: "F5", desc: "Sync current folder" },
+    { id: "app.aiAgent", keys: "Ctrl+Shift+I", desc: "Open AI Agent" },
   ]},
 ];
 
