@@ -14,6 +14,7 @@ import { getCategoriesForThreads, getCategoryUnreadCounts } from "@/services/db/
 import { getActiveFollowUpThreadIds } from "@/services/db/followUpReminders";
 import { getBundleRules, getHeldThreadIds, getBundleSummaries, type DbBundleRule } from "@/services/db/bundleRules";
 import { getGmailClient } from "@/services/gmail/tokenManager";
+import { getSetting } from "@/services/db/settings";
 import { useLabelStore } from "@/stores/labelStore";
 import { useSmartFolderStore } from "@/stores/smartFolderStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
@@ -21,7 +22,7 @@ import { useComposerStore } from "@/stores/composerStore";
 import { getMessagesForThread } from "@/services/db/messages";
 import { getSmartFolderSearchQuery, mapSmartFolderRows, type SmartFolderRow } from "@/services/search/smartFolderQuery";
 import { getDb } from "@/services/db/connection";
-import { Archive, Trash2, X, Ban, Filter, ChevronRight, Package, FolderSearch } from "lucide-react";
+import { Archive, Trash2, X, Ban, Filter, ChevronRight, Package, FolderSearch, Sparkles } from "lucide-react";
 import { EmptyState } from "../ui/EmptyState";
 import {
   InboxClearIllustration,
@@ -29,6 +30,7 @@ import {
   NoAccountIllustration,
   GenericEmptyIllustration,
 } from "../ui/illustrations";
+import { InboxDigestPanel } from "../email/InboxDigestPanel";
 
 const PAGE_SIZE = 50;
 
@@ -92,6 +94,19 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
 
   const openComposer = useComposerStore((s) => s.openComposer);
   const multiSelectBarRef = useRef<HTMLDivElement>(null);
+
+  const [digestOpen, setDigestOpen] = useState(false);
+  const [digestContent, setDigestContent] = useState<string | null>(null);
+  const [digestLoading, setDigestLoading] = useState(false);
+  const [digestEnabled, setDigestEnabled] = useState(false);
+
+  // Check if inbox digest is enabled
+  useEffect(() => {
+    getSetting("ai_inbox_digest_enabled").then((val) => {
+      setDigestEnabled(val !== "false");
+    });
+  }, []);
+
 
   const handleThreadContextMenu = useCallback((e: React.MouseEvent, threadId: string) => {
     e.preventDefault();
@@ -232,10 +247,37 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     });
   }, [filteredThreads, activeLabel, activeCategory, categoryMap, bundledCategorySet, heldThreadIds]);
 
+  const handleOpenDigest = useCallback(async () => {
+    if (!activeAccountId) return;
+    setDigestOpen(true);
+    setDigestLoading(true);
+    setDigestContent(null);
+    try {
+      const { generateInboxDigest } = await import("@/services/ai/aiService");
+      const threadInput = visibleThreads.slice(0, 50).map((t) => ({
+        id: t.id,
+        subject: t.subject ?? "",
+        snippet: t.snippet ?? "",
+        fromAddress: t.fromAddress ?? "",
+        fromName: t.fromName ?? "",
+        date: t.lastMessageAt,
+      }));
+      const result = await generateInboxDigest(activeAccountId, threadInput);
+      setDigestContent(result);
+    } catch (err) {
+      console.error("Inbox digest failed:", err);
+      setDigestContent("Failed to generate digest. Please check your AI configuration.");
+    } finally {
+      setDigestLoading(false);
+    }
+  }, [activeAccountId, visibleThreads]);
+
   const mapDbThreads = useCallback(async (dbThreads: Awaited<ReturnType<typeof getThreadsForAccount>>): Promise<Thread[]> => {
     return Promise.all(
       dbThreads.map(async (t) => {
         const labelIds = await getThreadLabelIds(t.account_id, t.id);
+        const rawUrgency = t.ai_urgency;
+        const urgency = (rawUrgency === "low" || rawUrgency === "medium" || rawUrgency === "high") ? rawUrgency : null;
         return {
           id: t.id,
           accountId: t.account_id,
@@ -251,6 +293,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
           labelIds,
           fromName: t.from_name,
           fromAddress: t.from_address,
+          aiUrgency: urgency,
         };
       }),
     );
@@ -516,15 +559,27 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
             {filteredThreads.length} conversation{filteredThreads.length !== 1 ? "s" : ""}
           </span>
         </div>
-        <select
-          value={readFilter}
-          onChange={(e) => setReadFilter(e.target.value as "all" | "read" | "unread")}
-          className="text-xs bg-bg-tertiary text-text-secondary px-2 py-1 rounded border border-border-primary"
-        >
-          <option value="all">All</option>
-          <option value="unread">Unread</option>
-          <option value="read">Read</option>
-        </select>
+        <div className="flex items-center gap-2">
+          {digestEnabled && (
+            <button
+              onClick={handleOpenDigest}
+              title="Generate inbox digest"
+              aria-label="Generate inbox digest"
+              className="p-1.5 text-text-tertiary hover:text-accent hover:bg-bg-hover rounded transition-colors flex items-center gap-1"
+            >
+              <Sparkles size={14} />
+            </button>
+          )}
+          <select
+            value={readFilter}
+            onChange={(e) => setReadFilter(e.target.value as "all" | "read" | "unread")}
+            className="text-xs bg-bg-tertiary text-text-secondary px-2 py-1 rounded border border-border-primary"
+          >
+            <option value="all">All</option>
+            <option value="unread">Unread</option>
+            <option value="read">Read</option>
+          </select>
+        </div>
       </div>
 
       {/* Category tabs (inbox + split mode only) */}
@@ -650,6 +705,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
                         onContextMenu={handleThreadContextMenu}
                         category={rule.category}
                         hasFollowUp={followUpThreadIds.has(thread.id)}
+                        urgency={thread.aiUrgency}
                       />
                     </div>
                   ))}
@@ -679,6 +735,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
                     category={categoryMap.get(thread.id)}
                     showCategoryBadge={activeLabel === "inbox" && activeCategory === "All"}
                     hasFollowUp={followUpThreadIds.has(thread.id)}
+                    urgency={thread.aiUrgency}
                   />
                 </div>
               );
@@ -696,6 +753,14 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
           </>
         )}
       </div>
+
+      {digestOpen && (
+        <InboxDigestPanel
+          content={digestContent}
+          isLoading={digestLoading}
+          onClose={() => setDigestOpen(false)}
+        />
+      )}
     </div>
   );
 }

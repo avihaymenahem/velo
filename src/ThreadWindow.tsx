@@ -80,6 +80,8 @@ export default function ThreadWindow() {
         }
 
         const labelIds = await getThreadLabelIds(accountId!, threadId!);
+        const rawUrgency = dbThread.ai_urgency;
+        const urgency = (rawUrgency === "low" || rawUrgency === "medium" || rawUrgency === "high") ? rawUrgency : null;
         setThread({
           id: dbThread.id,
           accountId: dbThread.account_id,
@@ -95,6 +97,7 @@ export default function ThreadWindow() {
           labelIds,
           fromName: dbThread.from_name,
           fromAddress: dbThread.from_address,
+          aiUrgency: urgency,
         });
       } catch (err) {
         console.error("Failed to initialize thread window:", err);

@@ -17,6 +17,7 @@ export interface DbThread {
   is_muted: number;
   from_name: string | null;
   from_address: string | null;
+  ai_urgency: string | null;
 }
 
 export async function getThreadsForAccount(
@@ -260,4 +261,31 @@ export async function getMutedThreadIds(
     [accountId],
   );
   return new Set(rows.map((r) => r.id));
+}
+
+export async function updateThreadUrgency(
+  threadId: string,
+  urgency: "low" | "medium" | "high" | null,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute("UPDATE threads SET ai_urgency = ? WHERE id = ?", [
+    urgency,
+    threadId,
+  ]);
+}
+
+export async function getThreadsWithoutUrgency(
+  accountId: string,
+  limit = 50,
+): Promise<DbThread[]> {
+  const db = await getDb();
+  return db.select<DbThread[]>(
+    `SELECT t.*, m.from_name, m.from_address FROM threads t
+     LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
+       AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
+     WHERE t.account_id = $1 AND t.ai_urgency IS NULL
+     ORDER BY t.last_message_at DESC
+     LIMIT $2`,
+    [accountId, limit],
+  );
 }
