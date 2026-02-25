@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.19](https://github.com/avihaymenahem/velo/compare/velo-v0.4.18...velo-v0.4.19) (2026-02-25)
+
+
+### Features
+
+* chunked IMAP sync with lightweight UID search and batched transactions ([7440215](https://github.com/avihaymenahem/velo/commit/7440215fe1bf923afc666486ec2c999ed1e5c266))
+
+
+### Bug Fixes
+
+* allow optional space after colon in search operators ([d1e9495](https://github.com/avihaymenahem/velo/commit/d1e9495ec5efa247406941d0b5ebfec55d699927))
+
 ## [0.4.18](https://github.com/avihaymenahem/velo/compare/velo-v0.4.17...velo-v0.4.18) (2026-02-24)
 
 
