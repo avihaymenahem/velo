@@ -18,7 +18,7 @@ export interface ParsedSearchQuery {
   label?: string;
 }
 
-const OPERATOR_REGEX = /(?:^|\s)(from|to|subject|has|is|before|after|label):(?:"([^"]+)"|(\S+))/gi;
+const OPERATOR_REGEX = /(?:^|\s)(from|to|subject|has|is|before|after|label):\s*(?:"([^"]+)"|(\S+))/gi;
 
 /**
  * Parse a date string like YYYY/MM/DD or YYYY-MM-DD into a unix timestamp (seconds).

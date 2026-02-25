@@ -85,6 +85,13 @@ describe("parseSearchQuery", () => {
     expect(result.freeText).toBe("");
   });
 
+  it("allows space after colon in operators", () => {
+    const result = parseSearchQuery("from: tom has: attachment");
+    expect(result.from).toBe("tom");
+    expect(result.hasAttachment).toBe(true);
+    expect(result.freeText).toBe("");
+  });
+
   it("handles empty query", () => {
     const result = parseSearchQuery("");
     expect(result.freeText).toBe("");
