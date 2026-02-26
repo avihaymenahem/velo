@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.20](https://github.com/avihaymenahem/velo/compare/velo-v0.4.19...velo-v0.4.20) (2026-02-26)
+
+
+### Bug Fixes
+
+* add Escape key to close inline reply editor ([386b403](https://github.com/avihaymenahem/velo/commit/386b40303e5dece542eb2617e485e352cc3f5c07))
+* resolve SQLite transaction errors during IMAP initial sync ([6044f42](https://github.com/avihaymenahem/velo/commit/6044f429581f6c2142cc536f1eb6299347bfdbeb)), closes [#192](https://github.com/avihaymenahem/velo/issues/192)
+
 ## [0.4.19](https://github.com/avihaymenahem/velo/compare/velo-v0.4.18...velo-v0.4.19) (2026-02-25)
 
 

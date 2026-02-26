@@ -12,7 +12,7 @@
   <url type="bugtracker">https://github.com/avihaymenahem/velo/issues</url>
   <launchable type="desktop-id">com.velomail.app.desktop</launchable>
   <releases>
-    <release version="0.4.19" date="2026-02-20" /> <!-- x-release-please-version -->
+    <release version="0.4.20" date="2026-02-20" /> <!-- x-release-please-version -->
   </releases>
   <developer id="app.velomail">
     <name>Velo Team</name>
