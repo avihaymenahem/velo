@@ -106,6 +106,8 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
       await snoozeThread(activeAccountId, thread.id, until);
     } catch (err) {
       console.error("Failed to snooze:", err);
+      // Trigger re-fetch so the thread reappears in the list
+      window.dispatchEvent(new Event("velo-sync-done"));
     }
   };
 
