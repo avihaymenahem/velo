@@ -284,7 +284,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
     };
   }, []);
 
-  // Handle Ctrl+Enter to send
+  // Handle Ctrl+Enter to send, Escape to close
   useEffect(() => {
     if (!mode) return;
     const handler = (e: KeyboardEvent) => {
@@ -292,10 +292,17 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
         e.preventDefault();
         handleSend();
       }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        editor?.commands.setContent("");
+        setMode(null);
+        setHasAutoDraft(false);
+        autoDraftAbortRef.current = true;
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [mode, handleSend]);
+  }, [mode, handleSend, editor]);
 
   if (!lastMessage) return null;
 
