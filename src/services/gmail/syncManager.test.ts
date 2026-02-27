@@ -32,6 +32,19 @@ vi.mock("../db/folderSyncState", () => ({
 vi.mock("../oauth/oauthTokenManager", () => ({
   ensureFreshToken: vi.fn(),
 }));
+vi.mock("../calendar/providerFactory", () => ({
+  hasCalendarSupport: vi.fn().mockResolvedValue(false),
+  getCalendarProvider: vi.fn(),
+}));
+vi.mock("../db/calendars", () => ({
+  getVisibleCalendars: vi.fn().mockResolvedValue([]),
+  upsertCalendar: vi.fn(),
+  updateCalendarSyncToken: vi.fn(),
+}));
+vi.mock("../db/calendarEvents", () => ({
+  upsertCalendarEvent: vi.fn(),
+  deleteEventByRemoteId: vi.fn(),
+}));
 
 // Import after mocks
 import {
@@ -39,6 +52,7 @@ import {
   startBackgroundSync,
   stopBackgroundSync,
   triggerSync,
+  onSyncStatus,
 } from "./syncManager";
 import { getAccount } from "../db/accounts";
 import { getGmailClient } from "./tokenManager";
@@ -244,6 +258,44 @@ describe("syncManager", () => {
       await triggerSync(["a1", "a2"]);
 
       expect(mockDeltaSync).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("error coercion", () => {
+    it("propagates plain string errors from Tauri IPC (not 'Unknown error')", async () => {
+      const account = makeGmailAccount("a1", "100");
+      mockGetAccount.mockResolvedValue(account);
+      // Tauri IPC rejects with a plain string, not an Error instance
+      mockDeltaSync.mockRejectedValue("authentication failed for user@test.com");
+
+      const errors: string[] = [];
+      const unsub = onSyncStatus((_id, status, _progress, error) => {
+        if (status === "error" && error) errors.push(error);
+      });
+
+      await syncAccount("a1");
+      unsub();
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toBe("authentication failed for user@test.com");
+      expect(errors[0]).not.toBe("Unknown error");
+    });
+
+    it("handles null/undefined errors gracefully", async () => {
+      const account = makeGmailAccount("a1", "100");
+      mockGetAccount.mockResolvedValue(account);
+      mockDeltaSync.mockRejectedValue(null);
+
+      const errors: string[] = [];
+      const unsub = onSyncStatus((_id, status, _progress, error) => {
+        if (status === "error" && error) errors.push(error);
+      });
+
+      await syncAccount("a1");
+      unsub();
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toBe("Unknown error");
     });
   });
 });

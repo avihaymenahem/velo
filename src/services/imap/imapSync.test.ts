@@ -44,6 +44,7 @@ vi.mock("../db/messages", () => ({
 vi.mock("../db/threads", () => ({
   upsertThread: vi.fn(),
   setThreadLabels: vi.fn(),
+  deleteThread: vi.fn(),
 }));
 vi.mock("../db/attachments", () => ({
   upsertAttachment: vi.fn(),
@@ -63,7 +64,7 @@ vi.mock("../db/pendingOperations", () => ({
   getPendingOpsForResource: vi.fn(() => []),
 }));
 
-import { imapMessageToParsedMessage, imapInitialSync, formatImapDate, computeSinceDate } from "./imapSync";
+import { imapMessageToParsedMessage, imapInitialSync, formatImapDate, computeSinceDate, isConnectionError } from "./imapSync";
 import {
   createMockImapMessage,
   createMockImapAccount,
@@ -75,8 +76,9 @@ import { imapListFolders, imapSearchFolder, imapFetchMessages } from "./tauriCom
 import { getAccount } from "../db/accounts";
 import { withTransaction } from "../db/connection";
 import { upsertMessage, updateMessageThreadIds } from "../db/messages";
-import { upsertThread } from "../db/threads";
+import { upsertThread, deleteThread } from "../db/threads";
 import { upsertAttachment } from "../db/attachments";
+import { getPendingOpsForResource } from "../db/pendingOperations";
 
 describe("imapMessageToParsedMessage", () => {
   it("converts basic IMAP message to ParsedMessage format", () => {
@@ -261,6 +263,10 @@ describe("imapInitialSync", () => {
   });
 
   afterEach(() => {
+    // Reset persistent mock implementations to prevent leaking between describe blocks
+    mockImapSearchFolder.mockReset();
+    mockImapFetchMessages.mockReset();
+    mockImapListFolders.mockReset();
     vi.useRealTimers();
   });
 
@@ -512,9 +518,18 @@ describe("imapInitialSync", () => {
     mockImapListFolders.mockResolvedValue(folders);
     mockImapSearchFolder.mockRejectedValue(new Error("TCP connect timed out (os error 60)"));
 
-    const syncPromise = imapInitialSync("acc-1");
+    // Advance timers and catch the expected error in one go to avoid
+    // Vitest's unhandled-rejection tracker from flagging it.
+    let caughtError: Error | null = null;
+    const syncPromise = imapInitialSync("acc-1").catch((err: Error) => {
+      caughtError = err;
+    });
     await vi.runAllTimersAsync();
     await syncPromise;
+
+    // All folders fail → error is propagated
+    expect(caughtError).not.toBeNull();
+    expect(caughtError!.message).toContain("All folders failed to sync");
 
     // Circuit breaker should stop after 5 failures (CIRCUIT_BREAKER_MAX_FAILURES)
     expect(mockImapSearchFolder).toHaveBeenCalledTimes(5);
@@ -560,9 +575,16 @@ describe("imapInitialSync", () => {
     // Non-connection errors should NOT trigger circuit breaker
     mockImapSearchFolder.mockRejectedValue(new Error("PARSE failed: invalid response"));
 
-    const syncPromise = imapInitialSync("acc-1");
+    let caughtError: Error | null = null;
+    const syncPromise = imapInitialSync("acc-1").catch((err: Error) => {
+      caughtError = err;
+    });
     await vi.runAllTimersAsync();
     await syncPromise;
+
+    // All folders fail → error is propagated, but all were attempted first
+    expect(caughtError).not.toBeNull();
+    expect(caughtError!.message).toContain("All folders failed to sync");
 
     // All folders should be attempted since these aren't connection errors
     expect(mockImapSearchFolder).toHaveBeenCalledTimes(6);
@@ -600,5 +622,127 @@ describe("computeSinceDate", () => {
     const yesterday = new Date();
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
     expect(result).toBe(formatImapDate(yesterday));
+  });
+});
+
+describe("isConnectionError", () => {
+  it("detects 'timed out' errors", () => {
+    expect(isConnectionError("TCP connect timed out (os error 60)")).toBe(true);
+  });
+
+  it("detects 'connection' errors", () => {
+    expect(isConnectionError("connection reset by peer")).toBe(true);
+  });
+
+  it("detects TLS errors", () => {
+    expect(isConnectionError("tls handshake failed")).toBe(true);
+  });
+
+  it("detects DNS errors", () => {
+    expect(isConnectionError("dns resolution failed")).toBe(true);
+  });
+
+  it("detects ECONNREFUSED errors", () => {
+    expect(isConnectionError("connect ECONNREFUSED 127.0.0.1:993")).toBe(true);
+  });
+
+  it("detects socket errors", () => {
+    expect(isConnectionError("socket hang up")).toBe(true);
+  });
+
+  it("detects network errors", () => {
+    expect(isConnectionError("network is unreachable")).toBe(true);
+  });
+
+  it("returns false for non-connection errors", () => {
+    expect(isConnectionError("PARSE failed: invalid response")).toBe(false);
+    expect(isConnectionError("authentication failed")).toBe(false);
+  });
+});
+
+describe("imapInitialSync — all-folders-fail propagation", () => {
+  const mockGetAccount = vi.mocked(getAccount);
+  const mockImapListFolders = vi.mocked(imapListFolders);
+  const mockImapSearchFolder = vi.mocked(imapSearchFolder);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    mockGetAccount.mockResolvedValue(createMockImapAccount({ id: "acc-1" }));
+  });
+
+  afterEach(() => {
+    // Reset search mock implementation to prevent leaking into subsequent tests
+    mockImapSearchFolder.mockReset();
+    vi.useRealTimers();
+  });
+
+  it("throws when all folders fail and no messages were stored", async () => {
+    const folders = [
+      createMockImapFolder({ path: "INBOX", raw_path: "INBOX", exists: 10 }),
+      createMockImapFolder({ path: "Sent", raw_path: "Sent", exists: 5 }),
+    ];
+    mockImapListFolders.mockResolvedValue(folders);
+    mockImapSearchFolder.mockRejectedValue("authentication failed");
+
+    let caughtError: Error | null = null;
+    const syncPromise = imapInitialSync("acc-1").catch((err: Error) => {
+      caughtError = err;
+    });
+    await vi.runAllTimersAsync();
+    await syncPromise;
+
+    expect(caughtError).not.toBeNull();
+    expect(caughtError!.message).toContain("All folders failed to sync");
+  });
+});
+
+describe("imapInitialSync — placeholder cleanup", () => {
+  const mockGetAccount = vi.mocked(getAccount);
+  const mockImapListFolders = vi.mocked(imapListFolders);
+  const mockImapSearchFolder = vi.mocked(imapSearchFolder);
+  const mockImapFetchMessages = vi.mocked(imapFetchMessages);
+  const mockDeleteThread = vi.mocked(deleteThread);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    mockGetAccount.mockResolvedValue(createMockImapAccount({ id: "acc-1" }));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("deletes orphaned placeholder threads after threading", async () => {
+    // Two messages that share the same thread via References
+    const msg1 = createMockImapMessage({
+      uid: 1,
+      message_id: "<m1@test>",
+      subject: "Thread Subject",
+      date: Math.floor(Date.now() / 1000),
+    });
+    const msg2 = createMockImapMessage({
+      uid: 2,
+      message_id: "<m2@test>",
+      in_reply_to: "<m1@test>",
+      references: "<m1@test>",
+      subject: "Re: Thread Subject",
+      date: Math.floor(Date.now() / 1000) + 60,
+    });
+
+    const mockFolder = createMockImapFolder({ path: "INBOX", raw_path: "INBOX", exists: 2 });
+    mockImapListFolders.mockResolvedValue([mockFolder]);
+    mockImapSearchFolder.mockResolvedValue({
+      uids: [1, 2],
+      folder_status: createMockImapFolderStatus({ exists: 2 }),
+    });
+    mockImapFetchMessages.mockResolvedValue(createMockImapFetchResult([msg1, msg2]));
+
+    await imapInitialSync("acc-1");
+
+    // Threading should merge the two messages into one thread,
+    // so at least one placeholder thread (the one not chosen as thread ID) should be deleted
+    expect(mockDeleteThread).toHaveBeenCalled();
   });
 });

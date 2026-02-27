@@ -61,7 +61,7 @@ async function syncGmailAccount(accountId: string): Promise<void> {
     try {
       await deltaSync(client, accountId, account.history_id);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "";
+      const message = err instanceof Error ? err.message : String(err ?? "");
       if (message === "HISTORY_EXPIRED") {
         // Fallback to full sync
         await initialSync(client, accountId, syncDays, (progress) => {
@@ -244,7 +244,7 @@ async function syncAccountInternal(accountId: string): Promise<void> {
       console.warn(`[syncManager] Calendar sync error for ${accountId}:`, err);
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = err instanceof Error ? err.message : String(err ?? "Unknown error");
     console.error(`[syncManager] Sync failed for account ${accountId}:`, message);
     statusCallback?.(accountId, "error", undefined, message);
   }

@@ -10,15 +10,27 @@ const NETWORK_PATTERNS = [
   "failed to fetch",
   "network",
   "timeout",
+  "timed out",
   "econnrefused",
   "connection refused",
   "econnreset",
   "enotfound",
   "dns",
   "socket hang up",
+  "socket",
   "aborted",
   "network error",
   "net::err",
+  "tcp connect",
+  "tls handshake",
+];
+
+const AUTH_PATTERNS = [
+  "authentication failed",
+  "login failed",
+  "invalid credentials",
+  "login denied",
+  "authenticate failed",
 ];
 
 export function classifyError(error: unknown): ClassifiedError {
@@ -42,6 +54,11 @@ export function classifyError(error: unknown): ClassifiedError {
     return { type: "server", isRetryable: true, message };
   }
 
+  // Check IMAP auth error patterns
+  if (AUTH_PATTERNS.some((pattern) => lower.includes(pattern))) {
+    return { type: "auth", isRetryable: false, message };
+  }
+
   // Check network error patterns
   if (NETWORK_PATTERNS.some((pattern) => lower.includes(pattern))) {
     return { type: "network", isRetryable: true, message };
@@ -62,4 +79,33 @@ export function classifyError(error: unknown): ClassifiedError {
   }
 
   return { type: "permanent", isRetryable: false, message };
+}
+
+/**
+ * Translate a raw sync error string into a user-friendly message.
+ */
+export function formatSyncError(rawError: string): string {
+  const lower = rawError.toLowerCase();
+
+  if (AUTH_PATTERNS.some((p) => lower.includes(p))) {
+    return "Authentication failed \u2014 check your password";
+  }
+  if (lower.includes("timed out") || lower.includes("timeout")) {
+    return "Connection timed out \u2014 check your internet or server settings";
+  }
+  if (lower.includes("tls") || lower.includes("ssl") || lower.includes("certificate")) {
+    return "Secure connection failed \u2014 check security settings";
+  }
+  if (lower.includes("econnrefused") || lower.includes("connection refused")) {
+    return "Could not reach mail server \u2014 check address and port";
+  }
+  if (lower.includes("dns") || lower.includes("enotfound") || lower.includes("server not found")) {
+    return "Server not found \u2014 check hostname";
+  }
+
+  // Fallback: truncate long technical errors
+  if (rawError.length > 100) {
+    return rawError.slice(0, 100) + "\u2026";
+  }
+  return rawError;
 }

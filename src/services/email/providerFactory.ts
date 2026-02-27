@@ -41,6 +41,18 @@ export function removeProvider(accountId: string): void {
 }
 
 /**
+ * Invalidate the cached IMAP/SMTP config for a provider without removing
+ * the provider itself. Call this after updating account credentials so the
+ * next sync picks up the new password/host settings.
+ */
+export function invalidateProviderConfig(accountId: string): void {
+  const existing = providers.get(accountId);
+  if (existing && existing instanceof ImapSmtpProvider) {
+    existing.clearConfigCache();
+  }
+}
+
+/**
  * Clear all cached providers.
  */
 export function clearAllProviders(): void {

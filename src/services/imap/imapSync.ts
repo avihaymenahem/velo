@@ -17,7 +17,7 @@ import {
 import type { ParsedMessage, ParsedAttachment } from "../gmail/messageParser";
 import type { SyncResult } from "../email/types";
 import { upsertMessage, updateMessageThreadIds } from "../db/messages";
-import { upsertThread, setThreadLabels } from "../db/threads";
+import { upsertThread, setThreadLabels, deleteThread } from "../db/threads";
 import { upsertAttachment } from "../db/attachments";
 import { getAccount, updateAccountSyncState } from "../db/accounts";
 import { withTransaction } from "../db/connection";
@@ -55,9 +55,18 @@ const CIRCUIT_BREAKER_MAX_FAILURES = 5;
 /** Delay (ms) between folder syncs during initial sync to avoid connection bursts. */
 const INTER_FOLDER_DELAY_MS = 1_000;
 
-function isConnectionError(err: unknown): boolean {
+export function isConnectionError(err: unknown): boolean {
   const msg = String(err).toLowerCase();
-  return msg.includes("timed out") || msg.includes("connection") || msg.includes("tcp");
+  return (
+    msg.includes("timed out") ||
+    msg.includes("connection") ||
+    msg.includes("tcp") ||
+    msg.includes("tls") ||
+    msg.includes("dns") ||
+    msg.includes("econnrefused") ||
+    msg.includes("network") ||
+    msg.includes("socket")
+  );
 }
 
 function delay(ms: number): Promise<void> {
@@ -436,6 +445,7 @@ export async function imapInitialSync(
   let totalMessagesFound = 0;
   let storedCount = 0;
   let consecutiveFailures = 0;
+  const folderErrors: string[] = [];
 
   for (let folderIdx = 0; folderIdx < syncableFolders.length; folderIdx++) {
     const folder = syncableFolders[folderIdx]!;
@@ -493,9 +503,20 @@ export async function imapInitialSync(
         try {
           chunkResult = await imapFetchMessages(config, folder.raw_path, chunkUids);
         } catch (chunkErr) {
-          console.error(`[imapSync] Failed to fetch chunk ${chunkStart}-${chunkStart + chunkUids.length} in ${folder.path}:`, chunkErr);
-          // Continue to next chunk — partial data is better than none
-          continue;
+          // Retry once for transient connection errors
+          if (isConnectionError(chunkErr)) {
+            console.warn(`[imapSync] Chunk fetch failed in ${folder.path}, retrying in 2s:`, chunkErr);
+            await delay(2_000);
+            try {
+              chunkResult = await imapFetchMessages(config, folder.raw_path, chunkUids);
+            } catch (retryErr) {
+              console.error(`[imapSync] Chunk retry failed in ${folder.path}:`, retryErr);
+              continue;
+            }
+          } else {
+            console.error(`[imapSync] Failed to fetch chunk ${chunkStart}-${chunkStart + chunkUids.length} in ${folder.path}:`, chunkErr);
+            continue;
+          }
         }
 
         // Collect parsed data for this chunk to write in a single transaction
@@ -648,12 +669,19 @@ export async function imapInitialSync(
         last_sync_at: Math.floor(Date.now() / 1000),
       });
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err ?? "Unknown error");
       console.error(`[imapSync] Failed to sync folder ${folder.path}:`, err);
+      folderErrors.push(`${folder.path}: ${errMsg}`);
       if (isConnectionError(err)) {
         consecutiveFailures++;
       }
       // Continue with next folder
     }
+  }
+
+  // If no messages were stored and every folder failed, propagate the error
+  if (storedCount === 0 && folderErrors.length > 0) {
+    throw new Error(`All folders failed to sync: ${folderErrors[0]}`);
   }
 
   // ---------------------------------------------------------------------------
@@ -745,6 +773,27 @@ export async function imapInitialSync(
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Phase 5: Clean up orphaned placeholder threads
+  // ---------------------------------------------------------------------------
+  // Phase 2 created a placeholder thread per message (threadId = messageId).
+  // Phase 4 merged messages into real threads and updated message thread IDs.
+  // Placeholder threads that are no longer referenced by any final thread group
+  // should be deleted to avoid ghost threads in the UI.
+  const finalThreadIds = new Set(threadGroups.map((g) => g.threadId));
+  const allMessageIds = new Set(allMeta.keys());
+  let orphanCount = 0;
+  for (const msgId of allMessageIds) {
+    // If this message's placeholder ID isn't a final thread ID, it's orphaned
+    if (!finalThreadIds.has(msgId)) {
+      await deleteThread(accountId, msgId);
+      orphanCount++;
+    }
+  }
+  if (orphanCount > 0) {
+    console.log(`[imapSync] Cleaned up ${orphanCount} orphaned placeholder threads`);
+  }
+
   console.log(
     `[imapSync] Stored ${storedCount} messages in ${threadGroups.length} threads (found ${totalMessagesFound} on server)`,
   );
@@ -803,6 +852,7 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
 
   // Handle new folders: search for UIDs then fetch in chunks
   let consecutiveFailures = 0;
+  const deltaFolderErrors: string[] = [];
   for (const folder of newFolders) {
     // Circuit breaker: skip remaining new folders after too many failures
     if (consecutiveFailures >= CIRCUIT_BREAKER_MAX_FAILURES) {
@@ -849,7 +899,9 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
         last_sync_at: Math.floor(Date.now() / 1000),
       });
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err ?? "Unknown error");
       console.error(`Delta sync failed for new folder ${folder.path}:`, err);
+      deltaFolderErrors.push(`${folder.path}: ${errMsg}`);
       if (isConnectionError(err)) {
         consecutiveFailures++;
       }
@@ -983,9 +1035,16 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
           last_sync_at: Math.floor(Date.now() / 1000),
         });
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err ?? "Unknown error");
         console.error(`Delta sync failed for folder ${folder.path}:`, err);
+        deltaFolderErrors.push(`${folder.path}: ${errMsg}`);
       }
     }
+  }
+
+  // If no new messages found and every folder errored, propagate the error
+  if (allThreadable.length === 0 && deltaFolderErrors.length > 0) {
+    throw new Error(`All folders failed to sync: ${deltaFolderErrors[0]}`);
   }
 
   if (allThreadable.length === 0) {
