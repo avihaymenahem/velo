@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.21](https://github.com/avihaymenahem/velo/compare/velo-v0.4.20...velo-v0.4.21) (2026-02-27)
+
+
+### Bug Fixes
+
+* improve IMAP sync error handling and reliability ([29ce210](https://github.com/avihaymenahem/velo/commit/29ce210b78c1dccaf0cdef02f1342dcd14f0aedf))
+
 ## [0.4.20](https://github.com/avihaymenahem/velo/compare/velo-v0.4.19...velo-v0.4.20) (2026-02-26)
 
 
