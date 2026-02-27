@@ -50,15 +50,18 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 ```
 velo/
 ├── src/
-│   ├── components/           # React components (14 groups, ~94 files)
+│   ├── components/           # React components (15 groups, ~98 files)
 │   │   ├── layout/           # Sidebar, EmailList, ReadingPane, TitleBar
 │   │   ├── email/            # ThreadView, MessageItem, EmailRenderer,
 │   │   │                     # ContactSidebar, SmartReplySuggestions,
 │   │   │                     # InlineReply, ThreadSummary, FollowUpDialog,
 │   │   │                     # AuthBadge, AuthWarningBanner, PhishingBanner,
-│   │   │                     # LinkConfirmDialog, CategoryTabs
+│   │   │                     # LinkConfirmDialog, CategoryTabs,
+│   │   │                     # InboxDigestPanel, MeetingDetectionBanner
+│   │   ├── ai/               # AgentPanel (Claude tool-use chat interface)
 │   │   ├── composer/         # Composer, AddressInput, EditorToolbar,
-│   │   │                     # AiAssistPanel, ScheduleSendDialog, FromSelector
+│   │   │                     # AiAssistPanel, ScheduleSendDialog, FromSelector,
+│   │   │                     # ProofreadPanel
 │   │   ├── search/           # CommandPalette, SearchBar, ShortcutsHelp, AskInbox
 │   │   ├── settings/         # SettingsPage, FilterEditor, LabelEditor,
 │   │   │                     # SubscriptionManager, ContactEditor,
@@ -83,7 +86,10 @@ velo/
 │   │   │                     # config builder, Tauri command wrappers
 │   │   ├── threading/        # JWZ threading engine for IMAP conversations
 │   │   ├── ai/               # AI service, 3 providers, categorization, Ask Inbox,
-│   │   │                     # writing style analysis, auto-drafts, task extraction
+│   │   │                     # writing style analysis, auto-drafts, task extraction,
+│   │   │                     # proofread, urgency scoring, meeting detection,
+│   │   │                     # inbox digest, contact relationship summary,
+│   │   │                     # filter suggestions, agent tool-use (agentService)
 │   │   ├── google/           # Google Calendar API
 │   │   ├── composer/         # Draft auto-save
 │   │   ├── search/           # Query parser, SQL builder
@@ -152,7 +158,7 @@ All business logic lives in `src/services/` as plain async functions (except `Gm
 | `gmail/` | Gmail client, token management, sync engine |
 | `imap/` | IMAP sync, folder-to-label mapping, auto-discovery, Tauri command wrappers |
 | `threading/` | JWZ threading algorithm for IMAP message grouping |
-| `ai/` | AI service with 3 providers (selectable models), categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction |
+| `ai/` | AI service with 3 providers (selectable models), categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction, proofread-before-send, urgency scoring, meeting detection, inbox digest, contact relationship summary, filter suggestions, Claude tool-use agent (`agentService.ts`) |
 | `google/` | Google Calendar API |
 | `composer/` | Draft auto-save (3s debounce) |
 | `search/` | Gmail-style query parser, SQL builder |

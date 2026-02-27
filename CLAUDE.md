@@ -45,7 +45,7 @@ Tauri v2 desktop app: Rust backend + React 19 frontend communicating via Tauri I
    - `gmail/` — `GmailClient` class auto-refreshes tokens 5min before expiry, retries on 401. `tokenManager.ts` caches clients per account in a Map. `syncManager.ts` orchestrates sync (60s interval) for both Gmail and IMAP accounts via the EmailProvider abstraction. `sync.ts` does initial sync (365 days, configurable via `sync_period_days` setting) and delta sync via Gmail History API; falls back to full sync if history expired (~30 days). `authParser.ts` parses SPF/DKIM/DMARC from `Authentication-Results` headers. `sendAs.ts` fetches send-as aliases from Gmail API.
    - `imap/` — IMAP-specific services. `tauriCommands.ts` wraps Rust IMAP Tauri commands. `imapSync.ts` orchestrates IMAP initial sync (batch fetch, 50 messages/batch) and delta sync via UIDVALIDITY/last_uid tracking. `folderMapper.ts` maps IMAP folders (special-use flags + well-known names) to Gmail-style labels. `autoDiscovery.ts` provides pre-configured server settings for 7 major providers (Outlook, Yahoo, iCloud, AOL, Zoho, FastMail, GMX). `imapConfigBuilder.ts` builds IMAP/SMTP configs from account records. `messageHelper.ts` handles IMAP message utilities.
    - `threading/` — JWZ threading algorithm (`threadBuilder.ts`) for grouping IMAP messages into conversation threads using Message-ID, References, and In-Reply-To headers. Supports incremental threading, phantom containers for missing references, and subject-based merging.
-   - `ai/` — `aiService.ts` provides thread summaries, smart replies, AI compose, text transform, auto-categorization, smart label classification, and task extraction. `providerManager.ts` manages three providers (`providers/claudeProvider.ts`, `providers/openaiProvider.ts`, `providers/geminiProvider.ts`). `askInbox.ts` enables natural language inbox queries. `categorizationManager.ts` auto-sorts threads into Primary/Updates/Promotions/Social/Newsletters. `writingStyleService.ts` analyzes user writing style from sent emails and generates auto-draft replies. `taskExtraction.ts` extracts tasks from email threads via AI. `errors.ts` and `types.ts` define shared AI types. Results cached locally via `db/aiCache.ts`.
+   - `ai/` — `aiService.ts` provides thread summaries, smart replies, AI compose, text transform, auto-categorization, smart label classification, task extraction, proofread-before-send (`proofreadEmail`), meeting detection (`detectMeetingIntent`), inbox digest (`generateInboxDigest`), urgency scoring (`batchScoreUrgency`), contact relationship summary (`generateContactRelationshipSummary`), and filter suggestions (`suggestFilterRules`). `agentService.ts` powers the Agent Panel with a Claude tool-use loop (5 tools: `get_subscriptions`, `get_newsletter_threads`, `unsubscribe_sender`, `archive_sender_threads`, `search_emails`) and event callbacks for real-time UI progress. `providerManager.ts` manages three providers (`providers/claudeProvider.ts` — also exports `completeWithTools()` for agentic use, `providers/openaiProvider.ts`, `providers/geminiProvider.ts`). `askInbox.ts` enables natural language inbox queries. `categorizationManager.ts` auto-sorts threads into Primary/Updates/Promotions/Social/Newsletters. `writingStyleService.ts` analyzes user writing style from sent emails and generates auto-draft replies. `taskExtraction.ts` extracts tasks from email threads via AI. `errors.ts` and `types.ts` define shared AI types (including `ProofreadIssue`, `ProofreadResult`, `MeetingDetectionResult`, `FilterSuggestion`). Results cached locally via `db/aiCache.ts`.
    - `google/` — `calendar.ts` handles Google Calendar API (list calendars, fetch events, create events, token refresh).
    - `composer/` — `draftAutoSave.ts` auto-saves drafts every 3 seconds (debounced). Watches composer state changes via Zustand subscribe.
    - `search/` — `searchParser.ts` parses Gmail-style operators (`from:`, `to:`, `subject:`, `has:attachment`, `is:unread/read/starred`, `before:`, `after:`, `label:`). `searchQueryBuilder.ts` builds SQL queries from parsed operators.
@@ -68,10 +68,11 @@ Tauri v2 desktop app: Rust backend + React 19 frontend communicating via Tauri I
 
 ### Component organization
 
-14 groups, ~94 component files:
+15 groups, ~102 component files:
 - `layout/` — Sidebar, EmailList, ReadingPane, TitleBar
-- `email/` — ThreadView, ThreadCard, MessageItem, EmailRenderer, ActionBar, AttachmentList, SnoozeDialog, ContactSidebar, FollowUpDialog, InlineAttachmentPreview, InlineReply, SmartReplySuggestions, ThreadSummary, AuthBadge, AuthWarningBanner, PhishingBanner, LinkConfirmDialog, CategoryTabs, MoveToFolderDialog
-- `composer/` — Composer (TipTap v3 rich text editor), AddressInput, EditorToolbar, AttachmentPicker, ScheduleSendDialog, SignatureSelector, TemplatePicker, UndoSendToast, AiAssistPanel, FromSelector
+- `email/` — ThreadView, ThreadCard, MessageItem, EmailRenderer, ActionBar, AttachmentList, SnoozeDialog, ContactSidebar, FollowUpDialog, InlineAttachmentPreview, InlineReply, SmartReplySuggestions, ThreadSummary, AuthBadge, AuthWarningBanner, PhishingBanner, LinkConfirmDialog, CategoryTabs, MoveToFolderDialog, InboxDigestPanel, MeetingDetectionBanner
+- `ai/` — AgentPanel (floating Claude tool-use chat interface, `Ctrl+Shift+I`)
+- `composer/` — Composer (TipTap v3 rich text editor), AddressInput, EditorToolbar, AttachmentPicker, ScheduleSendDialog, SignatureSelector, TemplatePicker, UndoSendToast, AiAssistPanel, FromSelector, ProofreadPanel
 - `search/` — CommandPalette, SearchBar, ShortcutsHelp, AskInbox
 - `settings/` — SettingsPage, FilterEditor, LabelEditor, SignatureEditor, TemplateEditor, ContactEditor, SubscriptionManager, QuickStepEditor, SmartFolderEditor
 - `accounts/` — AddAccount, AddImapAccount, AccountSwitcher, SetupClientId
@@ -105,7 +106,7 @@ Thread pop-out windows via `ThreadWindow.tsx`. Entry point in `main.tsx` checks 
 
 ### Cross-component communication
 
-Custom window events: `velo-sync-done`, `velo-toggle-command-palette`, `velo-toggle-shortcuts-help`, `velo-toggle-ask-inbox`, `velo-move-to-folder`. Tray emits `tray-check-mail` via Tauri event system. `single-instance-args` event for deep link forwarding.
+Custom window events: `velo-sync-done`, `velo-toggle-command-palette`, `velo-toggle-shortcuts-help`, `velo-toggle-ask-inbox`, `velo-toggle-agent-panel`, `velo-move-to-folder`. Tray emits `tray-check-mail` via Tauri event system. `single-instance-args` event for deep link forwarding.
 
 ### Keyboard shortcuts
 
@@ -132,6 +133,7 @@ Custom window events: `velo-sync-done`, `velo-toggle-command-palette`, `velo-tog
 | `?` | Shortcuts help |
 | `Escape` | Close composer → clear multi-select → deselect thread (hierarchical) |
 | `Ctrl+Shift+E` | Toggle sidebar |
+| `Ctrl+Shift+I` | Open AI Agent Panel |
 | `Ctrl+Enter` | Send email (in composer) |
 | `Ctrl+A` | Select all threads |
 | `Ctrl+Shift+A` | Select all threads from current position |

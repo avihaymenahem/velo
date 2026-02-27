@@ -481,5 +481,8 @@ async function executeAction(actionId: string): Promise<void> {
       }
       break;
     }
+    case "app.aiAgent":
+      window.dispatchEvent(new Event("velo-toggle-agent-panel"));
+      break;
   }
 }
