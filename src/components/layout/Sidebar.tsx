@@ -490,11 +490,12 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
               const Icon = getSmartFolderIcon(folder.icon);
               const isActive = activeLabel === `smart-folder:${folder.id}`;
               const count = smartFolderCounts[folder.id] ?? 0;
+              const displayName = folder.isDefault ? t(folder.id, { defaultValue: folder.name }) : folder.name;
               return (
                 <button
                   key={folder.id}
                   onClick={() => navigateToLabel(`smart-folder:${folder.id}`)}
-                  title={collapsed ? folder.name : undefined}
+                  title={collapsed ? displayName : undefined}
                   className={`flex items-center w-full py-2 text-sm transition-colors press-scale ${
                     collapsed ? "justify-center px-0" : "gap-3 px-3 text-left"
                   } ${
@@ -510,7 +511,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                   />
                   {!collapsed && (
                     <>
-                      <span className="flex-1 truncate">{folder.name}</span>
+                      <span className="flex-1 truncate">{displayName}</span>
                       {count > 0 && (
                         <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
                           {count}

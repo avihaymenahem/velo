@@ -36,5 +36,8 @@
   "smartFolderQuery": "es. is:unread from:boss",
   "syncThisFolder": "Sincronizza questa cartella",
   "pendingChange_one": "{{count}} modifica in sospeso",
-  "pendingChange_other": "{{count}} modifiche in sospeso"
+  "pendingChange_other": "{{count}} modifiche in sospeso",
+  "sf-unread": "Non lette",
+  "sf-attachments": "Con allegati",
+  "sf-starred-recent": "Speciali questa settimana"
 }

@@ -36,5 +36,8 @@
   "smartFolderQuery": "e.g. is:unread from:boss",
   "syncThisFolder": "Sync this folder",
   "pendingChange_one": "{{count}} pending change",
-  "pendingChange_other": "{{count}} pending changes"
+  "pendingChange_other": "{{count}} pending changes",
+  "sf-unread": "Unread",
+  "sf-attachments": "Has Attachments",
+  "sf-starred-recent": "Starred This Week"
 }
