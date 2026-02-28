@@ -65,7 +65,7 @@ describe("helpContent", () => {
 
   it("getCategoryById returns correct category", () => {
     const cat = getCategoryById("composing");
-    expect(cat?.label).toBe("Composing & Sending");
+    expect(cat?.label).toBe("categories.composing");
   });
 
   it("getCategoryById returns undefined for unknown ID", () => {

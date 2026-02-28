@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -16,6 +17,7 @@ import {
 } from "@/services/db/signatures";
 
 export function SignatureEditor() {
+  const { t } = useTranslation("settings");
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const [signatures, setSignatures] = useState<DbSignature[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -118,7 +120,7 @@ export function SignatureEditor() {
               {sig.name}
               {sig.is_default === 1 && (
                 <span className="text-[0.625rem] bg-accent/10 text-accent px-1.5 py-0.5 rounded">
-                  Default
+                  {t("signatureEditor.default")}
                 </span>
               )}
             </div>
@@ -146,12 +148,12 @@ export function SignatureEditor() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Signature name"
+            placeholder={t("signatureEditor.signatureName")}
           />
           <div className="border border-border-primary rounded overflow-hidden bg-bg-tertiary">
             <div className="flex items-center justify-between">
               {isHtmlMode ? (
-                <span className="px-2 py-1 text-xs text-text-secondary">HTML source</span>
+                <span className="px-2 py-1 text-xs text-text-secondary">{t("signatureEditor.htmlSource")}</span>
               ) : (
                 <EditorToolbar editor={editor} />
               )}
@@ -159,7 +161,7 @@ export function SignatureEditor() {
                 type="button"
                 onClick={toggleHtmlMode}
                 className={`p-1.5 mr-1 rounded transition-colors ${isHtmlMode ? "text-accent bg-accent/10" : "text-text-tertiary hover:text-text-primary"}`}
-                title={isHtmlMode ? "Switch to visual editor" : "Edit HTML source"}
+                title={isHtmlMode ? t("signatureEditor.switchToVisual") : t("signatureEditor.editHtml")}
               >
                 <Code size={14} />
               </button>
@@ -183,7 +185,7 @@ export function SignatureEditor() {
                 onChange={(e) => setIsDefault(e.target.checked)}
                 className="rounded"
               />
-              Set as default
+              {t("signatureEditor.setAsDefault")}
             </label>
           </div>
           <div className="flex items-center gap-2">
@@ -192,13 +194,13 @@ export function SignatureEditor() {
               disabled={!name.trim()}
               className="px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
             >
-              {editingId ? "Update" : "Save"}
+              {editingId ? t("signatureEditor.update") : t("signatureEditor.save")}
             </button>
             <button
               onClick={resetForm}
               className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary rounded-md transition-colors"
             >
-              Cancel
+              {t("signatureEditor.cancel")}
             </button>
           </div>
         </div>
@@ -207,7 +209,7 @@ export function SignatureEditor() {
           onClick={() => setShowForm(true)}
           className="text-xs text-accent hover:text-accent-hover"
         >
-          + Add signature
+          {t("signatureEditor.addSignature")}
         </button>
       )}
     </div>

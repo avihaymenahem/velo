@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X, Copy } from "lucide-react";
 
 const isMac = navigator.userAgent.includes("Macintosh");
 
 export function TitleBar() {
+  const { t } = useTranslation("settings");
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export function TitleBar() {
       {/* App title — left side (extra padding on macOS for traffic light buttons) */}
       <div data-tauri-drag-region className={`flex items-center gap-2 ${isMac ? "pl-20" : "pl-4"}`}>
         <span data-tauri-drag-region className="text-xs font-semibold text-sidebar-text tracking-wide">
-          Velo
+          {t("common:velo")}
         </span>
       </div>
 
@@ -42,21 +44,21 @@ export function TitleBar() {
           <button
             onClick={handleMinimize}
             className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-sidebar-hover transition-colors"
-            title="Minimize"
+            title={t("minimize")}
           >
             <Minus size={14} />
           </button>
           <button
             onClick={handleMaximize}
             className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-sidebar-hover transition-colors"
-            title={maximized ? "Restore" : "Maximize"}
+            title={maximized ? t("restore") : t("maximize")}
           >
             {maximized ? <Copy size={12} /> : <Square size={12} />}
           </button>
           <button
             onClick={handleClose}
             className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-danger hover:text-white transition-colors"
-            title="Close"
+            title={t("close")}
           >
             <X size={14} />
           </button>

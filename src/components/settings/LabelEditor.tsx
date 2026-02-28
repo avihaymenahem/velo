@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Trash2, Pencil, ChevronUp, ChevronDown, X } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLabelStore, type Label } from "@/stores/labelStore";
 import { LabelForm } from "@/components/labels/LabelForm";
 
 export function LabelEditor() {
+  const { t } = useTranslation("settings");
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const { labels, loadLabels, deleteLabel, reorderLabels } = useLabelStore();
 
@@ -76,7 +78,7 @@ export function LabelEditor() {
       )}
 
       {labels.length === 0 && !showForm && (
-        <p className="text-sm text-text-tertiary">No user labels</p>
+        <p className="text-sm text-text-tertiary">{t("labelEditor.noUserLabels")}</p>
       )}
 
       {labels.map((label, index) => (
@@ -100,7 +102,7 @@ export function LabelEditor() {
                 onClick={() => handleMoveUp(index)}
                 disabled={index === 0}
                 className="p-1 text-text-tertiary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Move up"
+                title={t("labelEditor.moveUp")}
               >
                 <ChevronUp size={13} />
               </button>
@@ -108,21 +110,21 @@ export function LabelEditor() {
                 onClick={() => handleMoveDown(index)}
                 disabled={index === labels.length - 1}
                 className="p-1 text-text-tertiary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Move down"
+                title={t("labelEditor.moveDown")}
               >
                 <ChevronDown size={13} />
               </button>
               <button
                 onClick={() => handleEdit(label)}
                 className="p-1 text-text-tertiary hover:text-text-primary"
-                title="Edit"
+                title={t("labelEditor.edit")}
               >
                 <Pencil size={13} />
               </button>
               <button
                 onClick={() => handleDelete(label)}
                 className="p-1 text-text-tertiary hover:text-danger"
-                title="Delete"
+                title={t("labelEditor.delete")}
               >
                 <Trash2 size={13} />
               </button>
@@ -152,7 +154,7 @@ export function LabelEditor() {
           onClick={() => { setShowForm(true); setEditingId(null); setError(null); }}
           className="text-xs text-accent hover:text-accent-hover"
         >
-          + Add label
+          {t("labelEditor.addLabel")}
         </button>
       )}
     </div>

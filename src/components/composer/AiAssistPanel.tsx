@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { Editor } from "@tiptap/react";
 import { Wand2, Sparkles, ArrowDown, Briefcase } from "lucide-react";
 import { isAiAvailable } from "@/services/ai/providerManager";
@@ -17,6 +18,7 @@ interface AiAssistPanelProps {
 }
 
 export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistPanelProps) {
+  const { t } = useTranslation("composer");
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +89,7 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
     <div className="px-3 py-2 border-b border-border-secondary bg-accent/5">
       <div className="flex items-center gap-2 mb-2">
         <Sparkles size={12} className="text-accent" />
-        <span className="text-xs font-medium text-accent">AI Assist</span>
+        <span className="text-xs font-medium text-accent">{t("aiAssistTitle")}</span>
       </div>
 
       {/* Prompt input */}
@@ -103,7 +105,7 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
               else handleCompose();
             }
           }}
-          placeholder={isReplyMode ? "Instructions for reply (optional)..." : "Describe what to write..."}
+          placeholder={isReplyMode ? t("aiInstructionsPlaceholder") : t("aiComposePlaceholder")}
           className="flex-1 px-2 py-1 text-xs bg-bg-tertiary border border-border-primary rounded outline-none focus:border-accent text-text-primary placeholder:text-text-tertiary"
           disabled={loading}
         />
@@ -113,7 +115,7 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
             disabled={loading || !threadMessages?.length}
             className="px-2 py-1 text-xs bg-accent text-white rounded hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center gap-1"
           >
-            {loading ? "..." : "Generate Reply"}
+            {loading ? "..." : t("generateReply")}
           </button>
         ) : (
           <button
@@ -121,29 +123,29 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
             disabled={loading || !prompt.trim()}
             className="px-2 py-1 text-xs bg-accent text-white rounded hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center gap-1"
           >
-            {loading ? "..." : "Generate"}
+            {loading ? "..." : t("generate")}
           </button>
         )}
       </div>
 
       {/* Quick actions */}
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-text-tertiary mr-1">Transform:</span>
+        <span className="text-xs text-text-tertiary mr-1">{t("transform")}</span>
         <QuickAction
           icon={<Wand2 size={11} />}
-          label="Improve"
+          label={t("improve")}
           onClick={() => handleTransform("improve")}
           disabled={loading}
         />
         <QuickAction
           icon={<ArrowDown size={11} />}
-          label="Shorter"
+          label={t("shorter")}
           onClick={() => handleTransform("shorten")}
           disabled={loading}
         />
         <QuickAction
           icon={<Briefcase size={11} />}
-          label="Formal"
+          label={t("formal")}
           onClick={() => handleTransform("formalize")}
           disabled={loading}
         />

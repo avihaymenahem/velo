@@ -10,6 +10,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useComposerStore } from "../../stores/composerStore";
 import { navigateToLabel } from "../../router/navigate";
 import { normalizeEmail } from "@/utils/emailUtils";
+import i18n from "@/i18n";
 
 let initialized = false;
 let notificationsEnabled = true;
@@ -131,13 +132,13 @@ export function queueNewEmailNotification(
     if (pendingCount === 1) {
       sendNotification({
         title: from,
-        body: subject || "(No subject)",
+        body: subject || i18n.t("common:noSubject"),
         actionTypeId: "email",
       });
     } else if (pendingCount > 1) {
       sendNotification({
-        title: "Velo",
-        body: `${pendingCount} new emails`,
+        title: i18n.t("notifications:velo"),
+        body: i18n.t("notifications:newEmails", { count: pendingCount }),
         actionTypeId: "email",
       });
     }
@@ -176,8 +177,8 @@ export function notifyFollowUpDue(
   lastNotificationContext = ctx;
   if (threadId) recentContexts.set(threadId, ctx);
   sendNotification({
-    title: "Follow up needed",
-    body: subject || "(No subject)",
+    title: i18n.t("notifications:followUpNeeded"),
+    body: subject || i18n.t("common:noSubject"),
     actionTypeId: "email",
   });
 }
@@ -188,8 +189,8 @@ export function notifyFollowUpDue(
 export function notifySnoozeReturn(subject: string): void {
   if (!notificationsEnabled) return;
   sendNotification({
-    title: "Snoozed email returned",
-    body: subject || "(No subject)",
+    title: i18n.t("notifications:snoozedReturned"),
+    body: subject || i18n.t("common:noSubject"),
     actionTypeId: "default",
   });
 }

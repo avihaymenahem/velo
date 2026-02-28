@@ -1,0 +1,43 @@
+{
+  "attachments": "Allegati",
+  "searchPlaceholder": "Cerca allegati...",
+  "allSenders": "Tutti i mittenti",
+  "loading": "Caricamento allegati...",
+  "noAttachments": "Nessun allegato ancora",
+  "noAttachmentsDescription": "Gli allegati dalle tue email appariranno qui",
+  "noMatching": "Nessun allegato corrispondente",
+  "noMatchingDescription": "Prova a modificare i filtri o la query di ricerca",
+  "gridView": "Vista griglia",
+  "listView": "Vista lista",
+
+  "typeFilter": {
+    "all": "Tutti i tipi",
+    "images": "Immagini",
+    "pdfs": "PDF",
+    "documents": "Documenti",
+    "spreadsheets": "Fogli di calcolo",
+    "archives": "Archivi",
+    "other": "Altro"
+  },
+
+  "dateFilter": {
+    "any": "Qualsiasi data",
+    "today": "Oggi",
+    "pastWeek": "Ultima settimana",
+    "pastMonth": "Ultimo mese",
+    "pastYear": "Ultimo anno"
+  },
+
+  "sizeFilter": {
+    "any": "Qualsiasi dimensione",
+    "small": "< 1 MB",
+    "medium": "1–10 MB",
+    "large": "> 10 MB"
+  },
+
+  "unknown": "Sconosciuto",
+  "unnamed": "Senza nome",
+  "preview": "Anteprima",
+  "download": "Scarica",
+  "jumpToEmail": "Vai all'email"
+}
