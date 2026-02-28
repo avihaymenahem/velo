@@ -100,16 +100,11 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   const handleSnooze = async (until: number) => {
     if (!activeAccountId) return;
     setShowSnooze(false);
-    // Save state for rollback, then optimistically remove from UI
-    const { threads, threadMap } = useThreadStore.getState();
+    // Optimistic: remove from UI immediately, then persist to DB
     removeThread(thread.id);
-    try {
-      await snoozeThread(activeAccountId, thread.id, until);
-    } catch (err) {
+    snoozeThread(activeAccountId, thread.id, until).catch((err) => {
       console.error("Failed to snooze:", err);
-      // Direct rollback — restore previous store state without re-fetch
-      useThreadStore.setState({ threads, threadMap });
-    }
+    });
   };
 
   const handleSpam = async () => {
