@@ -61,7 +61,7 @@ import type { SidebarNavItem } from "@/stores/uiStore";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
-import { SUPPORTED_LANGUAGES, setAppLanguage, resetToSystemLanguage, getPersistedLanguage } from "@/i18n";
+import { SUPPORTED_LANGUAGES, setAppLanguage, resetToSystemLanguage, getPersistedLanguage, getSystemLanguageName } from "@/i18n";
 
 type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "people" | "accounts" | "shortcuts" | "ai" | "about";
 
@@ -120,6 +120,7 @@ export function SettingsPage() {
   const setActiveTab = (tabId: SettingsTab) => navigateToSettings(tabId);
   const [languageOverride, setLanguageOverride] = useState<string | null>(null);
   const [languageLoaded, setLanguageLoaded] = useState(false);
+  const [systemLanguageName, setSystemLanguageName] = useState("English");
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [undoSendDelay, setUndoSendDelay] = useState("5");
   const [clientId, setClientId] = useState("");
@@ -263,6 +264,8 @@ export function SettingsPage() {
       // Load persisted language preference
       const persisted = await getPersistedLanguage();
       setLanguageOverride(persisted);
+      const sysLang = await getSystemLanguageName();
+      setSystemLanguageName(sysLang);
       setLanguageLoaded(true);
     }
     load();
@@ -445,7 +448,7 @@ export function SettingsPage() {
                         }}
                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                       >
-                        <option value="system">{t("languageDefault")}</option>
+                        <option value="system">{t("languageDefaultWithName", { language: systemLanguageName })}</option>
                         {SUPPORTED_LANGUAGES.map((lang) => (
                           <option key={lang.code} value={lang.code}>{lang.name}</option>
                         ))}
@@ -1989,7 +1992,7 @@ function ShortcutsTab() {
         )}
       </div>
       {SHORTCUTS.map((section) => (
-        <Section key={section.category} title={section.category}>
+        <Section key={section.category} title={t(`shortcutCategories.${section.category.toLowerCase()}`)}>
           <div className="space-y-1">
             {section.items.map((item) => {
               const currentKey = keyMap[item.id] ?? item.keys;
@@ -2002,7 +2005,7 @@ function ShortcutsTab() {
                   className="flex items-center justify-between py-2 px-1"
                 >
                   <span className="text-sm text-text-secondary">
-                    {item.desc}
+                    {t(`shortcutDesc.${item.id}`)}
                   </span>
                   <div className="flex items-center gap-2 ml-4 shrink-0">
                     <button
@@ -2023,7 +2026,7 @@ function ShortcutsTab() {
                       <button
                         onClick={() => resetKey(item.id)}
                         className="text-xs text-text-tertiary hover:text-text-primary"
-                        title={`Reset to ${defaults[item.id]}`}
+                        title={t("resetKeyTo", { key: defaults[item.id] })}
                       >
                         ×
                       </button>
@@ -2158,7 +2161,7 @@ function SidebarNavEditor() {
                 <ChevronDown size={14} />
               </button>
               <Icon size={16} className="shrink-0 ml-1" />
-              <span className="flex-1 truncate">{nav.label}</span>
+              <span className="flex-1 truncate">{t(`sidebar:${item.id === "all" ? "allMail" : item.id === "smart-folders" ? "smartFolders" : item.id}`)}</span>
               <button
                 onClick={() => toggleItem(index)}
                 disabled={isInbox}

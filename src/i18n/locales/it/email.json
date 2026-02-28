@@ -150,5 +150,77 @@
   "readingPaneSubtitle": "Seleziona un'email da leggere",
   "forwardedMessageSeparator": "---------- Messaggio inoltrato ---------",
   "quoteWrote": "{{name}} ha scritto:",
-  "quoteOn": "Il {{date}}, "
+  "quoteOn": "Il {{date}}, ",
+
+  "inlineReply": {
+    "placeholder": "Scrivi la tua risposta...",
+    "reply": "Rispondi",
+    "replyAll": "Rispondi a tutti",
+    "forward": "Inoltra",
+    "to": "a",
+    "cancel": "Annulla",
+    "generatingDraft": "Generazione bozza...",
+    "expandToComposer": "Espandi al compositore completo",
+    "expand": "Espandi",
+    "regenerateDraft": "Rigenera bozza IA",
+    "regenerate": "Rigenera",
+    "clearDraft": "Cancella bozza IA",
+    "clear": "Cancella",
+    "send": "Invia"
+  },
+
+  "smartReplies": {
+    "title": "Risposte rapide",
+    "refresh": "Aggiorna suggerimenti",
+    "generating": "Generazione suggerimenti..."
+  },
+
+  "threadSummary": {
+    "title": "Riepilogo IA",
+    "refresh": "Aggiorna riepilogo",
+    "generating": "Generazione riepilogo..."
+  },
+
+  "authBadge": {
+    "spf": "SPF: ",
+    "dkim": "DKIM: ",
+    "dmarc": "DMARC: ",
+    "passed": "Autenticazione superata",
+    "warning": "Avviso autenticazione",
+    "failed": "Autenticazione fallita",
+    "unknown": "Autenticazione sconosciuta"
+  },
+
+  "authWarningBanner": {
+    "thisSender": "questo mittente",
+    "title": "Autenticazione fallita",
+    "message": "Questo messaggio da {{sender}} non ha superato i controlli di autenticazione email (SPF/DKIM/DMARC). Fai attenzione con link e allegati.",
+    "dismiss": "Chiudi avviso"
+  },
+
+  "phishingBanner": {
+    "highRisk": "Alto rischio",
+    "suspicious": "Sospetto",
+    "linksDetected": "link rilevati",
+    "suspiciousLink_one": "{{count}} link sospetto trovato",
+    "suspiciousLink_other": "{{count}} link sospetti trovati",
+    "cautionMessage": "in questo messaggio. Fai attenzione prima di cliccare qualsiasi link.",
+    "trustSender": "Considera attendibile questo mittente"
+  },
+
+  "linkConfirm": {
+    "highRiskLink": "Link ad alto rischio",
+    "suspiciousLink": "Link sospetto",
+    "fullUrl": "URL completo",
+    "linkText": "Testo del link",
+    "issuesDetected": "Problemi rilevati ({{count}})",
+    "points": "({{score}}pt)",
+    "goBack": "Torna indietro",
+    "openAnyway": "Apri comunque"
+  },
+
+  "inlineAttachment": {
+    "loading": "Caricamento...",
+    "image": "Immagine"
+  }
 }

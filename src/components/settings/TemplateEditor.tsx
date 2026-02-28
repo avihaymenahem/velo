@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -16,6 +17,7 @@ import {
 import { TEMPLATE_VARIABLES } from "@/utils/templateVariables";
 
 export function TemplateEditor() {
+  const { t } = useTranslation("settings");
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const [templates, setTemplates] = useState<DbTemplate[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -142,14 +144,14 @@ export function TemplateEditor() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Template name"
+            placeholder={t("templateEditor.templateName")}
             className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
           />
           <input
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Subject (optional)"
+            placeholder={t("templateEditor.subjectOptional")}
             className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
           />
           <div className="border border-border-primary rounded overflow-hidden bg-bg-tertiary">
@@ -165,7 +167,7 @@ export function TemplateEditor() {
             type="text"
             value={shortcut}
             onChange={(e) => setShortcut(e.target.value)}
-            placeholder="Shortcut (optional, e.g. /thanks)"
+            placeholder={t("templateEditor.shortcutOptional")}
             className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
           />
           <div className="flex items-center gap-2">
@@ -174,13 +176,13 @@ export function TemplateEditor() {
               disabled={!name.trim()}
               className="px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
             >
-              {editingId ? "Update" : "Save"}
+              {editingId ? t("templateEditor.update") : t("templateEditor.save")}
             </button>
             <button
               onClick={resetForm}
               className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary rounded-md transition-colors"
             >
-              Cancel
+              {t("templateEditor.cancel")}
             </button>
           </div>
         </div>
@@ -189,7 +191,7 @@ export function TemplateEditor() {
           onClick={() => setShowForm(true)}
           className="text-xs text-accent hover:text-accent-hover"
         >
-          + Add template
+          {t("templateEditor.addTemplate")}
         </button>
       )}
     </div>
@@ -197,6 +199,7 @@ export function TemplateEditor() {
 }
 
 function InsertVariableDropdown({ onInsert }: { onInsert: (variable: string) => void }) {
+  const { t } = useTranslation("settings");
   const [open, setOpen] = useState(false);
 
   return (
@@ -206,7 +209,7 @@ function InsertVariableDropdown({ onInsert }: { onInsert: (variable: string) => 
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover transition-colors"
       >
-        Insert variable
+        {t("templateEditor.insertVariable")}
         <ChevronDown size={12} className={open ? "rotate-180 transition-transform" : "transition-transform"} />
       </button>
       {open && (

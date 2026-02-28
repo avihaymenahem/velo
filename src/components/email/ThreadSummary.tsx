@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Sparkles, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { isAiAvailable } from "@/services/ai/providerManager";
 import { summarizeThread } from "@/services/ai/aiService";
@@ -12,6 +13,7 @@ interface ThreadSummaryProps {
 }
 
 export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryProps) {
+  const { t } = useTranslation("email");
   const [summary, setSummary] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -71,7 +73,7 @@ export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryPr
         className="flex items-center gap-2 w-full text-left"
       >
         <Sparkles size={14} className="text-accent shrink-0" />
-        <span className="text-xs font-medium text-accent flex-1">AI Summary</span>
+        <span className="text-xs font-medium text-accent flex-1">{t("threadSummary.title")}</span>
         {summary && (
           <span
             role="button"
@@ -79,7 +81,7 @@ export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryPr
             onClick={(e) => { e.stopPropagation(); handleRefresh(); }}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); handleRefresh(); } }}
             className="p-0.5 text-text-tertiary hover:text-accent transition-colors cursor-pointer"
-            title="Refresh summary"
+            title={t("threadSummary.refresh")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
           </span>
@@ -91,7 +93,7 @@ export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryPr
           {loading && !summary && (
             <div className="flex items-center gap-2 text-text-tertiary">
               <div className="w-3 h-3 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
-              <span className="text-xs">Generating summary...</span>
+              <span className="text-xs">{t("threadSummary.generating")}</span>
             </div>
           )}
           {summary && <p className="text-xs leading-relaxed">{summary}</p>}

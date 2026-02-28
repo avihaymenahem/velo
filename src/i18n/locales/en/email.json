@@ -150,5 +150,77 @@
   "readingPaneSubtitle": "Select an email to read",
   "forwardedMessageSeparator": "---------- Forwarded message ---------",
   "quoteWrote": "{{name}} wrote:",
-  "quoteOn": "On {{date}}, "
+  "quoteOn": "On {{date}}, ",
+
+  "inlineReply": {
+    "placeholder": "Write your reply...",
+    "reply": "Reply",
+    "replyAll": "Reply All",
+    "forward": "Forward",
+    "to": "to",
+    "cancel": "Cancel",
+    "generatingDraft": "Generating draft...",
+    "expandToComposer": "Expand to full composer",
+    "expand": "Expand",
+    "regenerateDraft": "Regenerate AI draft",
+    "regenerate": "Regenerate",
+    "clearDraft": "Clear AI draft",
+    "clear": "Clear",
+    "send": "Send"
+  },
+
+  "smartReplies": {
+    "title": "Quick Replies",
+    "refresh": "Refresh suggestions",
+    "generating": "Generating suggestions..."
+  },
+
+  "threadSummary": {
+    "title": "AI Summary",
+    "refresh": "Refresh summary",
+    "generating": "Generating summary..."
+  },
+
+  "authBadge": {
+    "spf": "SPF: ",
+    "dkim": "DKIM: ",
+    "dmarc": "DMARC: ",
+    "passed": "Authentication passed",
+    "warning": "Authentication warning",
+    "failed": "Authentication failed",
+    "unknown": "Authentication unknown"
+  },
+
+  "authWarningBanner": {
+    "thisSender": "this sender",
+    "title": "Authentication failed",
+    "message": "This message from {{sender}} failed email authentication checks (SPF/DKIM/DMARC). Be cautious with any links or attachments.",
+    "dismiss": "Dismiss warning"
+  },
+
+  "phishingBanner": {
+    "highRisk": "High risk",
+    "suspicious": "Suspicious",
+    "linksDetected": "links detected",
+    "suspiciousLink_one": "{{count}} suspicious link found",
+    "suspiciousLink_other": "{{count}} suspicious links found",
+    "cautionMessage": "in this message. Be cautious before clicking any links.",
+    "trustSender": "Trust this sender"
+  },
+
+  "linkConfirm": {
+    "highRiskLink": "High Risk Link",
+    "suspiciousLink": "Suspicious Link",
+    "fullUrl": "Full URL",
+    "linkText": "Link text",
+    "issuesDetected": "Issues detected ({{count}})",
+    "points": "({{score}}pts)",
+    "goBack": "Go Back",
+    "openAnyway": "Open Anyway"
+  },
+
+  "inlineAttachment": {
+    "loading": "Loading...",
+    "image": "Image"
+  }
 }

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Download, Eye, ExternalLink } from "lucide-react";
 import { formatFileSize, getFileIcon, canPreview } from "@/utils/fileTypeHelpers";
 import type { AttachmentWithContext } from "@/services/db/attachments";
@@ -19,8 +20,9 @@ function formatShortDate(timestamp: number | null): string {
 }
 
 export function AttachmentListItem({ attachment, onPreview, onDownload, onJumpToEmail }: AttachmentListItemProps) {
+  const { t } = useTranslation("attachments");
   const previewable = canPreview(attachment.mime_type, attachment.filename);
-  const senderName = attachment.from_name || attachment.from_address || "Unknown";
+  const senderName = attachment.from_name || attachment.from_address || t("unknown");
 
   return (
     <div className="group flex items-center gap-3 px-3 py-2 hover:bg-bg-hover rounded-md transition-colors">
@@ -29,7 +31,7 @@ export function AttachmentListItem({ attachment, onPreview, onDownload, onJumpTo
 
       {/* Filename */}
       <span className="text-sm text-text-primary truncate min-w-0 flex-1" title={attachment.filename ?? undefined}>
-        {attachment.filename ?? "Unnamed"}
+        {attachment.filename ?? t("unnamed")}
       </span>
 
       {/* Sender */}
@@ -53,7 +55,7 @@ export function AttachmentListItem({ attachment, onPreview, onDownload, onJumpTo
           <button
             onClick={onPreview}
             className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors"
-            title="Preview"
+            title={t("preview")}
           >
             <Eye size={14} />
           </button>
@@ -61,14 +63,14 @@ export function AttachmentListItem({ attachment, onPreview, onDownload, onJumpTo
         <button
           onClick={onDownload}
           className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors"
-          title="Download"
+          title={t("download")}
         >
           <Download size={14} />
         </button>
         <button
           onClick={onJumpToEmail}
           className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors"
-          title="Jump to email"
+          title={t("jumpToEmail")}
         >
           <ExternalLink size={14} />
         </button>

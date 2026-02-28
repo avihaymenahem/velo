@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { DbCalendarEvent } from "@/services/db/calendarEvents";
 import { EventCard } from "./EventCard";
 
@@ -8,9 +9,9 @@ interface MonthViewProps {
   onEventClick: (event: DbCalendarEvent) => void;
 }
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 export function MonthView({ currentDate, events, onEventClick }: MonthViewProps) {
+  const { t } = useTranslation("calendar");
+  const dayNames = [t("daysShort.sun"), t("daysShort.mon"), t("daysShort.tue"), t("daysShort.wed"), t("daysShort.thu"), t("daysShort.fri"), t("daysShort.sat")];
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const firstDay = new Date(year, month, 1);
@@ -42,7 +43,7 @@ export function MonthView({ currentDate, events, onEventClick }: MonthViewProps)
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* Day headers */}
       <div className="grid grid-cols-7 border-b border-border-primary">
-        {DAY_NAMES.map((name) => (
+        {dayNames.map((name) => (
           <div key={name} className="px-2 py-2 text-xs font-medium text-text-tertiary text-center">
             {name}
           </div>
@@ -79,7 +80,7 @@ export function MonthView({ currentDate, events, onEventClick }: MonthViewProps)
                 ))}
                 {dayEvents.length > 3 && (
                   <div className="text-[0.625rem] text-text-tertiary pl-1">
-                    +{dayEvents.length - 3} more
+                    {t("moreEvents", { count: dayEvents.length - 3 })}
                   </div>
                 )}
               </div>

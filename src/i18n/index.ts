@@ -10,6 +10,9 @@ import searchEN from "./locales/en/search.json";
 import accountsEN from "./locales/en/accounts.json";
 import tasksEN from "./locales/en/tasks.json";
 import notificationsEN from "./locales/en/notifications.json";
+import calendarEN from "./locales/en/calendar.json";
+import attachmentsEN from "./locales/en/attachments.json";
+import helpEN from "./locales/en/help.json";
 
 import commonIT from "./locales/it/common.json";
 import sidebarIT from "./locales/it/sidebar.json";
@@ -20,6 +23,9 @@ import searchIT from "./locales/it/search.json";
 import accountsIT from "./locales/it/accounts.json";
 import tasksIT from "./locales/it/tasks.json";
 import notificationsIT from "./locales/it/notifications.json";
+import calendarIT from "./locales/it/calendar.json";
+import attachmentsIT from "./locales/it/attachments.json";
+import helpIT from "./locales/it/help.json";
 
 export const SUPPORTED_LANGUAGES = [
   { code: "en", name: "English" },
@@ -42,6 +48,9 @@ i18n
         accounts: accountsEN,
         tasks: tasksEN,
         notifications: notificationsEN,
+        calendar: calendarEN,
+        attachments: attachmentsEN,
+        help: helpEN,
       },
       it: {
         common: commonIT,
@@ -53,6 +62,9 @@ i18n
         accounts: accountsIT,
         tasks: tasksIT,
         notifications: notificationsIT,
+        calendar: calendarIT,
+        attachments: attachmentsIT,
+        help: helpIT,
       },
     },
     supportedLngs: ["en", "it"],
@@ -129,6 +141,16 @@ export async function getPersistedLanguage(): Promise<string | null> {
     return saved;
   }
   return null;
+}
+
+/**
+ * Detect the system language and return its native display name.
+ * Used for the language selector to show "Default (English)" / "Default (Italiano)".
+ */
+export async function getSystemLanguageName(): Promise<string> {
+  const detected = await detectSystemLanguage();
+  const lang = SUPPORTED_LANGUAGES.find((l) => l.code === detected);
+  return lang?.name ?? "English";
 }
 
 export default i18n;

@@ -9,6 +9,9 @@ import searchEN from "./locales/en/search.json";
 import accountsEN from "./locales/en/accounts.json";
 import tasksEN from "./locales/en/tasks.json";
 import notificationsEN from "./locales/en/notifications.json";
+import calendarEN from "./locales/en/calendar.json";
+import attachmentsEN from "./locales/en/attachments.json";
+import helpEN from "./locales/en/help.json";
 
 import commonIT from "./locales/it/common.json";
 import sidebarIT from "./locales/it/sidebar.json";
@@ -19,6 +22,9 @@ import searchIT from "./locales/it/search.json";
 import accountsIT from "./locales/it/accounts.json";
 import tasksIT from "./locales/it/tasks.json";
 import notificationsIT from "./locales/it/notifications.json";
+import calendarIT from "./locales/it/calendar.json";
+import attachmentsIT from "./locales/it/attachments.json";
+import helpIT from "./locales/it/help.json";
 
 const namespaces: Record<string, { en: Record<string, unknown>; italiano: Record<string, unknown> }> = {
   common: { en: commonEN, italiano: commonIT },
@@ -30,6 +36,9 @@ const namespaces: Record<string, { en: Record<string, unknown>; italiano: Record
   accounts: { en: accountsEN, italiano: accountsIT },
   tasks: { en: tasksEN, italiano: tasksIT },
   notifications: { en: notificationsEN, italiano: notificationsIT },
+  calendar: { en: calendarEN, italiano: calendarIT },
+  attachments: { en: attachmentsEN, italiano: attachmentsIT },
+  help: { en: helpEN, italiano: helpIT },
 };
 
 function getKeys(obj: Record<string, unknown>, prefix = ""): string[] {
