@@ -1,10 +1,12 @@
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { CSSTransition } from "react-transition-group";
 import { useComposerStore } from "@/stores/composerStore";
 
 const UNDO_DELAY_SECONDS = 5;
 
 export function UndoSendToast() {
+  const { t } = useTranslation("composer");
   const { undoSendVisible, undoSendTimer, setUndoSendTimer, setUndoSendVisible } =
     useComposerStore();
   const toastRef = useRef<HTMLDivElement>(null);
@@ -21,12 +23,12 @@ export function UndoSendToast() {
     <CSSTransition nodeRef={toastRef} in={undoSendVisible} timeout={200} classNames="toast" unmountOnExit>
       <div ref={toastRef} className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-text-primary text-bg-primary rounded-lg shadow-lg overflow-hidden">
         <div className="px-4 py-2.5 flex items-center gap-3">
-          <span className="text-sm">Sending email...</span>
+          <span className="text-sm">{t("sendingEmail")}</span>
           <button
             onClick={handleUndo}
             className="text-sm font-medium text-accent hover:text-accent-hover underline"
           >
-            Undo
+            {t("common:undo")}
           </button>
         </div>
         <div className="h-0.5 bg-white/20">

@@ -25,6 +25,10 @@ export default function ComposerWindow() {
       try {
         await runMigrations();
 
+        // Load persisted language
+        const { loadPersistedLanguage } = await import("./i18n");
+        await loadPersistedLanguage();
+
         // Restore theme
         const savedTheme = await getSetting("theme");
         if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") {

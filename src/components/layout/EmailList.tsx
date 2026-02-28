@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CSSTransition } from "react-transition-group";
 import { ThreadCard } from "../email/ThreadCard";
 import { CategoryTabs } from "../email/CategoryTabs";
@@ -45,6 +46,7 @@ const LABEL_MAP: Record<string, string> = {
 };
 
 export function EmailList({ width, listRef }: { width?: number; listRef?: React.Ref<HTMLDivElement> }) {
+  const { t } = useTranslation("email");
   const threads = useThreadStore((s) => s.threads);
   const selectedThreadId = useSelectedThreadId();
   const selectedThreadIds = useThreadStore((s) => s.selectedThreadIds);
@@ -513,7 +515,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
                   : userLabels.find((l) => l.id === activeLabel)?.name ?? activeLabel}
           </h2>
           <span className="text-xs text-text-tertiary">
-            {filteredThreads.length} conversation{filteredThreads.length !== 1 ? "s" : ""}
+            {t("common:conversations", { count: filteredThreads.length })}
           </span>
         </div>
         <select
@@ -521,9 +523,9 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
           onChange={(e) => setReadFilter(e.target.value as "all" | "read" | "unread")}
           className="text-xs bg-bg-tertiary text-text-secondary px-2 py-1 rounded border border-border-primary"
         >
-          <option value="all">All</option>
-          <option value="unread">Unread</option>
-          <option value="read">Read</option>
+          <option value="all">{t("allFilter")}</option>
+          <option value="unread">{t("unreadFilter")}</option>
+          <option value="read">{t("readFilter")}</option>
         </select>
       </div>
 
@@ -541,42 +543,42 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
         <div ref={multiSelectBarRef} className="px-3 py-2 border-b border-border-primary bg-accent/5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-text-primary">
-              {multiSelectCount} selected
+              {multiSelectCount} {t("common:selected")}
             </span>
             {multiSelectCount < filteredThreads.length && (
               <button
                 onClick={selectAll}
                 className="text-xs text-accent hover:text-accent-hover transition-colors"
               >
-                Select all
+                {t("common:selectAll")}
               </button>
             )}
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={handleBulkArchive}
-              title="Archive selected"
+              title={t("archiveSelected")}
               className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
             >
               <Archive size={14} />
             </button>
             <button
               onClick={handleBulkDelete}
-              title="Delete selected"
+              title={t("deleteSelected")}
               className="p-1.5 text-text-secondary hover:text-error hover:bg-bg-hover rounded transition-colors"
             >
               <Trash2 size={14} />
             </button>
             <button
               onClick={handleBulkSpam}
-              title={activeLabel === "spam" ? "Not spam" : "Report spam"}
+              title={activeLabel === "spam" ? t("notSpam") : t("reportSpam")}
               className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
             >
               <Ban size={14} />
             </button>
             <button
               onClick={clearMultiSelect}
-              title="Clear selection"
+              title={t("common:clearSelection")}
               className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
             >
               <X size={14} />
@@ -668,7 +670,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
                 >
                   {showDivider && (
                     <div className="px-4 py-1.5 text-xs font-medium text-text-tertiary uppercase tracking-wider bg-bg-tertiary/50 border-b border-border-secondary">
-                      Other emails
+                      {t("otherEmails")}
                     </div>
                   )}
                   <ThreadCard
@@ -685,12 +687,12 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
             })}
             {loadingMore && (
               <div className="px-4 py-3 text-center text-xs text-text-tertiary">
-                Loading more...
+                {t("common:loadingMore")}
               </div>
             )}
             {!hasMore && threads.length > PAGE_SIZE && (
               <div className="px-4 py-3 text-center text-xs text-text-tertiary">
-                All conversations loaded
+                {t("allLoaded")}
               </div>
             )}
           </>
@@ -713,48 +715,50 @@ function EmptyStateForContext({
   readFilter: string;
   activeCategory: string;
 }) {
+  const { t } = useTranslation("email");
+
   if (searchQuery) {
-    return <EmptyState illustration={NoSearchResultsIllustration} title="No results found" subtitle="Try a different search term" />;
+    return <EmptyState illustration={NoSearchResultsIllustration} title={t("noSearchResults")} subtitle={t("tryDifferentSearch")} />;
   }
   if (readFilter !== "all") {
-    return <EmptyState icon={Filter} title={`No ${readFilter} emails`} subtitle="Try changing the filter" />;
+    return <EmptyState icon={Filter} title={t("noFilteredEmails", { filter: readFilter })} subtitle={t("tryChangingFilter")} />;
   }
   if (!activeAccountId) {
-    return <EmptyState illustration={NoAccountIllustration} title="No account connected" subtitle="Add a Gmail account to get started" />;
+    return <EmptyState illustration={NoAccountIllustration} title={t("noAccountConnected")} subtitle={t("addAccountToStart")} />;
   }
 
   switch (activeLabel) {
     case "inbox":
       if (activeCategory !== "All") {
         const categoryMessages: Record<string, { title: string; subtitle: string }> = {
-          Primary: { title: "Primary is clear", subtitle: "No important conversations" },
-          Updates: { title: "No updates", subtitle: "Notifications and transactional emails appear here" },
-          Promotions: { title: "No promotions", subtitle: "Marketing and promotional emails appear here" },
-          Social: { title: "No social emails", subtitle: "Social network notifications appear here" },
-          Newsletters: { title: "No newsletters", subtitle: "Newsletters and subscriptions appear here" },
+          Primary: { title: t("primaryClear"), subtitle: t("noImportantConversations") },
+          Updates: { title: t("noUpdates"), subtitle: t("updatesDescription") },
+          Promotions: { title: t("noPromotions"), subtitle: t("promotionsDescription") },
+          Social: { title: t("noSocialEmails"), subtitle: t("socialDescription") },
+          Newsletters: { title: t("noNewsletters"), subtitle: t("newslettersDescription") },
         };
         const msg = categoryMessages[activeCategory];
         if (msg) return <EmptyState illustration={InboxClearIllustration} title={msg.title} subtitle={msg.subtitle} />;
       }
-      return <EmptyState illustration={InboxClearIllustration} title="You're all caught up" subtitle="No new conversations" />;
+      return <EmptyState illustration={InboxClearIllustration} title={t("allCaughtUp")} subtitle={t("noNewConversations")} />;
     case "starred":
-      return <EmptyState illustration={GenericEmptyIllustration} title="No starred conversations" subtitle="Star emails to find them here" />;
+      return <EmptyState illustration={GenericEmptyIllustration} title={t("noStarred")} subtitle={t("starToFind")} />;
     case "snoozed":
-      return <EmptyState illustration={GenericEmptyIllustration} title="No snoozed emails" subtitle="Snoozed emails will appear here" />;
+      return <EmptyState illustration={GenericEmptyIllustration} title={t("noSnoozed")} subtitle={t("snoozedAppearHere")} />;
     case "sent":
-      return <EmptyState illustration={GenericEmptyIllustration} title="No sent messages" />;
+      return <EmptyState illustration={GenericEmptyIllustration} title={t("noSentMessages")} />;
     case "drafts":
-      return <EmptyState illustration={GenericEmptyIllustration} title="No drafts" />;
+      return <EmptyState illustration={GenericEmptyIllustration} title={t("noDrafts")} />;
     case "trash":
-      return <EmptyState illustration={GenericEmptyIllustration} title="Trash is empty" />;
+      return <EmptyState illustration={GenericEmptyIllustration} title={t("trashEmpty")} />;
     case "spam":
-      return <EmptyState illustration={GenericEmptyIllustration} title="No spam" subtitle="Looking good!" />;
+      return <EmptyState illustration={GenericEmptyIllustration} title={t("noSpam")} subtitle={t("lookingGood")} />;
     case "all":
-      return <EmptyState illustration={GenericEmptyIllustration} title="No emails yet" />;
+      return <EmptyState illustration={GenericEmptyIllustration} title={t("noEmails")} />;
     default:
       if (activeLabel.startsWith("smart-folder:")) {
-        return <EmptyState icon={FolderSearch} title="No matching emails" subtitle="Try adjusting the smart folder query" />;
+        return <EmptyState icon={FolderSearch} title={t("noSmartFolderMatch")} subtitle={t("adjustSmartFolder")} />;
       }
-      return <EmptyState illustration={GenericEmptyIllustration} title="Nothing here" subtitle="No conversations with this label" />;
+      return <EmptyState illustration={GenericEmptyIllustration} title={t("nothingHere")} subtitle={t("noLabelConversations")} />;
   }
 }

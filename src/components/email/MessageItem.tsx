@@ -1,4 +1,5 @@
 import { memo, useState, useRef, useEffect, useMemo, forwardRef } from "react";
+import { useTranslation } from "react-i18next";
 import { formatFullDate } from "@/utils/date";
 import { EmailRenderer } from "./EmailRenderer";
 import { InlineAttachmentPreview } from "./InlineAttachmentPreview";
@@ -22,6 +23,7 @@ interface MessageItemProps {
 }
 
 export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(function MessageItem({ message, isLast, blockImages, senderAllowlisted, accountId, threadId, isSpam, focused, onContextMenu }, ref) {
+  const { t } = useTranslation("email");
   const [expanded, setExpanded] = useState(isLast);
   const [attachments, setAttachments] = useState<DbAttachment[]>([]);
   const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
@@ -73,7 +75,7 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
     return cids;
   }, [message.body_html]);
 
-  const fromDisplay = message.from_name ?? message.from_address ?? "Unknown";
+  const fromDisplay = message.from_name ?? message.from_address ?? t("common:unknown");
 
   return (
     <div ref={ref} className={`border-b border-border-secondary last:border-b-0 ${isSpam ? "bg-red-500/8 dark:bg-red-500/10" : ""} ${focused ? "ring-2 ring-inset ring-accent/50" : ""}`} onContextMenu={onContextMenu}>
@@ -106,7 +108,7 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
         {expanded && (
           <div className="mt-1 text-xs text-text-tertiary">
             {message.to_addresses && (
-              <span>To: {message.to_addresses}</span>
+              <span>{t("to")} {message.to_addresses}</span>
             )}
           </div>
         )}
@@ -146,7 +148,7 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
               inlineAttachments={attachments.filter((a) => a.content_id)}
             />
           ) : (
-            <div className="py-8 text-center text-text-tertiary text-sm">Loading...</div>
+            <div className="py-8 text-center text-text-tertiary text-sm">{t("loadingMessage")}</div>
           )}
 
           <InlineAttachmentPreview
@@ -193,6 +195,7 @@ function UnsubscribeLink({
   fromAddress: string | null;
   fromName: string | null;
 }) {
+  const { t } = useTranslation("email");
   const url = parseUnsubscribeUrl(header);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "failed">("idle");
   if (!url) return null;
@@ -230,10 +233,10 @@ function UnsubscribeLink({
       }`}
     >
       <MailMinus size={12} />
-      {status === "loading" && "Unsubscribing..."}
-      {status === "done" && "Unsubscribed"}
-      {status === "failed" && "Unsubscribe failed — click to retry"}
-      {status === "idle" && "Unsubscribe"}
+      {status === "loading" && t("unsubscribing")}
+      {status === "done" && t("unsubscribed")}
+      {status === "failed" && t("unsubscribeFailed")}
+      {status === "idle" && t("unsubscribe")}
     </button>
   );
 }
