@@ -461,6 +461,12 @@ async function executeAction(actionId: string): Promise<void> {
       }
       break;
     }
+    case "action.snooze": {
+      if (selectedId) {
+        window.dispatchEvent(new Event("velo-toggle-snooze"));
+      }
+      break;
+    }
     case "app.commandPalette":
       window.dispatchEvent(new Event("velo-toggle-command-palette"));
       break;
