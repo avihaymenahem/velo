@@ -41,6 +41,8 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
   const [addedFeedback, setAddedFeedback] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
+  const [contactSummary, setContactSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const loadedRef = useRef<string | null>(null);
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,6 +57,8 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
     const dbThread = await getThreadById(accountId, threadId);
     if (!dbThread) return;
     const labelIds = await getThreadLabelIds(accountId, threadId);
+    const rawUrgency = dbThread.ai_urgency;
+    const urgency: "low" | "medium" | "high" | null = (rawUrgency === "low" || rawUrgency === "medium" || rawUrgency === "high") ? rawUrgency : null;
     const mapped = {
       id: dbThread.id,
       accountId: dbThread.account_id,
@@ -70,6 +74,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
       labelIds,
       fromName: dbThread.from_name,
       fromAddress: dbThread.from_address,
+      aiUrgency: urgency,
     };
     setThreads([...threads, mapped]);
     navigateToThread(threadId);
@@ -79,6 +84,10 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
     if (!email) return;
     loadedRef.current = email;
     let cancelled = false;
+
+    // Reset contact summary on email change
+    setContactSummary(null);
+    setSummaryLoading(false);
 
     // Load contact + avatar
     getContactByEmail(email).then((c) => {
@@ -97,8 +106,35 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
     // Load stats
     getContactStats(email).then((s) => { if (!cancelled) setStats(s); });
 
-    // Load recent threads
-    getRecentThreadsWithContact(email).then((t) => { if (!cancelled) setRecentThreads(t); });
+    // Load recent threads + trigger AI contact summary when enough data
+    getRecentThreadsWithContact(email).then(async (t) => {
+      if (cancelled) return;
+      setRecentThreads(t);
+
+      // Trigger AI contact summary if we have at least 2 threads
+      if (t.length >= 2) {
+        const { getSetting } = await import("@/services/db/settings");
+        const enabled = await getSetting("ai_contact_summary_enabled");
+        if (cancelled || enabled === "false") return;
+
+        setSummaryLoading(true);
+        try {
+          const { generateContactSummary } = await import("@/services/ai/aiService");
+          const threadInput = t.map((thread) => ({
+            id: thread.thread_id,
+            subject: thread.subject ?? "",
+            snippet: "",
+            date: thread.last_message_at ?? 0,
+          }));
+          const summary = await generateContactSummary(accountId, email, threadInput);
+          if (!cancelled) setContactSummary(summary);
+        } catch {
+          // Silently ignore summary errors
+        } finally {
+          if (!cancelled) setSummaryLoading(false);
+        }
+      }
+    });
 
     // Load VIP status
     isVipSender(accountId, email).then((v) => { if (!cancelled) setIsVip(v); });
@@ -327,6 +363,18 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
                 <span>Last email: {formatRelativeDate(stats.lastEmail)}</span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* AI Relationship Summary */}
+        {summaryLoading && (
+          <p className="text-xs text-text-tertiary animate-pulse mb-4">
+            Analyzing relationship...
+          </p>
+        )}
+        {!summaryLoading && contactSummary && (
+          <div className="bg-bg-secondary rounded-md p-3 text-sm text-text-secondary mb-4">
+            {contactSummary}
           </div>
         )}
 
