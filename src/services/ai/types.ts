@@ -56,3 +56,31 @@ export const MODEL_SETTINGS: Record<Exclude<AiProvider, "ollama">, string> = {
   gemini: "gemini_model",
   copilot: "copilot_model",
 };
+
+export interface ProofreadIssue {
+  type: "tone" | "clarity" | "missing_attachment" | "other";
+  description: string;
+  severity: "info" | "warning" | "error";
+}
+
+export interface ProofreadResult {
+  issues: ProofreadIssue[];
+  overallScore: "good" | "caution" | "warning";
+}
+
+export interface MeetingDetectionResult {
+  title: string;
+  dateTime?: string;        // ISO 8601
+  durationMinutes?: number;
+  location?: string;
+  attendees: string[];      // email addresses
+  confidence: "low" | "medium" | "high";
+}
+
+export interface FilterSuggestion {
+  fromPattern?: string;
+  subjectPattern?: string;
+  suggestedAction: "archive" | "label" | "trash";
+  reason: string;
+  exampleCount: number;
+}
