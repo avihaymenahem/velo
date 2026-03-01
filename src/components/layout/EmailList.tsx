@@ -236,6 +236,8 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     return Promise.all(
       dbThreads.map(async (t) => {
         const labelIds = await getThreadLabelIds(t.account_id, t.id);
+        const rawUrgency = t.ai_urgency;
+        const urgency = (rawUrgency === "low" || rawUrgency === "medium" || rawUrgency === "high") ? rawUrgency : null;
         return {
           id: t.id,
           accountId: t.account_id,
@@ -251,6 +253,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
           labelIds,
           fromName: t.from_name,
           fromAddress: t.from_address,
+          aiUrgency: urgency,
         };
       }),
     );

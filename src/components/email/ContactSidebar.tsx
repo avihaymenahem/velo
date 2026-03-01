@@ -55,6 +55,8 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
     const dbThread = await getThreadById(accountId, threadId);
     if (!dbThread) return;
     const labelIds = await getThreadLabelIds(accountId, threadId);
+    const rawUrgency = dbThread.ai_urgency;
+    const urgency: "low" | "medium" | "high" | null = (rawUrgency === "low" || rawUrgency === "medium" || rawUrgency === "high") ? rawUrgency : null;
     const mapped = {
       id: dbThread.id,
       accountId: dbThread.account_id,
@@ -70,6 +72,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
       labelIds,
       fromName: dbThread.from_name,
       fromAddress: dbThread.from_address,
+      aiUrgency: urgency,
     };
     setThreads([...threads, mapped]);
     navigateToThread(threadId);
