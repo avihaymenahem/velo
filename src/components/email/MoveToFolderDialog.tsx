@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { CSSTransition } from "react-transition-group";
 import { useLabelStore } from "@/stores/labelStore";
 import { useAccountStore } from "@/stores/accountStore";
@@ -36,11 +37,13 @@ interface Destination {
   folderPath?: string;
 }
 
-const SYSTEM_DESTINATIONS: Destination[] = [
-  { id: "INBOX", label: "Inbox", icon: Inbox, type: "system" },
-  { id: "__archive__", label: "Archive", icon: Archive, type: "system" },
-  { id: "TRASH", label: "Trash", icon: Trash2, type: "system" },
-  { id: "SPAM", label: "Spam", icon: Ban, type: "system" },
+type SystemLabelKey = "inbox" | "archive" | "common:trash" | "common:spam";
+
+const SYSTEM_DESTINATIONS: (Omit<Destination, "label"> & { labelKey: SystemLabelKey })[] = [
+  { id: "INBOX", labelKey: "inbox", icon: Inbox, type: "system" },
+  { id: "__archive__", labelKey: "archive", icon: Archive, type: "system" },
+  { id: "TRASH", labelKey: "common:trash", icon: Trash2, type: "system" },
+  { id: "SPAM", labelKey: "common:spam", icon: Ban, type: "system" },
 ];
 
 export function MoveToFolderDialog({
@@ -48,6 +51,7 @@ export function MoveToFolderDialog({
   threadIds,
   onClose,
 }: MoveToFolderDialogProps) {
+  const { t } = useTranslation("email");
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,14 +69,18 @@ export function MoveToFolderDialog({
 
   // Build the full destination list: system destinations + user labels
   const destinations = useMemo(() => {
+    const systemDests: Destination[] = SYSTEM_DESTINATIONS.map((d) => ({
+      ...d,
+      label: t(d.labelKey),
+    }));
     const userLabels: Destination[] = labels.map((l) => ({
       id: l.id,
       label: l.name,
       icon: Tag,
       type: "label" as const,
     }));
-    return [...SYSTEM_DESTINATIONS, ...userLabels];
-  }, [labels]);
+    return [...systemDests, ...userLabels];
+  }, [labels, t]);
 
   // Filter destinations by search query
   const filtered = useMemo(() => {
@@ -200,7 +208,7 @@ export function MoveToFolderDialog({
                 setQuery(e.target.value);
                 setSelectedIdx(0);
               }}
-              placeholder="Move to..."
+              placeholder={t("moveToSearch")}
               className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-tertiary outline-none"
               autoFocus
             />
@@ -214,7 +222,7 @@ export function MoveToFolderDialog({
           >
             {filtered.length === 0 && (
               <div className="px-3 py-4 text-center text-xs text-text-tertiary">
-                No matching folders or labels
+                {t("noMatchingFolders")}
               </div>
             )}
             {filtered.map((dest, idx) => {
@@ -244,7 +252,7 @@ export function MoveToFolderDialog({
                   <span className="truncate">{dest.label}</span>
                   {dest.type === "system" && (
                     <span className="ml-auto text-[10px] text-text-tertiary uppercase tracking-wider">
-                      System
+                      {t("system")}
                     </span>
                   )}
                 </button>
@@ -258,19 +266,19 @@ export function MoveToFolderDialog({
               <kbd className="px-1 py-0.5 rounded bg-bg-tertiary text-text-tertiary">
                 ↑↓
               </kbd>{" "}
-              navigate
+              {t("common:navigate")}
             </span>
             <span>
               <kbd className="px-1 py-0.5 rounded bg-bg-tertiary text-text-tertiary">
                 ↵
               </kbd>{" "}
-              select
+              {t("common:select")}
             </span>
             <span>
               <kbd className="px-1 py-0.5 rounded bg-bg-tertiary text-text-tertiary">
                 esc
               </kbd>{" "}
-              close
+              {t("common:close")}
             </span>
           </div>
         </div>

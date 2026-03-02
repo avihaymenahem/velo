@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { MessageItem } from "./MessageItem";
 import { ActionBar } from "./ActionBar";
 import { getMessagesForThread, type DbMessage } from "@/services/db/messages";
@@ -58,6 +59,7 @@ async function handlePopOut(thread: Thread) {
 }
 
 export function ThreadView({ thread }: ThreadViewProps) {
+  const { t } = useTranslation("email");
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const contactSidebarVisible = useUIStore((s) => s.contactSidebarVisible);
   const toggleContactSidebar = useUIStore((s) => s.toggleContactSidebar);
@@ -131,18 +133,32 @@ export function ThreadView({ thread }: ThreadViewProps) {
   const defaultReplyMode = useUIStore((s) => s.defaultReplyMode);
   const lastMessage = messages[messages.length - 1];
 
+  const forwardLabels: ForwardI18n = useMemo(() => ({
+    separator: t("forwardedMessageSeparator"),
+    from: t("from"),
+    date: t("date"),
+    to: t("to"),
+  }), [t]);
+
   const handleReply = useCallback(() => {
     if (!lastMessage) return;
     const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
+    const date = new Date(lastMessage.date).toLocaleString();
+    const fromDisplay = lastMessage.from_name
+      ? `${lastMessage.from_name} <${lastMessage.from_address ?? ""}>`
+      : (lastMessage.from_address ?? "Unknown");
     openComposer({
       mode: "reply",
       to: replyTo ? [replyTo] : [],
       subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
+      bodyHtml: buildQuote(lastMessage, {
+        quoteOn: t("quoteOn", { date }),
+        quoteWrote: t("quoteWrote", { name: fromDisplay }),
+      }),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
-  }, [lastMessage, openComposer]);
+  }, [lastMessage, openComposer, t]);
 
   const handleReplyAll = useCallback(() => {
     if (!lastMessage) return;
@@ -161,11 +177,16 @@ export function ThreadView({ thread }: ThreadViewProps) {
       to: Array.from(allRecipients),
       cc: ccList,
       subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
+      bodyHtml: buildQuote(lastMessage, {
+        quoteOn: t("quoteOn", { date: new Date(lastMessage.date).toLocaleString() }),
+        quoteWrote: t("quoteWrote", { name: lastMessage.from_name
+          ? `${lastMessage.from_name} <${lastMessage.from_address ?? ""}>`
+          : (lastMessage.from_address ?? "Unknown") }),
+      }),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
-  }, [lastMessage, openComposer]);
+  }, [lastMessage, openComposer, t]);
 
   const handleForward = useCallback(() => {
     if (!lastMessage) return;
@@ -173,11 +194,11 @@ export function ThreadView({ thread }: ThreadViewProps) {
       mode: "forward",
       to: [],
       subject: `Fwd: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildForwardQuote(lastMessage),
+      bodyHtml: buildForwardQuote(lastMessage, forwardLabels),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
-  }, [lastMessage, openComposer]);
+  }, [lastMessage, openComposer, forwardLabels]);
 
   const handlePrint = useCallback(() => {
     if (messages.length === 0) return;
@@ -202,9 +223,9 @@ export function ThreadView({ thread }: ThreadViewProps) {
       return `
         <div style="margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e5e5e5">
           <div style="margin-bottom:8px;color:#666;font-size:12px">
-            <strong>From:</strong> ${from}<br/>
-            <strong>To:</strong> ${to}<br/>
-            <strong>Date:</strong> ${date}
+            <strong>${escapeHtml(t("from"))}</strong> ${from}<br/>
+            <strong>${escapeHtml(t("to"))}</strong> ${to}<br/>
+            <strong>${escapeHtml(t("date"))}</strong> ${date}
           </div>
           <div>${body}</div>
         </div>`;
@@ -215,13 +236,13 @@ export function ThreadView({ thread }: ThreadViewProps) {
     doc.write(`<!DOCTYPE html><html><head><title>${safeSubject || "Email"}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:800px;margin:20px auto;color:#333;font-size:14px}
       h1{font-size:18px;margin-bottom:8px}img{max-width:100%}</style></head>
-      <body><h1>${safeSubject || "(No subject)"}</h1>${messagesHtml}</body></html>`);
+      <body><h1>${safeSubject || escapeHtml(t("common:noSubject"))}</h1>${messagesHtml}</body></html>`);
     doc.close();
 
     iframe.contentWindow?.focus();
     iframe.contentWindow?.print();
     setTimeout(() => document.body.removeChild(iframe), 1000);
-  }, [messages, thread.subject]);
+  }, [messages, thread.subject, t]);
 
   // Message-level keyboard navigation (ArrowUp / ArrowDown)
   const [focusedMsgIdx, setFocusedMsgIdx] = useState(-1);
@@ -401,15 +422,15 @@ export function ThreadView({ thread }: ThreadViewProps) {
         {/* Thread subject */}
         <div className="px-6 py-3 border-b border-border-primary">
           <h1 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-            {thread.subject ?? "(No subject)"}
+            {thread.subject ?? t("common:noSubject")}
             {thread.isMuted && (
-              <span className="text-warning shrink-0" title="Muted">
+              <span className="text-warning shrink-0" title={t("muted")}>
                 <VolumeX size={16} />
               </span>
             )}
           </h1>
           <div className="text-xs text-text-tertiary mt-1">
-            {messages.length} message{messages.length !== 1 ? "s" : ""} in this thread
+            {t("message", { count: messages.length })} in this thread
           </div>
         </div>
 
@@ -515,17 +536,25 @@ export function ThreadView({ thread }: ThreadViewProps) {
   );
 }
 
-function buildQuote(msg: DbMessage): string {
-  const date = new Date(msg.date).toLocaleString();
-  const from = msg.from_name
-    ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
-    : escapeHtml(msg.from_address ?? "Unknown");
-  const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-  return `<br><br><div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666">On ${date}, ${from} wrote:<br>${body}</div>`;
+interface QuoteI18n {
+  quoteOn: string;
+  quoteWrote: string;
 }
 
-function buildForwardQuote(msg: DbMessage): string {
+function buildQuote(msg: DbMessage, labels: QuoteI18n): string {
+  const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+  return `<br><br><div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666">${escapeHtml(labels.quoteOn + labels.quoteWrote)}<br>${body}</div>`;
+}
+
+interface ForwardI18n {
+  separator: string;
+  from: string;
+  date: string;
+  to: string;
+}
+
+function buildForwardQuote(msg: DbMessage, labels: ForwardI18n): string {
   const date = new Date(msg.date).toLocaleString();
   const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-  return `<br><br>---------- Forwarded message ---------<br>From: ${escapeHtml(msg.from_name ?? "")} &lt;${escapeHtml(msg.from_address ?? "")}&gt;<br>Date: ${date}<br>Subject: ${escapeHtml(msg.subject ?? "")}<br>To: ${escapeHtml(msg.to_addresses ?? "")}<br><br>${body}`;
+  return `<br><br>${escapeHtml(labels.separator)}<br>${escapeHtml(labels.from)} ${escapeHtml(msg.from_name ?? "")} &lt;${escapeHtml(msg.from_address ?? "")}&gt;<br>${escapeHtml(labels.date)} ${date}<br>Subject: ${escapeHtml(msg.subject ?? "")}<br>${escapeHtml(labels.to)} ${escapeHtml(msg.to_addresses ?? "")}<br><br>${body}`;
 }

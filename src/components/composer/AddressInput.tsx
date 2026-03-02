@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { searchContacts, type DbContact } from "@/services/db/contacts";
 
 interface AddressInputProps {
@@ -12,8 +13,10 @@ export function AddressInput({
   label,
   addresses,
   onChange,
-  placeholder = "Add recipients...",
+  placeholder,
 }: AddressInputProps) {
+  const { t } = useTranslation("composer");
+  const resolvedPlaceholder = placeholder ?? t("addRecipients");
   const [inputValue, setInputValue] = useState("");
   const [suggestions, setSuggestions] = useState<DbContact[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -122,7 +125,7 @@ export function AddressInput({
             blurTimerRef.current = setTimeout(() => setShowSuggestions(false), 150);
             if (inputValue.trim()) addAddress(inputValue);
           }}
-          placeholder={addresses.length === 0 ? placeholder : ""}
+          placeholder={addresses.length === 0 ? resolvedPlaceholder : ""}
           aria-label={label}
           className="flex-1 min-w-[120px] bg-transparent text-sm text-text-primary outline-none placeholder:text-text-tertiary"
         />

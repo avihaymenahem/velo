@@ -1,0 +1,71 @@
+{
+  "today": "Oggi",
+  "create": "Crea",
+  "createEvent": "Crea evento",
+  "editEvent": "Modifica evento",
+  "deleteEvent": "Eliminare questo evento?",
+  "deleting": "Eliminazione...",
+  "yesDelete": "Sì, elimina",
+  "saving": "Salvataggio...",
+
+  "months": {
+    "january": "Gennaio",
+    "february": "Febbraio",
+    "march": "Marzo",
+    "april": "Aprile",
+    "may": "Maggio",
+    "june": "Giugno",
+    "july": "Luglio",
+    "august": "Agosto",
+    "september": "Settembre",
+    "october": "Ottobre",
+    "november": "Novembre",
+    "december": "Dicembre"
+  },
+
+  "daysShort": {
+    "sun": "Dom",
+    "mon": "Lun",
+    "tue": "Mar",
+    "wed": "Mer",
+    "thu": "Gio",
+    "fri": "Ven",
+    "sat": "Sab"
+  },
+
+  "am": "am",
+  "pm": "pm",
+  "allDay": "Tutto il giorno",
+  "event": "Evento",
+  "noTitle": "(Senza titolo)",
+  "moreEvents": "+{{count}} altri",
+
+  "title": "Titolo",
+  "eventTitle": "Titolo evento",
+  "calendar": "Calendario",
+  "calendarPrimary": "(Principale)",
+  "primary": "Principale",
+  "calendars": "Calendari",
+  "start": "Inizio",
+  "end": "Fine",
+  "location": "Luogo",
+  "addLocation": "Aggiungi luogo",
+  "description": "Descrizione",
+  "addDescription": "Aggiungi descrizione",
+  "attendees": "Partecipanti",
+  "cancel": "Annulla",
+  "save": "Salva",
+  "delete": "Elimina",
+  "edit": "Modifica",
+
+  "connectAccount": "Connetti un account per usare il Calendario",
+  "notConfigured": "Il calendario non è configurato per questo account.",
+  "configureCalDav": "Per gli account IMAP, configura CalDAV nelle Impostazioni.",
+  "accessError": "Errore accesso calendario",
+  "loadingCalendar": "Caricamento calendario...",
+
+  "reauthRequired": "Il calendario richiede una nuova autorizzazione",
+  "reauthDescription": "Il tuo account è stato connesso prima dell'aggiunta dei permessi del calendario. Riautorizza per concedere l'accesso al calendario — le tue email e i tuoi dati non saranno modificati.",
+  "waitingForAuth": "In attesa dell'autorizzazione...",
+  "reauthorize": "Riautorizza"
+}

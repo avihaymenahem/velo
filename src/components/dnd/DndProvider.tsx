@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   DndContext,
   PointerSensor,
@@ -65,6 +66,7 @@ interface DndProviderProps {
 }
 
 export function DndProvider({ children }: DndProviderProps) {
+  const { t } = useTranslation("common");
   const [dragData, setDragData] = useState<DragData | null>(null);
   const removeThreads = useThreadStore((s) => s.removeThreads);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
@@ -118,9 +120,7 @@ export function DndProvider({ children }: DndProviderProps) {
       <DragOverlay dropAnimation={null}>
         {dragData && (
           <div className="bg-accent text-white text-sm font-medium px-3 py-1.5 rounded-lg shadow-lg pointer-events-none">
-            {dragData.threadIds.length === 1
-              ? "1 conversation"
-              : `${dragData.threadIds.length} conversations`}
+            {t("conversations", { count: dragData.threadIds.length })}
           </div>
         )}
       </DragOverlay>

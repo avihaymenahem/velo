@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowLeft,
@@ -84,11 +85,11 @@ const initialFormState: FormState = {
 
 const steps: Step[] = ["basic", "imap", "smtp", "test"];
 
-const stepLabels: Record<Step, string> = {
-  basic: "Account",
-  imap: "Incoming",
-  smtp: "Outgoing",
-  test: "Verify",
+const stepLabelKeys: Record<Step, string> = {
+  basic: "stepAccount",
+  imap: "stepIncoming",
+  smtp: "stepOutgoing",
+  test: "stepVerify",
 };
 
 const stepIcons: Record<Step, React.ReactNode> = {
@@ -120,6 +121,7 @@ export function AddImapAccount({
   onSuccess,
   onBack,
 }: AddImapAccountProps) {
+  const { t } = useTranslation("accounts");
   const [currentStep, setCurrentStep] = useState<Step>("basic");
   const [form, setForm] = useState<FormState>(initialFormState);
   const [imapTest, setImapTest] = useState<TestStatus>({ state: "idle" });
@@ -428,7 +430,7 @@ export function AddImapAccount({
               }`}
             >
               {stepIcons[step]}
-              <span className="hidden sm:inline">{stepLabels[step]}</span>
+              <span className="hidden sm:inline">{t(stepLabelKeys[step])}</span>
             </div>
           </div>
         );
@@ -442,7 +444,7 @@ export function AddImapAccount({
 
     return (
       <div className="mb-4">
-        <label className={labelClass}>Authentication Method</label>
+        <label className={labelClass}>{t("authMethod")}</label>
         <div className="flex gap-2">
           {detectedAuthMethods.includes("password") && (
             <button
@@ -455,7 +457,7 @@ export function AddImapAccount({
               }`}
             >
               <KeyRound className="w-4 h-4" />
-              Password
+              {t("password")}
             </button>
           )}
           <button
@@ -473,7 +475,7 @@ export function AddImapAccount({
             }`}
           >
             <ShieldCheck className="w-4 h-4" />
-            OAuth2
+            {t("oauth2")}
           </button>
         </div>
       </div>
@@ -488,7 +490,7 @@ export function AddImapAccount({
       <div className="space-y-3">
         <div>
           <label htmlFor="oauth-client-id" className={labelClass}>
-            Client ID
+            {t("clientId")}
           </label>
           <input
             id="oauth-client-id"
@@ -502,14 +504,14 @@ export function AddImapAccount({
         </div>
         <div>
           <label htmlFor="oauth-client-secret" className={labelClass}>
-            Client Secret (optional)
+            {t("clientSecretOptional")}
           </label>
           <input
             id="oauth-client-secret"
             type="password"
             value={form.oauthClientSecret}
             onChange={(e) => updateForm("oauthClientSecret", e.target.value)}
-            placeholder="Leave blank for public clients"
+            placeholder={t("leaveBlankPublic")}
             className={inputClass}
             disabled={hasOAuthTokens}
           />
@@ -519,7 +521,7 @@ export function AddImapAccount({
           <div className="flex items-center gap-2 p-3 rounded-lg bg-success/10 border border-success/20">
             <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
             <div className="text-sm text-success">
-              Connected as <span className="font-medium">{form.oauthEmail}</span>
+              {t("connectedAs", { email: form.oauthEmail })}
             </div>
           </div>
         ) : (
@@ -531,12 +533,12 @@ export function AddImapAccount({
             {oauthConnecting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Connecting...
+                {t("connecting")}
               </>
             ) : (
               <>
                 <ShieldCheck className="w-4 h-4" />
-                Sign in with {providerName}
+                {t("signInWith", { provider: providerName })}
               </>
             )}
           </button>
@@ -549,12 +551,12 @@ export function AddImapAccount({
         )}
 
         <p className="text-xs text-text-tertiary">
-          You need to register an app with {providerName} to get a Client ID.{" "}
+          {t("registerAppWith", { provider: providerName })}{" "}
           {providerId === "microsoft" && (
-            <>Register at the Azure Portal (App Registrations) with redirect URI <code className="text-accent">http://127.0.0.1:17248</code>.</>
+            <>{t("registerAzure")} <code className="text-accent">{t("oauthRedirectUri")}</code>.</>
           )}
           {providerId === "yahoo" && (
-            <>Register at the Yahoo Developer Network with redirect URI <code className="text-accent">http://127.0.0.1:17248</code>.</>
+            <>{t("registerYahoo")} <code className="text-accent">{t("oauthRedirectUri")}</code>.</>
           )}
         </p>
       </div>
@@ -565,7 +567,7 @@ export function AddImapAccount({
     <div className="space-y-4">
       <div>
         <label htmlFor="imap-email" className={labelClass}>
-          Email Address
+          {t("emailAddress")}
         </label>
         <input
           id="imap-email"
@@ -573,7 +575,7 @@ export function AddImapAccount({
           value={form.email}
           onChange={(e) => updateForm("email", e.target.value)}
           onBlur={handleEmailBlur}
-          placeholder="you@example.com"
+          placeholder={t("emailPlaceholder")}
           className={inputClass}
           autoFocus
           disabled={isOAuth && hasOAuthTokens}
@@ -588,47 +590,47 @@ export function AddImapAccount({
         <>
           <div>
             <label htmlFor="imap-display-name" className={labelClass}>
-              Display Name (optional)
+              {t("displayNameOptional")}
             </label>
             <input
               id="imap-display-name"
               type="text"
               value={form.displayName}
               onChange={(e) => updateForm("displayName", e.target.value)}
-              placeholder="Your Name"
+              placeholder={t("yourName")}
               className={inputClass}
             />
           </div>
           <div>
             <label htmlFor="imap-username" className={labelClass}>
-              Username (optional)
+              {t("usernameOptional")}
             </label>
             <input
               id="imap-username"
               type="text"
               value={form.imapUsername}
               onChange={(e) => updateForm("imapUsername", e.target.value)}
-              placeholder="Leave blank to use your email address"
+              placeholder={t("usernameHelp")}
               className={inputClass}
             />
             <p className="text-xs text-text-tertiary mt-1">
-              Only needed if your login username differs from your email address.
+              {t("usernameDiffersHelp")}
             </p>
           </div>
           <div>
             <label htmlFor="imap-password" className={labelClass}>
-              Password
+              {t("password")}
             </label>
             <input
               id="imap-password"
               type="password"
               value={form.password}
               onChange={(e) => updateForm("password", e.target.value)}
-              placeholder="Enter your email password or app password"
+              placeholder={t("enterPassword")}
               className={inputClass}
             />
             <p className="text-xs text-text-tertiary mt-1">
-              If your provider requires it, use an app-specific password.
+              {t("appPasswordHelp")}
             </p>
           </div>
         </>
@@ -637,14 +639,14 @@ export function AddImapAccount({
       {isOAuth && hasOAuthTokens && (
         <div>
           <label htmlFor="imap-display-name" className={labelClass}>
-            Display Name (optional)
+            {t("displayNameOptional")}
           </label>
           <input
             id="imap-display-name"
             type="text"
             value={form.displayName}
             onChange={(e) => updateForm("displayName", e.target.value)}
-            placeholder="Your Name"
+            placeholder={t("yourName")}
             className={inputClass}
           />
         </div>
@@ -656,19 +658,19 @@ export function AddImapAccount({
     <div className="space-y-4">
       {isOAuth && (
         <p className="text-xs text-text-tertiary">
-          Server settings have been auto-configured for your provider. You can adjust them if needed.
+          {t("autoConfigured")}
         </p>
       )}
       <div>
         <label htmlFor="imap-host" className={labelClass}>
-          IMAP Server
+          {t("imapServer")}
         </label>
         <input
           id="imap-host"
           type="text"
           value={form.imapHost}
           onChange={(e) => updateForm("imapHost", e.target.value)}
-          placeholder="imap.example.com"
+          placeholder={t("imapServerPlaceholder")}
           className={inputClass}
           autoFocus
         />
@@ -676,7 +678,7 @@ export function AddImapAccount({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="imap-port" className={labelClass}>
-            Port
+            {t("port")}
           </label>
           <input
             id="imap-port"
@@ -690,7 +692,7 @@ export function AddImapAccount({
         </div>
         <div>
           <label htmlFor="imap-security" className={labelClass}>
-            Security
+            {t("security")}
           </label>
           <select
             id="imap-security"
@@ -700,9 +702,9 @@ export function AddImapAccount({
             }
             className={selectClass}
           >
-            <option value="ssl">SSL/TLS</option>
-            <option value="starttls">STARTTLS</option>
-            <option value="none">None</option>
+            <option value="ssl">{t("sslTls")}</option>
+            <option value="starttls">{t("starttls")}</option>
+            <option value="none">{t("noneOption")}</option>
           </select>
         </div>
       </div>
@@ -718,11 +720,11 @@ export function AddImapAccount({
           htmlFor="accept-invalid-certs"
           className="text-sm text-text-secondary"
         >
-          Accept self-signed certificates
+          {t("selfSignedCerts")}
         </label>
       </div>
       <p className="text-xs text-text-tertiary -mt-2 ml-6">
-        Enable for local mail bridges like ProtonMail Bridge
+        {t("selfSignedHelp")}
       </p>
     </div>
   );
@@ -731,19 +733,19 @@ export function AddImapAccount({
     <div className="space-y-4">
       {isOAuth && (
         <p className="text-xs text-text-tertiary">
-          Server settings have been auto-configured for your provider. You can adjust them if needed.
+          {t("autoConfigured")}
         </p>
       )}
       <div>
         <label htmlFor="smtp-host" className={labelClass}>
-          SMTP Server
+          {t("smtpServer")}
         </label>
         <input
           id="smtp-host"
           type="text"
           value={form.smtpHost}
           onChange={(e) => updateForm("smtpHost", e.target.value)}
-          placeholder="smtp.example.com"
+          placeholder={t("smtpServerPlaceholder")}
           className={inputClass}
           autoFocus
         />
@@ -751,7 +753,7 @@ export function AddImapAccount({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="smtp-port" className={labelClass}>
-            Port
+            {t("port")}
           </label>
           <input
             id="smtp-port"
@@ -765,7 +767,7 @@ export function AddImapAccount({
         </div>
         <div>
           <label htmlFor="smtp-security" className={labelClass}>
-            Security
+            {t("security")}
           </label>
           <select
             id="smtp-security"
@@ -775,9 +777,9 @@ export function AddImapAccount({
             }
             className={selectClass}
           >
-            <option value="ssl">SSL/TLS</option>
-            <option value="starttls">STARTTLS</option>
-            <option value="none">None</option>
+            <option value="ssl">{t("sslTls")}</option>
+            <option value="starttls">{t("starttls")}</option>
+            <option value="none">{t("noneOption")}</option>
           </select>
         </div>
       </div>
@@ -795,20 +797,20 @@ export function AddImapAccount({
               htmlFor="smtp-same-password"
               className="text-sm text-text-secondary"
             >
-              Use same password as IMAP
+              {t("samePasswordAsImap")}
             </label>
           </div>
           {!form.samePassword && (
             <div>
               <label htmlFor="smtp-password" className={labelClass}>
-                SMTP Password
+                {t("smtpPassword")}
               </label>
               <input
                 id="smtp-password"
                 type="password"
                 value={form.smtpPassword}
                 onChange={(e) => updateForm("smtpPassword", e.target.value)}
-                placeholder="SMTP password"
+                placeholder={t("smtpPasswordPlaceholder")}
                 className={inputClass}
               />
             </div>
@@ -856,12 +858,12 @@ export function AddImapAccount({
   const renderTestStep = () => (
     <div className="space-y-4">
       <div className="text-sm text-text-secondary mb-2">
-        Test your connection settings before adding the account.
+        {t("testDescription")}
       </div>
 
       <div className="space-y-3">
-        {renderTestResult("IMAP Connection", imapTest)}
-        {renderTestResult("SMTP Connection", smtpTest)}
+        {renderTestResult(t("imapConnection"), imapTest)}
+        {renderTestResult(t("smtpConnection"), smtpTest)}
       </div>
 
       <button
@@ -870,10 +872,10 @@ export function AddImapAccount({
         className="w-full px-4 py-2 text-sm bg-bg-secondary border border-border-primary rounded-lg text-text-primary hover:bg-bg-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {imapTest.state === "testing" || smtpTest.state === "testing"
-          ? "Testing..."
+          ? t("common:testing")
           : imapTest.state === "idle" && smtpTest.state === "idle"
-            ? "Test Connection"
-            : "Re-test Connection"}
+            ? t("testConnection")
+            : t("reTestConnection")}
       </button>
 
       {saveError && (
@@ -901,7 +903,7 @@ export function AddImapAccount({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title="Add IMAP/SMTP Account"
+      title={t("addImapAccount")}
       width="w-full max-w-lg"
     >
       <div className="p-4" onKeyDown={handleKeyDown}>
@@ -914,7 +916,7 @@ export function AddImapAccount({
             className="flex items-center gap-1 px-3 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Back
+            {t("common:back")}
           </button>
 
           <div className="flex gap-2">
@@ -922,7 +924,7 @@ export function AddImapAccount({
               onClick={onClose}
               className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
             >
-              Cancel
+              {t("common:cancel")}
             </button>
 
             {currentStep === "test" ? (
@@ -931,7 +933,7 @@ export function AddImapAccount({
                 disabled={!bothTestsPassed || saving}
                 className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? "Adding..." : "Add Account"}
+                {saving ? t("common:adding") : t("addAccount")}
               </button>
             ) : (
               <button
@@ -939,7 +941,7 @@ export function AddImapAccount({
                 disabled={!canGoNext()}
                 className="flex items-center gap-1 px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next
+                {t("common:next")}
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}

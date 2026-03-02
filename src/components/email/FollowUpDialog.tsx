@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { DateTimePickerDialog } from "@/components/ui/DateTimePickerDialog";
 
 interface FollowUpDialogProps {
@@ -6,7 +7,7 @@ interface FollowUpDialogProps {
   onClose: () => void;
 }
 
-function getFollowUpPresets(): { label: string; timestamp: number }[] {
+function getFollowUpTimestamps() {
   const now = new Date();
 
   // In 1 day
@@ -29,25 +30,32 @@ function getFollowUpPresets(): { label: string; timestamp: number }[] {
   oneWeek.setDate(oneWeek.getDate() + 7);
   oneWeek.setHours(9, 0, 0, 0);
 
-  return [
-    { label: "In 1 day", timestamp: Math.floor(oneDay.getTime() / 1000) },
-    { label: "In 2 days", timestamp: Math.floor(twoDays.getTime() / 1000) },
-    { label: "In 3 days", timestamp: Math.floor(threeDays.getTime() / 1000) },
-    { label: "In 1 week", timestamp: Math.floor(oneWeek.getTime() / 1000) },
-  ];
+  return {
+    oneDay: Math.floor(oneDay.getTime() / 1000),
+    twoDays: Math.floor(twoDays.getTime() / 1000),
+    threeDays: Math.floor(threeDays.getTime() / 1000),
+    oneWeek: Math.floor(oneWeek.getTime() / 1000),
+  };
 }
 
 export function FollowUpDialog({ isOpen = true, onSetReminder, onClose }: FollowUpDialogProps) {
-  const presets = getFollowUpPresets();
+  const { t } = useTranslation("email");
+  const ts = getFollowUpTimestamps();
+  const presets = [
+    { label: t("followUpIn1Day"), timestamp: ts.oneDay },
+    { label: t("followUpIn2Days"), timestamp: ts.twoDays },
+    { label: t("followUpIn3Days"), timestamp: ts.threeDays },
+    { label: t("followUpIn1Week"), timestamp: ts.oneWeek },
+  ];
 
   return (
     <DateTimePickerDialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Remind me if no reply..."
+      title={t("followUpTitle")}
       presets={presets}
       onSelect={onSetReminder}
-      submitLabel="Set reminder"
+      submitLabel={t("setReminder")}
     />
   );
 }

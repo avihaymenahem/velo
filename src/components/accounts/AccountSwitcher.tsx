@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useAccountStore, type Account } from "@/stores/accountStore";
 import { ChevronDown, Check, Plus, UserPlus, Calendar } from "lucide-react";
 import { useClickOutside } from "@/hooks/useClickOutside";
@@ -12,6 +13,7 @@ export function AccountSwitcher({
   collapsed,
   onAddAccount,
 }: AccountSwitcherProps) {
+  const { t } = useTranslation("accounts");
   const { accounts, activeAccountId, setActiveAccount } = useAccountStore();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -46,7 +48,7 @@ export function AccountSwitcher({
           <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
             <UserPlus size={16} className="text-accent" />
           </div>
-          {!collapsed && <span className="font-medium">Add Account</span>}
+          {!collapsed && <span className="font-medium">{t("addAccount")}</span>}
         </button>
       </div>
     );
@@ -91,7 +93,7 @@ export function AccountSwitcher({
         >
           {accounts.length > 1 && (
             <div className="px-3 py-1.5 text-[0.625rem] font-medium text-text-tertiary uppercase tracking-wider">
-              Accounts
+              {t("accounts")}
             </div>
           )}
           {accounts.map((account) => {
@@ -132,7 +134,7 @@ export function AccountSwitcher({
             <div className="w-7 h-7 rounded-full bg-bg-tertiary flex items-center justify-center shrink-0">
               <Plus size={14} />
             </div>
-            <span>Add account</span>
+            <span>{t("addAccountButton")}</span>
           </button>
         </div>
       )}

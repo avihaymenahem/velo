@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { DateTimePickerDialog } from "@/components/ui/DateTimePickerDialog";
 
 interface ScheduleSendDialogProps {
@@ -5,7 +6,7 @@ interface ScheduleSendDialogProps {
   onClose: () => void;
 }
 
-function getSchedulePresets(): { label: string; detail: string; timestamp: number }[] {
+function getScheduleTimestamps() {
   const now = new Date();
   const today = new Date(now);
 
@@ -26,36 +27,39 @@ function getSchedulePresets(): { label: string; detail: string; timestamp: numbe
   monday.setDate(monday.getDate() + daysUntilMonday);
   monday.setHours(9, 0, 0, 0);
 
-  return [
+  return { tomorrowMorning, tomorrowAfternoon, monday };
+}
+
+export function ScheduleSendDialog({ onSchedule, onClose }: ScheduleSendDialogProps) {
+  const { t } = useTranslation("composer");
+  const { tomorrowMorning, tomorrowAfternoon, monday } = getScheduleTimestamps();
+
+  const presets = [
     {
-      label: "Tomorrow morning",
+      label: t("tomorrowMorning"),
       detail: tomorrowMorning.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " 9:00 AM",
       timestamp: Math.floor(tomorrowMorning.getTime() / 1000),
     },
     {
-      label: "Tomorrow afternoon",
+      label: t("tomorrowAfternoon"),
       detail: tomorrowAfternoon.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " 1:00 PM",
       timestamp: Math.floor(tomorrowAfternoon.getTime() / 1000),
     },
     {
-      label: "Monday morning",
+      label: t("mondayMorning"),
       detail: monday.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " 9:00 AM",
       timestamp: Math.floor(monday.getTime() / 1000),
     },
   ];
-}
-
-export function ScheduleSendDialog({ onSchedule, onClose }: ScheduleSendDialogProps) {
-  const presets = getSchedulePresets();
 
   return (
     <DateTimePickerDialog
       isOpen={true}
       onClose={onClose}
-      title="Schedule send"
+      title={t("scheduleSend")}
       presets={presets}
       onSelect={onSchedule}
-      submitLabel="Schedule"
+      submitLabel={t("schedule")}
       zIndex="z-[60]"
     />
   );

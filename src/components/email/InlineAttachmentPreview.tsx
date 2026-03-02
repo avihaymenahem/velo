@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import type { DbAttachment } from "@/services/db/attachments";
 import { getEmailProvider } from "@/services/email/providerFactory";
 import { FileText } from "lucide-react";
@@ -99,6 +100,7 @@ function ImageThumbnail({
   messageId: string;
   onClick: () => void;
 }) {
+  const { t } = useTranslation("email");
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const observerRef = useRef<HTMLDivElement | null>(null);
@@ -163,23 +165,23 @@ function ImageThumbnail({
       <button
         onClick={onClick}
         className="block rounded-md overflow-hidden border border-border-secondary hover:border-accent transition-colors"
-        title={attachment.filename ?? "Image"}
+        title={attachment.filename ?? t("inlineAttachment.image")}
       >
         {loading && (
           <div className="w-[200px] h-[120px] bg-bg-tertiary animate-pulse flex items-center justify-center">
-            <span className="text-xs text-text-tertiary">Loading...</span>
+            <span className="text-xs text-text-tertiary">{t("inlineAttachment.loading")}</span>
           </div>
         )}
         {thumbnailUrl && (
           <img
             src={thumbnailUrl}
-            alt={attachment.filename ?? "Image"}
+            alt={attachment.filename ?? t("inlineAttachment.image")}
             className="max-w-[200px] max-h-[200px] object-cover"
           />
         )}
         {!loading && !thumbnailUrl && (
           <div className="w-[200px] h-[120px] bg-bg-tertiary flex items-center justify-center">
-            <span className="text-xs text-text-tertiary">Image</span>
+            <span className="text-xs text-text-tertiary">{t("inlineAttachment.image")}</span>
           </div>
         )}
       </button>

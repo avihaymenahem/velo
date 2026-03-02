@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Outlet } from "@tanstack/react-router";
 import { Sidebar } from "./components/layout/Sidebar";
 import { AddAccount } from "./components/accounts/AddAccount";
@@ -95,6 +96,7 @@ function useRouterSyncBridge() {
 import { useThreadStore } from "./stores/threadStore";
 
 export default function App() {
+  const { t } = useTranslation();
   const theme = useUIStore((s) => s.theme);
   const fontScale = useUIStore((s) => s.fontScale);
   const colorTheme = useUIStore((s) => s.colorTheme);
@@ -189,6 +191,10 @@ export default function App() {
     async function init() {
       try {
         await runMigrations();
+
+        // Load persisted language (must be after migrations, before UI renders)
+        const { loadPersistedLanguage } = await import("./i18n");
+        await loadPersistedLanguage();
 
         const ui = useUIStore.getState();
 
@@ -532,7 +538,7 @@ export default function App() {
             <div className="absolute inset-0 rounded-full border-2 border-accent/20" />
             <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-accent animate-spin" />
           </div>
-          <span className="text-xs text-text-tertiary animate-pulse">Loading your inbox...</span>
+          <span className="text-xs text-text-tertiary animate-pulse">{t("settings:loadingInbox")}</span>
         </div>
       </div>
     );
