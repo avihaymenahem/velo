@@ -702,7 +702,7 @@ export function SettingsPage() {
                                     : "bg-bg-tertiary text-text-tertiary border-border-primary hover:text-text-primary"
                                 }`}
                               >
-                                {cat}
+                                {t(`sidebar:${cat.toLowerCase()}`)}
                               </button>
                             ))}
                           </div>
@@ -2280,7 +2280,7 @@ function BundleSettings() {
         return (
           <div key={cat} className="py-3 px-4 bg-bg-secondary rounded-lg space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-text-primary">{cat}</span>
+              <span className="text-sm font-medium text-text-primary">{t(`sidebar:${cat.toLowerCase()}`)}</span>
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-1.5 text-xs text-text-secondary">
                   <input

@@ -139,7 +139,7 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
             </span>
             {showCategoryBadge && category && category !== "Primary" && CATEGORY_COLORS[category] && (
               <span className={`shrink-0 text-[0.625rem] px-1.5 rounded-full leading-normal ${CATEGORY_COLORS[category]}`}>
-                {category}
+                {t(`sidebar:${category.toLowerCase()}`)}
               </span>
             )}
             {hasFollowUp && (
