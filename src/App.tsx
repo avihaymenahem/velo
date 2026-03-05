@@ -360,7 +360,7 @@ export default function App() {
         console.error("Failed to initialize:", err);
       }
       setInitialized(true);
-      invoke("close_splashscreen").catch(() => {});
+      invoke("close_splashscreen").catch(() => { });
     }
 
     init();
@@ -564,7 +564,10 @@ export default function App() {
 
       {/* Sync status bar */}
       {syncStatus && (
-        <div className={`fixed bottom-0 left-0 right-0 glass-panel text-white text-xs px-4 py-1.5 text-center z-40 ${syncStatus.startsWith("Sync failed") ? "bg-danger/90" : "bg-accent/90"}`}>
+        <div
+          className={`fixed bottom-0 right-0 glass-panel text-white text-xs px-4 py-1.5 text-center z-40 transition-all duration-200 ${syncStatus.startsWith("Sync failed") ? "bg-danger/90" : "bg-accent/90"}`}
+          style={{ left: sidebarCollapsed ? '4rem' : '15rem' }}
+        >
           {syncStatus}
         </div>
       )}
