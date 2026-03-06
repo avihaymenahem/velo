@@ -99,6 +99,7 @@ export default function App() {
   const fontScale = useUIStore((s) => s.fontScale);
   const colorTheme = useUIStore((s) => s.colorTheme);
   const reduceMotion = useUIStore((s) => s.reduceMotion);
+  const showSyncStatusBar = useUIStore((s) => s.showSyncStatusBar);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -275,6 +276,12 @@ export default function App() {
         const savedReduceMotion = await getSetting("reduce_motion");
         if (savedReduceMotion === "true") {
           ui.setReduceMotion(true);
+        }
+
+        // Restore show sync status bar preference
+        const savedShowSyncStatus = await getSetting("show_sync_status");
+        if (savedShowSyncStatus === "false") {
+          ui.setShowSyncStatusBar(false);
         }
 
         // Restore task sidebar visibility
@@ -563,7 +570,7 @@ export default function App() {
       </div>
 
       {/* Sync status bar */}
-      {syncStatus && (
+      {showSyncStatusBar && syncStatus && (
         <div
           className={`fixed bottom-0 right-0 glass-panel text-white text-xs px-4 py-1.5 text-center z-40 transition-all duration-200 ${syncStatus.startsWith("Sync failed") ? "bg-danger/90" : "bg-accent/90"}`}
           style={{ left: sidebarCollapsed ? '4rem' : '15rem' }}

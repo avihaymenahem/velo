@@ -33,6 +33,7 @@ interface UIState {
   taskSidebarVisible: boolean;
   sidebarNavConfig: SidebarNavItem[] | null;
   reduceMotion: boolean;
+  showSyncStatusBar: boolean;
   isOnline: boolean;
   pendingOpsCount: number;
   isSyncingFolder: string | null;
@@ -56,6 +57,7 @@ interface UIState {
   setSidebarNavConfig: (config: SidebarNavItem[]) => void;
   restoreSidebarNavConfig: (config: SidebarNavItem[]) => void;
   setReduceMotion: (reduce: boolean) => void;
+  setShowSyncStatusBar: (show: boolean) => void;
   setOnline: (online: boolean) => void;
   setPendingOpsCount: (count: number) => void;
   setSyncingFolder: (folder: string | null) => void;
@@ -78,6 +80,7 @@ export const useUIStore = create<UIState>((set) => ({
   taskSidebarVisible: false,
   sidebarNavConfig: null,
   reduceMotion: false,
+  showSyncStatusBar: true,
   isOnline: true,
   pendingOpsCount: 0,
   isSyncingFolder: null,
@@ -86,72 +89,76 @@ export const useUIStore = create<UIState>((set) => ({
   toggleSidebar: () =>
     set((state) => {
       const collapsed = !state.sidebarCollapsed;
-      setSetting("sidebar_collapsed", String(collapsed)).catch(() => {});
+      setSetting("sidebar_collapsed", String(collapsed)).catch(() => { });
       return { sidebarCollapsed: collapsed };
     }),
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
   toggleContactSidebar: () =>
     set((state) => {
       const visible = !state.contactSidebarVisible;
-      setSetting("contact_sidebar_visible", String(visible)).catch(() => {});
+      setSetting("contact_sidebar_visible", String(visible)).catch(() => { });
       return { contactSidebarVisible: visible };
     }),
   setContactSidebarVisible: (contactSidebarVisible) => set({ contactSidebarVisible }),
   setReadingPanePosition: (readingPanePosition) => {
-    setSetting("reading_pane_position", readingPanePosition).catch(() => {});
+    setSetting("reading_pane_position", readingPanePosition).catch(() => { });
     set({ readingPanePosition });
   },
   setReadFilter: (readFilter) => {
-    setSetting("read_filter", readFilter).catch(() => {});
+    setSetting("read_filter", readFilter).catch(() => { });
     set({ readFilter });
   },
   setEmailListWidth: (emailListWidth) => {
-    setSetting("email_list_width", String(emailListWidth)).catch(() => {});
+    setSetting("email_list_width", String(emailListWidth)).catch(() => { });
     set({ emailListWidth });
   },
   setEmailDensity: (emailDensity) => {
-    setSetting("email_density", emailDensity).catch(() => {});
+    setSetting("email_density", emailDensity).catch(() => { });
     set({ emailDensity });
   },
   setDefaultReplyMode: (defaultReplyMode) => {
-    setSetting("default_reply_mode", defaultReplyMode).catch(() => {});
+    setSetting("default_reply_mode", defaultReplyMode).catch(() => { });
     set({ defaultReplyMode });
   },
   setMarkAsReadBehavior: (markAsReadBehavior) => {
-    setSetting("mark_as_read_behavior", markAsReadBehavior).catch(() => {});
+    setSetting("mark_as_read_behavior", markAsReadBehavior).catch(() => { });
     set({ markAsReadBehavior });
   },
   setFontScale: (fontScale) => {
-    setSetting("font_size", fontScale).catch(() => {});
+    setSetting("font_size", fontScale).catch(() => { });
     set({ fontScale });
   },
   setColorTheme: (colorTheme) => {
-    setSetting("color_theme", colorTheme).catch(() => {});
+    setSetting("color_theme", colorTheme).catch(() => { });
     set({ colorTheme });
   },
   setSendAndArchive: (sendAndArchive) => {
-    setSetting("send_and_archive", String(sendAndArchive)).catch(() => {});
+    setSetting("send_and_archive", String(sendAndArchive)).catch(() => { });
     set({ sendAndArchive });
   },
   setInboxViewMode: (inboxViewMode) => {
-    setSetting("inbox_view_mode", inboxViewMode).catch(() => {});
+    setSetting("inbox_view_mode", inboxViewMode).catch(() => { });
     set({ inboxViewMode });
   },
   toggleTaskSidebar: () =>
     set((state) => {
       const visible = !state.taskSidebarVisible;
-      setSetting("task_sidebar_visible", String(visible)).catch(() => {});
+      setSetting("task_sidebar_visible", String(visible)).catch(() => { });
       return { taskSidebarVisible: visible };
     }),
   setTaskSidebarVisible: (taskSidebarVisible) => set({ taskSidebarVisible }),
   setSidebarNavConfig: (sidebarNavConfig) => {
-    setSetting("sidebar_nav_config", JSON.stringify(sidebarNavConfig)).catch(() => {});
+    setSetting("sidebar_nav_config", JSON.stringify(sidebarNavConfig)).catch(() => { });
     set({ sidebarNavConfig });
   },
   restoreSidebarNavConfig: (sidebarNavConfig) => set({ sidebarNavConfig }),
   setReduceMotion: (reduceMotion) => {
-    setSetting("reduce_motion", String(reduceMotion)).catch(() => {});
+    setSetting("reduce_motion", String(reduceMotion)).catch(() => { });
     set({ reduceMotion });
+  },
+  setShowSyncStatusBar: (showSyncStatusBar) => {
+    setSetting("show_sync_status", String(showSyncStatusBar)).catch(() => { });
+    set({ showSyncStatusBar });
   },
   setOnline: (isOnline) => set({ isOnline }),
   setPendingOpsCount: (pendingOpsCount) => set({ pendingOpsCount }),
