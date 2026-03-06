@@ -94,6 +94,8 @@ export function SettingsPage() {
   const setSendAndArchive = useUIStore((s) => s.setSendAndArchive);
   const inboxViewMode = useUIStore((s) => s.inboxViewMode);
   const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
+  const showSyncStatusBar = useUIStore((s) => s.showSyncStatusBar);
+  const setShowSyncStatusBar = useUIStore((s) => s.setShowSyncStatusBar);
   const reduceMotion = useUIStore((s) => s.reduceMotion);
   const setReduceMotion = useUIStore((s) => s.setReduceMotion);
   const accounts = useAccountStore((s) => s.accounts);
@@ -384,7 +386,7 @@ export function SettingsPage() {
                   isActive
                     ? "bg-bg-selected text-accent font-medium"
                     : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-                }`}
+                  }`}
               >
                 <Icon size={15} className="shrink-0" />
                 {tab.label}
@@ -477,7 +479,7 @@ export function SettingsPage() {
                                 isSelected
                                   ? "ring-2 ring-offset-2 ring-offset-bg-primary scale-110"
                                   : "hover:scale-105"
-                              }`}
+                                }`}
                               style={{
                                 backgroundColor: t.swatch,
                                 boxShadow: isSelected
@@ -505,6 +507,12 @@ export function SettingsPage() {
                         <option value="split">Split (Categories)</option>
                       </select>
                     </SettingRow>
+                    <ToggleRow
+                      label="Show sync status bar"
+                      description="Display the syncing status bar at the bottom of the window"
+                      checked={showSyncStatusBar}
+                      onToggle={() => setShowSyncStatusBar(!showSyncStatusBar)}
+                    />
                     <ToggleRow
                       label="Reduce motion"
                       description="Disable animated background effects (fixes flickering on some GPUs)"
@@ -653,7 +661,7 @@ export function SettingsPage() {
                                   notifyCategories.has(cat)
                                     ? "bg-accent/15 text-accent border-accent/30"
                                     : "bg-bg-tertiary text-text-tertiary border-border-primary hover:text-text-primary"
-                                }`}
+                                  }`}
                               >
                                 {cat}
                               </button>
@@ -1141,17 +1149,17 @@ export function SettingsPage() {
                         <TextField
                           label={
                             aiProvider === "claude" ? "Anthropic API Key"
-                            : aiProvider === "openai" ? "OpenAI API Key"
-                            : aiProvider === "copilot" ? "GitHub Personal Access Token"
-                            : "Google AI API Key"
+                              : aiProvider === "openai" ? "OpenAI API Key"
+                                : aiProvider === "copilot" ? "GitHub Personal Access Token"
+                                  : "Google AI API Key"
                           }
                           size="md"
                           type="password"
                           value={
                             aiProvider === "claude" ? claudeApiKey
-                            : aiProvider === "openai" ? openaiApiKey
-                            : aiProvider === "copilot" ? copilotApiKey
-                            : geminiApiKey
+                              : aiProvider === "openai" ? openaiApiKey
+                                : aiProvider === "copilot" ? copilotApiKey
+                                  : geminiApiKey
                           }
                           onChange={(e) => {
                             if (aiProvider === "claude") setClaudeApiKey(e.target.value);
@@ -1161,18 +1169,18 @@ export function SettingsPage() {
                           }}
                           placeholder={
                             aiProvider === "claude" ? "sk-ant-..."
-                            : aiProvider === "openai" ? "sk-..."
-                            : aiProvider === "copilot" ? "ghp_..."
-                            : "AI..."
+                              : aiProvider === "openai" ? "sk-..."
+                                : aiProvider === "copilot" ? "ghp_..."
+                                  : "AI..."
                           }
                         />
                         <SettingRow label="Model">
                           <select
                             value={
                               aiProvider === "claude" ? claudeModel
-                              : aiProvider === "openai" ? openaiModel
-                              : aiProvider === "copilot" ? copilotModel
-                              : geminiModel
+                                : aiProvider === "openai" ? openaiModel
+                                  : aiProvider === "copilot" ? copilotModel
+                                    : geminiModel
                             }
                             onChange={async (e) => {
                               const val = e.target.value;
@@ -1210,9 +1218,9 @@ export function SettingsPage() {
                               } as const;
                               const keyValue =
                                 aiProvider === "claude" ? claudeApiKey.trim()
-                                : aiProvider === "openai" ? openaiApiKey.trim()
-                                : aiProvider === "copilot" ? copilotApiKey.trim()
-                                : geminiApiKey.trim();
+                                  : aiProvider === "openai" ? openaiApiKey.trim()
+                                    : aiProvider === "copilot" ? copilotApiKey.trim()
+                                      : geminiApiKey.trim();
                               if (keyValue) {
                                 await setSecureSetting(keySettingMap[aiProvider], keyValue);
                                 const { clearProviderClients } = await import("@/services/ai/providerManager");
@@ -1223,9 +1231,9 @@ export function SettingsPage() {
                             }}
                             disabled={
                               !(aiProvider === "claude" ? claudeApiKey.trim()
-                              : aiProvider === "openai" ? openaiApiKey.trim()
-                              : aiProvider === "copilot" ? copilotApiKey.trim()
-                              : geminiApiKey.trim())
+                                : aiProvider === "openai" ? openaiApiKey.trim()
+                                  : aiProvider === "copilot" ? copilotApiKey.trim()
+                                    : geminiApiKey.trim())
                             }
                           >
                             {aiKeySaved ? "Saved!" : "Save Key"}
@@ -1248,9 +1256,9 @@ export function SettingsPage() {
                             }}
                             disabled={
                               !(aiProvider === "claude" ? claudeApiKey.trim()
-                              : aiProvider === "openai" ? openaiApiKey.trim()
-                              : aiProvider === "copilot" ? copilotApiKey.trim()
-                              : geminiApiKey.trim()) || aiTesting
+                                : aiProvider === "openai" ? openaiApiKey.trim()
+                                  : aiProvider === "copilot" ? copilotApiKey.trim()
+                                    : geminiApiKey.trim()) || aiTesting
                             }
                             className="bg-bg-tertiary text-text-primary border border-border-primary"
                           >
@@ -1915,7 +1923,7 @@ function ShortcutsTab() {
                 recordingGlobal
                   ? "bg-accent text-white"
                   : "bg-bg-tertiary text-text-secondary hover:text-text-primary border border-border-primary"
-              }`}
+                }`}
             >
               {recordingGlobal ? "Press keys..." : "Change"}
             </button>
@@ -1963,7 +1971,7 @@ function ShortcutsTab() {
                         isRecording
                           ? "bg-accent text-white"
                           : "bg-bg-tertiary text-text-tertiary hover:text-text-primary border border-border-primary"
-                      }`}
+                        }`}
                     >
                       {isRecording ? "Press key..." : currentKey}
                     </button>
@@ -2084,7 +2092,7 @@ function SidebarNavEditor() {
               key={item.id}
               className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
                 item.visible ? "text-text-primary" : "text-text-tertiary"
-              }`}
+                }`}
             >
               <button
                 onClick={() => moveItem(index, -1)}
@@ -2113,13 +2121,13 @@ function SidebarNavEditor() {
                     : item.visible
                       ? "bg-accent cursor-pointer"
                       : "bg-bg-tertiary cursor-pointer"
-                }`}
+                  }`}
                 title={isInbox ? "Inbox is always visible" : item.visible ? "Hide" : "Show"}
               >
                 <span
                   className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
                     item.visible ? "translate-x-5" : ""
-                  }`}
+                    }`}
                 />
               </button>
             </div>
@@ -2260,7 +2268,7 @@ function BundleSettings() {
                         rule.days.includes(idx)
                           ? "bg-accent text-white"
                           : "bg-bg-tertiary text-text-tertiary border border-border-primary"
-                      }`}
+                        }`}
                     >
                       {name}
                     </button>
@@ -2310,12 +2318,12 @@ function ToggleRow({
         onClick={onToggle}
         className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ml-4 ${
           checked ? "bg-accent" : "bg-bg-tertiary"
-        }`}
+          }`}
       >
         <span
           className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform shadow ${
             checked ? "translate-x-5" : ""
-          }`}
+            }`}
         />
       </button>
     </div>

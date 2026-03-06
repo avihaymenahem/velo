@@ -33,6 +33,7 @@ interface UIState {
   taskSidebarVisible: boolean;
   sidebarNavConfig: SidebarNavItem[] | null;
   reduceMotion: boolean;
+  showSyncStatusBar: boolean;
   isOnline: boolean;
   pendingOpsCount: number;
   isSyncingFolder: string | null;
@@ -56,6 +57,7 @@ interface UIState {
   setSidebarNavConfig: (config: SidebarNavItem[]) => void;
   restoreSidebarNavConfig: (config: SidebarNavItem[]) => void;
   setReduceMotion: (reduce: boolean) => void;
+  setShowSyncStatusBar: (show: boolean) => void;
   setOnline: (online: boolean) => void;
   setPendingOpsCount: (count: number) => void;
   setSyncingFolder: (folder: string | null) => void;
@@ -78,6 +80,7 @@ export const useUIStore = create<UIState>((set) => ({
   taskSidebarVisible: false,
   sidebarNavConfig: null,
   reduceMotion: false,
+  showSyncStatusBar: true,
   isOnline: true,
   pendingOpsCount: 0,
   isSyncingFolder: null,
@@ -152,6 +155,10 @@ export const useUIStore = create<UIState>((set) => ({
   setReduceMotion: (reduceMotion) => {
     setSetting("reduce_motion", String(reduceMotion)).catch(() => {});
     set({ reduceMotion });
+  },
+  setShowSyncStatusBar: (showSyncStatusBar) => {
+    setSetting("show_sync_status", String(showSyncStatusBar)).catch(() => { });
+    set({ showSyncStatusBar });
   },
   setOnline: (isOnline) => set({ isOnline }),
   setPendingOpsCount: (pendingOpsCount) => set({ pendingOpsCount }),
