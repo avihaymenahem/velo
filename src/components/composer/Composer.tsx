@@ -186,6 +186,20 @@ export function Composer() {
     return () => { stopAutoSave(); };
   }, [isOpen, activeAccountId]);
 
+  // Handle Ctrl/Cmd+Enter to send
+  const handleSendRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleSendRef.current();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen]);
+
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     dragCounterRef.current++;
@@ -298,6 +312,7 @@ export function Composer() {
     state.setUndoSendTimer(timer);
     closeComposer();
   }, [activeAccountId, activeAccount, closeComposer, getFullHtml]);
+  handleSendRef.current = handleSend;
 
   const handleSchedule = useCallback(async (scheduledAt: number) => {
     if (!activeAccountId || !activeAccount) return;
