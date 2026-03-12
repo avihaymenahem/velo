@@ -920,7 +920,7 @@ export function SettingsPage() {
                       >
                         {accounts.filter((a) => a.provider !== "caldav").map((a) => (
                           <option key={a.id} value={a.id}>
-                            {a.displayName ?? a.email}
+                            {a.email}
                           </option>
                         ))}
                       </select>
