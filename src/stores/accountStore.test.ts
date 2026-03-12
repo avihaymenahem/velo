@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useAccountStore, type Account } from "./accountStore";
+import { useAccountStore, ALL_ACCOUNTS_ID, type Account } from "./accountStore";
 
 const mockAccount: Account = {
   id: "acc-1",
@@ -77,5 +77,25 @@ describe("accountStore", () => {
     const state = useAccountStore.getState();
     expect(state.accounts).toHaveLength(2);
     expect(state.activeAccountId).toBe("acc-1");
+  });
+
+  describe("ALL_ACCOUNTS_ID", () => {
+    it("should export a sentinel value", () => {
+      expect(ALL_ACCOUNTS_ID).toBe("__all__");
+    });
+
+    it("should allow setting activeAccountId to ALL_ACCOUNTS_ID", () => {
+      useAccountStore.getState().addAccount(mockAccount);
+      useAccountStore.getState().addAccount(mockAccount2);
+      useAccountStore.getState().setActiveAccount(ALL_ACCOUNTS_ID);
+      expect(useAccountStore.getState().activeAccountId).toBe(ALL_ACCOUNTS_ID);
+    });
+
+    it("should not include ALL_ACCOUNTS_ID in accounts array", () => {
+      useAccountStore.getState().addAccount(mockAccount);
+      useAccountStore.getState().setActiveAccount(ALL_ACCOUNTS_ID);
+      const state = useAccountStore.getState();
+      expect(state.accounts.find((a) => a.id === ALL_ACCOUNTS_ID)).toBeUndefined();
+    });
   });
 });
