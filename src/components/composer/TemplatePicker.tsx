@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { FileText, ChevronDown } from "lucide-react";
-import { useAccountStore } from "@/stores/accountStore";
+import { useAccountStore, ALL_ACCOUNTS_ID } from "@/stores/accountStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
 import type { Editor } from "@tiptap/react";
@@ -10,7 +10,9 @@ interface TemplatePickerProps {
 }
 
 export function TemplatePicker({ editor }: TemplatePickerProps) {
-  const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const rawActiveAccountId = useAccountStore((s) => s.activeAccountId);
+  const defaultAccountId = useAccountStore((s) => s.defaultAccountId);
+  const activeAccountId = rawActiveAccountId === ALL_ACCOUNTS_ID ? defaultAccountId : rawActiveAccountId;
   const { mode, subject, setSubject } = useComposerStore();
   const [templates, setTemplates] = useState<DbTemplate[]>([]);
   const [isOpen, setIsOpen] = useState(false);

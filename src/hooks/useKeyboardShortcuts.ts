@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useUIStore } from "@/stores/uiStore";
 import { useThreadStore, threadKey, parseThreadKey } from "@/stores/threadStore";
 import { useComposerStore } from "@/stores/composerStore";
-import { useAccountStore } from "@/stores/accountStore";
+import { useAccountStore, ALL_ACCOUNTS_ID, getAllAccountIds } from "@/stores/accountStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { navigateToLabel, navigateToThread, navigateBack, getActiveLabel, getSelectedThreadId } from "@/router/navigate";
@@ -520,7 +520,8 @@ async function executeAction(actionId: string): Promise<void> {
       if (activeAccountId) {
         const currentLabel = getActiveLabel();
         useUIStore.getState().setSyncingFolder(currentLabel);
-        triggerSync([activeAccountId]);
+        const ids = activeAccountId === ALL_ACCOUNTS_ID ? getAllAccountIds() : [activeAccountId];
+        triggerSync(ids);
       }
       break;
     }

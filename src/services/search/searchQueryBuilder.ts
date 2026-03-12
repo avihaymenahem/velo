@@ -1,4 +1,5 @@
 import type { ParsedSearchQuery } from "./searchParser";
+import { ALL_ACCOUNTS_ID } from "@/stores/accountStore";
 
 interface BuiltQuery {
   sql: string;
@@ -32,8 +33,8 @@ export function buildSearchQuery(
     paramIdx++;
   }
 
-  // Account filter
-  if (accountId) {
+  // Account filter (skip for ALL_ACCOUNTS_ID — search across all accounts)
+  if (accountId && accountId !== ALL_ACCOUNTS_ID) {
     whereClauses.push(`m.account_id = $${paramIdx}`);
     params.push(accountId);
     paramIdx++;

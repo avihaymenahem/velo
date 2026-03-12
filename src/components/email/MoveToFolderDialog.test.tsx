@@ -16,6 +16,7 @@ vi.mock("@/stores/labelStore", () => ({
 }));
 
 vi.mock("@/stores/accountStore", () => ({
+  ALL_ACCOUNTS_ID: "__all__",
   useAccountStore: vi.fn((selector: (s: { activeAccountId: string; accounts: { id: string; provider?: string }[] }) => unknown) =>
     selector({
       activeAccountId: "acc-1",
@@ -25,11 +26,21 @@ vi.mock("@/stores/accountStore", () => ({
 }));
 
 vi.mock("@/stores/threadStore", () => ({
+  parseThreadKey: (key: string) => {
+    const idx = key.indexOf(":");
+    return idx >= 0
+      ? { accountId: key.slice(0, idx), threadId: key.slice(idx + 1) }
+      : { accountId: "", threadId: key };
+  },
   useThreadStore: Object.assign(
     vi.fn(() => ({})),
     {
       getState: () => ({
         threads: [{ id: "thread-1", labelIds: ["INBOX"] }],
+        threadMap: new Map([
+          ["thread-1", { id: "thread-1", accountId: "acc-1", labelIds: ["INBOX"] }],
+          ["thread-2", { id: "thread-2", accountId: "acc-1", labelIds: ["INBOX"] }],
+        ]),
       }),
     },
   ),

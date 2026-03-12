@@ -22,6 +22,7 @@ describe("accountStore", () => {
     useAccountStore.setState({
       accounts: [],
       activeAccountId: null,
+      defaultAccountId: null,
     });
   });
 
@@ -77,6 +78,49 @@ describe("accountStore", () => {
     const state = useAccountStore.getState();
     expect(state.accounts).toHaveLength(2);
     expect(state.activeAccountId).toBe("acc-1");
+  });
+
+  describe("defaultAccountId", () => {
+    it("should default to first account on setAccounts", () => {
+      useAccountStore.getState().setAccounts([mockAccount, mockAccount2]);
+      expect(useAccountStore.getState().defaultAccountId).toBe("acc-1");
+    });
+
+    it("should restore persisted defaultAccountId", () => {
+      useAccountStore.getState().setAccounts([mockAccount, mockAccount2], null, "acc-2");
+      expect(useAccountStore.getState().defaultAccountId).toBe("acc-2");
+    });
+
+    it("should fall back to first account if persisted default is invalid", () => {
+      useAccountStore.getState().setAccounts([mockAccount, mockAccount2], null, "nonexistent");
+      expect(useAccountStore.getState().defaultAccountId).toBe("acc-1");
+    });
+
+    it("should set defaultAccountId on addAccount when null", () => {
+      useAccountStore.getState().addAccount(mockAccount);
+      expect(useAccountStore.getState().defaultAccountId).toBe("acc-1");
+    });
+
+    it("should not override defaultAccountId when adding second account", () => {
+      useAccountStore.getState().addAccount(mockAccount);
+      useAccountStore.getState().addAccount(mockAccount2);
+      expect(useAccountStore.getState().defaultAccountId).toBe("acc-1");
+    });
+
+    it("should update defaultAccountId when default account is removed", () => {
+      useAccountStore.getState().addAccount(mockAccount);
+      useAccountStore.getState().addAccount(mockAccount2);
+      useAccountStore.getState().setDefaultAccount("acc-1");
+      useAccountStore.getState().removeAccount("acc-1");
+      expect(useAccountStore.getState().defaultAccountId).toBe("acc-2");
+    });
+
+    it("should allow switching default account", () => {
+      useAccountStore.getState().addAccount(mockAccount);
+      useAccountStore.getState().addAccount(mockAccount2);
+      useAccountStore.getState().setDefaultAccount("acc-2");
+      expect(useAccountStore.getState().defaultAccountId).toBe("acc-2");
+    });
   });
 
   describe("ALL_ACCOUNTS_ID", () => {

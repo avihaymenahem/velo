@@ -8,8 +8,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { useThreadStore } from "@/stores/threadStore";
-import { useAccountStore } from "@/stores/accountStore";
+import { useThreadStore, parseThreadKey } from "@/stores/threadStore";
 import { addThreadLabel, removeThreadLabel } from "@/services/emailActions";
 
 // Map sidebar IDs to Gmail label IDs (same as EmailList)
@@ -67,7 +66,6 @@ interface DndProviderProps {
 export function DndProvider({ children }: DndProviderProps) {
   const [dragData, setDragData] = useState<DragData | null>(null);
   const removeThreads = useThreadStore((s) => s.removeThreads);
-  const activeAccountId = useAccountStore((s) => s.activeAccountId);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -86,19 +84,22 @@ export function DndProvider({ children }: DndProviderProps) {
     const { over } = event;
     setDragData(null);
 
-    if (!over || !dragData || !activeAccountId) return;
+    if (!over || !dragData) return;
 
     const targetLabel = over.id as string;
     const change = resolveLabelChange(targetLabel, dragData.sourceLabel);
     if (!change) return;
 
     try {
+      const threadMap = useThreadStore.getState().threadMap;
       for (const threadId of dragData.threadIds) {
+        const thread = threadMap.get(threadId);
+        const accountId = thread?.accountId ?? parseThreadKey(threadId).accountId;
         for (const labelId of change.addLabelIds) {
-          await addThreadLabel(activeAccountId, threadId, labelId);
+          await addThreadLabel(accountId, threadId, labelId);
         }
         for (const labelId of change.removeLabelIds) {
-          await removeThreadLabel(activeAccountId, threadId, labelId);
+          await removeThreadLabel(accountId, threadId, labelId);
         }
       }
       // Remove from current view

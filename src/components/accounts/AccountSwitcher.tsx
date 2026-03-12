@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { useAccountStore, ALL_ACCOUNTS_ID, type Account } from "@/stores/accountStore";
-import { ChevronDown, Check, Plus, UserPlus, Calendar, Inbox } from "lucide-react";
+import { ChevronDown, Check, Plus, UserPlus, Calendar, Inbox, Star } from "lucide-react";
 import { useClickOutside } from "@/hooks/useClickOutside";
 
 interface AccountSwitcherProps {
@@ -12,7 +12,7 @@ export function AccountSwitcher({
   collapsed,
   onAddAccount,
 }: AccountSwitcherProps) {
-  const { accounts, activeAccountId, setActiveAccount } = useAccountStore();
+  const { accounts, activeAccountId, setActiveAccount, defaultAccountId, setDefaultAccount } = useAccountStore();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -137,32 +137,50 @@ export function AccountSwitcher({
           )}
           {accounts.map((account) => {
             const isActive = account.id === activeAccountId;
+            const isDefault = account.id === defaultAccountId;
             return (
-              <button
-                key={account.id}
-                onClick={() => handleSwitch(account.id)}
-                className={`flex items-center gap-2.5 w-full px-3 py-2 text-left transition-colors ${
-                  isActive
-                    ? "bg-accent/8 text-accent"
-                    : "text-text-primary hover:bg-bg-hover"
-                }`}
-              >
-                <AccountAvatarSmall account={account} isActive={isActive} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate leading-tight flex items-center gap-1.5">
-                    {account.displayName || account.email.split("@")[0]}
-                    {account.provider === "caldav" && (
-                      <Calendar size={12} className="shrink-0 text-text-tertiary" />
-                    )}
+              <div key={account.id} className="flex items-center">
+                <button
+                  onClick={() => handleSwitch(account.id)}
+                  className={`flex items-center gap-2.5 flex-1 min-w-0 px-3 py-2 text-left transition-colors ${
+                    isActive
+                      ? "bg-accent/8 text-accent"
+                      : "text-text-primary hover:bg-bg-hover"
+                  }`}
+                >
+                  <AccountAvatarSmall account={account} isActive={isActive} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate leading-tight flex items-center gap-1.5">
+                      {account.displayName || account.email.split("@")[0]}
+                      {account.provider === "caldav" && (
+                        <Calendar size={12} className="shrink-0 text-text-tertiary" />
+                      )}
+                    </div>
+                    <div className="text-xs text-text-secondary truncate leading-tight">
+                      {account.email}
+                    </div>
                   </div>
-                  <div className="text-xs text-text-secondary truncate leading-tight">
-                    {account.email}
-                  </div>
-                </div>
-                {isActive && (
-                  <Check size={14} className="shrink-0 text-accent" />
+                  {isActive && (
+                    <Check size={14} className="shrink-0 text-accent" />
+                  )}
+                </button>
+                {accounts.length > 1 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isDefault) setDefaultAccount(account.id);
+                    }}
+                    className={`shrink-0 px-2 py-2 transition-colors ${
+                      isDefault
+                        ? "text-amber-400"
+                        : "text-text-tertiary/30 hover:text-amber-400/60"
+                    }`}
+                    title={isDefault ? "Default account" : "Set as default account"}
+                  >
+                    <Star size={12} fill={isDefault ? "currentColor" : "none"} />
+                  </button>
                 )}
-              </button>
+              </div>
             );
           })}
           <div className="border-t border-border-primary my-1" />

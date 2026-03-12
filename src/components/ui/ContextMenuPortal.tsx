@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { useThreadStore, threadKey, parseThreadKey } from "@/stores/threadStore";
-import { useAccountStore } from "@/stores/accountStore";
+import { useAccountStore, ALL_ACCOUNTS_ID, getAllAccountIds } from "@/stores/accountStore";
 import { getActiveLabel } from "@/router/navigate";
 import { useComposerStore } from "@/stores/composerStore";
 import { useLabelStore } from "@/stores/labelStore";
@@ -137,7 +137,8 @@ function SidebarLabelMenu({
     if (!activeAccountId) return;
     const labelId = data["labelId"] as string | undefined;
     useUIStore.getState().setSyncingFolder(labelId ?? "label");
-    triggerSync([activeAccountId]);
+    const ids = activeAccountId === ALL_ACCOUNTS_ID ? getAllAccountIds() : [activeAccountId];
+    triggerSync(ids);
   };
 
   const items: ContextMenuItem[] = [
@@ -181,7 +182,8 @@ function SidebarNavMenu({
   const handleSync = () => {
     if (!activeAccountId) return;
     useUIStore.getState().setSyncingFolder(navId);
-    triggerSync([activeAccountId]);
+    const ids = activeAccountId === ALL_ACCOUNTS_ID ? getAllAccountIds() : [activeAccountId];
+    triggerSync(ids);
   };
 
   const items: ContextMenuItem[] = [

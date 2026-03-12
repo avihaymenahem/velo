@@ -3,7 +3,7 @@ import { CSSTransition } from "react-transition-group";
 import { useUIStore } from "@/stores/uiStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { useThreadStore } from "@/stores/threadStore";
-import { useAccountStore } from "@/stores/accountStore";
+import { useAccountStore, ALL_ACCOUNTS_ID } from "@/stores/accountStore";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
@@ -31,13 +31,15 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const setTheme = useUIStore((s) => s.setTheme);
   const openComposer = useComposerStore((s) => s.openComposer);
   const activeLabel = useActiveLabel();
-  const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const rawActiveAccountId = useAccountStore((s) => s.activeAccountId);
+  const defaultAccountId = useAccountStore((s) => s.defaultAccountId);
+  const templateAccountId = rawActiveAccountId === ALL_ACCOUNTS_ID ? defaultAccountId : rawActiveAccountId;
   const [templates, setTemplates] = useState<DbTemplate[]>([]);
 
   useEffect(() => {
-    if (!isOpen || !activeAccountId) return;
-    getTemplatesForAccount(activeAccountId).then(setTemplates);
-  }, [isOpen, activeAccountId]);
+    if (!isOpen || !templateAccountId) return;
+    getTemplatesForAccount(templateAccountId).then(setTemplates);
+  }, [isOpen, templateAccountId]);
 
   const commands: Command[] = useMemo(() => [
     // Navigation

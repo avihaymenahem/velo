@@ -1,6 +1,7 @@
 import { getDb } from "./connection";
 import { parseSearchQuery, hasSearchOperators } from "../search/searchParser";
 import { buildSearchQuery } from "../search/searchQueryBuilder";
+import { ALL_ACCOUNTS_ID } from "@/stores/accountStore";
 
 export interface SearchResult {
   message_id: string;
@@ -42,7 +43,7 @@ export async function searchMessages(
   }
 
   // Fall through to standard FTS5 search
-  if (accountId) {
+  if (accountId && accountId !== ALL_ACCOUNTS_ID) {
     return db.select<SearchResult[]>(
       `SELECT
         m.id as message_id,
