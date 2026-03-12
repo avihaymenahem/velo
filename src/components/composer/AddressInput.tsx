@@ -6,6 +6,7 @@ interface AddressInputProps {
   addresses: string[];
   onChange: (addresses: string[]) => void;
   placeholder?: string;
+  autoFocus?: boolean;
 }
 
 export function AddressInput({
@@ -13,6 +14,7 @@ export function AddressInput({
   addresses,
   onChange,
   placeholder = "Add recipients...",
+  autoFocus = false,
 }: AddressInputProps) {
   const [inputValue, setInputValue] = useState("");
   const [suggestions, setSuggestions] = useState<DbContact[]>([]);
@@ -28,6 +30,12 @@ export function AddressInput({
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (autoFocus) {
+      inputRef.current?.focus();
+    }
+  }, [autoFocus]);
 
   const handleInputChange = useCallback(
     (value: string) => {

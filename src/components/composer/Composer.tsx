@@ -489,7 +489,7 @@ export function Composer() {
             selectedEmail={fromEmail ?? activeAccount?.email ?? ""}
             onChange={(alias) => setFromEmail(alias.email)}
           />
-          <AddressInput label="To" addresses={to} onChange={setTo} />
+          <AddressInput label="To" addresses={to} onChange={setTo} autoFocus={mode === "new"} />
           {showCcBcc ? (
             <>
               <AddressInput label="Cc" addresses={cc} onChange={setCc} />
