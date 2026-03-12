@@ -89,9 +89,9 @@ export function navigateToLabel(
 
 /**
  * Navigate to a thread within the current mail context.
- * Appends /thread/$threadId to the current route.
+ * Accepts a composite key (accountId:threadId) which is stored in the URL.
  */
-export function navigateToThread(threadId: string): void {
+export function navigateToThread(compositeKey: string): void {
   const { location } = router.state;
   const pathname = location.pathname;
 
@@ -100,7 +100,7 @@ export function navigateToThread(threadId: string): void {
   if (mailMatch) {
     router.navigate({
       to: "/mail/$label/thread/$threadId",
-      params: { label: mailMatch[1]!, threadId },
+      params: { label: mailMatch[1]!, threadId: compositeKey },
       search: location.search as Record<string, string>,
     });
     return;
@@ -111,7 +111,7 @@ export function navigateToThread(threadId: string): void {
   if (labelMatch) {
     router.navigate({
       to: "/label/$labelId/thread/$threadId",
-      params: { labelId: labelMatch[1]!, threadId },
+      params: { labelId: labelMatch[1]!, threadId: compositeKey },
       search: location.search as Record<string, string>,
     });
     return;
@@ -122,7 +122,7 @@ export function navigateToThread(threadId: string): void {
   if (sfMatch) {
     router.navigate({
       to: "/smart-folder/$folderId/thread/$threadId",
-      params: { folderId: sfMatch[1]!, threadId },
+      params: { folderId: sfMatch[1]!, threadId: compositeKey },
       search: location.search as Record<string, string>,
     });
     return;
@@ -131,7 +131,7 @@ export function navigateToThread(threadId: string): void {
   // Fallback: navigate to inbox with thread
   router.navigate({
     to: "/mail/$label/thread/$threadId",
-    params: { label: "inbox", threadId },
+    params: { label: "inbox", threadId: compositeKey },
   });
 }
 
@@ -226,7 +226,8 @@ export function getActiveLabel(): string {
 }
 
 /**
- * Get the selected thread ID from the current router state (non-React helper).
+ * Get the selected thread composite key from the current router state (non-React helper).
+ * Returns the composite key (accountId:threadId) stored in the URL.
  */
 export function getSelectedThreadId(): string | null {
   const matches = router.state.matches;

@@ -295,6 +295,13 @@ describe("navigate", () => {
       expect(getSelectedThreadId()).toBe("t-42");
     });
 
+    it("should return composite key from route params", () => {
+      mockState.matches = [
+        { routeId: "/mail/$label/thread/$threadId", params: { label: "inbox", threadId: "acc-1:t-42" } },
+      ];
+      expect(getSelectedThreadId()).toBe("acc-1:t-42");
+    });
+
     it("should return null when no thread in route", () => {
       mockState.matches = [
         { routeId: "/mail/$label", params: { label: "inbox" } },
@@ -305,6 +312,29 @@ describe("navigate", () => {
     it("should return null when no matches", () => {
       mockState.matches = [];
       expect(getSelectedThreadId()).toBeNull();
+    });
+  });
+
+  describe("composite thread keys in navigation", () => {
+    it("should navigate to thread with composite key", () => {
+      mockState.location.pathname = "/mail/inbox";
+      navigateToThread("acc-1:thread-abc");
+      expect(mockNavigate).toHaveBeenCalledWith({
+        to: "/mail/$label/thread/$threadId",
+        params: { label: "inbox", threadId: "acc-1:thread-abc" },
+        search: {},
+      });
+    });
+
+    it("should navigate back from composite key thread route", () => {
+      mockState.location.pathname = "/mail/inbox/thread/acc-1:t-1";
+      mockState.location.search = {};
+      navigateBack();
+      expect(mockNavigate).toHaveBeenCalledWith({
+        to: "/mail/$label",
+        params: { label: "inbox" },
+        search: {},
+      });
     });
   });
 });
