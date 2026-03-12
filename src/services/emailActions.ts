@@ -534,3 +534,22 @@ export function deleteDraft(
 ): Promise<ActionResult> {
   return executeEmailAction(accountId, { type: "deleteDraft", draftId });
 }
+
+/**
+ * Delete all drafts for a thread via the Gmail Drafts API.
+ * Handles optimistic UI removal with auto-advance, then performs the API call.
+ */
+export async function deleteDraftThread(
+  accountId: string,
+  threadId: string,
+): Promise<void> {
+  const { getGmailClient } = await import("@/services/gmail/tokenManager");
+  const { deleteDraftsForThread } = await import("@/services/gmail/draftDeletion");
+
+  const nextId = getNextThreadId(threadId);
+  useThreadStore.getState().removeThread(threadId);
+  if (nextId) navigateToThread(nextId);
+
+  const client = await getGmailClient(accountId);
+  await deleteDraftsForThread(client, accountId, threadId);
+}
