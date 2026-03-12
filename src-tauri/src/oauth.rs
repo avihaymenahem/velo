@@ -17,7 +17,7 @@ pub async fn start_oauth_server(port: u16, state: String) -> Result<OAuthResult,
     // Try the requested port, then a few alternatives
     let mut listener = None;
     for p in [port, port + 1, port + 2, port + 3] {
-        match TcpListener::bind(format!("localhost:{}", p)).await {
+        match TcpListener::bind(format!("127.0.0.1:{}", p)).await {
             Ok(l) => {
                 listener = Some(l);
                 break;
