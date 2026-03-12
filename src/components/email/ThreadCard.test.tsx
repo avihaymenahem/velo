@@ -22,6 +22,7 @@ vi.mock("@/stores/threadStore", () => ({
       }),
     { getState: () => ({ selectedThreadIds: new Set() }) },
   ),
+  threadKey: (t: { accountId: string; id: string }) => `${t.accountId}:${t.id}`,
 }));
 
 vi.mock("@/stores/uiStore", () => ({

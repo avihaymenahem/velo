@@ -1,7 +1,7 @@
 import { memo, useMemo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import type { Thread } from "@/stores/threadStore";
-import { useThreadStore } from "@/stores/threadStore";
+import { useThreadStore, threadKey } from "@/stores/threadStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { formatRelativeDate } from "@/utils/date";
@@ -26,7 +26,8 @@ interface ThreadCardProps {
 }
 
 export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick, onContextMenu, category, showCategoryBadge, hasFollowUp }: ThreadCardProps) {
-  const isMultiSelected = useThreadStore((s) => s.selectedThreadIds.has(thread.id));
+  const tKey = threadKey(thread);
+  const isMultiSelected = useThreadStore((s) => s.selectedThreadIds.has(tKey));
   const hasMultiSelect = useThreadStore((s) => s.selectedThreadIds.size > 0);
   const toggleThreadSelection = useThreadStore((s) => s.toggleThreadSelection);
   const selectThreadRange = useThreadStore((s) => s.selectThreadRange);
@@ -37,25 +38,28 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
   // Read selectedThreadIds lazily for drag — avoids subscribing all cards to the Set reference
   const dragData: DragData = useMemo(() => ({
     threadIds: hasMultiSelect && isMultiSelected
-      ? [...useThreadStore.getState().selectedThreadIds]
+      ? [...useThreadStore.getState().selectedThreadIds].map((k) => {
+          const t = useThreadStore.getState().threadMap.get(k);
+          return t?.id ?? k;
+        })
       : [thread.id],
     sourceLabel: activeLabel,
   }), [hasMultiSelect, isMultiSelected, thread.id, activeLabel]);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `thread-${thread.id}`,
+    id: `thread-${tKey}`,
     data: dragData,
   });
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey) {
       e.preventDefault();
-      selectThreadRange(thread.id);
+      selectThreadRange(tKey);
     } else if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      toggleThreadSelection(thread.id);
+      toggleThreadSelection(tKey);
     } else if (hasMultiSelect) {
-      toggleThreadSelection(thread.id);
+      toggleThreadSelection(tKey);
     } else {
       onClick(thread);
     }

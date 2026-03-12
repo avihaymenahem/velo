@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { setSetting } from "../services/db/settings";
 
+/** Sentinel value for "All Accounts" unified inbox view */
+export const ALL_ACCOUNTS_ID = "__all__";
+
 export interface Account {
   id: string;
   email: string;
@@ -24,9 +27,12 @@ export const useAccountStore = create<AccountState>((set) => ({
   activeAccountId: null,
 
   setAccounts: (accounts, restoredId) => {
-    const activeId = (restoredId && accounts.some((a) => a.id === restoredId))
-      ? restoredId
-      : accounts[0]?.id ?? null;
+    const isValidId = restoredId && (
+      restoredId === ALL_ACCOUNTS_ID
+        ? accounts.length > 1
+        : accounts.some((a) => a.id === restoredId)
+    );
+    const activeId = isValidId ? restoredId : accounts[0]?.id ?? null;
     set({ accounts, activeAccountId: activeId });
   },
 
