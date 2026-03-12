@@ -97,6 +97,8 @@ export function SettingsPage() {
   const reduceMotion = useUIStore((s) => s.reduceMotion);
   const setReduceMotion = useUIStore((s) => s.setReduceMotion);
   const accounts = useAccountStore((s) => s.accounts);
+  const defaultAccountId = useAccountStore((s) => s.defaultAccountId);
+  const setDefaultAccount = useAccountStore((s) => s.setDefaultAccount);
   const removeAccountFromStore = useAccountStore((s) => s.removeAccount);
   const { tab } = useParams({ strict: false }) as { tab?: string };
   const activeTab = (tab && tabs.some((t) => t.id === tab) ? tab : "general") as SettingsTab;
@@ -905,6 +907,25 @@ export function SettingsPage() {
                       </div>
                     )}
                   </Section>
+
+                  {accounts.filter((a) => a.provider !== "caldav").length > 1 && (
+                    <Section title="Default Account">
+                      <p className="text-xs text-text-tertiary mb-2">
+                        Used for composing, signatures, and templates when viewing all accounts.
+                      </p>
+                      <select
+                        value={defaultAccountId ?? ""}
+                        onChange={(e) => setDefaultAccount(e.target.value)}
+                        className="w-full max-w-xs bg-bg-tertiary text-text-primary text-sm border border-border-primary rounded-md px-3 py-1.5 focus:border-accent focus:outline-none"
+                      >
+                        {accounts.filter((a) => a.provider !== "caldav").map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.email}
+                          </option>
+                        ))}
+                      </select>
+                    </Section>
+                  )}
 
                   {accounts.some((a) => a.provider === "caldav") && (
                     <Section title="Calendar Accounts">

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AccountSwitcher } from "./AccountSwitcher";
-import { useAccountStore } from "@/stores/accountStore";
+import { useAccountStore, ALL_ACCOUNTS_ID } from "@/stores/accountStore";
 
 describe("AccountSwitcher", () => {
   beforeEach(() => {
@@ -123,5 +123,78 @@ describe("AccountSwitcher", () => {
     // Both accounts should appear in the dropdown
     expect(screen.getByText("Jane Smith")).toBeInTheDocument();
     expect(screen.getByText("Add account")).toBeInTheDocument();
+  });
+
+  it("shows 'All Accounts' option in dropdown when multiple accounts exist", () => {
+    useAccountStore.setState({
+      accounts: [
+        {
+          id: "1",
+          email: "john@example.com",
+          displayName: "John Doe",
+          avatarUrl: null,
+          isActive: true,
+        },
+        {
+          id: "2",
+          email: "jane@example.com",
+          displayName: "Jane Smith",
+          avatarUrl: null,
+          isActive: false,
+        },
+      ],
+      activeAccountId: "1",
+    });
+
+    render(<AccountSwitcher collapsed={false} onAddAccount={() => {}} />);
+    fireEvent.click(screen.getByText("John Doe"));
+
+    expect(screen.getByText("All Accounts")).toBeInTheDocument();
+  });
+
+  it("shows 'All Accounts' in trigger when ALL_ACCOUNTS_ID is active", () => {
+    useAccountStore.setState({
+      accounts: [
+        {
+          id: "1",
+          email: "john@example.com",
+          displayName: "John Doe",
+          avatarUrl: null,
+          isActive: true,
+        },
+        {
+          id: "2",
+          email: "jane@example.com",
+          displayName: "Jane Smith",
+          avatarUrl: null,
+          isActive: false,
+        },
+      ],
+      activeAccountId: ALL_ACCOUNTS_ID,
+    });
+
+    render(<AccountSwitcher collapsed={false} onAddAccount={() => {}} />);
+    expect(screen.getByText("All Accounts")).toBeInTheDocument();
+    expect(screen.getByText("2 accounts")).toBeInTheDocument();
+  });
+
+  it("does not show 'All Accounts' option with single account", () => {
+    useAccountStore.setState({
+      accounts: [
+        {
+          id: "1",
+          email: "john@example.com",
+          displayName: "John Doe",
+          avatarUrl: null,
+          isActive: true,
+        },
+      ],
+      activeAccountId: "1",
+    });
+
+    render(<AccountSwitcher collapsed={false} onAddAccount={() => {}} />);
+    fireEvent.click(screen.getByText("John Doe"));
+
+    expect(screen.queryByText("All Accounts")).not.toBeInTheDocument();
   });
 });

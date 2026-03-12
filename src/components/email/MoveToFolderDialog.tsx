@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import { CSSTransition } from "react-transition-group";
 import { useLabelStore } from "@/stores/labelStore";
-import { useAccountStore } from "@/stores/accountStore";
-import { useThreadStore } from "@/stores/threadStore";
+import { useAccountStore, ALL_ACCOUNTS_ID } from "@/stores/accountStore";
+import { useThreadStore, parseThreadKey } from "@/stores/threadStore";
 import {
   archiveThread,
   trashThread,
@@ -57,11 +57,7 @@ export function MoveToFolderDialog({
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const accounts = useAccountStore((s) => s.accounts);
 
-  const account = useMemo(
-    () => accounts.find((a) => a.id === activeAccountId),
-    [accounts, activeAccountId],
-  );
-  const isImap = account?.provider === "imap";
+  const effectiveAccountId = activeAccountId === ALL_ACCOUNTS_ID ? (accounts[0]?.id ?? null) : activeAccountId;
 
   // Build the full destination list: system destinations + user labels
   const destinations = useMemo(() => {
@@ -83,36 +79,35 @@ export function MoveToFolderDialog({
 
   const handleSelect = useCallback(
     async (dest: Destination) => {
-      if (!activeAccountId || threadIds.length === 0) return;
+      if (!effectiveAccountId || threadIds.length === 0) return;
       onClose();
 
+      const threadMap = useThreadStore.getState().threadMap;
       for (const threadId of threadIds) {
+        // Resolve per-thread accountId for multi-account support
+        const thread = threadMap.get(threadId);
+        const acctId = thread?.accountId ?? parseThreadKey(threadId).accountId;
+        const threadIsImap = accounts.find((a) => a.id === acctId)?.provider === "imap";
+
         if (dest.id === "__archive__") {
-          await archiveThread(activeAccountId, threadId, []);
+          await archiveThread(acctId, threadId, []);
         } else if (dest.id === "TRASH") {
-          await trashThread(activeAccountId, threadId, []);
+          await trashThread(acctId, threadId, []);
         } else if (dest.id === "SPAM") {
-          await spamThread(activeAccountId, threadId, [], true);
+          await spamThread(acctId, threadId, [], true);
         } else if (dest.id === "INBOX") {
-          if (isImap) {
-            await moveThread(activeAccountId, threadId, [], "INBOX");
+          if (threadIsImap) {
+            await moveThread(acctId, threadId, [], "INBOX");
           } else {
-            // Gmail: add INBOX label (un-archive)
-            await addThreadLabel(activeAccountId, threadId, "INBOX");
+            await addThreadLabel(acctId, threadId, "INBOX");
           }
         } else if (dest.type === "label") {
-          if (isImap) {
-            // IMAP: move to folder. The label's id is the folder path for IMAP accounts.
-            await moveThread(activeAccountId, threadId, [], dest.id);
+          if (threadIsImap) {
+            await moveThread(acctId, threadId, [], dest.id);
           } else {
-            // Gmail: add destination label + remove from current location (archive)
-            await addThreadLabel(activeAccountId, threadId, dest.id);
-            // Remove INBOX to complete the "move" semantics
-            const thread = useThreadStore
-              .getState()
-              .threads.find((t) => t.id === threadId);
+            await addThreadLabel(acctId, threadId, dest.id);
             if (thread?.labelIds.includes("INBOX")) {
-              await removeThreadLabel(activeAccountId, threadId, "INBOX");
+              await removeThreadLabel(acctId, threadId, "INBOX");
             }
           }
         }
@@ -121,7 +116,7 @@ export function MoveToFolderDialog({
       // Refresh thread list
       window.dispatchEvent(new Event("velo-sync-done"));
     },
-    [activeAccountId, threadIds, isImap, onClose],
+    [effectiveAccountId, threadIds, accounts, onClose],
   );
 
   const handleKeyDown = useCallback(

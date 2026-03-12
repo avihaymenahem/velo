@@ -251,6 +251,68 @@ export async function unmuteThread(
   );
 }
 
+export async function getThreadsForAllAccounts(
+  labelId?: string,
+  limit = 50,
+  offset = 0,
+): Promise<DbThread[]> {
+  const db = await getDb();
+  if (labelId) {
+    return db.select<DbThread[]>(
+      `SELECT t.*, m.from_name, m.from_address FROM threads t
+       INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
+       LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
+         AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
+       WHERE tl.label_id = $1
+       GROUP BY t.account_id, t.id
+       ORDER BY t.is_pinned DESC, t.last_message_at DESC
+       LIMIT $2 OFFSET $3`,
+      [labelId, limit, offset],
+    );
+  }
+  return db.select<DbThread[]>(
+    `SELECT t.*, m.from_name, m.from_address FROM threads t
+     LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
+       AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
+     ORDER BY t.is_pinned DESC, t.last_message_at DESC LIMIT $1 OFFSET $2`,
+    [limit, offset],
+  );
+}
+
+export async function getThreadsForAllAccountsCategory(
+  category: string,
+  limit = 50,
+  offset = 0,
+): Promise<DbThread[]> {
+  const db = await getDb();
+  if (category === "Primary") {
+    return db.select<DbThread[]>(
+      `SELECT t.*, m.from_name, m.from_address FROM threads t
+       INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
+       LEFT JOIN thread_categories tc ON tc.account_id = t.account_id AND tc.thread_id = t.id
+       LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
+         AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
+       WHERE tl.label_id = 'INBOX' AND (tc.category IS NULL OR tc.category = 'Primary')
+       GROUP BY t.account_id, t.id
+       ORDER BY t.is_pinned DESC, t.last_message_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset],
+    );
+  }
+  return db.select<DbThread[]>(
+    `SELECT t.*, m.from_name, m.from_address FROM threads t
+     INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
+     INNER JOIN thread_categories tc ON tc.account_id = t.account_id AND tc.thread_id = t.id
+     LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
+       AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
+     WHERE tl.label_id = 'INBOX' AND tc.category = $1
+     GROUP BY t.account_id, t.id
+     ORDER BY t.is_pinned DESC, t.last_message_at DESC
+     LIMIT $2 OFFSET $3`,
+    [category, limit, offset],
+  );
+}
+
 export async function getMutedThreadIds(
   accountId: string,
 ): Promise<Set<string>> {

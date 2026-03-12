@@ -16,7 +16,7 @@ import { SignatureSelector } from "./SignatureSelector";
 import { TemplatePicker } from "./TemplatePicker";
 import { FromSelector } from "./FromSelector";
 import { useComposerStore } from "@/stores/composerStore";
-import { useAccountStore } from "@/stores/accountStore";
+import { useAccountStore, ALL_ACCOUNTS_ID } from "@/stores/accountStore";
 import { useUIStore } from "@/stores/uiStore";
 import { sendEmail, archiveThread, deleteDraft as deleteDraftAction } from "@/services/emailActions";
 import { buildRawEmail } from "@/utils/emailBuilder";
@@ -58,8 +58,11 @@ export function Composer() {
   const setViewMode = useComposerStore((s) => s.setViewMode);
   const addAttachment = useComposerStore((s) => s.addAttachment);
 
-  const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const rawActiveAccountId = useAccountStore((s) => s.activeAccountId);
+  const defaultAccountId = useAccountStore((s) => s.defaultAccountId);
   const accounts = useAccountStore((s) => s.accounts);
+  // When in "All Accounts" mode, use the default account for composing
+  const activeAccountId = rawActiveAccountId === ALL_ACCOUNTS_ID ? defaultAccountId : rawActiveAccountId;
   const activeAccount = accounts.find((a) => a.id === activeAccountId);
   const sendingRef = useRef(false);
   const [showSchedule, setShowSchedule] = useState(false);

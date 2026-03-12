@@ -14,6 +14,11 @@ vi.mock("@/stores/threadStore", () => ({
       removeThread: vi.fn(),
     })),
   },
+  threadKey: (t: { accountId: string; id: string }) => `${t.accountId}:${t.id}`,
+  parseThreadKey: (key: string) => {
+    const idx = key.indexOf(":");
+    return { accountId: key.slice(0, idx), threadId: key.slice(idx + 1) };
+  },
 }));
 
 vi.mock("@/services/email/providerFactory", () => ({
@@ -76,7 +81,7 @@ describe("emailActions", () => {
       const result = await archiveThread("acct-1", "t1", ["m1"]);
       expect(result.success).toBe(true);
       expect(result.queued).toBeUndefined();
-      expect(mockRemoveThread).toHaveBeenCalledWith("t1");
+      expect(mockRemoveThread).toHaveBeenCalledWith("acct-1:t1");
       expect(mockProvider.archive).toHaveBeenCalledWith("t1", ["m1"]);
     });
 
@@ -89,21 +94,21 @@ describe("emailActions", () => {
     it("stars a thread via provider", async () => {
       const result = await starThread("acct-1", "t1", ["m1"], true);
       expect(result.success).toBe(true);
-      expect(mockUpdateThread).toHaveBeenCalledWith("t1", { isStarred: true });
+      expect(mockUpdateThread).toHaveBeenCalledWith("acct-1:t1", { isStarred: true });
       expect(mockProvider.star).toHaveBeenCalledWith("t1", ["m1"], true);
     });
 
     it("marks thread read via provider", async () => {
       const result = await markThreadRead("acct-1", "t1", ["m1"], true);
       expect(result.success).toBe(true);
-      expect(mockUpdateThread).toHaveBeenCalledWith("t1", { isRead: true });
+      expect(mockUpdateThread).toHaveBeenCalledWith("acct-1:t1", { isRead: true });
       expect(mockProvider.markRead).toHaveBeenCalledWith("t1", ["m1"], true);
     });
 
     it("reports spam via provider", async () => {
       const result = await spamThread("acct-1", "t1", ["m1"], true);
       expect(result.success).toBe(true);
-      expect(mockRemoveThread).toHaveBeenCalledWith("t1");
+      expect(mockRemoveThread).toHaveBeenCalledWith("acct-1:t1");
       expect(mockProvider.spam).toHaveBeenCalledWith("t1", ["m1"], true);
     });
   });
@@ -128,7 +133,7 @@ describe("emailActions", () => {
 
     it("still applies optimistic UI update when offline", async () => {
       await starThread("acct-1", "t1", ["m1"], true);
-      expect(mockUpdateThread).toHaveBeenCalledWith("t1", { isStarred: true });
+      expect(mockUpdateThread).toHaveBeenCalledWith("acct-1:t1", { isStarred: true });
     });
   });
 
@@ -153,7 +158,7 @@ describe("emailActions", () => {
       expect(result.success).toBe(false);
       expect(result.error).toBeTruthy();
       // Revert: set starred to false
-      expect(mockUpdateThread).toHaveBeenCalledWith("t1", { isStarred: false });
+      expect(mockUpdateThread).toHaveBeenCalledWith("acct-1:t1", { isStarred: false });
     });
 
     it("reverts markRead on permanent error", async () => {
@@ -163,19 +168,19 @@ describe("emailActions", () => {
       const result = await markThreadRead("acct-1", "t1", ["m1"], true);
       expect(result.success).toBe(false);
       // Revert: set read to false
-      expect(mockUpdateThread).toHaveBeenCalledWith("t1", { isRead: false });
+      expect(mockUpdateThread).toHaveBeenCalledWith("acct-1:t1", { isRead: false });
     });
   });
 
   describe("auto-advance after removal", () => {
     const threads = [
-      { id: "t1" },
-      { id: "t2" },
-      { id: "t3" },
+      { id: "t1", accountId: "acct-1" },
+      { id: "t2", accountId: "acct-1" },
+      { id: "t3", accountId: "acct-1" },
     ];
 
     it("navigates to next thread when archiving the viewed thread", async () => {
-      vi.mocked(getSelectedThreadId).mockReturnValue("t2");
+      vi.mocked(getSelectedThreadId).mockReturnValue("acct-1:t2");
       vi.mocked(useThreadStore.getState).mockReturnValue(createMockThreadStoreState({
         threads,
         updateThread: mockUpdateThread,
@@ -183,11 +188,11 @@ describe("emailActions", () => {
       }) as never);
 
       await archiveThread("acct-1", "t2", ["m1"]);
-      expect(navigateToThread).toHaveBeenCalledWith("t3");
+      expect(navigateToThread).toHaveBeenCalledWith("acct-1:t3");
     });
 
     it("navigates to previous thread when archiving the last thread", async () => {
-      vi.mocked(getSelectedThreadId).mockReturnValue("t3");
+      vi.mocked(getSelectedThreadId).mockReturnValue("acct-1:t3");
       vi.mocked(useThreadStore.getState).mockReturnValue(createMockThreadStoreState({
         threads,
         updateThread: mockUpdateThread,
@@ -195,11 +200,11 @@ describe("emailActions", () => {
       }) as never);
 
       await archiveThread("acct-1", "t3", ["m1"]);
-      expect(navigateToThread).toHaveBeenCalledWith("t2");
+      expect(navigateToThread).toHaveBeenCalledWith("acct-1:t2");
     });
 
     it("does not navigate when archiving a non-viewed thread", async () => {
-      vi.mocked(getSelectedThreadId).mockReturnValue("t1");
+      vi.mocked(getSelectedThreadId).mockReturnValue("acct-1:t1");
       vi.mocked(useThreadStore.getState).mockReturnValue(createMockThreadStoreState({
         threads,
         updateThread: mockUpdateThread,
@@ -211,9 +216,9 @@ describe("emailActions", () => {
     });
 
     it("does not navigate when archiving the only thread", async () => {
-      vi.mocked(getSelectedThreadId).mockReturnValue("t1");
+      vi.mocked(getSelectedThreadId).mockReturnValue("acct-1:t1");
       vi.mocked(useThreadStore.getState).mockReturnValue(createMockThreadStoreState({
-        threads: [{ id: "t1" }],
+        threads: [{ id: "t1", accountId: "acct-1" }],
         updateThread: mockUpdateThread,
         removeThread: mockRemoveThread,
       }) as never);
@@ -223,7 +228,7 @@ describe("emailActions", () => {
     });
 
     it("navigates on trash action", async () => {
-      vi.mocked(getSelectedThreadId).mockReturnValue("t1");
+      vi.mocked(getSelectedThreadId).mockReturnValue("acct-1:t1");
       vi.mocked(useThreadStore.getState).mockReturnValue(createMockThreadStoreState({
         threads,
         updateThread: mockUpdateThread,
@@ -231,11 +236,11 @@ describe("emailActions", () => {
       }) as never);
 
       await trashThread("acct-1", "t1", ["m1"]);
-      expect(navigateToThread).toHaveBeenCalledWith("t2");
+      expect(navigateToThread).toHaveBeenCalledWith("acct-1:t2");
     });
 
     it("navigates on spam action", async () => {
-      vi.mocked(getSelectedThreadId).mockReturnValue("t1");
+      vi.mocked(getSelectedThreadId).mockReturnValue("acct-1:t1");
       vi.mocked(useThreadStore.getState).mockReturnValue(createMockThreadStoreState({
         threads,
         updateThread: mockUpdateThread,
@@ -243,11 +248,11 @@ describe("emailActions", () => {
       }) as never);
 
       await spamThread("acct-1", "t1", ["m1"], true);
-      expect(navigateToThread).toHaveBeenCalledWith("t2");
+      expect(navigateToThread).toHaveBeenCalledWith("acct-1:t2");
     });
 
     it("navigates on permanentDelete action", async () => {
-      vi.mocked(getSelectedThreadId).mockReturnValue("t2");
+      vi.mocked(getSelectedThreadId).mockReturnValue("acct-1:t2");
       vi.mocked(useThreadStore.getState).mockReturnValue(createMockThreadStoreState({
         threads,
         updateThread: mockUpdateThread,
@@ -255,11 +260,11 @@ describe("emailActions", () => {
       }) as never);
 
       await permanentDeleteThread("acct-1", "t2", ["m1"]);
-      expect(navigateToThread).toHaveBeenCalledWith("t3");
+      expect(navigateToThread).toHaveBeenCalledWith("acct-1:t3");
     });
 
     it("navigates on moveToFolder action", async () => {
-      vi.mocked(getSelectedThreadId).mockReturnValue("t2");
+      vi.mocked(getSelectedThreadId).mockReturnValue("acct-1:t2");
       vi.mocked(useThreadStore.getState).mockReturnValue(createMockThreadStoreState({
         threads,
         updateThread: mockUpdateThread,
@@ -267,7 +272,7 @@ describe("emailActions", () => {
       }) as never);
 
       await moveThread("acct-1", "t2", ["m1"], "Archive");
-      expect(navigateToThread).toHaveBeenCalledWith("t3");
+      expect(navigateToThread).toHaveBeenCalledWith("acct-1:t3");
     });
   });
 

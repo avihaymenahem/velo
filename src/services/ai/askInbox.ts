@@ -1,5 +1,6 @@
 import { searchMessages, type SearchResult } from "@/services/db/search";
 import { askInbox as callAskInbox } from "./aiService";
+import { ALL_ACCOUNTS_ID } from "@/stores/accountStore";
 
 /**
  * Extract key search terms from a natural language question.
@@ -77,7 +78,7 @@ export async function askMyInbox(
     .join("\n---\n");
 
   // Call AI
-  const answer = await callAskInbox(question, accountId, context);
+  const answer = await callAskInbox(question, accountId === ALL_ACCOUNTS_ID ? "" : accountId, context);
 
   return { answer, sourceMessages: results };
 }

@@ -1,5 +1,5 @@
 import { useUIStore } from "@/stores/uiStore";
-import { useThreadStore } from "@/stores/threadStore";
+import { useThreadStore, threadKey } from "@/stores/threadStore";
 import { getEmailProvider } from "@/services/email/providerFactory";
 import { enqueuePendingOperation } from "@/services/db/pendingOperations";
 import { classifyError } from "@/utils/networkErrors";
@@ -73,41 +73,45 @@ export interface ActionResult {
 // Optimistic UI helpers
 // ---------------------------------------------------------------------------
 
-function getNextThreadId(currentId: string): string | null {
+function getNextThreadKey(accountId: string, threadId: string): string | null {
   // Only auto-advance if the removed thread is the one being viewed
-  const selectedId = getSelectedThreadId();
-  if (selectedId !== currentId) return null;
+  const selectedKey = getSelectedThreadId();
+  const currentKey = threadKey({ accountId, id: threadId });
+  if (selectedKey !== currentKey) return null;
   const { threads } = useThreadStore.getState();
-  const idx = threads.findIndex((t) => t.id === currentId);
+  const idx = threads.findIndex((t) => threadKey(t) === currentKey);
   if (idx === -1) return null;
   // Prefer next thread, fall back to previous
   const next = threads[idx + 1];
-  if (next) return next.id;
+  if (next) return threadKey(next);
   const prev = threads[idx - 1];
-  if (prev) return prev.id;
+  if (prev) return threadKey(prev);
   return null;
 }
 
-function applyOptimisticUpdate(action: EmailAction): void {
+function applyOptimisticUpdate(accountId: string, action: EmailAction): void {
   const store = useThreadStore.getState();
+  const tKey = "threadId" in action && action.threadId
+    ? threadKey({ accountId, id: action.threadId })
+    : null;
   switch (action.type) {
     case "archive":
     case "trash":
     case "permanentDelete":
     case "spam":
     case "moveToFolder": {
-      const nextId = getNextThreadId(action.threadId);
-      store.removeThread(action.threadId);
-      if (nextId) {
-        navigateToThread(nextId);
+      const nextKey = getNextThreadKey(accountId, action.threadId);
+      store.removeThread(threadKey({ accountId, id: action.threadId }));
+      if (nextKey) {
+        navigateToThread(nextKey);
       }
       break;
     }
     case "markRead":
-      store.updateThread(action.threadId, { isRead: action.read });
+      if (tKey) store.updateThread(tKey, { isRead: action.read });
       break;
     case "star":
-      store.updateThread(action.threadId, { isStarred: action.starred });
+      if (tKey) store.updateThread(tKey, { isStarred: action.starred });
       break;
     case "addLabel":
     case "removeLabel":
@@ -120,14 +124,17 @@ function applyOptimisticUpdate(action: EmailAction): void {
   }
 }
 
-function revertOptimisticUpdate(action: EmailAction): void {
+function revertOptimisticUpdate(accountId: string, action: EmailAction): void {
   const store = useThreadStore.getState();
+  const tKey = "threadId" in action && action.threadId
+    ? threadKey({ accountId, id: action.threadId })
+    : null;
   switch (action.type) {
     case "markRead":
-      store.updateThread(action.threadId, { isRead: !action.read });
+      if (tKey) store.updateThread(tKey, { isRead: !action.read });
       break;
     case "star":
-      store.updateThread(action.threadId, { isStarred: !action.starred });
+      if (tKey) store.updateThread(tKey, { isStarred: !action.starred });
       break;
     // For removes (archive/trash/spam/move), we can't easily restore the thread
     // to the list from here. The next sync will fix it.
@@ -305,7 +312,7 @@ export async function executeEmailAction(
   action: EmailAction,
 ): Promise<ActionResult> {
   // 1. Optimistic UI update
-  applyOptimisticUpdate(action);
+  applyOptimisticUpdate(accountId, action);
 
   // 2. Local DB update
   try {
@@ -344,7 +351,7 @@ export async function executeEmailAction(
     }
 
     // Permanent error — revert optimistic update
-    revertOptimisticUpdate(action);
+    revertOptimisticUpdate(accountId, action);
     console.error(`Email action ${action.type} failed permanently:`, err);
     return { success: false, error: classified.message };
   }

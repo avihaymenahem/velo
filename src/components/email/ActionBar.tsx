@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import type { Thread } from "@/stores/threadStore";
-import { useThreadStore } from "@/stores/threadStore";
-import { useAccountStore } from "@/stores/accountStore";
+import { useThreadStore, threadKey } from "@/stores/threadStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
 import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
-import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { SnoozeDialog } from "./SnoozeDialog";
 import { FollowUpDialog } from "./FollowUpDialog";
@@ -39,71 +37,66 @@ function Separator() {
 export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply", contactSidebarVisible, taskSidebarVisible, onReply, onReplyAll, onForward, onPrint, onExport, onPopOut, onToggleContactSidebar, onToggleTaskSidebar }: ActionBarProps) {
   const updateThread = useThreadStore((s) => s.updateThread);
   const removeThread = useThreadStore((s) => s.removeThread);
-  const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const activeLabel = useActiveLabel();
   const [showSnooze, setShowSnooze] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [hasFollowUp, setHasFollowUp] = useState(false);
   const isSpamView = activeLabel === "spam";
   const hasLastMessage = !!messages?.length;
+  const accountId = thread.accountId;
+  const tKey = threadKey(thread);
 
   // Check if thread has an active follow-up reminder
   useEffect(() => {
-    if (!activeAccountId) return;
-    getFollowUpForThread(activeAccountId, thread.id)
+    getFollowUpForThread(accountId, thread.id)
       .then((r) => setHasFollowUp(r !== null))
       .catch(() => setHasFollowUp(false));
-  }, [activeAccountId, thread.id]);
+  }, [accountId, thread.id]);
 
   const handleToggleRead = async () => {
-    if (!activeAccountId) return;
-    await markThreadRead(activeAccountId, thread.id, [], !thread.isRead);
+    await markThreadRead(accountId, thread.id, [], !thread.isRead);
   };
 
   const handleToggleStar = async () => {
-    if (!activeAccountId) return;
-    await starThread(activeAccountId, thread.id, [], !thread.isStarred);
+    await starThread(accountId, thread.id, [], !thread.isStarred);
   };
 
   const handleArchive = async () => {
-    if (!activeAccountId) return;
-    await archiveThread(activeAccountId, thread.id, []);
+    await archiveThread(accountId, thread.id, []);
   };
 
   const handleDelete = async () => {
-    if (!activeAccountId) return;
     const isTrashView = activeLabel === "trash";
     const isDraftsView = activeLabel === "drafts";
     if (isTrashView) {
-      await permanentDeleteThread(activeAccountId, thread.id, []);
-      await deleteThreadFromDb(activeAccountId, thread.id);
+      await permanentDeleteThread(accountId, thread.id, []);
+      await deleteThreadFromDb(accountId, thread.id);
     } else if (isDraftsView) {
-      removeThread(thread.id);
+      removeThread(tKey);
       try {
-        const client = await getGmailClient(activeAccountId);
-        await deleteDraftsForThread(client, activeAccountId, thread.id);
+        const client = await getGmailClient(accountId);
+        await deleteDraftsForThread(client, accountId, thread.id);
       } catch (err) {
         console.error("Failed to delete drafts:", err);
       }
     } else {
-      await trashThread(activeAccountId, thread.id, []);
+      await trashThread(accountId, thread.id, []);
     }
   };
 
   const handleSnooze = async (until: number) => {
-    if (!activeAccountId) return;
     setShowSnooze(false);
     try {
-      await snoozeThread(activeAccountId, thread.id, until);
-      removeThread(thread.id);
+      const { snoozeThread } = await import("@/services/snooze/snoozeManager");
+      await snoozeThread(accountId, thread.id, until);
+      removeThread(tKey);
     } catch (err) {
       console.error("Failed to snooze:", err);
     }
   };
 
   const handleSpam = async () => {
-    if (!activeAccountId) return;
-    await spamThread(activeAccountId, thread.id, [], !isSpamView);
+    await spamThread(accountId, thread.id, [], !isSpamView);
   };
 
   // Find the first message with an unsubscribe header
@@ -112,12 +105,12 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   const [unsubscribeStatus, setUnsubscribeStatus] = useState<"idle" | "loading" | "done">("idle");
 
   const handleUnsubscribe = async () => {
-    if (!unsubscribeMessage?.list_unsubscribe || !activeAccountId) return;
+    if (!unsubscribeMessage?.list_unsubscribe) return;
     setUnsubscribeStatus("loading");
     try {
       const { executeUnsubscribe } = await import("@/services/unsubscribe/unsubscribeManager");
       const result = await executeUnsubscribe(
-        activeAccountId,
+        accountId,
         thread.id,
         unsubscribeMessage.from_address ?? "unknown",
         unsubscribeMessage.from_name,
@@ -127,7 +120,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
       if (result.success) {
         setUnsubscribeStatus("done");
         // Auto-archive after successful unsubscribe
-        await archiveThread(activeAccountId, thread.id, []);
+        await archiveThread(accountId, thread.id, []);
       } else {
         setUnsubscribeStatus("idle");
       }
@@ -138,53 +131,51 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   };
 
   const handleTogglePin = async () => {
-    if (!activeAccountId) return;
     const newPinned = !thread.isPinned;
-    updateThread(thread.id, { isPinned: newPinned });
+    updateThread(tKey, { isPinned: newPinned });
     try {
       if (newPinned) {
-        await pinThreadDb(activeAccountId, thread.id);
+        await pinThreadDb(accountId, thread.id);
       } else {
-        await unpinThreadDb(activeAccountId, thread.id);
+        await unpinThreadDb(accountId, thread.id);
       }
     } catch (err) {
       console.error("Failed to toggle pin:", err);
-      updateThread(thread.id, { isPinned: !newPinned });
+      updateThread(tKey, { isPinned: !newPinned });
     }
   };
 
   const handleToggleMute = async () => {
-    if (!activeAccountId) return;
     const newMuted = !thread.isMuted;
     if (newMuted) {
       // Mute: mark as muted and archive
-      updateThread(thread.id, { isMuted: true });
+      updateThread(tKey, { isMuted: true });
       try {
-        await muteThreadDb(activeAccountId, thread.id);
-        await archiveThread(activeAccountId, thread.id, []);
+        await muteThreadDb(accountId, thread.id);
+        await archiveThread(accountId, thread.id, []);
       } catch (err) {
         console.error("Failed to mute:", err);
-        await unmuteThreadDb(activeAccountId, thread.id);
-        updateThread(thread.id, { isMuted: false });
+        await unmuteThreadDb(accountId, thread.id);
+        updateThread(tKey, { isMuted: false });
       }
     } else {
       // Unmute
-      updateThread(thread.id, { isMuted: false });
+      updateThread(tKey, { isMuted: false });
       try {
-        await unmuteThreadDb(activeAccountId, thread.id);
+        await unmuteThreadDb(accountId, thread.id);
       } catch (err) {
         console.error("Failed to unmute:", err);
-        updateThread(thread.id, { isMuted: true });
+        updateThread(tKey, { isMuted: true });
       }
     }
   };
 
   const handleFollowUp = async (remindAt: number) => {
-    if (!activeAccountId || !messages || messages.length === 0) return;
+    if (!messages || messages.length === 0) return;
     setShowFollowUp(false);
     const lastMsg = messages[messages.length - 1]!;
     try {
-      await insertFollowUpReminder(activeAccountId, thread.id, lastMsg.id, remindAt);
+      await insertFollowUpReminder(accountId, thread.id, lastMsg.id, remindAt);
       setHasFollowUp(true);
     } catch (err) {
       console.error("Failed to set follow-up reminder:", err);
@@ -192,9 +183,8 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   };
 
   const handleCancelFollowUp = async () => {
-    if (!activeAccountId) return;
     try {
-      await cancelFollowUpForThread(activeAccountId, thread.id);
+      await cancelFollowUpForThread(accountId, thread.id);
       setHasFollowUp(false);
     } catch (err) {
       console.error("Failed to cancel follow-up:", err);
@@ -267,7 +257,6 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
           iconOnly
           icon={<FolderInput size={15} />}
           onClick={() => {
-            if (!activeAccountId) return;
             window.dispatchEvent(new CustomEvent("velo-move-to-folder", { detail: { threadIds: [thread.id] } }));
           }}
           title="Move to folder (v)"

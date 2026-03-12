@@ -5,7 +5,7 @@ import { LabelForm } from "../labels/LabelForm";
 import { InputDialog } from "../ui/InputDialog";
 import { useUIStore } from "@/stores/uiStore";
 import { useComposerStore } from "@/stores/composerStore";
-import { useAccountStore } from "@/stores/accountStore";
+import { useAccountStore, ALL_ACCOUNTS_ID } from "@/stores/accountStore";
 import { useLabelStore, type Label } from "@/stores/labelStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { useSmartFolderStore } from "@/stores/smartFolderStore";
@@ -215,6 +215,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const activeCategory = useActiveCategory();
   const openComposer = useComposerStore((s) => s.openComposer);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const isAllAccounts = activeAccountId === ALL_ACCOUNTS_ID;
   const labels = useLabelStore((s) => s.labels);
   const loadLabels = useLabelStore((s) => s.loadLabels);
   const deleteLabel = useLabelStore((s) => s.deleteLabel);
@@ -451,8 +452,8 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           );
         })}
 
-        {/* Smart Folders */}
-        {showSmartFolders && (smartFolders.length > 0 || !collapsed) && (
+        {/* Smart Folders (hidden in all-accounts view) */}
+        {showSmartFolders && !isAllAccounts && (smartFolders.length > 0 || !collapsed) && (
           <>
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">
@@ -506,8 +507,8 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           </>
         )}
 
-        {/* User labels */}
-        {showLabels && (labels.length > 0 || !collapsed) && (
+        {/* User labels (hidden in all-accounts view) */}
+        {showLabels && !isAllAccounts && (labels.length > 0 || !collapsed) && (
           <>
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">
