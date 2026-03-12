@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useUIStore } from "@/stores/uiStore";
-import { useThreadStore } from "@/stores/threadStore";
+import { useThreadStore, threadKey, parseThreadKey } from "@/stores/threadStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
@@ -75,6 +75,23 @@ function getCachedReverseMap(keyMap: Record<string, string>): ReturnType<typeof 
   cachedKeyMap = keyMap;
   cachedReverseMap = buildReverseMap(keyMap);
   return cachedReverseMap;
+}
+
+/** Resolve the accountId for the currently selected thread */
+function getSelectedThreadAccountId(): string | null {
+  const selectedKey = getSelectedThreadId();
+  if (!selectedKey) return null;
+  const thread = useThreadStore.getState().threadMap.get(selectedKey);
+  if (thread) return thread.accountId;
+  // Fallback to activeAccountId if thread not in map
+  return useAccountStore.getState().activeAccountId;
+}
+
+/** Resolve accountId for a given composite key */
+function getAccountIdForKey(key: string): string {
+  const thread = useThreadStore.getState().threadMap.get(key);
+  if (thread) return thread.accountId;
+  return parseThreadKey(key).accountId;
 }
 
 /**
@@ -200,28 +217,27 @@ export function useKeyboardShortcuts() {
 
 async function executeAction(actionId: string): Promise<void> {
   const threads = useThreadStore.getState().threads;
-  const selectedId = getSelectedThreadId();
-  const currentIdx = threads.findIndex((t) => t.id === selectedId);
-  const activeAccountId = useAccountStore.getState().activeAccountId;
+  const selectedKey = getSelectedThreadId();
+  const currentIdx = threads.findIndex((t) => threadKey(t) === selectedKey);
 
   switch (actionId) {
     case "nav.next": {
       const nextIdx = Math.min(currentIdx + 1, threads.length - 1);
       if (threads[nextIdx]) {
-        navigateToThread(threads[nextIdx].id);
+        navigateToThread(threadKey(threads[nextIdx]));
       }
       break;
     }
     case "nav.prev": {
       const prevIdx = Math.max(currentIdx - 1, 0);
       if (threads[prevIdx]) {
-        navigateToThread(threads[prevIdx].id);
+        navigateToThread(threadKey(threads[prevIdx]));
       }
       break;
     }
     case "nav.open": {
-      if (!selectedId && threads[0]) {
-        navigateToThread(threads[0].id);
+      if (!selectedKey && threads[0]) {
+        navigateToThread(threadKey(threads[0]));
       }
       break;
     }
@@ -273,7 +289,7 @@ async function executeAction(actionId: string): Promise<void> {
         useComposerStore.getState().closeComposer();
       } else if (useThreadStore.getState().selectedThreadIds.size > 0) {
         useThreadStore.getState().clearMultiSelect();
-      } else if (selectedId) {
+      } else if (selectedKey) {
         navigateBack();
       }
       break;
@@ -282,31 +298,37 @@ async function executeAction(actionId: string): Promise<void> {
       useComposerStore.getState().openComposer();
       break;
     case "action.reply": {
-      if (selectedId) {
+      if (selectedKey) {
         const replyMode = useUIStore.getState().defaultReplyMode;
         window.dispatchEvent(new CustomEvent("velo-inline-reply", { detail: { mode: replyMode } }));
       }
       break;
     }
     case "action.replyAll":
-      if (selectedId) {
+      if (selectedKey) {
         window.dispatchEvent(new CustomEvent("velo-inline-reply", { detail: { mode: "replyAll" } }));
       }
       break;
     case "action.forward":
-      if (selectedId) {
+      if (selectedKey) {
         window.dispatchEvent(new CustomEvent("velo-inline-reply", { detail: { mode: "forward" } }));
       }
       break;
     case "action.archive": {
-      const multiIds = useThreadStore.getState().selectedThreadIds;
-      if (multiIds.size > 0 && activeAccountId) {
-        const ids = [...multiIds];
-        for (const id of ids) {
-          await archiveThread(activeAccountId, id, []);
+      const multiKeys = useThreadStore.getState().selectedThreadIds;
+      if (multiKeys.size > 0) {
+        const keys = [...multiKeys];
+        for (const key of keys) {
+          const acctId = getAccountIdForKey(key);
+          const { threadId } = parseThreadKey(key);
+          await archiveThread(acctId, threadId, []);
         }
-      } else if (selectedId && activeAccountId) {
-        await archiveThread(activeAccountId, selectedId, []);
+      } else if (selectedKey) {
+        const acctId = getSelectedThreadAccountId();
+        if (acctId) {
+          const { threadId } = parseThreadKey(selectedKey);
+          await archiveThread(acctId, threadId, []);
+        }
       }
       break;
     }
@@ -314,80 +336,92 @@ async function executeAction(actionId: string): Promise<void> {
       const deleteLabelCtx = getActiveLabel();
       const isTrashView = deleteLabelCtx === "trash";
       const isDraftsView = deleteLabelCtx === "drafts";
-      const multiDeleteIds = useThreadStore.getState().selectedThreadIds;
-      if (multiDeleteIds.size > 0 && activeAccountId) {
-        const ids = [...multiDeleteIds];
-        for (const id of ids) {
+      const multiDeleteKeys = useThreadStore.getState().selectedThreadIds;
+      if (multiDeleteKeys.size > 0) {
+        const keys = [...multiDeleteKeys];
+        for (const key of keys) {
+          const acctId = getAccountIdForKey(key);
+          const { threadId } = parseThreadKey(key);
           if (isTrashView) {
-            await permanentDeleteThread(activeAccountId, id, []);
-            await deleteThreadFromDb(activeAccountId, id);
+            await permanentDeleteThread(acctId, threadId, []);
+            await deleteThreadFromDb(acctId, threadId);
           } else if (isDraftsView) {
             try {
-              const client = await getGmailClient(activeAccountId);
-              await deleteDraftsForThread(client, activeAccountId, id);
-              useThreadStore.getState().removeThread(id);
+              const client = await getGmailClient(acctId);
+              await deleteDraftsForThread(client, acctId, threadId);
+              useThreadStore.getState().removeThread(key);
             } catch (err) {
               console.error("Draft delete failed:", err);
             }
           } else {
-            await trashThread(activeAccountId, id, []);
+            await trashThread(acctId, threadId, []);
           }
         }
-      } else if (selectedId && activeAccountId) {
-        if (isTrashView) {
-          await permanentDeleteThread(activeAccountId, selectedId, []);
-          await deleteThreadFromDb(activeAccountId, selectedId);
-        } else if (isDraftsView) {
-          try {
-            const client = await getGmailClient(activeAccountId);
-            await deleteDraftsForThread(client, activeAccountId, selectedId);
-            useThreadStore.getState().removeThread(selectedId);
-          } catch (err) {
-            console.error("Draft delete failed:", err);
+      } else if (selectedKey) {
+        const acctId = getSelectedThreadAccountId();
+        if (acctId) {
+          const { threadId } = parseThreadKey(selectedKey);
+          if (isTrashView) {
+            await permanentDeleteThread(acctId, threadId, []);
+            await deleteThreadFromDb(acctId, threadId);
+          } else if (isDraftsView) {
+            try {
+              const client = await getGmailClient(acctId);
+              await deleteDraftsForThread(client, acctId, threadId);
+              useThreadStore.getState().removeThread(selectedKey);
+            } catch (err) {
+              console.error("Draft delete failed:", err);
+            }
+          } else {
+            await trashThread(acctId, threadId, []);
           }
-        } else {
-          await trashThread(activeAccountId, selectedId, []);
         }
       }
       break;
     }
     case "action.star": {
-      if (selectedId && activeAccountId) {
-        const thread = threads.find((t) => t.id === selectedId);
+      if (selectedKey) {
+        const thread = threads.find((t) => threadKey(t) === selectedKey);
         if (thread) {
-          await starThread(activeAccountId, selectedId, [], !thread.isStarred);
+          await starThread(thread.accountId, thread.id, [], !thread.isStarred);
         }
       }
       break;
     }
     case "action.spam": {
       const isSpamView = getActiveLabel() === "spam";
-      const multiSpamIds = useThreadStore.getState().selectedThreadIds;
-      if (multiSpamIds.size > 0 && activeAccountId) {
-        const ids = [...multiSpamIds];
-        for (const id of ids) {
-          await spamThread(activeAccountId, id, [], !isSpamView);
+      const multiSpamKeys = useThreadStore.getState().selectedThreadIds;
+      if (multiSpamKeys.size > 0) {
+        const keys = [...multiSpamKeys];
+        for (const key of keys) {
+          const acctId = getAccountIdForKey(key);
+          const { threadId } = parseThreadKey(key);
+          await spamThread(acctId, threadId, [], !isSpamView);
         }
-      } else if (selectedId && activeAccountId) {
-        await spamThread(activeAccountId, selectedId, [], !isSpamView);
+      } else if (selectedKey) {
+        const acctId = getSelectedThreadAccountId();
+        if (acctId) {
+          const { threadId } = parseThreadKey(selectedKey);
+          await spamThread(acctId, threadId, [], !isSpamView);
+        }
       }
       break;
     }
     case "action.pin": {
-      if (selectedId && activeAccountId) {
-        const thread = threads.find((t) => t.id === selectedId);
+      if (selectedKey) {
+        const thread = threads.find((t) => threadKey(t) === selectedKey);
         if (thread) {
           const newPinned = !thread.isPinned;
-          useThreadStore.getState().updateThread(selectedId, { isPinned: newPinned });
+          useThreadStore.getState().updateThread(selectedKey, { isPinned: newPinned });
           try {
             if (newPinned) {
-              await pinThreadDb(activeAccountId, selectedId);
+              await pinThreadDb(thread.accountId, thread.id);
             } else {
-              await unpinThreadDb(activeAccountId, selectedId);
+              await unpinThreadDb(thread.accountId, thread.id);
             }
           } catch (err) {
             console.error("Pin failed:", err);
-            useThreadStore.getState().updateThread(selectedId, { isPinned: !newPinned });
+            useThreadStore.getState().updateThread(selectedKey, { isPinned: !newPinned });
           }
         }
       }
@@ -402,60 +436,68 @@ async function executeAction(actionId: string): Promise<void> {
       break;
     }
     case "action.unsubscribe": {
-      if (selectedId && activeAccountId) {
-        try {
-          const msgs = await getMessagesForThread(activeAccountId, selectedId);
-          const unsubMsg = msgs.find((m) => m.list_unsubscribe);
-          if (unsubMsg) {
-            const url = parseUnsubscribeUrl(unsubMsg.list_unsubscribe!);
-            if (url) {
-              await openUrl(url);
-              await archiveThread(activeAccountId, selectedId, []);
+      if (selectedKey) {
+        const acctId = getSelectedThreadAccountId();
+        if (acctId) {
+          const { threadId } = parseThreadKey(selectedKey);
+          try {
+            const msgs = await getMessagesForThread(acctId, threadId);
+            const unsubMsg = msgs.find((m) => m.list_unsubscribe);
+            if (unsubMsg) {
+              const url = parseUnsubscribeUrl(unsubMsg.list_unsubscribe!);
+              if (url) {
+                await openUrl(url);
+                await archiveThread(acctId, threadId, []);
+              }
             }
+          } catch (err) {
+            console.error("Unsubscribe failed:", err);
           }
-        } catch (err) {
-          console.error("Unsubscribe failed:", err);
         }
       }
       break;
     }
     case "action.mute": {
-      const multiMuteIds = useThreadStore.getState().selectedThreadIds;
-      if (multiMuteIds.size > 0 && activeAccountId) {
-        const ids = [...multiMuteIds];
-        for (const id of ids) {
-          const t = threads.find((thread) => thread.id === id);
-          if (t?.isMuted) {
-            await unmuteThreadDb(activeAccountId, id);
-            useThreadStore.getState().updateThread(id, { isMuted: false });
+      const multiMuteKeys = useThreadStore.getState().selectedThreadIds;
+      if (multiMuteKeys.size > 0) {
+        const keys = [...multiMuteKeys];
+        for (const key of keys) {
+          const t = useThreadStore.getState().threadMap.get(key);
+          if (!t) continue;
+          if (t.isMuted) {
+            await unmuteThreadDb(t.accountId, t.id);
+            useThreadStore.getState().updateThread(key, { isMuted: false });
           } else {
-            await muteThreadDb(activeAccountId, id);
-            await archiveThread(activeAccountId, id, []);
+            await muteThreadDb(t.accountId, t.id);
+            await archiveThread(t.accountId, t.id, []);
           }
         }
-      } else if (selectedId && activeAccountId) {
-        const thread = threads.find((t) => t.id === selectedId);
+      } else if (selectedKey) {
+        const thread = threads.find((t) => threadKey(t) === selectedKey);
         if (thread) {
           if (thread.isMuted) {
-            await unmuteThreadDb(activeAccountId, selectedId);
-            useThreadStore.getState().updateThread(selectedId, { isMuted: false });
+            await unmuteThreadDb(thread.accountId, thread.id);
+            useThreadStore.getState().updateThread(selectedKey, { isMuted: false });
           } else {
-            await muteThreadDb(activeAccountId, selectedId);
-            await archiveThread(activeAccountId, selectedId, []);
+            await muteThreadDb(thread.accountId, thread.id);
+            await archiveThread(thread.accountId, thread.id, []);
           }
         }
       }
       break;
     }
     case "action.createTaskFromEmail": {
-      if (selectedId) {
-        window.dispatchEvent(new CustomEvent("velo-extract-task", { detail: { threadId: selectedId } }));
+      if (selectedKey) {
+        const { threadId } = parseThreadKey(selectedKey);
+        window.dispatchEvent(new CustomEvent("velo-extract-task", { detail: { threadId } }));
       }
       break;
     }
     case "action.moveToFolder": {
-      const multiMoveIds = useThreadStore.getState().selectedThreadIds;
-      const moveThreadIds = multiMoveIds.size > 0 ? [...multiMoveIds] : selectedId ? [selectedId] : [];
+      const multiMoveKeys = useThreadStore.getState().selectedThreadIds;
+      const moveThreadIds = multiMoveKeys.size > 0
+        ? [...multiMoveKeys].map((k) => parseThreadKey(k).threadId)
+        : selectedKey ? [parseThreadKey(selectedKey).threadId] : [];
       if (moveThreadIds.length > 0) {
         window.dispatchEvent(new CustomEvent("velo-move-to-folder", { detail: { threadIds: moveThreadIds } }));
       }
@@ -474,6 +516,7 @@ async function executeAction(actionId: string): Promise<void> {
       window.dispatchEvent(new Event("velo-toggle-shortcuts-help"));
       break;
     case "app.syncFolder": {
+      const activeAccountId = useAccountStore.getState().activeAccountId;
       if (activeAccountId) {
         const currentLabel = getActiveLabel();
         useUIStore.getState().setSyncingFolder(currentLabel);
