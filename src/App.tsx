@@ -399,7 +399,8 @@ export default function App() {
           setSyncStatus("Syncing...");
         }
       } else if (status === "done") {
-        setSyncStatus(null);
+        setSyncStatus("Sync complete");
+        setTimeout(() => setSyncStatus(null), 2_000);
         window.dispatchEvent(new Event("velo-sync-done"));
         updateBadgeCount();
 
@@ -564,7 +565,11 @@ export default function App() {
 
       {/* Sync status bar */}
       {syncStatus && (
-        <div className={`fixed bottom-0 left-0 right-0 glass-panel text-white text-xs px-4 py-1.5 text-center z-40 ${syncStatus.startsWith("Sync failed") ? "bg-danger/90" : "bg-accent/90"}`}>
+        <div
+          className={`fixed bottom-0 left-0 right-0 glass-panel text-white text-xs px-4 py-1.5 text-center z-40 animate-[slideUp_200ms_ease-out,fadeIn_200ms_ease-out] ${
+            syncStatus.startsWith("Sync failed") ? "bg-danger/90" : "bg-accent/90"
+          }`}
+        >
           {syncStatus}
         </div>
       )}
