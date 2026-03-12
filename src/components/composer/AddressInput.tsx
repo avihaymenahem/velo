@@ -71,11 +71,14 @@ export function AddressInput({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
-      e.preventDefault();
       if (showSuggestions && selectedIdx >= 0) {
+        e.preventDefault();
         addAddress(suggestions[selectedIdx]!.email);
       } else if (inputValue.trim()) {
+        e.preventDefault();
         addAddress(inputValue);
+      } else if (e.key !== "Tab") {
+        e.preventDefault();
       }
     } else if (e.key === "Backspace" && !inputValue && addresses.length > 0) {
       removeAddress(addresses.length - 1);
