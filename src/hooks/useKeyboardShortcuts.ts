@@ -6,10 +6,8 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { navigateToLabel, navigateToThread, navigateBack, getActiveLabel, getSelectedThreadId } from "@/router/navigate";
-import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread } from "@/services/emailActions";
-import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
-import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
-import { getGmailClient } from "@/services/gmail/tokenManager";
+import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread, deleteDraftThread } from "@/services/emailActions";
+import { pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
 import { getMessagesForThread } from "@/services/db/messages";
 import { parseUnsubscribeUrl } from "@/components/email/MessageItem";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -320,15 +318,8 @@ async function executeAction(actionId: string): Promise<void> {
         for (const id of ids) {
           if (isTrashView) {
             await permanentDeleteThread(activeAccountId, id, []);
-            await deleteThreadFromDb(activeAccountId, id);
           } else if (isDraftsView) {
-            try {
-              const client = await getGmailClient(activeAccountId);
-              await deleteDraftsForThread(client, activeAccountId, id);
-              useThreadStore.getState().removeThread(id);
-            } catch (err) {
-              console.error("Draft delete failed:", err);
-            }
+            await deleteDraftThread(activeAccountId, id);
           } else {
             await trashThread(activeAccountId, id, []);
           }
@@ -336,15 +327,8 @@ async function executeAction(actionId: string): Promise<void> {
       } else if (selectedId && activeAccountId) {
         if (isTrashView) {
           await permanentDeleteThread(activeAccountId, selectedId, []);
-          await deleteThreadFromDb(activeAccountId, selectedId);
         } else if (isDraftsView) {
-          try {
-            const client = await getGmailClient(activeAccountId);
-            await deleteDraftsForThread(client, activeAccountId, selectedId);
-            useThreadStore.getState().removeThread(selectedId);
-          } catch (err) {
-            console.error("Draft delete failed:", err);
-          }
+          await deleteDraftThread(activeAccountId, selectedId);
         } else {
           await trashThread(activeAccountId, selectedId, []);
         }

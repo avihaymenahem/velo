@@ -3,11 +3,9 @@ import type { Thread } from "@/stores/threadStore";
 import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
-import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread } from "@/services/emailActions";
-import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
-import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
+import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, deleteDraftThread } from "@/services/emailActions";
+import { pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
-import { getGmailClient } from "@/services/gmail/tokenManager";
 import { SnoozeDialog } from "./SnoozeDialog";
 import { FollowUpDialog } from "./FollowUpDialog";
 import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, FolderInput, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen, ListTodo } from "lucide-react";
@@ -76,15 +74,8 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
     const isDraftsView = activeLabel === "drafts";
     if (isTrashView) {
       await permanentDeleteThread(activeAccountId, thread.id, []);
-      await deleteThreadFromDb(activeAccountId, thread.id);
     } else if (isDraftsView) {
-      removeThread(thread.id);
-      try {
-        const client = await getGmailClient(activeAccountId);
-        await deleteDraftsForThread(client, activeAccountId, thread.id);
-      } catch (err) {
-        console.error("Failed to delete drafts:", err);
-      }
+      await deleteDraftThread(activeAccountId, thread.id);
     } else {
       await trashThread(activeAccountId, thread.id, []);
     }
