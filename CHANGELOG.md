@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.22](https://github.com/avihaymenahem/velo/compare/velo-v0.4.21...velo-v0.4.22) (2026-03-13)
+
+
+### Bug Fixes
+
+* bind OAuth server to 127.0.0.1 instead of localhost ([ec47a7a](https://github.com/avihaymenahem/velo/commit/ec47a7a5095bb5deffc24e9b6812e39107508dbe))
+* improve sync status bar UX ([dc76dd7](https://github.com/avihaymenahem/velo/commit/dc76dd7e60fec0460a39a4ed5c5427723a52ad32))
+
 ## [0.4.21](https://github.com/avihaymenahem/velo/compare/velo-v0.4.20...velo-v0.4.21) (2026-02-27)
 
 
