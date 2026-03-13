@@ -55,6 +55,13 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
       .catch(() => setHasFollowUp(false));
   }, [activeAccountId, thread.id]);
 
+  // Listen for keyboard shortcut to toggle snooze dialog
+  useEffect(() => {
+    const handleToggleSnooze = () => setShowSnooze(true);
+    window.addEventListener("velo-toggle-snooze", handleToggleSnooze);
+    return () => window.removeEventListener("velo-toggle-snooze", handleToggleSnooze);
+  }, []);
+
   const handleToggleRead = async () => {
     if (!activeAccountId) return;
     await markThreadRead(activeAccountId, thread.id, [], !thread.isRead);
@@ -93,12 +100,11 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   const handleSnooze = async (until: number) => {
     if (!activeAccountId) return;
     setShowSnooze(false);
-    try {
-      await snoozeThread(activeAccountId, thread.id, until);
-      removeThread(thread.id);
-    } catch (err) {
+    // Optimistic: remove from UI immediately, then persist to DB
+    removeThread(thread.id);
+    snoozeThread(activeAccountId, thread.id, until).catch((err) => {
       console.error("Failed to snooze:", err);
-    }
+    });
   };
 
   const handleSpam = async () => {
