@@ -237,7 +237,7 @@ export function EmailRenderer({
       )}
       <iframe
         ref={iframeRef}
-        sandbox="allow-same-origin"
+        sandbox="allow-same-origin allow-scripts"
         className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
         style={{ overflow: "hidden" }}
         title="Email content"
