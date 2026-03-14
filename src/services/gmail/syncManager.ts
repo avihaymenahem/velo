@@ -28,9 +28,10 @@ let pendingAccountIds: string[] | null = null;
 
 export type SyncStatusCallback = (
   accountId: string,
-  status: "syncing" | "done" | "error",
+  status: "syncing" | "done" | "error" | "batch-start",
   progress?: SyncProgress,
   error?: string,
+  totalAccounts?: number,
 ) => void;
 
 let statusCallback: SyncStatusCallback | null = null;
@@ -261,6 +262,7 @@ async function runSync(accountIds: string[]): Promise<void> {
 
   syncPromise = (async () => {
     try {
+      statusCallback?.("", "batch-start", undefined, undefined, accountIds.length);
       for (const id of accountIds) {
         await syncAccountInternal(id);
       }

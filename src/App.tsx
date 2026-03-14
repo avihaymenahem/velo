@@ -102,7 +102,6 @@ export default function App() {
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [initialized, setInitialized] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [showAskInbox, setShowAskInbox] = useState(false);
@@ -380,31 +379,47 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- store setters are stable references
   }, []);
 
-  // Listen for sync status updates
+  // Listen for sync status updates, aggregated across all accounts.
+  // batch-start fires once per sync round with the total account count.
+  // The status bar stays visible until every account in the batch finishes.
   const backfillDoneRef = useRef(false);
   useEffect(() => {
-    const unsub = onSyncStatus((accountId, status, progress, error) => {
+    let expected = 0;
+    let finished = 0;
+    let clearTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const unsub = onSyncStatus((accountId, status, progress, error, totalAccounts) => {
+      const ui = useUIStore.getState();
+
+      if (status === "batch-start") {
+        expected = totalAccounts ?? 0;
+        finished = 0;
+        if (clearTimer) { clearTimeout(clearTimer); clearTimer = null; }
+        ui.setSyncStatus("Syncing...", 0);
+        return;
+      }
+
       if (status === "syncing") {
-        if (progress) {
-          if (progress.phase === "messages") {
-            setSyncStatus(
-              `Syncing: ${progress.current}/${progress.total} messages`,
-            );
-          } else if (progress.phase === "labels") {
-            setSyncStatus("Syncing labels...");
-          } else if (progress.phase === "threads") {
-            setSyncStatus(`Building threads... (${progress.current}/${progress.total})`);
-          }
-        } else {
-          setSyncStatus("Syncing...");
+        if (expected === 0) expected = 1;
+        if (progress?.phase === "messages" && progress.total > 0) {
+          const accountFraction = progress.current / progress.total;
+          const overall = (finished + accountFraction) / expected;
+          ui.setSyncStatus(`Syncing: ${progress.current}/${progress.total} messages`, overall);
+        } else if (progress?.phase === "labels") {
+          ui.setSyncStatus("Syncing labels...", finished / expected);
+        } else if (progress?.phase === "threads") {
+          ui.setSyncStatus(`Building threads... (${progress.current}/${progress.total})`, finished / expected);
         }
       } else if (status === "done") {
-        setSyncStatus("Sync complete");
-        setTimeout(() => setSyncStatus(null), 2_000);
+        finished++;
+        if (finished >= expected) {
+          ui.setSyncStatus("Sync complete", 1);
+          clearTimer = setTimeout(() => { ui.setSyncStatus(null); clearTimer = null; }, 2_000);
+        } else {
+          ui.setSyncStatus(`Syncing (${finished}/${expected})...`, finished / expected);
+        }
         window.dispatchEvent(new Event("velo-sync-done"));
         updateBadgeCount();
-
-        // Backfill uncategorized threads after first successful sync
         if (!backfillDoneRef.current) {
           backfillDoneRef.current = true;
           import("./services/categorization/backfillService")
@@ -412,11 +427,12 @@ export default function App() {
             .catch((err) => console.error("Backfill error:", err));
         }
       } else if (status === "error") {
-        setSyncStatus(error ? `Sync failed: ${formatSyncError(error)}` : "Sync failed");
-        // Still dispatch sync-done so the UI refreshes with any partially stored data
+        finished++;
+        ui.setSyncStatus(error ? `Sync failed: ${formatSyncError(error)}` : "Sync failed");
         window.dispatchEvent(new Event("velo-sync-done"));
-        // Auto-clear the error after 8 seconds
-        setTimeout(() => setSyncStatus(null), 8_000);
+        if (finished >= expected) {
+          clearTimer = setTimeout(() => { ui.setSyncStatus(null); clearTimer = null; }, 8_000);
+        }
       }
     });
     return unsub;
@@ -562,17 +578,6 @@ export default function App() {
           <Outlet />
         </DndProvider>
       </div>
-
-      {/* Sync status bar */}
-      {syncStatus && (
-        <div
-          className={`fixed bottom-0 left-0 right-0 glass-panel text-white text-xs px-4 py-1.5 text-center z-40 animate-[slideUp_200ms_ease-out,fadeIn_200ms_ease-out] ${
-            syncStatus.startsWith("Sync failed") ? "bg-danger/90" : "bg-accent/90"
-          }`}
-        >
-          {syncStatus}
-        </div>
-      )}
 
       {showAddAccount && (
         <AddAccount

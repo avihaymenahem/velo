@@ -330,6 +330,11 @@ body {
   100% { transform: scale(1); }
 }
 
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
 /* CSSTransition: modal (scale + fade overlay, scale panel) */
 .modal-enter { opacity: 0; }
 .modal-enter .modal-panel { transform: scale(0.95); }
