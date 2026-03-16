@@ -103,8 +103,11 @@ export function useKeyboardShortcuts() {
       const keyMap = useShortcutStore.getState().keyMap;
       const { singleKey, twoKeySequences, ctrlCombos } = getCachedReverseMap(keyMap);
 
-      // Ctrl/Cmd shortcuts work everywhere
+      // Ctrl/Cmd shortcuts
       if (e.ctrlKey || e.metaKey) {
+        // Let native text-editing shortcuts work in inputs (select all, copy, cut, paste, undo, redo)
+        if (isInputFocused && ["a", "c", "x", "v", "z"].includes(e.key.toLowerCase())) return;
+
         for (const [actionId, binding] of ctrlCombos) {
           if (matchesKey(binding, e)) {
             e.preventDefault();
