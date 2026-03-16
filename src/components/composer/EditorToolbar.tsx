@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Editor } from "@tiptap/react";
 import { InputDialog } from "@/components/ui/InputDialog";
 import { Sparkles } from "lucide-react";
@@ -10,6 +11,7 @@ interface EditorToolbarProps {
 }
 
 export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: EditorToolbarProps) {
+  const { t } = useTranslation("composer");
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
 
@@ -47,10 +49,10 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
 
   return (
     <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-border-secondary bg-bg-secondary flex-wrap">
-      {btn("B", editor.isActive("bold"), () => editor.chain().focus().toggleBold().run(), "Bold (Ctrl+B)")}
-      {btn("I", editor.isActive("italic"), () => editor.chain().focus().toggleItalic().run(), "Italic (Ctrl+I)")}
-      {btn("U", editor.isActive("underline"), () => editor.chain().focus().toggleUnderline().run(), "Underline (Ctrl+U)")}
-      {btn("S̶", editor.isActive("strike"), () => editor.chain().focus().toggleStrike().run(), "Strikethrough")}
+      {btn("B", editor.isActive("bold"), () => editor.chain().focus().toggleBold().run(), t("boldTitle"))}
+      {btn("I", editor.isActive("italic"), () => editor.chain().focus().toggleItalic().run(), t("italicTitle"))}
+      {btn("U", editor.isActive("underline"), () => editor.chain().focus().toggleUnderline().run(), t("underlineTitle"))}
+      {btn("S̶", editor.isActive("strike"), () => editor.chain().focus().toggleStrike().run(), t("strikethrough"))}
 
       <div className="w-px h-4 bg-border-primary mx-1" />
 
@@ -62,13 +64,13 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
 
       {btn("• List", editor.isActive("bulletList"), () => editor.chain().focus().toggleBulletList().run())}
       {btn("1. List", editor.isActive("orderedList"), () => editor.chain().focus().toggleOrderedList().run())}
-      {btn("Quote", editor.isActive("blockquote"), () => editor.chain().focus().toggleBlockquote().run())}
+      {btn(t("blockquote"), editor.isActive("blockquote"), () => editor.chain().focus().toggleBlockquote().run())}
       {btn("< > Code", editor.isActive("codeBlock"), () => editor.chain().focus().toggleCodeBlock().run())}
 
       <div className="w-px h-4 bg-border-primary mx-1" />
 
       {btn("— Rule", false, () => editor.chain().focus().setHorizontalRule().run())}
-      {btn("Link", editor.isActive("link"), () => {
+      {btn(t("link"), editor.isActive("link"), () => {
         if (editor.isActive("link")) {
           editor.chain().focus().unsetLink().run();
         } else {
@@ -82,7 +84,7 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
         className="hidden"
         onChange={handleImageSelect}
       />
-      {btn("Image", false, () => imageInputRef.current?.click(), "Insert image")}
+      {btn(t("image"), false, () => imageInputRef.current?.click(), t("insertImage"))}
 
       <div className="flex-1" />
 
@@ -90,18 +92,18 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
         <button
           type="button"
           onClick={onToggleAiAssist}
-          title="AI Assist"
+          title={t("aiAssistTitle")}
           className={`px-1.5 py-1 text-xs rounded hover:bg-bg-hover transition-colors flex items-center gap-1 ${
             aiAssistOpen ? "bg-accent/10 text-accent font-semibold" : "text-text-secondary"
           }`}
         >
           <Sparkles size={12} />
-          AI
+          {t("ai")}
         </button>
       )}
 
-      {btn("Undo", false, () => editor.chain().focus().undo().run())}
-      {btn("Redo", false, () => editor.chain().focus().redo().run())}
+      {btn(t("common:undo"), false, () => editor.chain().focus().undo().run())}
+      {btn(t("common:redo"), false, () => editor.chain().focus().redo().run())}
       <InputDialog
         isOpen={showLinkDialog}
         onClose={() => setShowLinkDialog(false)}
@@ -110,9 +112,9 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
             editor.chain().focus().setLink({ href: values.url }).run();
           }
         }}
-        title="Insert Link"
-        fields={[{ key: "url", label: "URL", placeholder: "https://..." }]}
-        submitLabel="Insert"
+        title={t("insertLink")}
+        fields={[{ key: "url", label: t("url"), placeholder: t("urlPlaceholder") }]}
+        submitLabel={t("common:insert")}
       />
     </div>
   );

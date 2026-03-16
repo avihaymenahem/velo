@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { searchMessages } from "@/services/db/search";
 import { useAccountStore } from "@/stores/accountStore";
 import { useThreadStore } from "@/stores/threadStore";
@@ -7,6 +8,7 @@ import { InputDialog } from "@/components/ui/InputDialog";
 import { Search, X, FolderPlus } from "lucide-react";
 
 export function SearchBar() {
+  const { t } = useTranslation("search");
   const searchQuery = useThreadStore((s) => s.searchQuery);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -68,7 +70,7 @@ export function SearchBar() {
         value={searchQuery}
         onChange={(e) => handleChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Search... (from: to: has:attachment)"
+        placeholder={t("searchPlaceholder")}
         className="w-full bg-bg-tertiary text-text-primary text-sm pl-8 pr-14 py-1.5 rounded-md border border-border-primary focus:border-accent focus:outline-none placeholder:text-text-tertiary"
       />
       {searchQuery && (
@@ -77,7 +79,7 @@ export function SearchBar() {
             <button
               onClick={handleSaveAsSmartFolder}
               className="text-text-tertiary hover:text-accent transition-colors"
-              title="Save as Smart Folder"
+              title={t("saveAsSmartFolder")}
             >
               <FolderPlus size={14} />
             </button>
@@ -96,11 +98,11 @@ export function SearchBar() {
         onSubmit={(values) => {
           useSmartFolderStore.getState().createFolder(values.name!.trim(), useThreadStore.getState().searchQuery.trim(), activeAccountId ?? undefined);
         }}
-        title="Save as Smart Folder"
+        title={t("saveAsSmartFolder")}
         fields={[
-          { key: "name", label: "Name", defaultValue: searchQuery.trim() },
+          { key: "name", label: t("common:name"), defaultValue: searchQuery.trim() },
         ]}
-        submitLabel="Save"
+        submitLabel={t("common:save")}
       />
     </div>
   );

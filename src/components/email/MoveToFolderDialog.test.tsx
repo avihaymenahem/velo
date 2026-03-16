@@ -206,6 +206,6 @@ describe("MoveToFolderDialog", () => {
 
     expect(screen.getByText("navigate")).toBeInTheDocument();
     expect(screen.getByText("select")).toBeInTheDocument();
-    expect(screen.getByText("close")).toBeInTheDocument();
+    expect(screen.getByText("Close")).toBeInTheDocument();
   });
 });

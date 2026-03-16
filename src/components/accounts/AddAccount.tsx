@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Mail, Calendar } from "lucide-react";
 import { startOAuthFlow } from "@/services/gmail/auth";
 import { insertAccount } from "@/services/db/accounts";
@@ -18,6 +19,7 @@ interface AddAccountProps {
 type View = "select-provider" | "gmail" | "imap" | "caldav";
 
 export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
+  const { t } = useTranslation("accounts");
   const [view, setView] = useState<View>("select-provider");
   const [status, setStatus] = useState<
     "idle" | "checking" | "authenticating" | "error"
@@ -106,10 +108,10 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
 
   if (view === "gmail") {
     return (
-      <Modal isOpen={true} onClose={onClose} title="Add Gmail Account" width="w-full max-w-md">
+      <Modal isOpen={true} onClose={onClose} title={t("addGmailAccount")} width="w-full max-w-md">
         <div className="p-4">
           <p className="text-text-secondary text-sm mb-6">
-            Sign in with your Google account to connect it to Velo.
+            {t("gmailSignInDescription")}
           </p>
 
           {error && (
@@ -120,9 +122,9 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
 
           {status === "authenticating" && (
             <div className="text-center py-4 text-text-secondary text-sm">
-              <div className="mb-2">Waiting for Google sign-in...</div>
+              <div className="mb-2">{t("waitingForSignIn")}</div>
               <div className="text-xs text-text-tertiary">
-                Complete the sign-in in your browser, then return here.
+                {t("completeSignIn")}
               </div>
             </div>
           )}
@@ -136,14 +138,14 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
               }}
               className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
             >
-              Back
+              {t("common:back")}
             </button>
             <div className="flex gap-3">
               <button
                 onClick={onClose}
                 className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
               >
-                Cancel
+                {t("common:cancel")}
               </button>
               <button
                 onClick={handleAddGmailAccount}
@@ -151,10 +153,10 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
                 className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {status === "authenticating"
-                  ? "Waiting..."
+                  ? t("common:waiting")
                   : status === "checking"
-                    ? "Checking..."
-                    : "Sign in with Google"}
+                    ? t("common:checking")
+                    : t("signInWithGoogle")}
               </button>
             </div>
           </div>
@@ -165,10 +167,10 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
 
   // Provider selection view
   return (
-    <Modal isOpen={true} onClose={onClose} title="Add Account" width="w-full max-w-md">
+    <Modal isOpen={true} onClose={onClose} title={t("addAccount")} width="w-full max-w-md">
       <div className="p-4">
         <p className="text-text-secondary text-sm mb-4">
-          Choose how you want to connect your email account.
+          {t("chooseConnectionMethod")}
         </p>
 
         <div className="space-y-3">
@@ -198,10 +200,10 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-text-primary group-hover:text-accent transition-colors">
-                Google (Gmail)
+                {t("googleGmail")}
               </div>
               <div className="text-xs text-text-tertiary mt-0.5">
-                Connect via OAuth with full Gmail API support
+                {t("gmailOauthDescription")}
               </div>
             </div>
           </button>
@@ -215,10 +217,10 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-text-primary group-hover:text-accent transition-colors">
-                IMAP / SMTP
+                {t("imapSmtp")}
               </div>
               <div className="text-xs text-text-tertiary mt-0.5">
-                Connect any email provider with manual server configuration
+                {t("imapDescription")}
               </div>
             </div>
           </button>
@@ -232,10 +234,10 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-text-primary group-hover:text-accent transition-colors">
-                CalDAV (Calendar Only)
+                {t("caldavCalendar")}
               </div>
               <div className="text-xs text-text-tertiary mt-0.5">
-                Connect iCloud, Fastmail, Nextcloud, or any CalDAV calendar server
+                {t("caldavDescription")}
               </div>
             </div>
           </button>
@@ -246,7 +248,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
             onClick={onClose}
             className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
           >
-            Cancel
+            {t("common:cancel")}
           </button>
         </div>
       </div>

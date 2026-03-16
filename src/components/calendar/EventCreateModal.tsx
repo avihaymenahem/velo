@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { TextField } from "@/components/ui/TextField";
@@ -18,6 +19,7 @@ interface EventCreateModalProps {
 }
 
 export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateModalProps) {
+  const { t } = useTranslation("calendar");
   const [summary, setSummary] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
@@ -41,20 +43,20 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
   }, [summary, description, location, startTime, endTime, calendarId, onCreate]);
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Create Event" width="w-full max-w-md">
+    <Modal isOpen={true} onClose={onClose} title={t("createEvent")} width="w-full max-w-md">
       <form onSubmit={handleSubmit} className="p-4 space-y-3">
         <TextField
-          label="Title"
+          label={t("title")}
           type="text"
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
-          placeholder="Event title"
+          placeholder={t("eventTitle")}
           autoFocus
         />
 
         {calendars && calendars.length > 1 && (
           <div>
-            <label className="text-xs text-text-secondary block mb-1">Calendar</label>
+            <label className="text-xs text-text-secondary block mb-1">{t("calendar")}</label>
             <select
               value={calendarId}
               onChange={(e) => setCalendarId(e.target.value)}
@@ -62,8 +64,8 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
             >
               {calendars.map((cal) => (
                 <option key={cal.id} value={cal.id}>
-                  {cal.display_name ?? "Calendar"}
-                  {cal.is_primary ? " (Primary)" : ""}
+                  {cal.display_name ?? t("calendar")}
+                  {cal.is_primary ? ` ${t("calendarPrimary")}` : ""}
                 </option>
               ))}
             </select>
@@ -72,13 +74,13 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
 
         <div className="grid grid-cols-2 gap-3">
           <TextField
-            label="Start"
+            label={t("start")}
             type="datetime-local"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
           />
           <TextField
-            label="End"
+            label={t("end")}
             type="datetime-local"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
@@ -86,19 +88,19 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
         </div>
 
         <TextField
-          label="Location"
+          label={t("location")}
           type="text"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          placeholder="Add location"
+          placeholder={t("addLocation")}
         />
 
         <div>
-          <label className="text-xs text-text-secondary block mb-1">Description</label>
+          <label className="text-xs text-text-secondary block mb-1">{t("description")}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Add description"
+            placeholder={t("addDescription")}
             rows={3}
             className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent resize-none"
           />
@@ -111,7 +113,7 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
             size="md"
             onClick={onClose}
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             type="submit"
@@ -119,7 +121,7 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
             size="md"
             disabled={!summary.trim()}
           >
-            Create
+            {t("create")}
           </Button>
         </div>
       </form>

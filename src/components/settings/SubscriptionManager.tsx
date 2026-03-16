@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useAccountStore } from "@/stores/accountStore";
 import {
   getSubscriptions,
@@ -10,6 +11,7 @@ import { MailMinus, Search, Loader2 } from "lucide-react";
 import { formatRelativeDate } from "@/utils/date";
 
 export function SubscriptionManager() {
+  const { t } = useTranslation("settings");
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const [subscriptions, setSubscriptions] = useState<SubscriptionEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,14 +89,14 @@ export function SubscriptionManager() {
   }, [subscriptions, searchQuery]);
 
   if (!activeAccountId) {
-    return <p className="text-sm text-text-tertiary">No active account selected.</p>;
+    return <p className="text-sm text-text-tertiary">{t("subscriptionManager.noActiveAccount")}</p>;
   }
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-8 justify-center text-text-tertiary">
         <Loader2 size={16} className="animate-spin" />
-        <span className="text-sm">Loading subscriptions...</span>
+        <span className="text-sm">{t("subscriptionManager.loadingSubscriptions")}</span>
       </div>
     );
   }
@@ -108,7 +110,7 @@ export function SubscriptionManager() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search senders..."
+            placeholder={t("subscriptionManager.searchPlaceholder")}
             className="w-full pl-8 pr-3 py-1.5 bg-bg-tertiary border border-border-primary rounded-md text-xs text-text-primary outline-none focus:border-accent"
           />
         </div>
@@ -117,13 +119,13 @@ export function SubscriptionManager() {
             onClick={handleBulkUnsubscribe}
             className="px-3 py-1.5 text-xs bg-danger text-white rounded-md hover:bg-danger/80 transition-colors shrink-0"
           >
-            Unsubscribe ({selectedIds.size})
+            {t("subscriptionManager.unsubscribeCount", { count: selectedIds.size })}
           </button>
         )}
       </div>
 
       <p className="text-xs text-text-tertiary">
-        {subscriptions.length} sender{subscriptions.length !== 1 ? "s" : ""} detected with unsubscribe headers.
+        {t("subscriptionManager.sender", { count: subscriptions.length })} {t("subscriptionManager.detectedWithHeaders")}
       </p>
 
       <div className="space-y-1 max-h-[500px] overflow-y-auto">
@@ -157,18 +159,18 @@ export function SubscriptionManager() {
                   </span>
                   {isUnsubscribed && (
                     <span className="text-[0.625rem] px-1.5 rounded-full bg-success/15 text-success">
-                      Unsubscribed
+                      {t("subscriptionManager.unsubscribed")}
                     </span>
                   )}
                   {parsed.hasOneClick && !isUnsubscribed && (
                     <span className="text-[0.625rem] px-1.5 rounded-full bg-accent/15 text-accent">
-                      One-click
+                      {t("subscriptionManager.oneClick")}
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-text-tertiary mt-0.5">
                   <span className="truncate">{sub.from_address}</span>
-                  <span className="shrink-0">{sub.message_count} emails</span>
+                  <span className="shrink-0">{t("subscriptionManager.emailCount", { count: sub.message_count })}</span>
                   <span className="shrink-0">{formatRelativeDate(sub.latest_date)}</span>
                 </div>
               </div>
@@ -183,7 +185,7 @@ export function SubscriptionManager() {
                   ) : (
                     <MailMinus size={12} />
                   )}
-                  {isLoading ? "..." : "Unsubscribe"}
+                  {isLoading ? t("subscriptionManager.unsubscribing") : t("subscriptionManager.unsubscribe")}
                 </button>
               )}
             </div>
@@ -191,7 +193,7 @@ export function SubscriptionManager() {
         })}
         {filtered.length === 0 && (
           <p className="text-sm text-text-tertiary py-4 text-center">
-            {searchQuery ? "No matching senders found." : "No subscriptions detected yet. Subscriptions appear as emails are synced."}
+            {searchQuery ? t("subscriptionManager.noMatchingSenders") : t("subscriptionManager.noSubscriptions")}
           </p>
         )}
       </div>

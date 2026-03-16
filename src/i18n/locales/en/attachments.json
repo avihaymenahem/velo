@@ -1,0 +1,43 @@
+{
+  "attachments": "Attachments",
+  "searchPlaceholder": "Search attachments...",
+  "allSenders": "All senders",
+  "loading": "Loading attachments...",
+  "noAttachments": "No attachments yet",
+  "noAttachmentsDescription": "Attachments from your emails will appear here",
+  "noMatching": "No matching attachments",
+  "noMatchingDescription": "Try adjusting your filters or search query",
+  "gridView": "Grid view",
+  "listView": "List view",
+
+  "typeFilter": {
+    "all": "All types",
+    "images": "Images",
+    "pdfs": "PDFs",
+    "documents": "Documents",
+    "spreadsheets": "Spreadsheets",
+    "archives": "Archives",
+    "other": "Other"
+  },
+
+  "dateFilter": {
+    "any": "Any time",
+    "today": "Today",
+    "pastWeek": "Past week",
+    "pastMonth": "Past month",
+    "pastYear": "Past year"
+  },
+
+  "sizeFilter": {
+    "any": "Any size",
+    "small": "< 1 MB",
+    "medium": "1–10 MB",
+    "large": "> 10 MB"
+  },
+
+  "unknown": "Unknown",
+  "unnamed": "Unnamed",
+  "preview": "Preview",
+  "download": "Download",
+  "jumpToEmail": "Jump to email"
+}

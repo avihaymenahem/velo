@@ -1,0 +1,71 @@
+{
+  "today": "Today",
+  "create": "Create",
+  "createEvent": "Create Event",
+  "editEvent": "Edit Event",
+  "deleteEvent": "Delete this event?",
+  "deleting": "Deleting...",
+  "yesDelete": "Yes, delete",
+  "saving": "Saving...",
+
+  "months": {
+    "january": "January",
+    "february": "February",
+    "march": "March",
+    "april": "April",
+    "may": "May",
+    "june": "June",
+    "july": "July",
+    "august": "August",
+    "september": "September",
+    "october": "October",
+    "november": "November",
+    "december": "December"
+  },
+
+  "daysShort": {
+    "sun": "Sun",
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat"
+  },
+
+  "am": "am",
+  "pm": "pm",
+  "allDay": "All day",
+  "event": "Event",
+  "noTitle": "(No title)",
+  "moreEvents": "+{{count}} more",
+
+  "title": "Title",
+  "eventTitle": "Event title",
+  "calendar": "Calendar",
+  "calendarPrimary": "(Primary)",
+  "primary": "Primary",
+  "calendars": "Calendars",
+  "start": "Start",
+  "end": "End",
+  "location": "Location",
+  "addLocation": "Add location",
+  "description": "Description",
+  "addDescription": "Add description",
+  "attendees": "Attendees",
+  "cancel": "Cancel",
+  "save": "Save",
+  "delete": "Delete",
+  "edit": "Edit",
+
+  "connectAccount": "Connect an account to use Calendar",
+  "notConfigured": "Calendar is not configured for this account.",
+  "configureCalDav": "For IMAP accounts, configure CalDAV in Settings.",
+  "accessError": "Calendar access error",
+  "loadingCalendar": "Loading calendar...",
+
+  "reauthRequired": "Calendar requires re-authorization",
+  "reauthDescription": "Your account was connected before calendar permissions were added. Re-authorize to grant calendar access — your emails and data will not be affected.",
+  "waitingForAuth": "Waiting for authorization...",
+  "reauthorize": "Re-authorize"
+}

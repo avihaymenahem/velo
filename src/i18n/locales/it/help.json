@@ -1,0 +1,884 @@
+{
+  "backToInbox": "Torna alla posta in arrivo",
+  "help": "Aiuto",
+  "noResults": "Nessun risultato per \"{{query}}\"",
+  "openInSettings": "Apri nelle impostazioni \u2192",
+  "learnMore": "Scopri di più",
+
+  "categories": {
+    "getting-started": "Per iniziare",
+    "reading-email": "Leggere le email",
+    "composing": "Composizione e invio",
+    "search-navigation": "Ricerca e navigazione",
+    "organization": "Organizzazione",
+    "productivity": "Produttività",
+    "ai-features": "Funzionalità AI",
+    "newsletters": "Newsletter e iscrizioni",
+    "notifications-contacts": "Notifiche e contatti",
+    "security": "Sicurezza e privacy",
+    "calendar": "Calendario",
+    "tasks": "Attività",
+    "appearance": "Aspetto e layout",
+    "accounts-system": "Account e sistema"
+  },
+
+  "cards": {
+    "add-account": {
+      "title": "Aggiungi il tuo account email",
+      "summary": "Collega un account Gmail o IMAP/SMTP per iniziare a usare l'app.",
+      "description": "Clicca sul selettore account nella parte superiore della barra laterale per aggiungere un account. Per Gmail, segui il flusso di accesso OAuth usando le tue credenziali Google Cloud. Per altri provider (Outlook, Yahoo, iCloud, Fastmail, ecc.), scegli 'Aggiungi account IMAP' e inserisci la tua email e password — le impostazioni del server vengono rilevate automaticamente per i provider più diffusi. Puoi aggiungere più account di qualsiasi tipo e passare dall'uno all'altro istantaneamente. Ogni account si sincronizza indipendentemente con la propria posta in arrivo, etichette e impostazioni.",
+      "tips": [
+        "Il selettore account è sempre visibile nella parte superiore della barra laterale.",
+        "Gli account Gmail usano OAuth; gli account IMAP usano password o password per le app.",
+        "Ogni account ha le proprie etichette, filtri e stato di sincronizzazione.",
+        "Rimuovi o riautorizza gli account in Impostazioni > Account."
+      ]
+    },
+    "initial-sync": {
+      "title": "Sincronizzazione iniziale",
+      "summary": "La prima sincronizzazione scarica la cronologia delle tue email.",
+      "description": "Quando aggiungi un nuovo account, l'app esegue una sincronizzazione iniziale che scarica l'ultimo anno di email (configurabile). Questo crea un database locale per la ricerca e la navigazione veloce offline. A seconda delle dimensioni della tua posta in arrivo, questo può richiedere alcuni minuti. Puoi usare l'app normalmente mentre la sincronizzazione avviene in background — leggi, componi e invia senza aspettare. Dopo la sincronizzazione iniziale, l'app passa alla sincronizzazione differenziale (ogni 60 secondi) per scaricare solo le nuove modifiche. Gmail usa la History API per la sincronizzazione differenziale; IMAP usa il tracciamento basato su UID.",
+      "tips": [
+        "Cambia il periodo di sincronizzazione (30 giorni fino a 1 anno) in Impostazioni > Account.",
+        "L'app è completamente utilizzabile durante la sincronizzazione iniziale.",
+        "La sincronizzazione differenziale viene eseguita ogni 60 secondi dopo il completamento della prima sincronizzazione.",
+        "Gmail: se la cronologia di sincronizzazione scade (~30 giorni offline), l'app passa automaticamente a una sincronizzazione completa.",
+        "IMAP: se la UIDVALIDITY di una cartella cambia, l'app risincronizza quella cartella automaticamente."
+      ]
+    },
+    "client-id-setup": {
+      "title": "Configurazione Google Client ID",
+      "summary": "Configura le tue credenziali OAuth di Google Cloud (solo Gmail).",
+      "description": "Questo passaggio è necessario solo per gli account Gmail. L'app usa il tuo progetto Google Cloud per l'autenticazione OAuth — questo significa che le tue credenziali rimangono sul tuo dispositivo e non vengono mai condivise. Quando aggiungi un account Gmail per la prima volta, una procedura guidata ti accompagna nella creazione di un progetto Google Cloud, nell'abilitazione delle API Gmail e Calendar, e nella generazione di un OAuth Client ID. Il processo richiede circa 5 minuti. L'app usa l'autenticazione PKCE, quindi non è necessario un client secret. Gli account IMAP/SMTP non richiedono un Client ID.",
+      "tips": [
+        "Vai su console.cloud.google.com per creare il tuo progetto.",
+        "Abilita sia la Gmail API che la Google Calendar API.",
+        "Scegli 'Applicazione desktop' quando crei le credenziali OAuth.",
+        "Il tuo Client ID è memorizzato localmente — non viene mai inviato a server esterni.",
+        "Aggiorna il tuo Client ID in seguito in Impostazioni > Informazioni.",
+        "Gli account IMAP saltano completamente questo passaggio — nessun progetto Google Cloud necessario."
+      ]
+    },
+    "imap-smtp-setup": {
+      "title": "Configurazione account IMAP/SMTP",
+      "summary": "Aggiungi un account email non Gmail tramite IMAP e SMTP.",
+      "description": "Per aggiungere un account IMAP/SMTP, clicca 'Aggiungi account IMAP' nel selettore account. La procedura guidata ha quattro passaggi: (1) inserisci la tua email, nome visualizzato e password o credenziali OAuth2; (2) configura le impostazioni del server IMAP (host, porta, sicurezza); (3) configura le impostazioni del server SMTP; (4) testa la connessione. Per i provider più diffusi come Outlook, Yahoo, iCloud, Fastmail, Zoho, AOL e GMX, le impostazioni del server vengono rilevate automaticamente quando inserisci il tuo indirizzo email. Gli account Outlook/Hotmail richiedono l'autenticazione OAuth2 (l'autenticazione base con password è disabilitata da Microsoft). Yahoo supporta sia OAuth2 che le password per le app. Le tue credenziali vengono crittografate con AES-256-GCM prima di essere memorizzate localmente.",
+      "tips": [
+        "Il rilevamento automatico funziona per Outlook, Yahoo, iCloud, Fastmail, Zoho, AOL e GMX.",
+        "Outlook/Hotmail richiede OAuth2 — registra un'app nel portale Azure per ottenere un Client ID.",
+        "Yahoo supporta OAuth2 o password per le app — OAuth2 è consigliato.",
+        "Per OAuth2, imposta l'URI di reindirizzamento su http://localhost:17248 nella registrazione dell'app.",
+        "Per altri provider, consulta la pagina di supporto del tuo provider per le impostazioni IMAP/SMTP.",
+        "Opzioni di sicurezza: SSL/TLS (più sicuro), STARTTLS, o Nessuna.",
+        "Sia le connessioni IMAP che SMTP vengono testate prima del salvataggio.",
+        "Le cartelle IMAP vengono automaticamente mappate come etichette nella barra laterale."
+      ]
+    },
+    "outlook-setup": {
+      "title": "Configurazione account Outlook",
+      "summary": "Guida passo-passo per collegare un account Outlook, Hotmail o Live.",
+      "description": "Microsoft richiede OAuth2 per gli account Outlook/Hotmail/Live — le password di base sono disabilitate. Devi registrare un'app nel portale Azure per ottenere un Client ID. Ecco come: (1) Iscriviti al Microsoft 365 Developer Program su developer.microsoft.com/microsoft-365/dev-program per ottenere un tenant Azure gratuito — creare app al di fuori di una directory è deprecato. (2) Accedi a portal.azure.com con il tuo account sviluppatore M365 (admin@tuonome.onmicrosoft.com), non con il tuo account Outlook personale. (3) Vai a Microsoft Entra ID → Registrazioni app → Nuova registrazione. Dagli un nome qualsiasi, imposta 'Tipi di account supportati' su 'Account in qualsiasi directory organizzativa e account Microsoft personali', e imposta l'URI di reindirizzamento su 'Applicazioni desktop e per dispositivi mobili' → http://localhost:17248. (4) Copia l'ID applicazione (client) dalla pagina Panoramica. (5) Vai a Autorizzazioni API → Aggiungi un'autorizzazione → Microsoft Graph → Autorizzazioni delegate → aggiungi: offline_access, email, openid, profile, User.Read. Se trovi 'Office 365 Exchange Online' sotto 'API usate dalla mia organizzazione', aggiungi IMAP.AccessAsUser.All e SMTP.Send da lì. In caso contrario, aggiungili tramite il JSON del manifesto (vedi suggerimenti). (6) Vai ad Autenticazione (barra laterale sinistra) → scorri fino a 'Impostazioni avanzate' → imposta 'Consenti flussi client pubblici' su Sì → Salva. (7) Nell'app, scegli Aggiungi account IMAP, inserisci la tua email Outlook personale, incolla il Client ID, lascia vuoto il Client Secret, e clicca 'Accedi con Microsoft'. Le impostazioni del server vengono compilate automaticamente (IMAP: imap-mail.outlook.com:993 SSL, SMTP: smtp-mail.outlook.com:587 STARTTLS). Nota: i nuovi account Outlook.com potrebbero richiedere fino a 24 ore prima che l'accesso IMAP/SMTP venga attivato da Microsoft.",
+      "tips": [
+        "Iscriviti al programma sviluppatori M365 per un tenant Azure gratuito per registrare le app.",
+        "Accedi al portale Azure con il tuo account sviluppatore M365, non con il tuo Outlook personale.",
+        "Il tipo di piattaforma deve essere 'Applicazioni desktop e per dispositivi mobili' (non Web o SPA).",
+        "L'URI di reindirizzamento deve essere esattamente: http://localhost:17248",
+        "Il Client Secret è facoltativo — lascialo vuoto per le app desktop (PKCE gestisce la sicurezza).",
+        "Abilita 'Consenti flussi client pubblici' in Autenticazione → Impostazioni avanzate.",
+        "Se 'Office 365 Exchange Online' non appare nelle autorizzazioni API, aggiungilo tramite Manifesto: aggiungi resourceAppId '00000002-0000-0ff1-ce00-000000000000' con ID ambito IMAP '5df07973-7d5d-46ed-f847-aeb6baeacb0b' e ID ambito SMTP '258f6531-ecdc-4944-8c5f-82fee32d369b'.",
+        "Funziona solo per account Microsoft personali (outlook.com, hotmail.com, live.com).",
+        "I nuovi account potrebbero richiedere fino a 24 ore prima che l'accesso IMAP/SMTP venga abilitato da Microsoft.",
+        "I token si aggiornano automaticamente — non dovrai accedere di nuovo."
+      ]
+    },
+    "thread-view": {
+      "title": "Vista conversazione",
+      "summary": "Email raggruppate come conversazioni.",
+      "description": "Tutte le email correlate vengono automaticamente raggruppate in conversazioni. Clicca su una conversazione nell'elenco email per aprirla e vedere ogni messaggio nella conversazione, con il messaggio più recente in fondo. Ogni messaggio mostra il mittente, il timestamp e il contenuto formattato completo. Gli allegati e le immagini inline vengono visualizzati direttamente nel corpo del messaggio. Puoi rispondere inline a qualsiasi singolo messaggio nella conversazione senza aprire il compositore completo.",
+      "tips": [
+        "Apri una conversazione",
+        "Naviga tra le conversazioni",
+        "Torna all'elenco",
+        "Apri una conversazione nella propria finestra dalla barra delle azioni.",
+        "La risposta inline ti permette di rispondere a un messaggio specifico senza lasciare la conversazione."
+      ]
+    },
+    "reading-pane": {
+      "title": "Posizioni del riquadro di lettura",
+      "summary": "Scegli il layout a destra, in basso o nascosto.",
+      "description": "Il riquadro di lettura mostra il contenuto della conversazione selezionata accanto all'elenco email. Puoi posizionarlo a destra dell'elenco email (ideale per schermi ampi), sotto di esso (buono per schermi stretti) o nasconderlo completamente (modalità clic per aprire). La larghezza dell'elenco email è anche regolabile — trascina il divisore per ridimensionare. La tua preferenza di layout viene salvata e ripristinata automaticamente.",
+      "tips": [
+        "Il riquadro a destra funziona meglio su schermi più larghi di 1400px.",
+        "Il riquadro in basso offre più spazio orizzontale per leggere email larghe.",
+        "La modalità nascosta mostra solo l'elenco email; clicca su una conversazione per aprirla a larghezza piena.",
+        "Trascina il divisore tra l'elenco e il riquadro per regolare le larghezze."
+      ]
+    },
+    "mark-as-read": {
+      "title": "Comportamento segna come letto",
+      "summary": "Controlla quando i messaggi vengono segnati come letti.",
+      "description": "Scegli quando l'apertura di una conversazione la segna come letta: immediatamente quando la selezioni, dopo un breve ritardo (dandoti tempo per scorrere velocemente) o solo quando la segni manualmente. Questa impostazione è utile se usi il conteggio dei non letti come indicatore di cose da fare e non vuoi che le conversazioni vengano segnate come lette solo perché le hai guardate.",
+      "tips": [
+        "\"Immediatamente\" segna come letto non appena apri la conversazione.",
+        "\"Dopo un ritardo\" aspetta un paio di secondi prima di segnare.",
+        "\"Solo manuale\" non segna mai automaticamente — sei tu a controllare."
+      ]
+    },
+    "read-filter": {
+      "title": "Filtro letti / non letti",
+      "summary": "Filtra l'elenco email per mostrare tutte, non lette o lette.",
+      "description": "Usa il menu a tendina del filtro nella parte superiore dell'elenco email per restringere ciò che viene mostrato. Scegli 'Tutte' per vedere ogni conversazione, 'Non lette' per concentrarti sulle conversazioni che necessitano ancora di attenzione, o 'Lette' per rivedere le conversazioni che hai già aperto. Il filtro si applica a qualsiasi cartella o etichetta che stai visualizzando. La tua preferenza di filtro viene salvata e ripristinata tra le sessioni.",
+      "tips": [
+        "Il menu a tendina del filtro è nell'intestazione dell'elenco email, accanto al conteggio delle conversazioni.",
+        "Opzioni: Tutte, Non lette, Lette.",
+        "Combina con etichette o cartelle smart per un filtraggio preciso.",
+        "La tua preferenza di filtro persiste tra i riavvii."
+      ]
+    },
+    "print-export": {
+      "title": "Stampa ed esporta conversazioni",
+      "summary": "Stampa una conversazione o esportala come file .eml.",
+      "description": "Dalla barra delle azioni, puoi stampare l'intera conversazione o esportarla come file .eml. La stampa genera una visualizzazione pulita e formattata dell'intera conversazione con intestazioni e timestamp, quindi apre la finestra di dialogo di stampa del sistema. L'esportazione salva la conversazione come file .eml standard RFC 2822 che può essere aperto in qualsiasi client email — utile per backup, documentazione legale o condivisione al di fuori dell'app.",
+      "tips": [
+        "Clicca l'icona Stampa nella barra delle azioni per stampare la conversazione.",
+        "Clicca l'icona Scarica nella barra delle azioni per esportare come .eml.",
+        "Il formato .eml è uno standard universale leggibile da qualsiasi client email.",
+        "La visualizzazione di stampa include tutti i messaggi, i mittenti e i timestamp."
+      ]
+    },
+    "raw-message": {
+      "title": "Visualizza sorgente del messaggio",
+      "summary": "Ispeziona il sorgente MIME grezzo di qualsiasi email.",
+      "description": "Fai clic destro su qualsiasi messaggio in una conversazione e seleziona 'Visualizza sorgente' per vedere il codice sorgente MIME grezzo completo. Questo mostra tutte le intestazioni (incluse quelle di instradamento, autenticazione e personalizzate), il corpo grezzo del messaggio e la struttura MIME. Utile per diagnosticare problemi di recapito, verificare le intestazioni di autenticazione o comprendere come è stata costruita un'email.",
+      "tips": [
+        "Fai clic destro su un messaggio e scegli 'Visualizza sorgente'.",
+        "Mostra tutte le intestazioni: From, To, Authentication-Results, DKIM, ecc.",
+        "Utile per diagnosticare problemi di recapito o filtri spam.",
+        "La visualizzazione grezza si apre in una finestra modale scorrevole."
+      ]
+    },
+    "new-email": {
+      "title": "Componi una nuova email",
+      "summary": "Editor di testo ricco con formattazione e allegati.",
+      "description": "Il compositore usa un editor di testo ricco completo basato su TipTap. Puoi formattare il testo (grassetto, corsivo, elenchi, link, blocchi di codice), aggiungere allegati, inserire una firma e scegliere un modello — tutto da un unico posto. Il compositore si apre come un pannello nella parte inferiore dello schermo. Aggiungi destinatari con completamento automatico (ordinato in base alla frequenza con cui invii loro email), imposta un oggetto e componi il tuo messaggio.",
+      "tips": [
+        "Apri il compositore",
+        "Invia l'email",
+        "Il completamento automatico dei destinatari è ordinato per frequenza di contatto.",
+        "Usa la barra degli strumenti o le scorciatoie in stile markdown per la formattazione.",
+        "Chiudi il compositore con Escape (la bozza viene salvata automaticamente)."
+      ]
+    },
+    "reply-forward": {
+      "title": "Rispondi, Rispondi a tutti e Inoltra",
+      "summary": "Rispondi alle email o inoltra.",
+      "description": "Rispondi invia la tua risposta solo al mittente originale. Rispondi a tutti include tutti nella conversazione (A e CC). Inoltra ti permette di inviare l'email a qualcun altro con il tuo messaggio. Puoi impostare la tua azione di risposta predefinita (Rispondi vs Rispondi a tutti) nelle impostazioni di composizione, così premendo la scorciatoia di risposta fa ciò che ti aspetti. La funzione di risposta inline ti permette anche di rispondere a un messaggio specifico direttamente nella vista conversazione.",
+      "tips": [
+        "Rispondi",
+        "Rispondi a tutti",
+        "Inoltra",
+        "Imposta la modalità di risposta predefinita (Rispondi o Rispondi a tutti) nelle impostazioni.",
+        "La risposta inline ti permette di rispondere senza aprire il compositore completo."
+      ]
+    },
+    "undo-send": {
+      "title": "Annulla invio",
+      "summary": "Breve finestra per annullare un'email inviata.",
+      "description": "Dopo aver premuto invia, appare una notifica toast con un pulsante \"Annulla\". Cliccalo per annullare l'invio prima che l'email venga effettivamente recapitata. Puoi impostare quanto dura questa finestra — da 5 a 30 secondi. Durante la finestra di annullamento, l'email è in coda localmente ma non è ancora stata inviata ai server di Gmail. Una volta scaduta la finestra, l'email viene inviata e non può essere richiamata.",
+      "tips": [
+        "Imposta il ritardo di annullamento (5-30 secondi) in Impostazioni > Composizione.",
+        "Il toast di annullamento appare nella parte inferiore dello schermo dopo l'invio.",
+        "Chiudere l'app durante la finestra di annullamento invierà comunque l'email."
+      ]
+    },
+    "schedule-send": {
+      "title": "Invio programmato",
+      "summary": "Scrivi ora, invia dopo a un orario scelto.",
+      "description": "Componi un'email e programmala per essere inviata a una data e ora specifiche. Questo è utile per scrivere email fuori orario, nei weekend o in fusi orari diversi senza inviarle immediatamente. Scegli tra preimpostazioni rapide (domani mattina, lunedì mattina) o seleziona una data e ora personalizzate. Le email programmate appaiono nelle tue bozze fino all'invio. Puoi annullarle o riprogrammarle prima dell'orario di invio.",
+      "tips": [
+        "Clicca la freccia a tendina accanto al pulsante Invia per programmare.",
+        "Preimpostazioni rapide: Domani mattina (9:00), Domani pomeriggio (13:00), Lunedì mattina.",
+        "Visualizza e gestisci le email programmate in Impostazioni > Composizione.",
+        "Annulla un'email programmata in qualsiasi momento prima dell'invio."
+      ]
+    },
+    "send-archive": {
+      "title": "Invia e archivia",
+      "summary": "Archivia automaticamente le conversazioni dopo aver risposto.",
+      "description": "Quando abilitato, inviare una risposta archivia automaticamente la conversazione — rimuovendola dalla posta in arrivo ma mantenendola cercabile in Tutta la posta. Questo mantiene la tua posta in arrivo pulita, trattando le risposte come \"fatto\" per impostazione predefinita. Se hai bisogno della conversazione nella posta in arrivo di nuovo, puoi sempre ripristinarla dall'archivio. Attiva o disattiva questo comportamento nelle impostazioni di composizione.",
+      "tips": [
+        "Attiva/disattiva Invia e archivia in Impostazioni > Composizione.",
+        "Le conversazioni archiviate sono ancora cercabili in Tutta la posta.",
+        "Se qualcuno risponde, la conversazione torna nella posta in arrivo automaticamente."
+      ]
+    },
+    "signatures": {
+      "title": "Firme",
+      "summary": "Crea e gestisci le firme email.",
+      "description": "Crea più firme per contesti diversi — lavoro, personale, formale, informale. Le firme supportano la formattazione di testo ricco (grassetto, link, immagini). Impostane una come predefinita per inserirla automaticamente in ogni nuova composizione, oppure scegli una firma diversa dal selettore nel compositore. Le firme vengono gestite nelle impostazioni e salvate localmente.",
+      "tips": [
+        "Crea le firme in Impostazioni > Composizione.",
+        "Imposta una firma predefinita che si inserisce automaticamente nelle nuove email.",
+        "Cambia firma dal selettore firme nel compositore.",
+        "Supporta testo ricco: grassetto, link, immagini e altro."
+      ]
+    },
+    "templates": {
+      "title": "Modelli",
+      "summary": "Testo riutilizzabile per il corpo delle email per messaggi comuni.",
+      "description": "Salva i corpi email usati di frequente come modelli. Durante la composizione, apri il selettore modelli per inserire il contenuto di un modello nell'editor con un clic. I modelli sono ottimi per email ripetitive come richieste di riunione, aggiornamenti di stato o risposte ai clienti. Puoi anche assegnare scorciatoie da tastiera ai modelli più usati per un accesso ancora più rapido. Le variabili nei modelli sono supportate per il contenuto dinamico.",
+      "tips": [
+        "Crea i modelli in Impostazioni > Composizione.",
+        "Inserisci i modelli dall'icona del selettore modelli nella barra degli strumenti del compositore.",
+        "Assegna scorciatoie da tastiera ai modelli usati frequentemente.",
+        "I modelli supportano variabili come {{name}} per il contenuto dinamico."
+      ]
+    },
+    "from-aliases": {
+      "title": "Alias mittente",
+      "summary": "Invia da indirizzi email diversi.",
+      "description": "Se il tuo account Gmail ha alias di invio configurati (ad es. un alias di lavoro o indirizzo di dipartimento), un selettore \"Da\" appare nel compositore permettendoti di scegliere da quale indirizzo inviare. Gli alias vengono sincronizzati dalle impostazioni di invio di Gmail quando aggiungi il tuo account. L'alias predefinito viene usato per le nuove composizioni; le risposte usano per impostazione predefinita l'indirizzo a cui l'email originale è stata inviata. Gli alias di invio sono attualmente una funzionalità solo per Gmail.",
+      "tips": [
+        "Gli alias vengono recuperati automaticamente dalle impostazioni di invio di Gmail.",
+        "Il selettore Da appare solo quando il tuo account ha più alias.",
+        "Le risposte usano per impostazione predefinita l'indirizzo a cui l'email è stata originariamente inviata.",
+        "Imposta un alias predefinito nelle impostazioni del tuo account Gmail.",
+        "Gli alias di invio sono attualmente disponibili solo per gli account Gmail."
+      ]
+    },
+    "draft-autosave": {
+      "title": "Salvataggio automatico bozze",
+      "summary": "Bozze salvate automaticamente ogni 3 secondi.",
+      "description": "Mentre componi, la tua bozza viene salvata automaticamente ogni 3 secondi. Se l'app si chiude, il computer si riavvia o navighi altrove, la tua bozza è preservata. Per gli account Gmail, le bozze si sincronizzano tra i dispositivi. Per gli account IMAP, le bozze vengono salvate nella cartella Bozze del server. Il salvataggio avviene silenziosamente in background — non devi mai salvare manualmente. Trova le tue bozze nella cartella Bozze nella barra laterale.",
+      "tips": [
+        "Le bozze vengono salvate automaticamente ogni 3 secondi durante la composizione.",
+        "Le bozze Gmail si sincronizzano tra i dispositivi; le bozze IMAP vengono salvate nella cartella Bozze del server.",
+        "Naviga altrove tranquillamente — la tua bozza è già salvata.",
+        "Trova le bozze salvate nella cartella Bozze nella barra laterale."
+      ]
+    },
+    "search-operators": {
+      "title": "Operatori di ricerca",
+      "summary": "Operatori in stile Gmail per affinare i risultati di ricerca.",
+      "description": "La ricerca usa operatori in stile Gmail per un filtraggio preciso. Combina più operatori per trovare esattamente ciò che cerchi. Tutte le ricerche vengono eseguite sul tuo database locale usando l'indicizzazione full-text FTS5, quindi i risultati sono istantanei. Gli operatori possono essere combinati liberamente — usano la logica AND, quindi ogni operatore aggiuntivo restringe ulteriormente i risultati.",
+      "tips": [
+        "from:nome — email da un mittente specifico",
+        "to:team@ — email inviate a un indirizzo specifico",
+        "subject:report trimestrale — corrispondenza nell'oggetto",
+        "has:attachment — solo email con allegati",
+        "is:unread / is:starred / is:read — filtra per stato",
+        "before:2024-06-01 / after:2024-01-01 — filtri per intervallo di date",
+        "label:lavoro — filtra per etichetta",
+        "Combina liberamente: from:nome subject:report has:attachment after:2024-01-01"
+      ]
+    },
+    "command-palette": {
+      "title": "Tavolozza comandi",
+      "summary": "Ricerca, navigazione e azioni guidate da tastiera.",
+      "description": "La tavolozza comandi è il modo più veloce per fare qualsiasi cosa nell'app. Aprila con una scorciatoia e inizia a digitare per cercare nella tua email, saltare a qualsiasi etichetta o cartella, cambiare account o attivare azioni. I risultati si aggiornano mentre digiti. La tavolozza cerca nel contenuto delle email, nomi dei mittenti, righe dell'oggetto, etichette e cartelle — tutto da un unico campo di input.",
+      "tips": [
+        "Apri la tavolozza comandi",
+        "Si apre anche con",
+        "Digita per cercare email, etichette, cartelle e azioni.",
+        "I risultati si aggiornano istantaneamente mentre digiti.",
+        "Premi Invio per aprire il primo risultato, o i tasti freccia per navigare."
+      ]
+    },
+    "keyboard-shortcuts": {
+      "title": "Scorciatoie da tastiera",
+      "summary": "Naviga e agisci sulle email senza il mouse.",
+      "description": "Quasi ogni azione ha una scorciatoia da tastiera, ispirata al design keyboard-first di Superhuman. Le scorciatoie vengono disabilitate quando stai digitando in un campo di input, area di testo o editor di testo ricco per evitare conflitti. L'app supporta sequenze a due tasti (premi g poi un altro tasto entro 1 secondo) per i comandi di navigazione. Tutte le scorciatoie sono completamente personalizzabili — riassegna qualsiasi tasto nelle impostazioni.",
+      "tips": [
+        "Visualizza tutte le scorciatoie",
+        "Navigazione: j/k (su/giù), o (apri), Escape (indietro)",
+        "Nella conversazione: Freccia Su/Giù per navigare tra i messaggi",
+        "Azioni: e (archivia), s (speciale), # (cestino), r (rispondi)",
+        "Due tasti: g poi i (Posta in arrivo), g poi s (Speciali), g poi t (Inviati)",
+        "Ask Inbox (AI)",
+        "Sincronizza la cartella corrente",
+        "Personalizza tutte le scorciatoie in Impostazioni > Scorciatoie.",
+        "Le scorciatoie vengono disabilitate nei campi di testo per evitare conflitti."
+      ]
+    },
+    "labels": {
+      "title": "Etichette",
+      "summary": "Tag con colori per organizzare le tue email.",
+      "description": "Le etichette funzionano come tag — applica più etichette a una singola conversazione per categorizzarla in diversi modi. Crea etichette personalizzate con colori per distinguere visivamente le categorie. Le etichette appaiono nella barra laterale per un filtraggio rapido. Puoi creare, modificare, rinominare, cambiare colori ed eliminare etichette dalla barra laterale o dalle impostazioni. Per gli account Gmail, le etichette si sincronizzano tra i dispositivi. Per gli account IMAP, le cartelle del server vengono automaticamente mappate come etichette nella barra laterale (ad es. Posta in arrivo, Inviati, Bozze, Cestino), e le cartelle personalizzate appaiono come etichette utente.",
+      "tips": [
+        "Trascina e rilascia le conversazioni sulle etichette nella barra laterale per applicarle.",
+        "Fai clic destro su un'etichetta nella barra laterale per modificarla o eliminarla.",
+        "Clicca il pulsante + nella sezione Etichette della barra laterale per crearne una.",
+        "Una conversazione può avere più etichette contemporaneamente.",
+        "Le etichette Gmail si sincronizzano tra i dispositivi; le cartelle IMAP vengono mappate automaticamente come etichette."
+      ]
+    },
+    "smart-folders": {
+      "title": "Cartelle smart",
+      "summary": "Ricerche salvate che funzionano come cartelle dinamiche.",
+      "description": "Le cartelle smart sono query di ricerca salvate che appaiono nella barra laterale come cartelle normali. Mostrano dinamicamente le conversazioni che corrispondono alla query — i risultati si aggiornano automaticamente all'arrivo di nuove email. Usa qualsiasi operatore di ricerca nella query. I token di data dinamici (come __LAST_7_DAYS__ o __TODAY__) mantengono i risultati relativi alla data corrente. Le cartelle smart mostrano un badge con il conteggio dei non letti, proprio come le cartelle normali.",
+      "tips": [
+        "Clicca il pulsante + nella sezione Cartelle smart della barra laterale.",
+        "Usa gli operatori di ricerca: is:unread from:capo",
+        "Token dinamici: __LAST_7_DAYS__, __LAST_30_DAYS__, __TODAY__",
+        "Ogni cartella smart mostra il conteggio dei non letti nella barra laterale.",
+        "Modifica o elimina le cartelle smart in Impostazioni > Regole email."
+      ]
+    },
+    "filters": {
+      "title": "Filtri e regole",
+      "summary": "Smista automaticamente le email in arrivo per mittente, oggetto o contenuto.",
+      "description": "Crea regole filtro che elaborano automaticamente le email in arrivo. Imposta i criteri (corrispondenza per indirizzo mittente, riga dell'oggetto o contenuto del messaggio) e assegna le azioni (applica un'etichetta, archivia, sposta nel cestino, aggiungi a speciali o segna come letto). I criteri usano la corrispondenza di sottostringhe senza distinzione tra maiuscole e minuscole con logica AND — tutti i criteri devono corrispondere. Quando più filtri corrispondono allo stesso messaggio, le loro azioni vengono unite insieme. I filtri vengono eseguiti automaticamente su ogni nuovo messaggio durante la sincronizzazione.",
+      "tips": [
+        "Crea i filtri in Impostazioni > Regole email.",
+        "Criteri: corrispondenza per Da, Oggetto o Contenuto (logica AND).",
+        "Azioni: applica etichetta, archivia, cestino, speciale, segna come letto.",
+        "Più filtri corrispondenti uniscono le loro azioni.",
+        "I filtri vengono eseguiti su ogni nuovo messaggio durante la sincronizzazione in background."
+      ]
+    },
+    "smart-labels": {
+      "title": "Etichette smart",
+      "summary": "Etichettatura automatica basata su AI usando descrizioni in linguaggio naturale.",
+      "description": "Descrivi quali email dovrebbero ricevere un'etichetta usando il linguaggio naturale — ad esempio, 'Candidature e opportunità di lavoro' — e l'AI etichetta automaticamente le email corrispondenti durante ogni sincronizzazione. Puoi anche aggiungere criteri tradizionali opzionali (da, oggetto, ecc.) per una corrispondenza deterministica istantanea prima del fallback AI. Le etichette smart supportano l'assegnazione multi-etichetta, quindi una singola conversazione può corrispondere a più regole contemporaneamente. Usa il pulsante 'Applica alle email esistenti' per applicare retroattivamente le etichette alla posta in arrivo corrente.",
+      "tips": [
+        "Crea le etichette smart in Impostazioni > Regole email > Etichette smart.",
+        "Scrivi una descrizione in linguaggio naturale di ciò che l'etichetta dovrebbe corrispondere.",
+        "Facoltativo: aggiungi criteri tradizionali (da, oggetto) per la corrispondenza istantanea senza AI.",
+        "Clicca 'Applica alle email esistenti' per etichettare retroattivamente la posta in arrivo.",
+        "Le etichette smart vengono eseguite automaticamente su ogni nuova email durante la sincronizzazione.",
+        "Richiede un provider AI attivo (Claude, GPT o Gemini)."
+      ]
+    },
+    "quick-steps": {
+      "title": "Azioni rapide",
+      "summary": "Concatena più azioni in un singolo clic.",
+      "description": "Le azioni rapide ti permettono di raggruppare più azioni in una sola. Ad esempio, crea un'azione rapida che applica un'etichetta, archivia la conversazione e la segna come letta — tutto con un singolo clic. Sono disponibili 18 tipi di azioni tra cui etichettare, archiviare, cestinare, aggiungere a speciali, segnare come letto/non letto, rispondere, inoltrare e altro. Modelli preimpostati ti aiutano a iniziare, e puoi crearne di personalizzati per il tuo flusso di lavoro.",
+      "tips": [
+        "Accedi alle azioni rapide dalla barra delle azioni su una conversazione.",
+        "18 tipi di azioni disponibili: etichetta, archivia, cestino, speciale, segna come letto, rispondi, inoltra e altro.",
+        "Crea e gestisci le azioni rapide in Impostazioni > Regole email.",
+        "Modelli preimpostati sono disponibili come punti di partenza."
+      ]
+    },
+    "star-pin-mute": {
+      "title": "Speciale, fissa e silenzia",
+      "summary": "Contrassegna, dai priorità o silenzia le conversazioni.",
+      "description": "Contrassegna come speciale le conversazioni per segnalarle per il follow-up — le conversazioni speciali hanno la propria vista nella barra laterale. Fissa le conversazioni per tenerle in cima all'elenco email, indipendentemente dalla data. Silenzia le conversazioni per non essere più disturbato — le conversazioni silenziate vengono archiviate automaticamente e le risposte future nella conversazione non appariranno nella posta in arrivo né attiveranno notifiche.",
+      "tips": [
+        "Speciale / rimuovi speciale",
+        "Fissa / rimuovi fissa",
+        "Silenzia / riattiva",
+        "Le conversazioni speciali appaiono nella vista Speciali nella barra laterale.",
+        "Le conversazioni fissate rimangono in cima all'elenco indipendentemente dalla data.",
+        "Le conversazioni silenziate vengono archiviate automaticamente e sopprimono le notifiche."
+      ]
+    },
+    "archive-trash": {
+      "title": "Archivia e cestino",
+      "summary": "Rimuovi dalla posta in arrivo o elimina definitivamente.",
+      "description": "Archivia rimuove una conversazione dalla posta in arrivo ma la mantiene in Tutta la posta — è ancora cercabile e accessibile. Cestino sposta una conversazione nella cartella Cestino. Eliminare una conversazione che è già nel cestino la rimuove definitivamente dal database. Questa eliminazione in due fasi previene le eliminazioni permanenti accidentali. Le conversazioni archiviate tornano nella posta in arrivo se qualcuno risponde.",
+      "tips": [
+        "Archivia",
+        "Cestino",
+        "Funziona anche con i tasti Canc o Backspace.",
+        "Eliminare dal cestino rimuove definitivamente la conversazione.",
+        "Le conversazioni archiviate tornano nella posta in arrivo quando arrivano nuove risposte."
+      ]
+    },
+    "move-to-folder": {
+      "title": "Sposta nella cartella",
+      "summary": "Sposta rapidamente le conversazioni in qualsiasi cartella o etichetta.",
+      "description": "Premi V per aprire un popup cercabile dove puoi scegliere una cartella o etichetta di destinazione. Digita per filtrare l'elenco, usa i tasti freccia per navigare e premi Invio per spostare la conversazione. Per Gmail, lo spostamento aggiunge l'etichetta di destinazione e rimuove la conversazione dalla posizione corrente. Per gli account IMAP, la conversazione viene spostata nella cartella selezionata sul server. Funziona con la selezione multipla — sposta più conversazioni contemporaneamente.",
+      "tips": [
+        "Apri la finestra di spostamento",
+        "Digita per cercare e filtrare le destinazioni.",
+        "Naviga con i tasti freccia, seleziona con Invio.",
+        "Disponibile anche dalla barra delle azioni e dal menu contestuale.",
+        "Funziona con le conversazioni selezionate in massa per spostamenti multipli."
+      ]
+    },
+    "multi-select": {
+      "title": "Selezione multipla e azioni di massa",
+      "summary": "Seleziona più conversazioni per operazioni in blocco.",
+      "description": "Clicca sulle conversazioni per attivare/disattivare la loro selezione. Shift+clic per selezionare un intervallo dall'ultima conversazione selezionata a quella cliccata. Una volta selezionate più conversazioni, qualsiasi azione tu esegua (archivia, cestino, speciale, etichetta, ecc.) si applica a tutte contemporaneamente. Le scorciatoie da tastiera funzionano anche sulla tua selezione — premi e per archiviare tutte le conversazioni selezionate, # per cestinarle, ecc.",
+      "tips": [
+        "Seleziona tutte le conversazioni",
+        "Seleziona intervallo dalla posizione corrente",
+        "Clicca per attivare/disattivare la selezione di singole conversazioni.",
+        "Shift+clic per selezionare un intervallo di conversazioni.",
+        "Tutte le azioni da tastiera (archivia, cestino, speciale) funzionano sulla selezione.",
+        "Premi Escape per deselezionare tutto."
+      ]
+    },
+    "bulk-actions": {
+      "title": "Barra azioni di massa",
+      "summary": "Appare una barra degli strumenti quando sono selezionate più conversazioni.",
+      "description": "Quando selezioni due o più conversazioni, una barra delle azioni di massa appare nella parte superiore dell'elenco email. Fornisce pulsanti con un clic per le operazioni in blocco più comuni: Archivia, Elimina, Segna come spam e Deseleziona. Questo è più veloce delle scorciatoie da tastiera quando vuoi confermare visivamente la tua selezione prima di agire. La barra mostra anche quante conversazioni sono attualmente selezionate.",
+      "tips": [
+        "Seleziona più conversazioni, poi usa la barra per azioni rapide in blocco.",
+        "Azioni disponibili: Archivia, Elimina, Spam, Deseleziona.",
+        "La barra mostra il conteggio delle conversazioni selezionate.",
+        "Le scorciatoie da tastiera funzionano anche sulla selezione accanto alla barra."
+      ]
+    },
+    "attachment-library": {
+      "title": "Libreria allegati",
+      "summary": "Sfoglia e cerca tutti i tuoi allegati in un unico posto.",
+      "description": "La libreria allegati ti offre una visualizzazione cercabile e filtrabile di ogni allegato in tutte le tue email. Trova i file senza ricordare in quale email erano. Filtra per tipo di file (immagini, PDF, documenti, fogli di calcolo, archivi), mittente, intervallo di date o dimensione del file. Passa dalla visualizzazione a griglia a quella a elenco. Anteprima inline di immagini e PDF, scarica i file o vai direttamente alla conversazione email originale.",
+      "tips": [
+        "Vai agli allegati",
+        "Apri gli allegati dalla navigazione nella barra laterale (icona Graffetta).",
+        "Cerca per nome del file, oggetto o nome del mittente.",
+        "Filtra per tipo, mittente, intervallo di date o dimensione del file.",
+        "Clicca su un allegato per l'anteprima, il download o per andare all'email.",
+        "Passa dalla visualizzazione a griglia a quella a elenco con il selettore nell'intestazione."
+      ]
+    },
+    "drag-drop": {
+      "title": "Trascina e rilascia",
+      "summary": "Trascina le conversazioni sulle etichette nella barra laterale per applicarle.",
+      "description": "Prendi una conversazione (o più conversazioni selezionate) dall'elenco email e trascinale su qualsiasi etichetta nella barra laterale per applicare quell'etichetta. L'obiettivo di rilascio si evidenzia quando ci passi sopra. Funziona sia con le etichette personalizzate che con le cartelle di sistema come Cestino. Le conversazioni selezionate in massa vengono tutte etichettate contemporaneamente quando le rilasci.",
+      "tips": [
+        "Clicca e tieni premuto su una conversazione per iniziare a trascinare.",
+        "Rilascia su qualsiasi etichetta nella barra laterale per applicarla.",
+        "Funziona con le conversazioni selezionate in massa — tutte vengono etichettate.",
+        "L'etichetta nella barra laterale si evidenzia quando viene rilevato un rilascio valido."
+      ]
+    },
+    "snooze": {
+      "title": "Posticipa",
+      "summary": "Nascondi temporaneamente una conversazione, falla riapparire dopo.",
+      "description": "Posticipa rimuove una conversazione dalla posta in arrivo e la fa riapparire a una data e ora che scegli tu. Questo ti permette di rimandare le email che non puoi gestire adesso senza perderle di vista. Quando arriva il momento della posticipazione, la conversazione riappare nella posta in arrivo come se fosse appena arrivata. Le conversazioni posticipate sono visibili nella cartella Posticipati nella barra laterale. Tecnicamente, posticipare rimuove l'etichetta INBOX e aggiunge un'etichetta SNOOZED.",
+      "tips": [
+        "Clicca l'icona posticipa nella barra delle azioni della conversazione.",
+        "Scegli tra preimpostazioni (più tardi oggi, domani, la prossima settimana) o seleziona un orario personalizzato.",
+        "Visualizza tutte le conversazioni posticipate nella cartella Posticipati nella barra laterale.",
+        "Riattiva una conversazione posticipata in anticipo aprendola e cliccando Riattiva."
+      ]
+    },
+    "follow-up-reminders": {
+      "title": "Promemoria di follow-up",
+      "summary": "Ricevi un promemoria se non ricevi una risposta.",
+      "description": "Dopo aver inviato un'email importante, imposta un promemoria di follow-up. Se nessuno risponde entro il periodo di tempo scelto (ad es. 2 giorni, 1 settimana), riceverai una notifica che ti ricorda di fare un follow-up. Il promemoria si attiva solo se la conversazione non ha nuove risposte — se qualcuno risponde prima della scadenza, il promemoria viene automaticamente annullato. I promemoria di follow-up vengono controllati in background ogni 60 secondi.",
+      "tips": [
+        "Imposta un promemoria di follow-up dalla barra delle azioni della conversazione.",
+        "Scegli un periodo: 1 giorno, 2 giorni, 1 settimana o personalizzato.",
+        "I promemoria si annullano automaticamente se arriva una risposta prima della scadenza.",
+        "Riceverai una notifica desktop quando il follow-up è dovuto."
+      ]
+    },
+    "split-inbox": {
+      "title": "Posta in arrivo divisa",
+      "summary": "Dividi la posta in arrivo in schede per categoria.",
+      "description": "La posta in arrivo divisa organizza la tua posta in arrivo in cinque schede di categoria: Principale, Aggiornamenti, Promozioni, Social e Newsletter. Ogni scheda mostra solo le conversazioni appartenenti a quella categoria, permettendoti di concentrarti su ciò che conta. Le nuove email vengono categorizzate automaticamente usando l'AI (o il fallback basato su regole). Attiva/disattiva la posta in arrivo divisa dall'icona accanto a Posta in arrivo nella barra laterale. Quando la modalità divisa è disattivata, tutte le categorie vengono mostrate insieme.",
+      "tips": [
+        "Attiva/disattiva la posta in arrivo divisa dall'icona Colonne accanto a Posta in arrivo nella barra laterale.",
+        "Categorie: Principale, Aggiornamenti, Promozioni, Social, Newsletter.",
+        "L'AI categorizza automaticamente le nuove email durante la sincronizzazione.",
+        "La categorizzazione basata su regole viene eseguita per prima, l'AI completa il resto.",
+        "Puoi archiviare automaticamente le categorie non Principale nelle impostazioni."
+      ]
+    },
+    "spam": {
+      "title": "Spam",
+      "summary": "Segnala lo spam o recupera le email legittime.",
+      "description": "Segna le email indesiderate come spam per spostarle nella cartella Spam. L'azione è sensibile al contesto: quando visualizzi la cartella Spam, il pulsante diventa \"Non spam\" così puoi recuperare le email legittime che sono state contrassegnate erroneamente. Per gli account Gmail, le segnalazioni di spam si sincronizzano con Gmail per migliorare il suo filtro antispam. Per gli account IMAP, i messaggi vengono spostati nella cartella Posta indesiderata/Spam del server.",
+      "tips": [
+        "Segnala spam / Non spam",
+        "Nella cartella Spam, la scorciatoia segna le conversazioni come Non spam.",
+        "Account Gmail: le segnalazioni di spam aiutano a migliorare il filtro di Gmail nel tempo.",
+        "Account IMAP: i messaggi vengono spostati nella cartella Posta indesiderata/Spam del server."
+      ]
+    },
+    "ai-overview": {
+      "title": "Panoramica AI",
+      "summary": "Scegli il tuo provider AI e usa la tua chiave.",
+      "description": "L'app supporta tre provider AI: Anthropic Claude, OpenAI GPT e Google Gemini. Usi la tua chiave API, il che significa che i tuoi dati email vengono inviati direttamente all'API del provider — non c'è nessun intermediario o server di terze parti coinvolto. Le chiavi API vengono memorizzate in modo sicuro nel tuo database locale. Le funzionalità AI includono riassunti delle conversazioni, risposte intelligenti, assistenza alla composizione, trasformazione del testo e query in linguaggio naturale sulla posta in arrivo. Puoi abilitare o disabilitare le funzionalità AI globalmente e scegliere quale provider usare.",
+      "tips": [
+        "Aggiungi la tua chiave API in Impostazioni > AI.",
+        "Provider supportati: Claude, OpenAI e Gemini.",
+        "Scegli quale modello usare per ogni provider nelle impostazioni (ad es. Claude Haiku 4.5, GPT-4o Mini, Gemini 2.5 Flash).",
+        "I tuoi dati vanno direttamente all'API del provider — nessun intermediario.",
+        "Le chiavi API vengono memorizzate in modo sicuro nel tuo database locale.",
+        "I risultati AI vengono memorizzati nella cache locale per ridurre le chiamate API.",
+        "Disabilita l'AI globalmente con un singolo interruttore nelle impostazioni."
+      ]
+    },
+    "thread-summaries": {
+      "title": "Riassunti delle conversazioni",
+      "summary": "Riassunto generato dall'AI di conversazioni lunghe.",
+      "description": "Per le conversazioni con molti messaggi, clicca il pulsante riassunto per ottenere una panoramica concisa generata dall'AI. Il riassunto cattura i punti chiave, le decisioni e gli elementi da fare dall'intera conversazione, risparmiandoti la lettura di decine di messaggi. I riassunti vengono memorizzati nella cache locale, quindi paghi la chiamata API solo una volta. Particolarmente utile per le conversazioni in cui sei in CC o di cui devi aggiornarti dopo un'assenza.",
+      "tips": [
+        "Clicca l'icona riassunto nell'intestazione della vista conversazione.",
+        "I riassunti vengono memorizzati nella cache — le visualizzazioni successive sono istantanee e gratuite.",
+        "Ideale per conversazioni lunghe con 5+ messaggi.",
+        "Cattura decisioni chiave, elementi da fare e conclusioni."
+      ]
+    },
+    "smart-replies": {
+      "title": "Risposte intelligenti",
+      "summary": "Opzioni di risposta rapida suggerite dall'AI.",
+      "description": "Quando visualizzi una conversazione, l'AI analizza l'ultimo messaggio e suggerisce 2-3 opzioni di risposta breve — come \"Mi sembra perfetto, grazie!\", \"Verifico e ti faccio sapere.\", o \"Sono disponibile martedì prossimo.\" Clicca un suggerimento per inserirlo nell'editor di risposta, poi modificalo prima di inviare. Le risposte intelligenti fanno risparmiare tempo per risposte rapide e di routine.",
+      "tips": [
+        "I suggerimenti di risposta intelligente appaiono sotto l'ultimo messaggio nella conversazione.",
+        "Clicca un suggerimento per inserirlo nell'editor di risposta.",
+        "Modifica il suggerimento prima di inviare — è un punto di partenza, non definitivo.",
+        "I suggerimenti sono contestuali, basati sul contenuto dell'email."
+      ]
+    },
+    "ai-compose": {
+      "title": "Composizione e trasformazione AI",
+      "summary": "Bozza email o riscrivi testo con l'assistenza AI.",
+      "description": "Apri il pannello Assistente AI nel compositore per ricevere aiuto nella stesura delle email. Descrivi cosa vuoi dire e l'AI genera una bozza. Puoi anche selezionare testo esistente e trasformarlo: cambia il tono (formale, informale, amichevole), correggi grammatica e ortografia, traduci in un'altra lingua, accorcia o espandi il testo, o semplifica un linguaggio complesso. Tutte le trasformazioni avvengono direttamente nell'editor.",
+      "tips": [
+        "Apri l'Assistente AI dall'icona scintilla nella barra degli strumenti del compositore.",
+        "Descrivi la tua email e l'AI genera una bozza.",
+        "Seleziona testo da trasformare: tono, grammatica, traduzione, accorcia, espandi.",
+        "Le trasformazioni sostituiscono il testo selezionato direttamente.",
+        "Rivedi e modifica l'output AI prima di inviare."
+      ]
+    },
+    "auto-drafts": {
+      "title": "Bozze automatiche AI",
+      "summary": "L'editor di risposta si auto-compila con una bozza generata dall'AI che rispecchia il tuo stile di scrittura.",
+      "description": "Quando clicchi Rispondi o Rispondi a tutti, l'editor viene automaticamente popolato con una bozza generata dall'AI che rispecchia il tuo stile di scrittura. L'AI impara il tuo stile analizzando le tue 15 email inviate più recenti — coglie il tuo tono, i modelli di saluto, lo stile di chiusura e le frasi tipiche. Il profilo di stile viene memorizzato nella cache per account, quindi l'analisi avviene solo una volta. Le bozze vengono anche memorizzate nella cache per conversazione e modalità di risposta. Puoi rigenerare la bozza, cancellarla e ricominciare da zero, o semplicemente modificarla. Se inizi a digitare prima che la bozza si carichi, l'auto-compilazione viene annullata per non interromperti mai. Le bozze automatiche funzionano per Rispondi e Rispondi a tutti, non per Inoltra.",
+      "tips": [
+        "Attiva/disattiva le bozze automatiche in Impostazioni > AI > Bozze automatiche risposte.",
+        "Lo stile di scrittura viene appreso dalle tue 15 email inviate più recenti.",
+        "Clicca Rigenera per ottenere una nuova bozza per la stessa conversazione.",
+        "Clicca Cancella per rimuovere la bozza e scrivere da zero.",
+        "Digitare prima che la bozza si carichi annulla l'auto-compilazione.",
+        "Le bozze vengono memorizzate nella cache — riaprire la stessa risposta è istantaneo.",
+        "Clicca Rianalizza nelle impostazioni per aggiornare il tuo profilo di stile di scrittura."
+      ]
+    },
+    "ask-inbox": {
+      "title": "Ask Inbox",
+      "summary": "Fai domande sulla tua email in linguaggio naturale.",
+      "description": "Fai domande in linguaggio naturale sulla tua posta in arrivo e ottieni risposte basate sull'AI. Ad esempio: \"Cosa ha detto Mario sulla scadenza del terzo trimestre?\", \"Mostrami tutte le ricevute del mese scorso\" o \"Riassumi le mie email non lette di oggi.\" L'AI cerca nel tuo database email locale, trova le conversazioni pertinenti e genera una risposta completa con riferimenti a email specifiche.",
+      "tips": [
+        "Apri Ask Inbox dall'area di ricerca o dalla tavolozza comandi.",
+        "Chiedi in linguaggio naturale — non servono operatori di ricerca.",
+        "Esempi: \"Qual è lo stato dell'affare Johnson?\"",
+        "L'AI cerca nel tuo database locale le email pertinenti.",
+        "Le risposte includono riferimenti a conversazioni specifiche che puoi cliccare per aprire."
+      ]
+    },
+    "newsletter-bundles": {
+      "title": "Raggruppamento newsletter",
+      "summary": "Raggruppa le newsletter per mittente con consegna programmata.",
+      "description": "Raggruppa le newsletter dello stesso mittente in modo che arrivino secondo un programma che scegli tu — giornaliero, settimanale o in giorni specifici. Invece di essere distratto dalle newsletter durante il giorno, vengono trattenute e consegnate in blocco. Ogni raggruppamento unisce tutte le email di quel mittente in un'unica voce nella barra laterale. Puoi creare raggruppamenti per mittente e impostare programmi di consegna diversi per ciascuno.",
+      "tips": [
+        "Gestisci i raggruppamenti in Impostazioni > Persone.",
+        "Scegli la frequenza di consegna: giornaliera, settimanale o giorni specifici.",
+        "Le newsletter raggruppate vengono trattenute fino al prossimo orario di consegna.",
+        "Ogni mittente può avere il proprio programma di consegna."
+      ]
+    },
+    "unsubscribe": {
+      "title": "Annulla iscrizione",
+      "summary": "Annulla l'iscrizione alle mailing list con un clic.",
+      "description": "Quando visualizzi una newsletter o un'email di marketing, clicca Annulla iscrizione (o premi u) per annullare istantaneamente l'iscrizione. L'app rileva l'intestazione List-Unsubscribe e gestisce il processo automaticamente usando il metodo POST con un clic RFC 8058 quando disponibile, o ricade su un mailto: per l'annullamento. Le tue azioni di annullamento iscrizione vengono registrate così puoi tenere traccia delle iscrizioni annullate.",
+      "tips": [
+        "Annulla l'iscrizione dalla conversazione corrente",
+        "Usa l'annullamento con un clic RFC 8058 quando disponibile.",
+        "Ricade su mailto: se l'annullamento con un clic non è supportato.",
+        "Visualizza la cronologia degli annullamenti in Impostazioni > Persone."
+      ]
+    },
+    "notifications-vip": {
+      "title": "Notifiche e mittenti VIP",
+      "summary": "Notifiche desktop con filtraggio intelligente.",
+      "description": "Ricevi notifiche desktop quando arriva una nuova email. Le notifiche intelligenti ti permettono di scegliere quali categorie della posta in arrivo attivano le notifiche (ad es. solo Principale), riducendo il disturbo da aggiornamenti e promozioni. Aggiungi mittenti VIP che attivano sempre una notifica indipendentemente dalla categoria — utile per il tuo capo, clienti importanti o familiari. Le conversazioni silenziate non attivano mai notifiche. Le notifiche usano il sistema di notifica nativo del tuo sistema operativo.",
+      "tips": [
+        "Abilita le notifiche in Impostazioni > Notifiche.",
+        "Notifiche intelligenti: scegli quali categorie attivano gli avvisi.",
+        "Aggiungi mittenti VIP che ricevono sempre la notifica indipendentemente dalla categoria.",
+        "Le conversazioni silenziate non attivano mai notifiche.",
+        "Usa il sistema di notifica nativo del tuo sistema operativo (Windows, macOS, Linux)."
+      ]
+    },
+    "contact-sidebar": {
+      "title": "Barra laterale contatti",
+      "summary": "Visualizza dettagli del contatto, cronologia e azioni rapide.",
+      "description": "Clicca sul nome o sull'avatar di un mittente per aprire la barra laterale contatti. Mostra la foto profilo (tramite Gravatar), l'indirizzo email, quanto spesso hai scambiato email, quando vi siete connessi per la prima volta, le conversazioni recenti, gli allegati condivisi e le azioni rapide (componi nuova email, copia indirizzo). La barra laterale ti dà contesto su chi stai comunicando senza lasciare la posta in arrivo.",
+      "tips": [
+        "Clicca su qualsiasi nome o avatar del mittente per aprire la barra laterale contatti.",
+        "Mostra foto profilo, email, frequenza di contatto e data del primo contatto.",
+        "Azioni rapide: componi nuova email, copia indirizzo.",
+        "Sfoglia le conversazioni recenti e gli allegati condivisi.",
+        "Aggiungi note sui contatti per il tuo riferimento personale."
+      ]
+    },
+    "phishing-detection": {
+      "title": "Rilevamento phishing",
+      "summary": "Scansione automatica dei link nelle email per individuare minacce.",
+      "description": "Ogni link nelle email viene scansionato usando 10 regole euristiche che rilevano i pattern di phishing più comuni: URL basati su IP, attacchi omografo/punycode, TLD sospetti, URL shortener, discrepanze tra testo visualizzato e URL effettivo, pattern di percorso sospetti, impersonificazione di brand, protocolli pericolosi (javascript:, data:), indirizzi email gratuiti che impersonano aziende e spoofing di sottodomini. Le email rischiose mostrano un banner di avviso. Puoi regolare la sensibilità (bassa, predefinita, alta) e aggiungere mittenti fidati alla lista consentiti per sopprimere gli avvisi.",
+      "tips": [
+        "Regola la sensibilità (bassa / predefinita / alta) nelle impostazioni.",
+        "Bassa: rileva solo le minacce ovvie. Alta: più aggressiva, potrebbe avere falsi positivi.",
+        "Aggiungi mittenti fidati alla lista consentiti per sopprimere gli avvisi.",
+        "10 regole euristiche coprono i pattern di phishing più comuni.",
+        "Il banner di avviso appare nella parte superiore delle email rischiose.",
+        "I risultati della scansione vengono memorizzati nella cache — ogni link viene analizzato solo una volta."
+      ]
+    },
+    "auth-badges": {
+      "title": "Badge di autenticazione (SPF/DKIM/DMARC)",
+      "summary": "Verifica se l'identità del mittente è verificata.",
+      "description": "Ogni email mostra un badge di autenticazione che indica se il mittente ha superato i controlli SPF (verifica IP del mittente), DKIM (firma del messaggio) e DMARC (politica di allineamento). Un badge verde significa che tutti i controlli sono stati superati — l'email proviene genuinamente da chi dice di essere. Un badge rosso indica controlli falliti, il che potrebbe significare che l'email è contraffatta o falsificata. Arancione significa superamento parziale. Queste informazioni vengono estratte dall'intestazione Authentication-Results dell'email.",
+      "tips": [
+        "Badge verde: tutti i controlli di autenticazione superati.",
+        "Badge rosso: uno o più controlli falliti — possibile spoofing.",
+        "Badge arancione: superamento parziale — alcuni controlli non conclusivi.",
+        "Clicca sul badge per vedere i risultati dettagliati di SPF, DKIM e DMARC.",
+        "I dati di autenticazione provengono dalle intestazioni dell'email."
+      ]
+    },
+    "remote-image-blocking": {
+      "title": "Blocco immagini remote",
+      "summary": "Blocca pixel di tracciamento e immagini remote per impostazione predefinita.",
+      "description": "Le immagini remote (caricate da server esterni) sono bloccate per impostazione predefinita per proteggere la tua privacy. Molte email di marketing usano pixel di tracciamento invisibili che notificano il mittente quando apri la loro email. Quando le immagini sono bloccate, vedrai aree segnaposto dove apparirebbero le immagini. Puoi consentire le immagini per mittenti specifici (vengono aggiunti a una lista consentiti), o disabilitare il blocco globalmente nelle impostazioni. Le immagini dei mittenti consentiti si caricano automaticamente nelle email future.",
+      "tips": [
+        "Le immagini sono bloccate per impostazione predefinita per la protezione della privacy.",
+        "Clicca \"Mostra immagini\" su un'email per caricare le immagini per quel mittente.",
+        "I mittenti consentiti vengono ricordati — le immagini si caricano automaticamente la prossima volta.",
+        "Disabilita il blocco globalmente in Impostazioni > Generali.",
+        "Blocca i pixel di tracciamento che segnalano quando apri un'email."
+      ]
+    },
+    "link-confirmation": {
+      "title": "Conferma link",
+      "summary": "Anteprima degli URL prima di aprirli nel browser.",
+      "description": "Quando clicchi un link in un'email, una finestra di conferma mostra l'URL di destinazione effettivo prima di aprirlo. Questo ti impedisce di visitare accidentalmente siti malevoli che mascherano i loro URL con testo visualizzato amichevole. La finestra mostra l'URL completo così puoi verificare che sia legittimo. Puoi scegliere di procedere, copiare l'URL o annullare. Questo è particolarmente utile in combinazione con la funzione di rilevamento phishing.",
+      "tips": [
+        "Ogni clic su un link mostra una conferma con l'URL effettivo.",
+        "Verifica che il dominio sia legittimo prima di procedere.",
+        "Copia l'URL per ispezionarlo più attentamente se non sei sicuro.",
+        "Funziona insieme al rilevamento phishing per una protezione a più livelli."
+      ]
+    },
+    "calendar-integration": {
+      "title": "Integrazione Google Calendar",
+      "summary": "Visualizza e gestisci il tuo calendario accanto all'email.",
+      "description": "Accedi al tuo Google Calendar direttamente dalla barra laterale. Passa dalla visualizzazione giornaliera, settimanale e mensile. Visualizza tutti i tuoi eventi con supporto ai calendari con codice colore (se hai più calendari Google). Crea nuovi eventi direttamente dall'app senza passare al browser. Il calendario usa lo stesso account Google della tua email e si aggiorna automaticamente. Naviga tra le date con i controlli della barra degli strumenti.",
+      "tips": [
+        "Apri il calendario dalla navigazione nella barra laterale.",
+        "Passa tra le visualizzazioni Giorno, Settimana e Mese dalla barra degli strumenti.",
+        "Clicca su una fascia oraria per creare un nuovo evento.",
+        "Supporta più calendari Google con codice colore.",
+        "Il calendario usa lo stesso OAuth Google della tua email.",
+        "Gli eventi si aggiornano automaticamente in background."
+      ]
+    },
+    "task-manager": {
+      "title": "Gestore attività",
+      "summary": "Gestione completa delle attività con priorità, date di scadenza e sotto-attività.",
+      "description": "Velo include un gestore attività integrato accessibile dalla barra laterale o tramite la scorciatoia g poi k. Crea attività con titoli, descrizioni, priorità (nessuna, bassa, media, alta, urgente), date di scadenza e tag. Le attività possono avere un livello di sotto-attività per scomporre elementi complessi. Trascina per riordinare le attività, filtra per stato o priorità e raggruppa per priorità, data di scadenza o tag. Le attività completate possono essere mostrate o nascoste. Il pannello laterale delle attività mostra le attività collegate alla conversazione email corrente.",
+      "tips": [
+        "Vai alla pagina Attività",
+        "Apri le attività dalla voce Attività nella barra laterale.",
+        "Aggiungi rapidamente un'attività dal campo di input in fondo al pannello laterale delle attività.",
+        "Il badge nella barra laterale mostra il conteggio delle attività incomplete.",
+        "Filtra le attività per stato (tutte, attive, completate) o priorità.",
+        "Raggruppa le attività per priorità, data di scadenza o tag."
+      ]
+    },
+    "ai-task-extraction": {
+      "title": "Estrazione attività con AI",
+      "summary": "Premi t per estrarre un'attività dall'email corrente con l'AI.",
+      "description": "Quando visualizzi una conversazione email, premi t per far analizzare la conversazione all'AI ed estrarre un'attività attuabile. L'AI identifica il titolo dell'attività, la descrizione, la data di scadenza suggerita e la priorità dal contenuto dell'email. Una finestra mostra l'attività estratta con campi modificabili — regola il titolo, la descrizione, la priorità o la data di scadenza prima di crearla. L'attività è collegata alla conversazione email così puoi sempre tornare al contesto originale. Disponibile anche dalla tavolozza comandi come 'Crea attività da email (AI)'.",
+      "tips": [
+        "Estrai attività dall'email",
+        "Disponibile anche nella tavolozza comandi (Ctrl+K \u2192 'Crea attività da email').",
+        "Modifica i campi estratti prima di creare l'attività.",
+        "L'attività si collega alla conversazione email originale.",
+        "Richiede un provider AI attivo (Claude, GPT o Gemini)."
+      ]
+    },
+    "task-sidebar": {
+      "title": "Pannello laterale attività",
+      "summary": "Visualizza e gestisci le attività collegate alla conversazione corrente.",
+      "description": "Attiva/disattiva il pannello laterale delle attività dalla barra delle azioni (icona ListTodo) per vedere le attività associate alla conversazione email corrente. Il pannello mostra le attività collegate con il loro stato, priorità e data di scadenza. Puoi aggiungere rapidamente nuove attività dal pannello, attivare/disattivare il completamento o cliccare per andare alla pagina Attività completa. Le attività create tramite estrazione AI vengono automaticamente collegate alla loro conversazione sorgente.",
+      "tips": [
+        "Attiva/disattiva il pannello attività dal pulsante nella barra delle azioni.",
+        "Aggiungi rapidamente attività dal campo di input in fondo al pannello.",
+        "Clicca 'Visualizza tutte le attività' per andare alla pagina Attività completa.",
+        "Le attività estratte con AI vengono automaticamente collegate all'email."
+      ]
+    },
+    "recurring-tasks": {
+      "title": "Attività ricorrenti",
+      "summary": "Attività che si ripetono automaticamente secondo un programma.",
+      "description": "Crea attività che si ripetono secondo un programma — giornaliero, settimanale, mensile o annuale con intervalli configurabili. Quando completi un'attività ricorrente, l'occorrenza successiva viene creata automaticamente con la data di scadenza avanzata dell'intervallo di ricorrenza. Questo è utile per revisioni periodiche, report settimanali, verifiche mensili o qualsiasi responsabilità ripetitiva. L'icona di ricorrenza appare sulle attività che hanno un programma impostato.",
+      "tips": [
+        "Imposta la ricorrenza quando crei o modifichi un'attività.",
+        "Opzioni: giornaliera, settimanale, mensile, annuale con intervallo.",
+        "Completare un'attività ricorrente crea l'occorrenza successiva.",
+        "L'icona di ricorrenza indica che un'attività ha un programma."
+      ]
+    },
+    "theme": {
+      "title": "Modalità chiara e scura",
+      "summary": "Passa tra tema chiaro, scuro o di sistema.",
+      "description": "Scegli tra modalità chiara, modalità scura o corrispondenza al sistema (segue le impostazioni del tuo sistema operativo). La modalità scura usa colori accuratamente selezionati per una lettura confortevole in ambienti con poca luce, con uno sfondo più scuro e testo più morbido. Il tema cambia istantaneamente e persiste tra i riavvii. Lo sfondo con gradiente animato si adatta anch'esso — la modalità chiara usa blu/viola/rosa, la modalità scura usa blu e viola più profondi.",
+      "tips": [
+        "Cambia tema in Impostazioni > Generali.",
+        "\"Sistema\" segue la preferenza chiaro/scuro del tuo sistema operativo.",
+        "La modalità scura è ottimizzata per ambienti con poca luce.",
+        "Lo sfondo con gradiente animato si adatta alla modalità chiara/scura."
+      ]
+    },
+    "accent-colors": {
+      "title": "Colori di accento",
+      "summary": "8 preimpostazioni colore per personalizzare l'app.",
+      "description": "Scegli tra 8 preimpostazioni di colore di accento per personalizzare l'aspetto dell'app: Indaco (predefinito), Rosa, Smeraldo, Ambra, Cielo, Viola, Arancione o Ardesia. Ogni preimpostazione ha varianti separate per la modalità chiara e scura ottimizzate per la leggibilità. Il colore di accento viene usato per pulsanti, stati attivi, link, badge e evidenziazioni in tutta l'app. I colori di accento sono indipendenti dal tema chiaro/scuro.",
+      "tips": [
+        "Cambia il colore di accento in Impostazioni > Generali.",
+        "8 preimpostazioni: Indaco, Rosa, Smeraldo, Ambra, Cielo, Viola, Arancione, Ardesia.",
+        "Ogni colore ha varianti ottimizzate per chiaro e scuro.",
+        "Il colore di accento è indipendente dal tema chiaro/scuro."
+      ]
+    },
+    "font-density": {
+      "title": "Dimensione carattere e densità email",
+      "summary": "Regola la dimensione del testo e la spaziatura dell'elenco.",
+      "description": "La scala del carattere regola la dimensione complessiva del testo nell'app: Piccolo, Predefinito, Grande o Molto grande. La densità email controlla la spaziatura nell'elenco email: Compatta (più conversazioni visibili), Predefinita (bilanciata) o Confortevole (più respiro). Entrambe le impostazioni si combinano — usa carattere grande con densità confortevole per l'accessibilità, o carattere piccolo con densità compatta per vedere di più contemporaneamente.",
+      "tips": [
+        "Dimensioni carattere: Piccolo, Predefinito, Grande, Molto grande.",
+        "Opzioni densità: Compatta, Predefinita, Confortevole.",
+        "La densità compatta mostra più conversazioni nell'elenco email.",
+        "Carattere grande + Densità confortevole è ottimo per l'accessibilità."
+      ]
+    },
+    "layout-customization": {
+      "title": "Personalizzazione del layout",
+      "summary": "Regola barra laterale, riquadro di lettura e larghezza dell'elenco.",
+      "description": "Personalizza il layout del tuo spazio di lavoro: comprimi la barra laterale in modalità solo icone per più spazio sullo schermo, scegli la posizione del riquadro di lettura (destra, basso o nascosto), trascina il divisore per ridimensionare la larghezza dell'elenco email e attiva/disattiva la barra laterale contatti. Tutte le preferenze di layout vengono salvate e ripristinate automaticamente all'avvio. L'interruttore della barra laterale ha anche una scorciatoia da tastiera per un accesso rapido.",
+      "tips": [
+        "Attiva/disattiva barra laterale",
+        "Comprimi la barra laterale in modalità solo icone per più spazio sullo schermo.",
+        "Trascina il divisore elenco/riquadro per regolare le larghezze.",
+        "Tutte le preferenze di layout persistono tra i riavvii."
+      ]
+    },
+    "sidebar-customization": {
+      "title": "Personalizzazione barra laterale",
+      "summary": "Nascondi, mostra e riordina gli elementi di navigazione della barra laterale.",
+      "description": "Controlla quali elementi appaiono nella tua barra laterale e il loro ordine. Vai in Impostazioni > Generali > Barra laterale per attivare/disattivare la visibilità di qualsiasi elemento di navigazione (Speciali, Posticipati, Inviati, Bozze, Cestino, Spam, Tutta la posta, Attività, Calendario, Allegati) e riordinali con le frecce su/giù. Puoi anche nascondere completamente le sezioni Cartelle smart ed Etichette. La posta in arrivo è sempre visibile e non può essere nascosta. Usa \"Ripristina predefiniti\" per ripristinare il layout originale. Le modifiche hanno effetto immediatamente e persistono tra i riavvii.",
+      "tips": [
+        "Nascondi gli elementi che usi raramente per ridurre il disordine nella barra laterale.",
+        "Riordina gli elementi per mettere le cartelle più usate in cima.",
+        "Disattiva Cartelle smart o Etichette per nascondere quelle sezioni.",
+        "La posta in arrivo è sempre visibile — non può essere nascosta.",
+        "Clicca \"Ripristina predefiniti\" per ripristinare l'ordine originale."
+      ]
+    },
+    "multi-account": {
+      "title": "Account multipli",
+      "summary": "Gestisci account Gmail e IMAP fianco a fianco.",
+      "description": "Aggiungi e gestisci più account email — combina liberamente account Gmail (OAuth) e IMAP/SMTP. Ogni account ha la propria posta in arrivo, etichette, filtri e stato di sincronizzazione. Passa tra gli account usando il selettore account nella parte superiore della barra laterale. L'email dell'account attivo viene visualizzata nella vista principale. Puoi aggiungere, riautorizzare o rimuovere account nelle impostazioni. Ogni account si sincronizza indipendentemente nel proprio ciclo di 60 secondi.",
+      "tips": [
+        "Clicca il selettore account nella parte superiore della barra laterale per cambiare.",
+        "Combina account Gmail e IMAP — funzionano fianco a fianco.",
+        "Ogni account ha posta in arrivo, etichette e sincronizzazione indipendenti.",
+        "Aggiungi o rimuovi account in Impostazioni > Account.",
+        "Riautorizza un account Gmail se il token scade."
+      ]
+    },
+    "system-tray": {
+      "title": "Area di notifica e avvio automatico",
+      "summary": "Riduci nell'area di notifica e avvia all'accensione.",
+      "description": "Quando chiudi la finestra dell'app, si riduce nell'area di notifica invece di chiudersi — l'app continua a funzionare in background, continuando a sincronizzare le email e controllare le notifiche. Clicca l'icona nell'area di notifica per mostrare di nuovo la finestra, fai clic destro per un menu (mostra, controlla posta, esci). Abilita l'avvio automatico per lanciare l'app automaticamente quando il computer si accende — si avvia ridotta nell'area di notifica così è pronta senza ingombrare la barra delle applicazioni.",
+      "tips": [
+        "Chiudere la finestra la riduce nell'area di notifica (non chiude l'app).",
+        "Fai clic destro sull'icona nell'area di notifica per: Mostra, Controlla posta, Esci.",
+        "Abilita l'avvio automatico in Impostazioni > Generali.",
+        "L'avvio automatico si avvia ridotto — l'app è pronta in background.",
+        "L'app continua a sincronizzare e notificare mentre è nell'area di notifica."
+      ]
+    },
+    "global-compose": {
+      "title": "Scorciatoia globale per comporre",
+      "summary": "Componi da qualsiasi punto con una scorciatoia di sistema.",
+      "description": "Registra una scorciatoia da tastiera di sistema che apre la finestra di composizione da qualsiasi punto del tuo computer — anche quando l'app è ridotta nell'area di notifica o un'altra app è in primo piano. Questo ti permette di inviare rapidamente un'email senza cambiare finestra. La scorciatoia è personalizzabile in Impostazioni > Scorciatoie. La finestra dell'app apparirà con il compositore aperto e pronto.",
+      "tips": [
+        "Imposta la scorciatoia globale per comporre in Impostazioni > Scorciatoie.",
+        "Funziona anche quando l'app è ridotta nell'area di notifica.",
+        "La finestra di composizione si apre immediatamente quando viene premuta la scorciatoia.",
+        "Funziona da qualsiasi applicazione — non serve passare prima all'app."
+      ]
+    },
+    "pop-out-windows": {
+      "title": "Finestre a comparsa",
+      "summary": "Apri le conversazioni in finestre separate.",
+      "description": "Apri qualsiasi conversazione nella propria finestra indipendente per lettura affiancata, riferimento o multitasking. Le finestre a comparsa hanno la propria vista conversazione con funzionalità complete — puoi leggere, rispondere, inoltrare ed eseguire azioni senza tornare alla finestra principale. Ogni finestra a comparsa è 800x700 pixel per impostazione predefinita e può essere ridimensionata. Più conversazioni possono essere aperte contemporaneamente in finestre separate.",
+      "tips": [
+        "Clicca l'icona a comparsa nella barra delle azioni della conversazione.",
+        "Le finestre a comparsa sono completamente funzionali — leggi, rispondi e agisci.",
+        "Più conversazioni possono essere aperte in finestre separate.",
+        "Le finestre a comparsa sono indipendenti dalla finestra principale dell'app."
+      ]
+    },
+    "manual-sync": {
+      "title": "Sincronizzazione manuale",
+      "summary": "Attiva una sincronizzazione immediata della cartella corrente.",
+      "description": "Premi F5 per sincronizzare immediatamente la cartella o l'etichetta corrente invece di aspettare il prossimo ciclo di sincronizzazione in background di 60 secondi. Questo è utile quando stai aspettando un'email e non vuoi aspettare, o dopo aver apportato modifiche in un altro client. Per Gmail, questo recupera le nuove modifiche dalla cronologia; per IMAP, controlla i nuovi UID nella cartella corrente.",
+      "tips": [
+        "Sincronizza la cartella corrente",
+        "La sincronizzazione in background viene eseguita automaticamente ogni 60 secondi.",
+        "La sincronizzazione manuale è utile quando stai aspettando una nuova email."
+      ]
+    },
+    "offline-mode": {
+      "title": "Modalità offline",
+      "summary": "Continua a lavorare senza connessione a internet.",
+      "description": "Archivia, aggiungi a speciali, cestina, sposta, etichetta e componi email anche quando sei offline. Le modifiche vengono messe in coda localmente e si sincronizzano automaticamente quando la connessione torna disponibile. Un banner appare nella parte superiore dello schermo quando sei offline, e la barra laterale mostra quante operazioni sono in sospeso. Le azioni ridondanti (come aggiungere e rimuovere dai speciali) vengono compattate automaticamente così solo il risultato finale viene sincronizzato.",
+      "tips": [
+        "Tutte le azioni funzionano offline — archivia, speciale, cestino, etichette, componi.",
+        "Le modifiche in sospeso si sincronizzano automaticamente quando ti riconnetti.",
+        "Controlla le operazioni in sospeso e fallite in Impostazioni > Account.",
+        "Le operazioni fallite possono essere ritentate o cancellate dalle impostazioni."
+      ]
+    }
+  },
+
+  "contextualTips": {
+    "reading-pane": {
+      "title": "Riquadro di lettura",
+      "body": "Scegli dove visualizzare il riquadro di lettura — a destra, in basso o nascosto. A destra funziona meglio su schermi ampi."
+    },
+    "split-inbox": {
+      "title": "Posta in arrivo divisa",
+      "body": "Dividi la posta in arrivo in categorie (Principale, Aggiornamenti, Promozioni, Social, Newsletter) così puoi concentrarti su ciò che conta di più."
+    },
+    "undo-send": {
+      "title": "Annulla invio",
+      "body": "Imposta quanti secondi hai per annullare un'email inviata. Puoi scegliere fino a 30 secondi."
+    },
+    "smart-notifications": {
+      "title": "Notifiche intelligenti",
+      "body": "Ricevi notifiche solo per le categorie che ti interessano. Aggiungi mittenti VIP che attivano sempre le notifiche indipendentemente dalla categoria."
+    },
+    "phishing-sensitivity": {
+      "title": "Sensibilità phishing",
+      "body": "Bassa rileva solo le minacce ovvie. Predefinita è bilanciata. Alta segnala in modo più aggressivo ma potrebbe avere falsi positivi."
+    },
+    "ai-provider": {
+      "title": "Provider AI",
+      "body": "Scegli tra Claude, OpenAI o Gemini. Usa la tua chiave API — i tuoi dati vengono inviati direttamente al provider, mai attraverso intermediari."
+    },
+    "search-operators": {
+      "title": "Operatori di ricerca",
+      "body": "Usa from:, to:, subject:, has:attachment, is:unread, before:, after: e label: per restringere la ricerca."
+    },
+    "filters": {
+      "title": "Filtri automatici",
+      "body": "I filtri vengono eseguiti su ogni nuovo messaggio durante la sincronizzazione. I criteri usano la logica AND, e quando più filtri corrispondono, le loro azioni vengono unite."
+    },
+    "smart-labels": {
+      "title": "Etichette smart",
+      "body": "Descrivi quali email dovrebbero ricevere un'etichetta in linguaggio naturale. L'AI etichetta automaticamente le email corrispondenti durante la sincronizzazione. I criteri opzionali forniscono corrispondenza istantanea senza AI."
+    }
+  }
+}
