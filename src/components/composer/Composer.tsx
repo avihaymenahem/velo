@@ -5,6 +5,8 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import { Clock, Maximize2, Minimize2, ExternalLink } from "lucide-react";
+import { ProofreadPanel } from "./ProofreadPanel";
+import type { ProofreadResult } from "@/services/ai/types";
 
 import { Button } from "@/components/ui/Button";
 import { AddressInput } from "./AddressInput";
@@ -69,6 +71,11 @@ export function Composer() {
   const templateShortcutsRef = useRef<DbTemplate[]>([]);
   const dragCounterRef = useRef(0);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const [proofreadState, setProofreadState] = useState<{
+    isOpen: boolean;
+    isLoading: boolean;
+    result: ProofreadResult | null;
+  }>({ isOpen: false, isLoading: false, result: null });
 
   const editor = useEditor({
     extensions: [
@@ -233,11 +240,12 @@ export function Composer() {
     return `${editorHtml}<div style="margin-top:16px;border-top:1px solid #e5e5e5;padding-top:12px">${sanitizeHtml(signatureHtml)}</div>`;
   }, [editor, signatureHtml]);
 
-  const handleSend = useCallback(async () => {
+  const handleConfirmSend = useCallback(async () => {
     if (!activeAccountId || !activeAccount || sendingRef.current) return;
     const state = useComposerStore.getState();
     if (state.to.length === 0) return;
 
+    setProofreadState({ isOpen: false, isLoading: false, result: null });
     sendingRef.current = true;
     stopAutoSave();
 
@@ -298,6 +306,35 @@ export function Composer() {
     state.setUndoSendTimer(timer);
     closeComposer();
   }, [activeAccountId, activeAccount, closeComposer, getFullHtml]);
+
+  const handleSend = useCallback(async () => {
+    if (!activeAccountId || !activeAccount || sendingRef.current) return;
+    const state = useComposerStore.getState();
+    if (state.to.length === 0) return;
+
+    // Check if proofreading is enabled
+    const proofreadEnabled = await getSetting("ai_proofread_enabled");
+    if (proofreadEnabled !== "false") {
+      // Start proofreading — show panel in loading state
+      setProofreadState({ isOpen: true, isLoading: true, result: null });
+      try {
+        const { proofreadEmail } = await import("@/services/ai/aiService");
+        const html = getFullHtml();
+        const recipientEmails = [...state.to, ...state.cc, ...state.bcc];
+        const result = await proofreadEmail(state.subject, html, recipientEmails);
+        setProofreadState({ isOpen: true, isLoading: false, result });
+      } catch (err) {
+        console.error("Proofreading failed:", err);
+        // On error, proceed directly to send
+        setProofreadState({ isOpen: false, isLoading: false, result: null });
+        await handleConfirmSend();
+      }
+      return;
+    }
+
+    // Proofreading disabled — send directly
+    await handleConfirmSend();
+  }, [activeAccountId, activeAccount, getFullHtml, handleConfirmSend]);
 
   const handleSchedule = useCallback(async (scheduledAt: number) => {
     if (!activeAccountId || !activeAccount) return;
@@ -429,6 +466,7 @@ export function Composer() {
       : null;
 
   return (
+    <>
     <CSSTransition nodeRef={overlayRef} in={isOpen} timeout={200} classNames="slide-up" unmountOnExit>
     <div ref={overlayRef} className={`fixed inset-0 z-50 flex ${isFullpage ? "items-stretch justify-center p-4" : "items-end justify-center pb-4"} pointer-events-none`}>
       {/* Backdrop */}
@@ -602,5 +640,15 @@ export function Composer() {
       )}
     </div>
     </CSSTransition>
+
+    {proofreadState.isOpen && (
+      <ProofreadPanel
+        result={proofreadState.result}
+        isLoading={proofreadState.isLoading}
+        onConfirmSend={handleConfirmSend}
+        onCancel={() => setProofreadState({ isOpen: false, isLoading: false, result: null })}
+      />
+    )}
+    </>
   );
 }
