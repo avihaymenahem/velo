@@ -111,6 +111,8 @@ export async function mapSmartFolderRows(rows: SmartFolderRow[]): Promise<Thread
         getThreadLabelIds(r.account_id, r.thread_id),
         getThreadById(r.account_id, r.thread_id),
       ]);
+      const rawUrgency = dbThread?.ai_urgency;
+      const urgency = (rawUrgency === "low" || rawUrgency === "medium" || rawUrgency === "high") ? rawUrgency : null;
       return {
         id: r.thread_id,
         accountId: r.account_id,
@@ -126,6 +128,7 @@ export async function mapSmartFolderRows(rows: SmartFolderRow[]): Promise<Thread
         labelIds,
         fromName: r.from_name,
         fromAddress: r.from_address,
+        aiUrgency: urgency,
       };
     }),
   );
