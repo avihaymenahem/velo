@@ -2,6 +2,9 @@ import { getActiveProvider } from "./providerManager";
 import { getAiCache, setAiCache } from "@/services/db/aiCache";
 import { AiError } from "./errors";
 import type { DbMessage } from "@/services/db/messages";
+import { getSetting } from "@/services/db/settings";
+import { updateThreadUrgency } from "@/services/db/threads";
+import type { ProofreadResult, MeetingDetectionResult, FilterSuggestion } from "./types";
 import {
   SUMMARIZE_PROMPT,
   COMPOSE_PROMPT,
@@ -14,6 +17,12 @@ import {
   ASK_INBOX_PROMPT,
   SMART_LABEL_PROMPT,
   EXTRACT_TASK_PROMPT,
+  PROOFREAD_PROMPT,
+  MEETING_DETECT_PROMPT,
+  INBOX_DIGEST_PROMPT,
+  URGENCY_SCORE_PROMPT,
+  CONTACT_SUMMARY_PROMPT,
+  FILTER_SUGGESTIONS_PROMPT,
 } from "./prompts";
 
 async function callAi(systemPrompt: string, userContent: string): Promise<string> {
@@ -241,5 +250,164 @@ export async function testConnection(): Promise<boolean> {
     return await provider.testConnection();
   } catch {
     return false;
+  }
+}
+
+// Task 6: proofreadEmail
+// Does NOT cache — proofreading is per-draft-send, results vary each time
+export async function proofreadEmail(
+  subject: string,
+  bodyHtml: string,
+  recipients: string[],
+): Promise<ProofreadResult> {
+  const strippedBody = bodyHtml.replace(/<[^>]*>/g, "");
+  const hasAttachmentMention = /\b(attach|attachment|see attached|find attached|enclosed)\b/i.test(strippedBody);
+  const userContent = `<email_content>Subject: ${subject}\nTo: ${recipients.join(", ")}\n\nBody:\n${strippedBody}\n\nNote: ${hasAttachmentMention ? "Email mentions attachment" : "No attachment mentioned"}</email_content>`;
+  try {
+    const raw = await callAi(PROOFREAD_PROMPT, userContent);
+    const parsed = JSON.parse(raw) as ProofreadResult;
+    return parsed;
+  } catch {
+    return { issues: [], overallScore: "good" };
+  }
+}
+
+// Task 7: detectMeetingIntent
+export async function detectMeetingIntent(
+  threadId: string,
+  accountId: string,
+  messages: DbMessage[],
+): Promise<MeetingDetectionResult | null> {
+  const cached = await getAiCache(accountId, threadId, "meeting_intent");
+  if (cached !== null) {
+    return cached === "null" ? null : (JSON.parse(cached) as MeetingDetectionResult);
+  }
+  const formatted = messages
+    .slice(-3)
+    .map(formatMessageForSummary)
+    .join("\n---\n")
+    .slice(0, 3000);
+  const userContent = `<email_content>${formatted}</email_content>`;
+  try {
+    const raw = await callAi(MEETING_DETECT_PROMPT, userContent);
+    const trimmed = raw.trim();
+    if (trimmed === "null" || trimmed === "") {
+      await setAiCache(accountId, threadId, "meeting_intent", "null");
+      return null;
+    }
+    const parsed = JSON.parse(trimmed) as MeetingDetectionResult;
+    await setAiCache(accountId, threadId, "meeting_intent", JSON.stringify(parsed));
+    return parsed;
+  } catch {
+    await setAiCache(accountId, threadId, "meeting_intent", "null");
+    return null;
+  }
+}
+
+// Task 8: generateInboxDigest
+// No caching — digest should always be fresh
+export async function generateInboxDigest(
+  _accountId: string,
+  threads: { id: string; subject: string; snippet: string; fromAddress: string; fromName: string; date: number }[],
+): Promise<string> {
+  const capped = threads.slice(0, 50);
+  const formatted = capped
+    .map((t, i) => `${i + 1}. From: ${t.fromName || t.fromAddress} | Subject: ${t.subject} | ${t.snippet.slice(0, 100)}`)
+    .join("\n")
+    .slice(0, 5000);
+  const userContent = `<email_content>${formatted}</email_content>`;
+  const result = await callAi(INBOX_DIGEST_PROMPT, userContent);
+  return result;
+}
+
+// Task 9: scoreThreadUrgency + batchScoreUrgency
+export async function scoreThreadUrgency(
+  threadId: string,
+  accountId: string,
+  subject: string,
+  snippet: string,
+  fromAddress: string,
+): Promise<"low" | "medium" | "high" | null> {
+  const cached = await getAiCache(accountId, threadId, "urgency");
+  if (cached !== null) {
+    const trimmed = cached.trim().toLowerCase();
+    if (trimmed === "low" || trimmed === "medium" || trimmed === "high") {
+      return trimmed as "low" | "medium" | "high";
+    }
+    return null;
+  }
+  const userContent = `<email_content>From: ${fromAddress}\nSubject: ${subject}\n\n${snippet.slice(0, 500)}</email_content>`;
+  try {
+    const raw = await callAi(URGENCY_SCORE_PROMPT, userContent);
+    const trimmed = raw.trim().toLowerCase();
+    if (trimmed === "low" || trimmed === "medium" || trimmed === "high") {
+      await setAiCache(accountId, threadId, "urgency", trimmed);
+      return trimmed as "low" | "medium" | "high";
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function batchScoreUrgency(
+  accountId: string,
+  threads: { id: string; subject: string; snippet: string; fromAddress: string }[],
+): Promise<void> {
+  const enabled = await getSetting("ai_urgency_enabled");
+  if (enabled !== "true") return;
+  for (const thread of threads) {
+    const score = await scoreThreadUrgency(
+      thread.id,
+      accountId,
+      thread.subject,
+      thread.snippet,
+      thread.fromAddress,
+    );
+    if (score !== null) {
+      await updateThreadUrgency(thread.id, score);
+    }
+  }
+}
+
+// Task 10: generateContactSummary
+// Uses contactEmail as the "threadId" parameter in aiCache (intentional — cache table uses a string key)
+export async function generateContactSummary(
+  accountId: string,
+  contactEmail: string,
+  recentThreads: { id: string; subject: string; snippet: string; date: number }[],
+): Promise<string> {
+  const cached = await getAiCache(accountId, contactEmail, "contact_summary");
+  if (cached !== null) return cached;
+  const formatted = recentThreads
+    .map((t, i) => `${i + 1}. [${new Date(t.date).toLocaleDateString()}] ${t.subject}: ${t.snippet.slice(0, 150)}`)
+    .join("\n")
+    .slice(0, 3000);
+  const userContent = `<email_content>Contact: ${contactEmail}\n\nRecent threads:\n${formatted}</email_content>`;
+  const result = await callAi(CONTACT_SUMMARY_PROMPT, userContent);
+  await setAiCache(accountId, contactEmail, "contact_summary", result);
+  return result;
+}
+
+// Task 11: suggestFilterRules
+// No cache — suggestions should be fresh each time
+export async function suggestFilterRules(
+  _accountId: string,
+  threads: { fromAddress: string; subject: string; snippet: string }[],
+): Promise<FilterSuggestion[]> {
+  const capped = threads.slice(0, 100);
+  const formatted = capped
+    .map((t, i) => `${i + 1}. From: ${t.fromAddress} | Subject: ${t.subject} | ${t.snippet.slice(0, 80)}`)
+    .join("\n")
+    .slice(0, 6000);
+  const userContent = `<email_content>${formatted}</email_content>`;
+  try {
+    const raw = await callAi(FILTER_SUGGESTIONS_PROMPT, userContent);
+    const parsed = JSON.parse(raw) as FilterSuggestion[];
+    return parsed.filter((item) =>
+      ["archive", "label", "trash"].includes(item.suggestedAction),
+    );
+  } catch {
+    return [];
   }
 }
