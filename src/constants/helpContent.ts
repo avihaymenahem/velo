@@ -62,6 +62,13 @@ import {
   Paperclip,
   Tags,
   FolderInput,
+  ShieldCheck,
+  ClipboardCheck,
+  BarChart2,
+  InboxIcon,
+  CalendarPlus,
+  Bot,
+  SlidersHorizontal,
 } from "lucide-react";
 
 // ---------- Types ----------
@@ -853,6 +860,115 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           { text: "AI searches your local database for relevant emails." },
           { text: "Answers include references to specific threads you can click to open." },
         ],
+      },
+      {
+        id: "ai-proofread",
+        icon: ClipboardCheck,
+        title: "Proofread before send",
+        summary: "AI checks tone and clarity before you send.",
+        description:
+          "When you click Send, AI automatically reviews your email for tone, clarity, and potential issues before it goes out. If problems are found, a panel shows each issue with a severity indicator — you can fix them or send anyway. Catching an unclear ask or an overly blunt tone before hitting send is far less awkward than following up. Enable or disable this feature individually in Settings > AI.",
+        tips: [
+          { text: "The proofread panel appears before send if issues are detected." },
+          { text: "Click 'Send anyway' to send without making changes." },
+          { text: "Issues are rated by severity to help you prioritize." },
+          { text: "Toggle proofread-before-send in Settings > AI." },
+          { text: "Requires an active AI provider (Claude, GPT, or Gemini)." },
+        ],
+        relatedSettingsTab: "ai",
+      },
+      {
+        id: "ai-urgency",
+        icon: BarChart2,
+        title: "Thread urgency scoring",
+        summary: "AI scores each thread by urgency during sync.",
+        description:
+          "After each sync, AI analyzes incoming threads and assigns an urgency score based on the content — deadlines, action items, tone, and sender context. High and medium urgency threads show a colored badge in the thread list so you can prioritize at a glance without opening every email. Urgency is scored once per thread and cached locally. Enable or disable this feature in Settings > AI.",
+        tips: [
+          { text: "Urgency badges appear on ThreadCard: 🔴 high, 🟡 medium." },
+          { text: "Scoring runs automatically after each sync in the background." },
+          { text: "Scores are cached — no repeated API calls for the same thread." },
+          { text: "Toggle urgency scoring in Settings > AI." },
+        ],
+        relatedSettingsTab: "ai",
+      },
+      {
+        id: "ai-inbox-digest",
+        icon: InboxIcon,
+        title: "Inbox digest",
+        summary: "One-click AI summary of your unread inbox.",
+        description:
+          "Click the Digest button in the email list to get an instant AI-generated bullet-point summary of your current unread emails. Instead of scrolling through dozens of threads, the digest surfaces the most important items — urgent requests, key decisions, and follow-ups — in a single condensed view. The panel is floating and dismissible so it doesn't interrupt your workflow.",
+        tips: [
+          { text: "Click the Digest button in the email list toolbar to open the panel." },
+          { text: "The panel summarizes your current unread threads as bullet points." },
+          { text: "Dismiss the panel by clicking X or pressing Escape." },
+          { text: "Toggle inbox digest in Settings > AI." },
+        ],
+        relatedSettingsTab: "ai",
+      },
+      {
+        id: "ai-meeting-detection",
+        icon: CalendarPlus,
+        title: "Meeting detection",
+        summary: "Detects scheduling requests and offers to create a calendar event.",
+        description:
+          "When you open a thread that contains a meeting request or scheduling discussion, a banner automatically appears offering to create a calendar event. The AI identifies the proposed date, time, and participants from the email content. Click 'Create Calendar Event' to open a pre-filled event creation modal. This saves the copy-paste workflow of manually extracting meeting details from emails.",
+        tips: [
+          { text: "The banner appears automatically when scheduling intent is detected." },
+          { text: "Click 'Create Calendar Event' to open a pre-filled event form." },
+          { text: "Dismiss the banner if you don't need to create an event." },
+          { text: "Toggle meeting detection in Settings > AI." },
+          { text: "Requires Google Calendar integration to be set up." },
+        ],
+        relatedSettingsTab: "ai",
+      },
+      {
+        id: "ai-contact-relationship",
+        icon: ShieldCheck,
+        title: "Contact relationship summary",
+        summary: "AI overview of your history with each contact.",
+        description:
+          "When you open the Contact Sidebar for a sender, AI generates a short summary of your relationship history — how long you've been in contact, the nature of your exchanges, recent topics, and any recurring themes. This gives you quick context before replying, especially useful for contacts you haven't heard from in a while or when preparing for a conversation.",
+        tips: [
+          { text: "Open the Contact Sidebar by clicking a sender's name or avatar." },
+          { text: "The relationship summary loads automatically when the sidebar opens." },
+          { text: "Summary covers interaction history, common topics, and patterns." },
+          { text: "Toggle contact relationship summary in Settings > AI." },
+        ],
+        relatedSettingsTab: "ai",
+      },
+      {
+        id: "ai-feature-toggles",
+        icon: SlidersHorizontal,
+        title: "AI feature toggles",
+        summary: "Enable or disable each AI feature individually.",
+        description:
+          "Settings > AI includes individual on/off toggles for all seven AI features: proofread before send, urgency scoring, inbox digest, meeting detection, auto task extraction, contact relationship summary, and filter suggestions. Each feature defaults to a sensible setting (most are on; urgency scoring and auto task extraction default to off since they run during sync). Your choices persist across sessions.",
+        tips: [
+          { text: "Find all toggles in Settings > AI under 'AI Features'." },
+          { text: "Urgency scoring and auto task extraction default to off (run during sync)." },
+          { text: "All other AI features default to on." },
+          { text: "Toggling a feature takes effect immediately — no restart needed." },
+        ],
+        relatedSettingsTab: "ai",
+      },
+      {
+        id: "ai-agent-panel",
+        icon: Bot,
+        title: "AI Agent Panel",
+        summary: "Autonomous AI assistant that can manage your inbox for you.",
+        description:
+          "The AI Agent Panel is a floating chat interface powered by Claude's tool-use API. Type a request in plain language — like \"Find all my subscriptions\" or \"Archive newsletters from last month\" — and the agent autonomously executes multi-step actions: finding subscriptions, unsubscribing, archiving threads, and searching emails. Three quick-start chips give you one-click access to the most common tasks. Tool execution progress is shown in real time so you can see exactly what the agent is doing.",
+        tips: [
+          { text: "Open AI Agent Panel", shortcut: "Ctrl+Shift+I" },
+          { text: "The agent can unsubscribe from senders, archive threads, and search emails." },
+          { text: "Quick-start chips: 'Find my subscriptions', 'What emails need my reply?', 'Give me an inbox summary'." },
+          { text: "Tool execution progress is shown as the agent works." },
+          { text: "Press Escape or click the backdrop to close the panel." },
+          { text: "Requires Claude API key (Claude is the only supported provider for the agent)." },
+        ],
+        relatedSettingsTab: "ai",
       },
     ],
   },
