@@ -5,7 +5,7 @@ import { useThreadStore } from "@/stores/threadStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { formatRelativeDate } from "@/utils/date";
-import { Paperclip, Star, Check, Pin, BellRing, VolumeX } from "lucide-react";
+import { Paperclip, Star, Check, Pin, BellRing, VolumeX, AlertCircle } from "lucide-react";
 import type { DragData } from "@/components/dnd/DndProvider";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -23,9 +23,10 @@ interface ThreadCardProps {
   category?: string;
   showCategoryBadge?: boolean;
   hasFollowUp?: boolean;
+  urgency?: "low" | "medium" | "high" | null;
 }
 
-export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick, onContextMenu, category, showCategoryBadge, hasFollowUp }: ThreadCardProps) {
+export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick, onContextMenu, category, showCategoryBadge, hasFollowUp, urgency }: ThreadCardProps) {
   const isMultiSelected = useThreadStore((s) => s.selectedThreadIds.has(thread.id));
   const hasMultiSelect = useThreadStore((s) => s.selectedThreadIds.size > 0);
   const toggleThreadSelection = useThreadStore((s) => s.toggleThreadSelection);
@@ -144,6 +145,14 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
               <span className="shrink-0 text-accent" title="Follow-up reminder set">
                 <BellRing size={12} />
               </span>
+            )}
+            {urgency === "high" && (
+              <span className="shrink-0" title="High urgency">
+                <AlertCircle className="w-2.5 h-2.5 text-red-500" />
+              </span>
+            )}
+            {urgency === "medium" && (
+              <span className="shrink-0 w-2 h-2 rounded-full bg-amber-500 inline-block" title="Medium urgency" />
             )}
             {thread.isMuted && (
               <span className="shrink-0 text-warning" title="Muted">
