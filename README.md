@@ -119,6 +119,29 @@ Google Calendar sync with month, week, and day views. Create events without leav
 
 ## Installation
 
+### Quick Install
+
+#### macOS and Linux
+
+```bash
+curl -fsSL https://install.cat/avihaymenahem/velo | sh
+```
+
+The installer downloads the latest Velo release and installs:
+
+- **macOS**: the universal `.dmg`, copies `Velo.app`, and runs `xattr -cr` automatically
+- **Linux**: the latest `.deb` on Debian-like systems, with AppImage fallback elsewhere
+
+#### Windows PowerShell
+
+```powershell
+irm https://install.cat/avihaymenahem/velo | iex
+```
+
+The PowerShell installer downloads the latest Windows release and prefers the MSI installer when available.
+
+### Manual Download
+
 Download the latest release for your platform:
 
 **[Download Velo](https://github.com/avihaymenahem/velo/releases/latest)** -- Windows `.msi` / `.exe` &nbsp;&bull;&nbsp; macOS `.dmg` &nbsp;&bull;&nbsp; Linux `.deb` / `.AppImage`
