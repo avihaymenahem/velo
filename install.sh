@@ -8,11 +8,11 @@ TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/velo-install.XXXXXX")"
 MOUNT_POINT=""
 
 cleanup() {
-  if [ -n "$TMP_DIR" ]; then
-    rm -rf "$TMP_DIR"
-  fi
   if [ -n "$MOUNT_POINT" ] && command -v hdiutil >/dev/null 2>&1; then
     hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true
+  fi
+  if [ -n "$TMP_DIR" ]; then
+    rm -rf "$TMP_DIR"
   fi
 }
 
