@@ -8,10 +8,12 @@ TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/velo-install.XXXXXX")"
 MOUNT_POINT=""
 
 cleanup() {
+  if [ -n "$TMP_DIR" ]; then
+    rm -rf "$TMP_DIR"
+  fi
   if [ -n "$MOUNT_POINT" ] && command -v hdiutil >/dev/null 2>&1; then
     hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true
   fi
-  rm -rf "$TMP_DIR"
 }
 
 trap cleanup EXIT INT TERM
@@ -31,6 +33,11 @@ need_cmd() {
 
 # Route sudo prompts to the terminal even when the script is piped into `sh`.
 run_sudo() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+    return
+  fi
+
   if [ ! -r /dev/tty ]; then
     fail "sudo access is required, but no interactive TTY is available"
   fi
@@ -182,6 +189,11 @@ need_cmd basename
 need_cmd mktemp
 
 RELEASE_JSON="$(release_json)"
+case "$RELEASE_JSON" in
+  *'"message": "API rate limit exceeded"'*)
+    fail "GitHub API rate limit exceeded. Please try again later or download Velo manually from Releases."
+    ;;
+esac
 OS_NAME="$(current_os)"
 ARCH_NAME="$(current_arch)"
 
