@@ -7,19 +7,21 @@ import { createOpenAIProvider, clearOpenAIProvider } from "./providers/openaiPro
 import { createGeminiProvider, clearGeminiProvider } from "./providers/geminiProvider";
 import { createOllamaProvider, clearOllamaProvider } from "./providers/ollamaProvider";
 import { createCopilotProvider, clearCopilotProvider } from "./providers/copilotProvider";
+import { createCustomProvider, clearCustomProvider } from "./providers/customProvider";
 
 const API_KEY_SETTINGS: Record<Exclude<AiProvider, "ollama">, string> = {
   claude: "claude_api_key",
   openai: "openai_api_key",
   gemini: "gemini_api_key",
   copilot: "copilot_api_key",
+  custom: "custom_api_key",
 };
 
 let cachedProvider: { name: AiProvider; key: string; client: AiProviderClient } | null = null;
 
 export async function getActiveProviderName(): Promise<AiProvider> {
   const setting = await getSetting("ai_provider");
-  if (setting === "openai" || setting === "gemini" || setting === "ollama" || setting === "copilot") return setting;
+  if (setting === "openai" || setting === "gemini" || setting === "ollama" || setting === "copilot" || setting === "custom") return setting;
   return "claude";
 }
 
@@ -37,6 +39,24 @@ export async function getActiveProvider(): Promise<AiProviderClient> {
 
     const client = createOllamaProvider(serverUrl, model);
     cachedProvider = { name: "ollama", key: cacheKey, client };
+    return client;
+  }
+
+  if (providerName === "custom") {
+    const apiKey = await getSecureSetting("custom_api_key");
+    if (!apiKey) {
+      throw new AiError("NOT_CONFIGURED", "Custom provider API key not configured");
+    }
+    const baseUrl = (await getSetting("custom_base_url")) ?? "http://localhost:11434/v1";
+    const model = (await getSetting("custom_model")) ?? "gpt-4o-mini";
+    const cacheKey = `${apiKey}|${baseUrl}|${model}`;
+
+    if (cachedProvider && cachedProvider.name === "custom" && cachedProvider.key === cacheKey) {
+      return cachedProvider.client;
+    }
+
+    const client = createCustomProvider(apiKey, baseUrl, model);
+    cachedProvider = { name: "custom", key: cacheKey, client };
     return client;
   }
 
@@ -100,4 +120,5 @@ export function clearProviderClients(): void {
   clearGeminiProvider();
   clearOllamaProvider();
   clearCopilotProvider();
+  clearCustomProvider();
 }
