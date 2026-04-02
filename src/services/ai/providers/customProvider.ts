@@ -1,13 +1,26 @@
 import OpenAI from "openai";
+import { fetch } from "@tauri-apps/plugin-http";
 import type { AiProviderClient, AiCompletionRequest, AiTestResult } from "../types";
-import { createProviderFactory } from "../providerFactory";
 
-const factory = createProviderFactory(
-  (apiKey) => new OpenAI({ apiKey, dangerouslyAllowBrowser: true }),
-);
+let instance: OpenAI | null = null;
+let cachedKey: string | null = null;
 
-export function createOpenAIProvider(apiKey: string, model: string): AiProviderClient {
-  const client = factory.getClient(apiKey);
+function getClient(apiKey: string, baseUrl: string): OpenAI {
+  const cacheKey = `${apiKey}|${baseUrl}`;
+  if (!instance || cachedKey !== cacheKey) {
+    instance = new OpenAI({
+      apiKey,
+      baseURL: baseUrl.replace(/\/+$/, ""),
+      dangerouslyAllowBrowser: true,
+      fetch,
+    });
+    cachedKey = cacheKey;
+  }
+  return instance;
+}
+
+export function createCustomProvider(apiKey: string, baseUrl: string, model: string): AiProviderClient {
+  const client = getClient(apiKey, baseUrl);
 
   return {
     async complete(req: AiCompletionRequest): Promise<string> {
@@ -39,6 +52,7 @@ export function createOpenAIProvider(apiKey: string, model: string): AiProviderC
   };
 }
 
-export function clearOpenAIProvider(): void {
-  factory.clear();
+export function clearCustomProvider(): void {
+  instance = null;
+  cachedKey = null;
 }

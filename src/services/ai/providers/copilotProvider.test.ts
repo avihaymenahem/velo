@@ -85,20 +85,23 @@ describe("copilotProvider", () => {
   });
 
   describe("testConnection", () => {
-    it("returns true on successful completion", async () => {
+    it("returns { ok: true } on successful completion", async () => {
       mockCreate.mockResolvedValue({
         choices: [{ message: { content: "hi" } }],
       });
 
       const provider = createCopilotProvider("ghp_test123", "openai/gpt-4o-mini");
-      expect(await provider.testConnection()).toBe(true);
+      const result = await provider.testConnection();
+      expect(result).toEqual({ ok: true });
     });
 
-    it("returns false when completion throws", async () => {
+    it("returns { ok: false, error } when completion throws", async () => {
       mockCreate.mockRejectedValue(new Error("Unauthorized"));
 
       const provider = createCopilotProvider("ghp_test123", "openai/gpt-4o-mini");
-      expect(await provider.testConnection()).toBe(false);
+      const result = await provider.testConnection();
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("Unauthorized");
     });
   });
 

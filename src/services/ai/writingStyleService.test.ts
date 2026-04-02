@@ -11,7 +11,7 @@ import type { DbMessage } from "@/services/db/messages";
 vi.mock("./providerManager", () => ({
   getActiveProvider: vi.fn().mockResolvedValue({
     complete: vi.fn().mockResolvedValue("Mocked AI response"),
-    testConnection: vi.fn().mockResolvedValue(true),
+    testConnection: vi.fn().mockResolvedValue({ ok: true }),
   }),
 }));
 
@@ -84,7 +84,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getActiveProvider).mockResolvedValue({
     complete: vi.fn().mockResolvedValue("Mocked AI response"),
-    testConnection: vi.fn().mockResolvedValue(true),
+    testConnection: vi.fn().mockResolvedValue({ ok: true }),
   } as never);
   vi.mocked(getAiCache).mockResolvedValue(null);
   vi.mocked(getWritingStyleProfile).mockResolvedValue(null);
