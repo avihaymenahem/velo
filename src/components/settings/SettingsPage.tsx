@@ -131,7 +131,7 @@ export function SettingsPage() {
   const [aiAutoSummarize, setAiAutoSummarize] = useState(true);
   const [aiKeySaved, setAiKeySaved] = useState(false);
   const [aiTesting, setAiTesting] = useState(false);
-  const [aiTestResult, setAiTestResult] = useState<"success" | "fail" | null>(null);
+  const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
   const [aiAutoDraftEnabled, setAiAutoDraftEnabled] = useState(true);
   const [aiWritingStyleEnabled, setAiWritingStyleEnabled] = useState(true);
   const [styleAnalyzing, setStyleAnalyzing] = useState(false);
@@ -1134,11 +1134,20 @@ export function SettingsPage() {
                               setAiTesting(true);
                               setAiTestResult(null);
                               try {
+                                // auto-save so test uses current form values
+                                await setSetting("custom_base_url", customBaseUrl.trim());
+                                await setSetting("custom_model", customModel.trim());
+                                if (customApiKey.trim()) {
+                                  await setSecureSetting("custom_api_key", customApiKey.trim());
+                                }
+                                const { clearProviderClients } = await import("@/services/ai/providerManager");
+                                clearProviderClients();
                                 const { testConnection } = await import("@/services/ai/aiService");
-                                const ok = await testConnection();
-                                setAiTestResult(ok ? "success" : "fail");
-                              } catch {
-                                setAiTestResult("fail");
+                                const result = await testConnection();
+                                setAiTestResult(result);
+                              } catch (err) {
+                                const msg = err instanceof Error ? err.message : String(err);
+                                setAiTestResult({ ok: false, error: msg });
                               } finally {
                                 setAiTesting(false);
                               }
@@ -1148,11 +1157,11 @@ export function SettingsPage() {
                           >
                             {aiTesting ? "Testing..." : "Test Connection"}
                           </Button>
-                          {aiTestResult === "success" && (
+                          {aiTestResult?.ok && (
                             <span className="text-xs text-success">Connected!</span>
                           )}
-                          {aiTestResult === "fail" && (
-                            <span className="text-xs text-danger">Connection failed</span>
+                          {aiTestResult && !aiTestResult.ok && (
+                            <span className="text-xs text-danger" title={aiTestResult.error}>Connection failed{aiTestResult.error ? `: ${aiTestResult.error.slice(0, 100)}` : ""}</span>
                           )}
                         </div>
                       </div>
@@ -1197,11 +1206,16 @@ export function SettingsPage() {
                               setAiTesting(true);
                               setAiTestResult(null);
                               try {
+                                await setSetting("ollama_server_url", ollamaServerUrl.trim());
+                                await setSetting("ollama_model", ollamaModel.trim());
+                                const { clearProviderClients } = await import("@/services/ai/providerManager");
+                                clearProviderClients();
                                 const { testConnection } = await import("@/services/ai/aiService");
-                                const ok = await testConnection();
-                                setAiTestResult(ok ? "success" : "fail");
-                              } catch {
-                                setAiTestResult("fail");
+                                const result = await testConnection();
+                                setAiTestResult(result);
+                              } catch (err) {
+                                const msg = err instanceof Error ? err.message : String(err);
+                                setAiTestResult({ ok: false, error: msg });
                               } finally {
                                 setAiTesting(false);
                               }
@@ -1211,11 +1225,11 @@ export function SettingsPage() {
                           >
                             {aiTesting ? "Testing..." : "Test Connection"}
                           </Button>
-                          {aiTestResult === "success" && (
+                          {aiTestResult?.ok && (
                             <span className="text-xs text-success">Connected!</span>
                           )}
-                          {aiTestResult === "fail" && (
-                            <span className="text-xs text-danger">Connection failed</span>
+                          {aiTestResult && !aiTestResult.ok && (
+                            <span className="text-xs text-danger" title={aiTestResult.error}>Connection failed{aiTestResult.error ? `: ${aiTestResult.error.slice(0, 100)}` : ""}</span>
                           )}
                         </div>
                       </div>
@@ -1323,10 +1337,11 @@ export function SettingsPage() {
                               setAiTestResult(null);
                               try {
                                 const { testConnection } = await import("@/services/ai/aiService");
-                                const ok = await testConnection();
-                                setAiTestResult(ok ? "success" : "fail");
-                              } catch {
-                                setAiTestResult("fail");
+                                const result = await testConnection();
+                                setAiTestResult(result);
+                              } catch (err) {
+                                const msg = err instanceof Error ? err.message : String(err);
+                                setAiTestResult({ ok: false, error: msg });
                               } finally {
                                 setAiTesting(false);
                               }
@@ -1341,11 +1356,11 @@ export function SettingsPage() {
                           >
                             {aiTesting ? "Testing..." : "Test Connection"}
                           </Button>
-                          {aiTestResult === "success" && (
+                          {aiTestResult?.ok && (
                             <span className="text-xs text-success">Connected!</span>
                           )}
-                          {aiTestResult === "fail" && (
-                            <span className="text-xs text-danger">Connection failed</span>
+                          {aiTestResult && !aiTestResult.ok && (
+                            <span className="text-xs text-danger" title={aiTestResult.error}>Connection failed{aiTestResult.error ? `: ${aiTestResult.error.slice(0, 100)}` : ""}</span>
                           )}
                         </div>
                       </div>

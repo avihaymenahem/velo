@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { fetch } from "@tauri-apps/plugin-http";
-import type { AiProviderClient, AiCompletionRequest } from "../types";
+import type { AiProviderClient, AiCompletionRequest, AiTestResult } from "../types";
 
 let instance: OpenAI | null = null;
 let cachedKey: string | null = null;
@@ -36,16 +36,17 @@ export function createCustomProvider(apiKey: string, baseUrl: string, model: str
       return response.choices[0]?.message?.content ?? "";
     },
 
-    async testConnection(): Promise<boolean> {
+    async testConnection(): Promise<AiTestResult> {
       try {
         await client.chat.completions.create({
           model,
           max_tokens: 10,
           messages: [{ role: "user", content: "Say hi" }],
         });
-        return true;
-      } catch {
-        return false;
+        return { ok: true };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { ok: false, error: msg };
       }
     },
   };

@@ -5,7 +5,7 @@ const mockComplete = vi.fn();
 vi.mock("./providerManager", () => ({
   getActiveProvider: vi.fn(() => ({
     complete: mockComplete,
-    testConnection: vi.fn(() => Promise.resolve(true)),
+    testConnection: vi.fn(() => Promise.resolve({ ok: true })),
   })),
 }));
 

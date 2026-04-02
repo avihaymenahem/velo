@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { AiProviderClient, AiCompletionRequest } from "../types";
+import type { AiProviderClient, AiCompletionRequest, AiTestResult } from "../types";
 import { createProviderFactory } from "../providerFactory";
 
 const factory = createProviderFactory(
@@ -22,16 +22,17 @@ export function createClaudeProvider(apiKey: string, model: string): AiProviderC
       return textBlock?.text ?? "";
     },
 
-    async testConnection(): Promise<boolean> {
+    async testConnection(): Promise<AiTestResult> {
       try {
         await client.messages.create({
           model,
           max_tokens: 10,
           messages: [{ role: "user", content: "Say hi" }],
         });
-        return true;
-      } catch {
-        return false;
+        return { ok: true };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { ok: false, error: msg };
       }
     },
   };

@@ -83,20 +83,23 @@ describe("ollamaProvider", () => {
   });
 
   describe("testConnection", () => {
-    it("returns true on successful completion", async () => {
+    it("returns { ok: true } on successful completion", async () => {
       mockCreate.mockResolvedValue({
         choices: [{ message: { content: "hi" } }],
       });
 
       const provider = createOllamaProvider("http://localhost:11434", "llama3.2");
-      expect(await provider.testConnection()).toBe(true);
+      const result = await provider.testConnection();
+      expect(result).toEqual({ ok: true });
     });
 
-    it("returns false when completion throws", async () => {
+    it("returns { ok: false, error } when completion throws", async () => {
       mockCreate.mockRejectedValue(new Error("Connection refused"));
 
       const provider = createOllamaProvider("http://localhost:11434", "llama3.2");
-      expect(await provider.testConnection()).toBe(false);
+      const result = await provider.testConnection();
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("Connection refused");
     });
   });
 

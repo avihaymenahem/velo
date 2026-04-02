@@ -1,6 +1,7 @@
 import { getActiveProvider } from "./providerManager";
 import { getAiCache, setAiCache } from "@/services/db/aiCache";
 import { AiError } from "./errors";
+import type { AiTestResult } from "./types";
 import type { DbMessage } from "@/services/db/messages";
 import {
   SUMMARIZE_PROMPT,
@@ -235,11 +236,12 @@ export async function extractTaskFromThread(
   return callAi(EXTRACT_TASK_PROMPT, combined);
 }
 
-export async function testConnection(): Promise<boolean> {
+export async function testConnection(): Promise<AiTestResult> {
   try {
     const provider = await getActiveProvider();
     return await provider.testConnection();
-  } catch {
-    return false;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: msg };
   }
 }

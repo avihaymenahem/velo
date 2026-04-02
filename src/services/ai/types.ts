@@ -6,9 +6,14 @@ export interface AiCompletionRequest {
   maxTokens?: number;
 }
 
+export interface AiTestResult {
+  ok: boolean;
+  error?: string;
+}
+
 export interface AiProviderClient {
   complete(req: AiCompletionRequest): Promise<string>;
-  testConnection(): Promise<boolean>;
+  testConnection(): Promise<AiTestResult>;
 }
 
 export const DEFAULT_MODELS: Record<AiProvider, string> = {
@@ -47,8 +52,9 @@ export const PROVIDER_MODELS: Record<Exclude<AiProvider, "ollama">, ModelOption[
     { id: "openai/gpt-4.1-nano", label: "GPT-4.1 Nano (Low)" },
     { id: "openai/gpt-4.1-mini", label: "GPT-4.1 Mini (High)" },
     { id: "openai/gpt-4o", label: "GPT-4o (High)" },
-    { id: "openai/gpt-4.1", label: "GPT-4.1 (High)" },
+    { id: "openai/gpt-4.1", label: "GPT-4.1" },
   ],
+  custom: [],
 };
 
 export const MODEL_SETTINGS: Record<Exclude<AiProvider, "ollama" | "custom">, string> = {

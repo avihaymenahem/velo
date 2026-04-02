@@ -155,7 +155,8 @@ export async function isAutoDraftEnabled(): Promise<boolean> {
 
   try {
     const provider = await getActiveProvider();
-    return await provider.testConnection();
+    const result = await provider.testConnection();
+    return result.ok;
   } catch {
     return false;
   }

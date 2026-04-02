@@ -52,7 +52,8 @@ export function createMockEmailProvider(
 export function createMockAiProvider(response = "ai response") {
   return {
     complete: vi.fn(() => Promise.resolve(response)),
-    testConnection: vi.fn(() => Promise.resolve(true)),
+    testConnection: vi.fn().mockResolvedValue({ ok: true }),
+
   };
 }
 
