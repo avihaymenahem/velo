@@ -198,7 +198,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
         <div className="flex justify-end -mt-1 -mr-1 mb-1">
           <button
             onClick={onClose}
-            title="Close contact sidebar"
+            title={t("contactSidebar.closeContactSidebar")}
             className="p-1 text-text-tertiary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
           >
             <X size={14} />
@@ -235,7 +235,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
               />
               <button
                 onClick={handleSaveEditName}
-                title="Save name"
+                title={t("contactSidebar.saveName")}
                 className="p-0.5 text-success hover:text-success/80 transition-colors"
               >
                 <Check size={14} />
@@ -257,21 +257,21 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
         <div className="flex items-center justify-center gap-3 mb-4">
           <button
             onClick={handleCompose}
-            title="Send email"
+            title={t("contactSidebar.sendEmail")}
             className="p-2 text-text-secondary hover:text-accent hover:bg-bg-hover rounded-lg transition-colors"
           >
             <Send size={16} />
           </button>
           <button
             onClick={handleCopyEmail}
-            title={copyFeedback ? "Copied!" : "Copy email"}
+            title={copyFeedback ? t("contactSidebar.copied") : t("contactSidebar.copyEmail")}
             className="p-2 text-text-secondary hover:text-accent hover:bg-bg-hover rounded-lg transition-colors"
           >
             {copyFeedback ? <Check size={16} className="text-success" /> : <Copy size={16} />}
           </button>
           <button
             onClick={handleToggleVip}
-            title={isVip ? "Remove VIP" : "Mark as VIP"}
+            title={isVip ? t("contactSidebar.removeVip") : t("contactSidebar.markAsVip")}
             className={`p-2 rounded-lg transition-colors ${
               isVip
                 ? "text-warning hover:text-warning/80 hover:bg-bg-hover"
@@ -291,12 +291,12 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
             {addedFeedback ? (
               <>
                 <Check size={12} className="text-success" />
-                <span className="text-success">Added!</span>
+                <span className="text-success">{t("contactSidebar.added")}</span>
               </>
             ) : (
               <>
                 <UserPlus size={12} />
-                <span>Add to Contacts</span>
+                <span>{t("contactSidebar.addToContacts")}</span>
               </>
             )}
           </button>
@@ -306,7 +306,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
             className="w-full flex items-center justify-center gap-1.5 px-3 py-1 text-xs text-text-tertiary hover:text-text-secondary transition-colors mb-4"
           >
             <PenLine size={11} />
-            <span>Edit name</span>
+            <span>{t("contactSidebar.editName")}</span>
           </button>
         ) : null}
 
@@ -315,18 +315,18 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
           <div className="space-y-2 mb-4">
             <div className="flex items-center gap-2 text-xs text-text-secondary">
               <Mail size={12} className="text-text-tertiary shrink-0" />
-              <span>{stats.emailCount} emails</span>
+              <span>{t("contactSidebar.emailCount", { count: stats.emailCount })}</span>
             </div>
             {stats.firstEmail && (
               <div className="flex items-center gap-2 text-xs text-text-secondary">
                 <Clock size={12} className="text-text-tertiary shrink-0" />
-                <span>First email: {formatRelativeDate(stats.firstEmail)}</span>
+                <span>{t("contactSidebar.firstEmail", { date: formatRelativeDate(stats.firstEmail) })}</span>
               </div>
             )}
             {stats.lastEmail && (
               <div className="flex items-center gap-2 text-xs text-text-secondary">
                 <Clock size={12} className="text-text-tertiary shrink-0" />
-                <span>Last email: {formatRelativeDate(stats.lastEmail)}</span>
+                <span>{t("contactSidebar.lastEmail", { date: formatRelativeDate(stats.lastEmail) })}</span>
               </div>
             )}
           </div>
@@ -340,14 +340,14 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
               className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2 hover:text-text-secondary transition-colors"
             >
               {notesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-              Notes
+              {t("contactSidebar.notes")}
             </button>
             {notesExpanded && (
               <textarea
                 value={notes}
                 onChange={(e) => handleNotesChange(e.target.value)}
                 onBlur={handleNotesBlur}
-                placeholder="Add a note..."
+                placeholder={t("contactSidebar.notesPlaceholder")}
                 rows={3}
                 className="w-full text-xs bg-bg-primary border border-border-primary rounded-md px-2 py-1.5 text-text-secondary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent resize-y"
               />
@@ -360,7 +360,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
           <div className="mb-4">
             <h4 className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2">
               <Paperclip size={11} />
-              Shared Files
+              {t("contactSidebar.sharedFiles")}
             </h4>
             <div className="space-y-1">
               {attachments.map((att, i) => (
@@ -388,7 +388,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
           <div className="mb-4">
             <h4 className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2">
               <Building2 size={11} />
-              Others at @{domain}
+              {t("contactSidebar.othersAtDomain", { domain })}
             </h4>
             <div className="space-y-1">
               {sameDomainContacts.map((c) => (
@@ -419,7 +419,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
         {recentThreads.length > 0 && (
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2">
-              Recent Conversations
+              {t("contactSidebar.recentConversations")}
             </h4>
             <div className="space-y-1">
               {recentThreads.map((thread) => (

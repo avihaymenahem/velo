@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Outlet } from "@tanstack/react-router";
 import { Sidebar } from "./components/layout/Sidebar";
 import { AddAccount } from "./components/accounts/AddAccount";
@@ -71,6 +72,7 @@ import { OfflineBanner } from "./components/ui/OfflineBanner";
 import { UpdateToast } from "./components/ui/UpdateToast";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { formatSyncError } from "./utils/networkErrors";
+import i18n from "./i18n";
 import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
 import { router } from "./router";
@@ -95,6 +97,7 @@ function useRouterSyncBridge() {
 import { useThreadStore } from "./stores/threadStore";
 
 export default function App() {
+  const { t } = useTranslation();
   const theme = useUIStore((s) => s.theme);
   const fontScale = useUIStore((s) => s.fontScale);
   const colorTheme = useUIStore((s) => s.colorTheme);
@@ -103,6 +106,7 @@ export default function App() {
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [syncIsError, setSyncIsError] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [showAskInbox, setShowAskInbox] = useState(false);
@@ -392,21 +396,23 @@ export default function App() {
   useEffect(() => {
     const unsub = onSyncStatus((accountId, status, progress, error) => {
       if (status === "syncing") {
+        setSyncIsError(false);
         if (progress) {
           if (progress.phase === "messages") {
             setSyncStatus(
-              `Syncing: ${progress.current}/${progress.total} messages`,
+              i18n.t("app.syncStatus.syncingMessages", { current: progress.current, total: progress.total }),
             );
           } else if (progress.phase === "labels") {
-            setSyncStatus("Syncing labels...");
+            setSyncStatus(i18n.t("app.syncStatus.syncingLabels"));
           } else if (progress.phase === "threads") {
-            setSyncStatus(`Building threads... (${progress.current}/${progress.total})`);
+            setSyncStatus(i18n.t("app.syncStatus.buildingThreads", { current: progress.current, total: progress.total }));
           }
         } else {
-          setSyncStatus("Syncing...");
+          setSyncStatus(i18n.t("app.syncStatus.syncing"));
         }
       } else if (status === "done") {
-        setSyncStatus("Sync complete");
+        setSyncIsError(false);
+        setSyncStatus(i18n.t("app.syncStatus.syncComplete"));
         setTimeout(() => setSyncStatus(null), 2_000);
         window.dispatchEvent(new Event("velo-sync-done"));
         updateBadgeCount();
@@ -419,11 +425,12 @@ export default function App() {
             .catch((err) => console.error("Backfill error:", err));
         }
       } else if (status === "error") {
-        setSyncStatus(error ? `Sync failed: ${formatSyncError(error)}` : "Sync failed");
+        setSyncIsError(true);
+        setSyncStatus(error ? i18n.t("app.syncStatus.syncFailedWith", { error: formatSyncError(error) }) : i18n.t("app.syncStatus.syncFailed"));
         // Still dispatch sync-done so the UI refreshes with any partially stored data
         window.dispatchEvent(new Event("velo-sync-done"));
         // Auto-clear the error after 8 seconds
-        setTimeout(() => setSyncStatus(null), 8_000);
+        setTimeout(() => { setSyncStatus(null); setSyncIsError(false); }, 8_000);
       }
     });
     return unsub;
@@ -540,7 +547,7 @@ export default function App() {
             <div className="absolute inset-0 rounded-full border-2 border-accent/20" />
             <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-accent animate-spin" />
           </div>
-          <span className="text-xs text-text-tertiary animate-pulse">Loading your inbox...</span>
+          <span className="text-xs text-text-tertiary animate-pulse">{t("app.loadingInbox")}</span>
         </div>
       </div>
     );
@@ -574,7 +581,7 @@ export default function App() {
       {syncStatus && (
         <div
           className={`fixed bottom-0 left-0 right-0 glass-panel text-white text-xs px-4 py-1.5 text-center z-40 animate-[slideUp_200ms_ease-out,fadeIn_200ms_ease-out] ${
-            syncStatus.startsWith("Sync failed") ? "bg-danger/90" : "bg-accent/90"
+            syncIsError ? "bg-danger/90" : "bg-accent/90"
           }`}
         >
           {syncStatus}

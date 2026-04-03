@@ -449,7 +449,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                             setInboxViewMode(inboxViewMode === "split" ? "unified" : "split");
                           }
                         }}
-                        title={inboxViewMode === "split" ? "Switch to unified inbox" : "Switch to split inbox"}
+                        title={inboxViewMode === "split" ? t("sidebar.switchToUnified") : t("sidebar.switchToSplit")}
                         className={`p-1 rounded transition-colors ${
                           inboxViewMode === "split"
                             ? "text-accent hover:bg-accent/10"

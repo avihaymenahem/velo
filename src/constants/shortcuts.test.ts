@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { SHORTCUTS, getDefaultKeyMap } from "./shortcuts";
+import i18n from "i18next";
+import { SHORTCUTS, getDefaultKeyMap, getShortcuts } from "./shortcuts";
 
 describe("SHORTCUTS", () => {
   it("has at least 3 categories (Navigation, Actions, App)", () => {
@@ -44,6 +45,46 @@ describe("SHORTCUTS", () => {
     const allIds = SHORTCUTS.flatMap((c) => c.items.map((i) => i.id));
     for (const id of allIds) {
       expect(map[id]).toBeDefined();
+    }
+  });
+});
+
+describe("getShortcuts(t)", () => {
+  const t = i18n.t.bind(i18n);
+
+  it("returns categories with translated strings, not raw key paths", () => {
+    const translated = getShortcuts(t);
+    expect(translated.length).toBeGreaterThanOrEqual(3);
+
+    for (const category of translated) {
+      // Translated strings should not look like dot-separated key paths
+      expect(category.category).not.toContain("shortcuts.");
+      for (const item of category.items) {
+        expect(item.desc).not.toContain("shortcuts.");
+      }
+    }
+  });
+
+  it("first category is 'Navigation'", () => {
+    const translated = getShortcuts(t);
+    expect(translated[0]!.category).toBe("Navigation");
+  });
+
+  it("items have translated desc values", () => {
+    const translated = getShortcuts(t);
+    const navItems = translated[0]!.items;
+
+    // First item should be "Next thread"
+    expect(navItems[0]!.desc).toBe("Next thread");
+    // Items should retain their key bindings
+    expect(navItems[0]!.keys).toBe("j");
+  });
+
+  it("returns same number of categories and items as SHORTCUTS", () => {
+    const translated = getShortcuts(t);
+    expect(translated.length).toBe(SHORTCUTS.length);
+    for (let i = 0; i < translated.length; i++) {
+      expect(translated[i]!.items.length).toBe(SHORTCUTS[i]!.items.length);
     }
   });
 });

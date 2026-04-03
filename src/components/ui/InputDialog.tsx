@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
 
@@ -25,8 +26,11 @@ export function InputDialog({
   onSubmit,
   title,
   fields,
-  submitLabel = "Save",
+  submitLabel,
 }: InputDialogProps) {
+  const { t } = useTranslation();
+  const resolvedSubmitLabel = submitLabel ?? t("inputDialog.save");
+
   const buildInitial = useCallback(
     () =>
       Object.fromEntries(
@@ -87,10 +91,10 @@ export function InputDialog({
         ))}
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t("inputDialog.cancel")}
           </Button>
           <Button variant="primary" onClick={handleSubmit} disabled={!isValid}>
-            {submitLabel}
+            {resolvedSubmitLabel}
           </Button>
         </div>
       </div>

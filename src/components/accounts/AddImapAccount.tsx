@@ -444,7 +444,7 @@ export function AddImapAccount({
 
     return (
       <div className="mb-4">
-        <label className={labelClass}>{t("addImap.authMethod", "Authentication Method")}</label>
+        <label className={labelClass}>{t("addImap.authMethod")}</label>
         <div className="flex gap-2">
           {detectedAuthMethods.includes("password") && (
             <button
@@ -511,7 +511,7 @@ export function AddImapAccount({
             type="password"
             value={form.oauthClientSecret}
             onChange={(e) => updateForm("oauthClientSecret", e.target.value)}
-            placeholder="Leave blank for public clients"
+            placeholder={t("addImap.placeholderLeaveBlankPublic")}
             className={inputClass}
             disabled={hasOAuthTokens}
           />
@@ -521,7 +521,7 @@ export function AddImapAccount({
           <div className="flex items-center gap-2 p-3 rounded-lg bg-success/10 border border-success/20">
             <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
             <div className="text-sm text-success">
-              Connected as <span className="font-medium">{form.oauthEmail}</span>
+              {t("addImap.connectedAs")} <span className="font-medium">{form.oauthEmail}</span>
             </div>
           </div>
         ) : (
@@ -538,7 +538,7 @@ export function AddImapAccount({
             ) : (
               <>
                 <ShieldCheck className="w-4 h-4" />
-                Sign in with {providerName}
+                {t("addImap.signInWith", { provider: providerName })}
               </>
             )}
           </button>
@@ -551,12 +551,12 @@ export function AddImapAccount({
         )}
 
         <p className="text-xs text-text-tertiary">
-          You need to register an app with {providerName} to get a Client ID.{" "}
+          {t("addImap.oauthAppRegistrationHint", { provider: providerName })}{" "}
           {providerId === "microsoft" && (
-            <>Register at the Azure Portal (App Registrations) with redirect URI <code className="text-accent">http://127.0.0.1:17248</code>.</>
+            <>{t("addImap.oauthMicrosoftHint")} <code className="text-accent">http://127.0.0.1:17248</code>.</>
           )}
           {providerId === "yahoo" && (
-            <>Register at the Yahoo Developer Network with redirect URI <code className="text-accent">http://127.0.0.1:17248</code>.</>
+            <>{t("addImap.oauthYahooHint")} <code className="text-accent">http://127.0.0.1:17248</code>.</>
           )}
         </p>
       </div>
@@ -575,7 +575,7 @@ export function AddImapAccount({
           value={form.email}
           onChange={(e) => updateForm("email", e.target.value)}
           onBlur={handleEmailBlur}
-          placeholder="you@example.com"
+          placeholder={t("addImap.placeholderEmail")}
           className={inputClass}
           autoFocus
           disabled={isOAuth && hasOAuthTokens}
@@ -597,7 +597,7 @@ export function AddImapAccount({
               type="text"
               value={form.displayName}
               onChange={(e) => updateForm("displayName", e.target.value)}
-              placeholder="Your Name"
+              placeholder={t("addImap.placeholderYourName")}
               className={inputClass}
             />
           </div>
@@ -610,11 +610,11 @@ export function AddImapAccount({
               type="text"
               value={form.imapUsername}
               onChange={(e) => updateForm("imapUsername", e.target.value)}
-              placeholder="Leave blank to use your email address"
+              placeholder={t("addImap.placeholderLeaveBlankEmail")}
               className={inputClass}
             />
             <p className="text-xs text-text-tertiary mt-1">
-              Only needed if your login username differs from your email address.
+              {t("addImap.usernameHint")}
             </p>
           </div>
           <div>
@@ -626,11 +626,11 @@ export function AddImapAccount({
               type="password"
               value={form.password}
               onChange={(e) => updateForm("password", e.target.value)}
-              placeholder="Enter your email password or app password"
+              placeholder={t("addImap.placeholderEmailPassword")}
               className={inputClass}
             />
             <p className="text-xs text-text-tertiary mt-1">
-              If your provider requires it, use an app-specific password.
+              {t("addImap.appPasswordHint")}
             </p>
           </div>
         </>
@@ -646,7 +646,7 @@ export function AddImapAccount({
             type="text"
             value={form.displayName}
             onChange={(e) => updateForm("displayName", e.target.value)}
-            placeholder="Your Name"
+            placeholder={t("addImap.placeholderYourName")}
             className={inputClass}
           />
         </div>
@@ -658,7 +658,7 @@ export function AddImapAccount({
     <div className="space-y-4">
       {isOAuth && (
         <p className="text-xs text-text-tertiary">
-          Server settings have been auto-configured for your provider. You can adjust them if needed.
+          {t("addImap.oauthAutoConfigHint")}
         </p>
       )}
       <div>
@@ -670,7 +670,7 @@ export function AddImapAccount({
           type="text"
           value={form.imapHost}
           onChange={(e) => updateForm("imapHost", e.target.value)}
-          placeholder="imap.example.com"
+          placeholder={t("addImap.placeholderImapHost")}
           className={inputClass}
           autoFocus
         />
@@ -724,7 +724,7 @@ export function AddImapAccount({
         </label>
       </div>
       <p className="text-xs text-text-tertiary -mt-2 ml-6">
-        Enable for local mail bridges like ProtonMail Bridge
+        {t("addImap.invalidCertsHint")}
       </p>
     </div>
   );
@@ -733,7 +733,7 @@ export function AddImapAccount({
     <div className="space-y-4">
       {isOAuth && (
         <p className="text-xs text-text-tertiary">
-          Server settings have been auto-configured for your provider. You can adjust them if needed.
+          {t("addImap.oauthAutoConfigHint")}
         </p>
       )}
       <div>
@@ -745,7 +745,7 @@ export function AddImapAccount({
           type="text"
           value={form.smtpHost}
           onChange={(e) => updateForm("smtpHost", e.target.value)}
-          placeholder="smtp.example.com"
+          placeholder={t("addImap.placeholderSmtpHost")}
           className={inputClass}
           autoFocus
         />
@@ -810,7 +810,7 @@ export function AddImapAccount({
                 type="password"
                 value={form.smtpPassword}
                 onChange={(e) => updateForm("smtpPassword", e.target.value)}
-                placeholder="SMTP password"
+                placeholder={t("addImap.placeholderSmtpPassword")}
                 className={inputClass}
               />
             </div>
@@ -858,12 +858,12 @@ export function AddImapAccount({
   const renderTestStep = () => (
     <div className="space-y-4">
       <div className="text-sm text-text-secondary mb-2">
-        Test your connection settings before adding the account.
+        {t("addImap.testBeforeAdding")}
       </div>
 
       <div className="space-y-3">
-        {renderTestResult("IMAP Connection", imapTest)}
-        {renderTestResult("SMTP Connection", smtpTest)}
+        {renderTestResult(t("addImap.imapConnection"), imapTest)}
+        {renderTestResult(t("addImap.smtpConnection"), smtpTest)}
       </div>
 
       <button
@@ -933,7 +933,7 @@ export function AddImapAccount({
                 disabled={!bothTestsPassed || saving}
                 className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? "Adding..." : t("addAccount.title", "Add Account")}
+                {saving ? t("addImap.adding") : t("addAccount.title", "Add Account")}
               </button>
             ) : (
               <button
@@ -941,7 +941,7 @@ export function AddImapAccount({
                 disabled={!canGoNext()}
                 className="flex items-center gap-1 px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next
+                {t("addImap.next")}
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}

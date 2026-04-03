@@ -587,7 +587,7 @@ export function SettingsPage() {
                       <div>
                         <span className="text-sm text-text-secondary">{t("settings.storage.attachmentCache")}</span>
                         <p className="text-xs text-text-tertiary mt-0.5">
-                          {cacheSizeMb !== null ? `${cacheSizeMb} MB used` : t("settings.storage.calculating")}
+                          {cacheSizeMb !== null ? t("settings.storage.usedMb", { size: cacheSizeMb }) : t("settings.storage.calculating")}
                         </p>
                       </div>
                       <Button
@@ -607,7 +607,7 @@ export function SettingsPage() {
                         disabled={clearingCache}
                         className="bg-bg-tertiary text-text-primary border border-border-primary"
                       >
-                        {clearingCache ? "Clearing..." : t("settings.storage.clearCache")}
+                        {clearingCache ? t("settings.storage.clearing") : t("settings.storage.clearCache")}
                       </Button>
                     </div>
                     <SettingRow label={t("settings.storage.maxCacheSize")}>
@@ -673,7 +673,7 @@ export function SettingsPage() {
                                     : "bg-bg-tertiary text-text-tertiary border-border-primary hover:text-text-primary"
                                 }`}
                               >
-                                {cat}
+                                {t(`categories.${cat.toLowerCase()}`)}
                               </button>
                             ))}
                           </div>
@@ -1141,7 +1141,7 @@ export function SettingsPage() {
                             disabled={!ollamaServerUrl.trim() || !ollamaModel.trim() || aiTesting}
                             className="bg-bg-tertiary text-text-primary border border-border-primary"
                           >
-                            {aiTesting ? "Testing..." : t("settings.aiSettings.testConnection")}
+                            {aiTesting ? t("settings.aiSettings.testing") : t("settings.aiSettings.testConnection")}
                           </Button>
                           {aiTestResult === "success" && (
                             <span className="text-xs text-success">{t("settings.aiSettings.connected")}</span>
@@ -1271,7 +1271,7 @@ export function SettingsPage() {
                             }
                             className="bg-bg-tertiary text-text-primary border border-border-primary"
                           >
-                            {aiTesting ? "Testing..." : t("settings.aiSettings.testConnection")}
+                            {aiTesting ? t("settings.aiSettings.testing") : t("settings.aiSettings.testConnection")}
                           </Button>
                           {aiTestResult === "success" && (
                             <span className="text-xs text-success">{t("settings.aiSettings.connected")}</span>
@@ -1375,7 +1375,7 @@ export function SettingsPage() {
                     )}
                   </Section>
 
-                  <Section title="Categories">
+                  <Section title={t("settings.aiSettings.categoriesTitle")}>
                     <p className="text-xs text-text-tertiary mb-1">
                       {t("settings.aiSettings.categoriesDescription")}
                     </p>
@@ -1480,12 +1480,12 @@ function SendAsAliasesSection() {
                   <div className="flex items-center gap-2 mt-0.5">
                     {alias.isPrimary && (
                       <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 py-0.5 rounded-full">
-                        Primary
+                        {t("settings.accounts.primaryBadge")}
                       </span>
                     )}
                     {alias.isDefault && (
                       <span className="text-[0.625rem] bg-success/15 text-success px-1.5 py-0.5 rounded-full">
-                        Default
+                        {t("settings.accounts.defaultBadge")}
                       </span>
                     )}
                     {alias.verificationStatus !== "accepted" && (
@@ -1551,7 +1551,7 @@ function SyncOfflineSection() {
   };
 
   return (
-    <Section title="Sync & Offline">
+    <Section title={t("settings.sync.syncOffline")}>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
@@ -1706,7 +1706,7 @@ function DeveloperTab() {
                 onClick={handleInstallUpdate}
                 disabled={installingUpdate}
               >
-                {installingUpdate ? "Updating..." : t("settings.about.updateAndRestart")}
+                {installingUpdate ? t("settings.about.updating") : t("settings.about.updateAndRestart")}
               </Button>
             ) : (
               <Button
@@ -2014,6 +2014,7 @@ function ShortcutsTab() {
 }
 
 function ImapCalDavSection() {
+  const { t } = useTranslation();
   const accounts = useAccountStore((s) => s.accounts);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const [account, setAccount] = useState<import("@/services/db/accounts").DbAccount | null>(null);
@@ -2031,7 +2032,7 @@ function ImapCalDavSection() {
   if (!isImap || !account) return null;
 
   return (
-    <Section title="Calendar (CalDAV)">
+    <Section title={t("sidebar.calendarCalDav")}>
       <CalDavSettingsInline account={account} onSaved={() => {
         // Reload account
         import("@/services/db/accounts").then(({ getAccount }) => {
@@ -2043,13 +2044,14 @@ function ImapCalDavSection() {
 }
 
 function CalDavSettingsInline({ account, onSaved }: { account: import("@/services/db/accounts").DbAccount; onSaved: () => void }) {
+  const { t } = useTranslation();
   const [CalDav, setCalDav] = useState<typeof import("@/components/settings/CalDavSettings").CalDavSettings | null>(null);
 
   useEffect(() => {
     import("@/components/settings/CalDavSettings").then((m) => setCalDav(() => m.CalDavSettings));
   }, []);
 
-  if (!CalDav) return <div className="text-xs text-text-tertiary">Loading...</div>;
+  if (!CalDav) return <div className="text-xs text-text-tertiary">{t("common.loading")}</div>;
 
   return <CalDav account={account} onSaved={onSaved} />;
 }
@@ -2100,7 +2102,7 @@ function SidebarNavEditor() {
       items.every((item, i) => item.id === allNavItems[i]?.id && item.visible));
 
   return (
-    <Section title="Sidebar">
+    <Section title={t("sidebar.sidebarSection")}>
       <div className="space-y-1">
         {items.map((item, index) => {
           const nav = navLookup.get(item.id);
@@ -2118,7 +2120,7 @@ function SidebarNavEditor() {
                 onClick={() => moveItem(index, -1)}
                 disabled={index === 0}
                 className="p-0.5 rounded text-text-tertiary hover:text-text-primary disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-                title="Move up"
+                title={t("sidebar.moveUp")}
               >
                 <ChevronUp size={14} />
               </button>
@@ -2126,7 +2128,7 @@ function SidebarNavEditor() {
                 onClick={() => moveItem(index, 1)}
                 disabled={index === items.length - 1}
                 className="p-0.5 rounded text-text-tertiary hover:text-text-primary disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-                title="Move down"
+                title={t("sidebar.moveDown")}
               >
                 <ChevronDown size={14} />
               </button>
@@ -2142,7 +2144,7 @@ function SidebarNavEditor() {
                       ? "bg-accent cursor-pointer"
                       : "bg-bg-tertiary cursor-pointer"
                 }`}
-                title={isInbox ? "Inbox is always visible" : item.visible ? "Hide" : "Show"}
+                title={isInbox ? t("sidebar.inboxAlwaysVisible") : item.visible ? t("sidebar.hide") : t("sidebar.show")}
               >
                 <span
                   className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
@@ -2160,7 +2162,7 @@ function SidebarNavEditor() {
           className="flex items-center gap-1.5 text-xs text-accent hover:text-accent-hover mt-2 transition-colors"
         >
           <RotateCcw size={12} />
-          Reset to defaults
+          {t("sidebar.resetToDefaults")}
         </button>
       )}
     </Section>
@@ -2199,9 +2201,10 @@ function SettingRow({
   );
 }
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
 function BundleSettings() {
+  const { t } = useTranslation();
   const accounts = useAccountStore((s) => s.accounts);
   const activeAccountId = accounts.find((a) => a.isActive)?.id;
   const [rules, setRules] = useState<Record<string, { bundled: boolean; delivery: boolean; days: number[]; hour: number; minute: number }>>({});
@@ -2250,7 +2253,7 @@ function BundleSettings() {
         return (
           <div key={cat} className="py-3 px-4 bg-bg-secondary rounded-lg space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-text-primary">{cat}</span>
+              <span className="text-sm font-medium text-text-primary">{t(`categories.${cat.toLowerCase()}`)}</span>
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-1.5 text-xs text-text-secondary">
                   <input
@@ -2259,7 +2262,7 @@ function BundleSettings() {
                     onChange={() => saveRule(cat, { bundled: !(rule?.bundled ?? false) })}
                     className="accent-accent"
                   />
-                  Bundle
+                  {t("settings.aiSettings.bundle")}
                 </label>
                 <label className="flex items-center gap-1.5 text-xs text-text-secondary">
                   <input
@@ -2268,16 +2271,16 @@ function BundleSettings() {
                     onChange={() => saveRule(cat, { delivery: !(rule?.delivery ?? false) })}
                     className="accent-accent"
                   />
-                  Schedule
+                  {t("settings.aiSettings.schedule")}
                 </label>
               </div>
             </div>
             {rule?.delivery && (
               <div className="space-y-2 pt-1">
                 <div className="flex gap-1">
-                  {DAY_NAMES.map((name, idx) => (
+                  {DAY_KEYS.map((key, idx) => (
                     <button
-                      key={name}
+                      key={key}
                       onClick={() => {
                         const days = rule.days.includes(idx)
                           ? rule.days.filter((d) => d !== idx)
@@ -2290,12 +2293,12 @@ function BundleSettings() {
                           : "bg-bg-tertiary text-text-tertiary border border-border-primary"
                       }`}
                     >
-                      {name}
+                      {t(`calendar.days.${key}`)}
                     </button>
                   ))}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-text-tertiary">at</span>
+                  <span className="text-xs text-text-tertiary">{t("settings.aiSettings.deliveryAt")}</span>
                   <input
                     type="time"
                     value={`${String(rule.hour).padStart(2, "0")}:${String(rule.minute).padStart(2, "0")}`}
