@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Plus, CalendarDays } from "lucide-react";
 
 export type CalendarView = "day" | "week" | "month";
@@ -25,7 +26,8 @@ export function CalendarToolbar({
   onToggleCalendarList,
   showCalendarListButton,
 }: CalendarToolbarProps) {
-  const title = formatTitle(currentDate, view);
+  const { t } = useTranslation();
+  const title = formatTitle(currentDate, view, t);
 
   return (
     <div className="flex items-center justify-between px-6 py-3 border-b border-border-primary">
@@ -42,7 +44,7 @@ export function CalendarToolbar({
             onClick={onToday}
             className="px-2.5 py-1 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
           >
-            Today
+            {t("calendar.today")}
           </button>
           <button
             onClick={onNext}
@@ -58,7 +60,7 @@ export function CalendarToolbar({
           <button
             onClick={onToggleCalendarList}
             className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
-            title="Toggle calendar list"
+            title={t("calendar.toggleCalendarList")}
           >
             <CalendarDays size={16} />
           </button>
@@ -83,17 +85,18 @@ export function CalendarToolbar({
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors"
         >
           <Plus size={14} />
-          Create
+          {t("calendar.create")}
         </button>
       </div>
     </div>
   );
 }
 
-function formatTitle(date: Date, view: CalendarView): string {
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+function formatTitle(date: Date, view: CalendarView, t: (key: string) => string): string {
+  const monthKeys = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"] as const;
+  const getMonth = (idx: number) => t(`calendar.months.${monthKeys[idx]}`);
   if (view === "month") {
-    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+    return `${getMonth(date.getMonth())} ${date.getFullYear()}`;
   }
   if (view === "week") {
     const start = new Date(date);
@@ -101,9 +104,9 @@ function formatTitle(date: Date, view: CalendarView): string {
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
     if (start.getMonth() === end.getMonth()) {
-      return `${months[start.getMonth()]} ${start.getDate()}-${end.getDate()}, ${start.getFullYear()}`;
+      return `${getMonth(start.getMonth())} ${start.getDate()}-${end.getDate()}, ${start.getFullYear()}`;
     }
-    return `${months[start.getMonth()]?.slice(0, 3)} ${start.getDate()} - ${months[end.getMonth()]?.slice(0, 3)} ${end.getDate()}, ${end.getFullYear()}`;
+    return `${getMonth(start.getMonth())?.slice(0, 3)} ${start.getDate()} - ${getMonth(end.getMonth())?.slice(0, 3)} ${end.getDate()}, ${end.getFullYear()}`;
   }
   return date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 }

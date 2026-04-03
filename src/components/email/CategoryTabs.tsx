@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Inbox, Bell, Tag, Users, Newspaper, type LucideIcon } from "lucide-react";
 import { ALL_CATEGORIES } from "@/services/db/threadCategories";
 
@@ -16,7 +17,16 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Newsletters: Newspaper,
 };
 
+const CATEGORY_KEYS: Record<string, string> = {
+  Primary: "categories.primary",
+  Updates: "categories.updates",
+  Promotions: "categories.promotions",
+  Social: "categories.social",
+  Newsletters: "categories.newsletters",
+};
+
 export function CategoryTabs({ activeCategory, onCategoryChange, unreadCounts }: CategoryTabsProps) {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number } | null>(null);
@@ -83,7 +93,7 @@ export function CategoryTabs({ activeCategory, onCategoryChange, unreadCounts }:
               }`}
             >
               {Icon && <Icon size={13} />}
-              {cat}
+              {CATEGORY_KEYS[cat] ? t(CATEGORY_KEYS[cat]) : cat}
               {count > 0 && (
                 <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
                   {count}

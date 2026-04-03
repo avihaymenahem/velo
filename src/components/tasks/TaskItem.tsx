@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Circle,
   CheckCircle2,
@@ -27,17 +28,17 @@ const PRIORITY_DOT_COLORS: Record<TaskPriority, string> = {
   urgent: "bg-red-500",
 };
 
-function formatDueDate(timestamp: number): string {
+function formatDueDate(timestamp: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const date = new Date(timestamp * 1000);
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dueStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diffDays = Math.floor((dueStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Tomorrow";
-  if (diffDays <= 7) return `${diffDays}d`;
+  if (diffDays < 0) return t("tasks.overdueDay", { count: Math.abs(diffDays) });
+  if (diffDays === 0) return t("common.today");
+  if (diffDays === 1) return t("common.tomorrow");
+  if (diffDays <= 7) return t("tasks.inDays", { count: diffDays });
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
@@ -68,6 +69,7 @@ export function TaskItem({
   isSelected,
   compact,
 }: TaskItemProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const tags: string[] = (() => {
     try {
@@ -128,7 +130,7 @@ export function TaskItem({
               {task.due_date && (
                 <span className={`inline-flex items-center gap-1 text-[0.6875rem] px-1.5 py-0.5 rounded ${getDueDateColor(task.due_date)}`}>
                   <Calendar size={10} />
-                  {formatDueDate(task.due_date)}
+                  {formatDueDate(task.due_date, t)}
                 </span>
               )}
               {hasRecurrence && (

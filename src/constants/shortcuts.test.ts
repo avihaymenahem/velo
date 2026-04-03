@@ -6,9 +6,9 @@ describe("SHORTCUTS", () => {
     expect(SHORTCUTS.length).toBeGreaterThanOrEqual(3);
 
     const categoryNames = SHORTCUTS.map((c) => c.category);
-    expect(categoryNames).toContain("Navigation");
-    expect(categoryNames).toContain("Actions");
-    expect(categoryNames).toContain("App");
+    expect(categoryNames).toContain("shortcuts.navigation");
+    expect(categoryNames).toContain("shortcuts.actions");
+    expect(categoryNames).toContain("shortcuts.app");
   });
 
   it("each category has items with keys and desc", () => {

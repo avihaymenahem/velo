@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { FileText, ChevronDown } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
 import { useComposerStore } from "@/stores/composerStore";
@@ -10,6 +11,7 @@ interface TemplatePickerProps {
 }
 
 export function TemplatePicker({ editor }: TemplatePickerProps) {
+  const { t } = useTranslation();
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const { mode, subject, setSubject } = useComposerStore();
   const [templates, setTemplates] = useState<DbTemplate[]>([]);
@@ -55,7 +57,7 @@ export function TemplatePicker({ editor }: TemplatePickerProps) {
         className="flex items-center gap-1 text-xs text-text-tertiary hover:text-text-secondary transition-colors"
       >
         <FileText size={12} />
-        Templates
+        {t("composer.templates")}
         <ChevronDown size={10} />
       </button>
 

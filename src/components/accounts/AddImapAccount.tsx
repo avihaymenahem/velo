@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowLeft,
@@ -84,11 +85,11 @@ const initialFormState: FormState = {
 
 const steps: Step[] = ["basic", "imap", "smtp", "test"];
 
-const stepLabels: Record<Step, string> = {
-  basic: "Account",
-  imap: "Incoming",
-  smtp: "Outgoing",
-  test: "Verify",
+const stepLabelKeys: Record<Step, string> = {
+  basic: "addImap.account",
+  imap: "addImap.incoming",
+  smtp: "addImap.outgoing",
+  test: "addImap.verify",
 };
 
 const stepIcons: Record<Step, React.ReactNode> = {
@@ -120,6 +121,7 @@ export function AddImapAccount({
   onSuccess,
   onBack,
 }: AddImapAccountProps) {
+  const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState<Step>("basic");
   const [form, setForm] = useState<FormState>(initialFormState);
   const [imapTest, setImapTest] = useState<TestStatus>({ state: "idle" });
@@ -428,7 +430,7 @@ export function AddImapAccount({
               }`}
             >
               {stepIcons[step]}
-              <span className="hidden sm:inline">{stepLabels[step]}</span>
+              <span className="hidden sm:inline">{t(stepLabelKeys[step])}</span>
             </div>
           </div>
         );
@@ -442,7 +444,7 @@ export function AddImapAccount({
 
     return (
       <div className="mb-4">
-        <label className={labelClass}>Authentication Method</label>
+        <label className={labelClass}>{t("addImap.authMethod", "Authentication Method")}</label>
         <div className="flex gap-2">
           {detectedAuthMethods.includes("password") && (
             <button
@@ -488,7 +490,7 @@ export function AddImapAccount({
       <div className="space-y-3">
         <div>
           <label htmlFor="oauth-client-id" className={labelClass}>
-            Client ID
+            {t("addImap.clientId")}
           </label>
           <input
             id="oauth-client-id"
@@ -502,7 +504,7 @@ export function AddImapAccount({
         </div>
         <div>
           <label htmlFor="oauth-client-secret" className={labelClass}>
-            Client Secret (optional)
+            {t("addImap.clientSecret")}
           </label>
           <input
             id="oauth-client-secret"
@@ -531,7 +533,7 @@ export function AddImapAccount({
             {oauthConnecting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Connecting...
+                {t("addImap.connecting")}
               </>
             ) : (
               <>
@@ -565,7 +567,7 @@ export function AddImapAccount({
     <div className="space-y-4">
       <div>
         <label htmlFor="imap-email" className={labelClass}>
-          Email Address
+          {t("addImap.email")}
         </label>
         <input
           id="imap-email"
@@ -588,7 +590,7 @@ export function AddImapAccount({
         <>
           <div>
             <label htmlFor="imap-display-name" className={labelClass}>
-              Display Name (optional)
+              {t("addImap.displayName")}
             </label>
             <input
               id="imap-display-name"
@@ -601,7 +603,7 @@ export function AddImapAccount({
           </div>
           <div>
             <label htmlFor="imap-username" className={labelClass}>
-              Username (optional)
+              {t("addImap.imapUsername")}
             </label>
             <input
               id="imap-username"
@@ -617,7 +619,7 @@ export function AddImapAccount({
           </div>
           <div>
             <label htmlFor="imap-password" className={labelClass}>
-              Password
+              {t("addImap.password")}
             </label>
             <input
               id="imap-password"
@@ -637,7 +639,7 @@ export function AddImapAccount({
       {isOAuth && hasOAuthTokens && (
         <div>
           <label htmlFor="imap-display-name" className={labelClass}>
-            Display Name (optional)
+            {t("addImap.displayName")}
           </label>
           <input
             id="imap-display-name"
@@ -661,7 +663,7 @@ export function AddImapAccount({
       )}
       <div>
         <label htmlFor="imap-host" className={labelClass}>
-          IMAP Server
+          {t("addImap.imapServer")}
         </label>
         <input
           id="imap-host"
@@ -676,7 +678,7 @@ export function AddImapAccount({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="imap-port" className={labelClass}>
-            Port
+            {t("addImap.imapPort")}
           </label>
           <input
             id="imap-port"
@@ -690,7 +692,7 @@ export function AddImapAccount({
         </div>
         <div>
           <label htmlFor="imap-security" className={labelClass}>
-            Security
+            {t("addImap.imapSecurity")}
           </label>
           <select
             id="imap-security"
@@ -718,7 +720,7 @@ export function AddImapAccount({
           htmlFor="accept-invalid-certs"
           className="text-sm text-text-secondary"
         >
-          Accept self-signed certificates
+          {t("addImap.acceptInvalidCerts")}
         </label>
       </div>
       <p className="text-xs text-text-tertiary -mt-2 ml-6">
@@ -736,7 +738,7 @@ export function AddImapAccount({
       )}
       <div>
         <label htmlFor="smtp-host" className={labelClass}>
-          SMTP Server
+          {t("addImap.smtpServer")}
         </label>
         <input
           id="smtp-host"
@@ -751,7 +753,7 @@ export function AddImapAccount({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="smtp-port" className={labelClass}>
-            Port
+            {t("addImap.smtpPort")}
           </label>
           <input
             id="smtp-port"
@@ -765,7 +767,7 @@ export function AddImapAccount({
         </div>
         <div>
           <label htmlFor="smtp-security" className={labelClass}>
-            Security
+            {t("addImap.smtpSecurity")}
           </label>
           <select
             id="smtp-security"
@@ -795,13 +797,13 @@ export function AddImapAccount({
               htmlFor="smtp-same-password"
               className="text-sm text-text-secondary"
             >
-              Use same password as IMAP
+              {t("addImap.sameAsImap")}
             </label>
           </div>
           {!form.samePassword && (
             <div>
               <label htmlFor="smtp-password" className={labelClass}>
-                SMTP Password
+                {t("addImap.smtpPassword")}
               </label>
               <input
                 id="smtp-password"
@@ -870,10 +872,10 @@ export function AddImapAccount({
         className="w-full px-4 py-2 text-sm bg-bg-secondary border border-border-primary rounded-lg text-text-primary hover:bg-bg-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {imapTest.state === "testing" || smtpTest.state === "testing"
-          ? "Testing..."
+          ? t("addImap.testing")
           : imapTest.state === "idle" && smtpTest.state === "idle"
-            ? "Test Connection"
-            : "Re-test Connection"}
+            ? t("addImap.testConnection")
+            : t("addImap.testConnection")}
       </button>
 
       {saveError && (
@@ -901,7 +903,7 @@ export function AddImapAccount({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title="Add IMAP/SMTP Account"
+      title={t("addImap.title", "Add IMAP/SMTP Account")}
       width="w-full max-w-lg"
     >
       <div className="p-4" onKeyDown={handleKeyDown}>
@@ -914,7 +916,7 @@ export function AddImapAccount({
             className="flex items-center gap-1 px-3 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Back
+            {t("common.back")}
           </button>
 
           <div className="flex gap-2">
@@ -922,7 +924,7 @@ export function AddImapAccount({
               onClick={onClose}
               className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
 
             {currentStep === "test" ? (
@@ -931,7 +933,7 @@ export function AddImapAccount({
                 disabled={!bothTestsPassed || saving}
                 className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? "Adding..." : "Add Account"}
+                {saving ? "Adding..." : t("addAccount.title", "Add Account")}
               </button>
             ) : (
               <button

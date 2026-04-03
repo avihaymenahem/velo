@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { DbCalendarEvent } from "@/services/db/calendarEvents";
 
 interface DayViewProps {
@@ -10,6 +11,7 @@ interface DayViewProps {
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export function DayView({ currentDate, events, onEventClick }: DayViewProps) {
+  const { t } = useTranslation();
   const dayStart = new Date(currentDate);
   dayStart.setHours(0, 0, 0, 0);
 
@@ -62,7 +64,7 @@ export function DayView({ currentDate, events, onEventClick }: DayViewProps) {
               onClick={() => onEventClick(e)}
               className="w-full text-left text-xs px-2 py-1.5 rounded bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
             >
-              {e.summary ?? "Event"} · All day
+              {e.summary ?? t("calendar.event")} · {t("calendar.allDay")}
             </button>
           ))}
         </div>
@@ -86,7 +88,7 @@ export function DayView({ currentDate, events, onEventClick }: DayViewProps) {
                     onClick={() => onEventClick(e)}
                     className="w-full text-left text-xs px-2 py-1 rounded bg-accent/15 text-accent truncate hover:bg-accent/25 transition-colors mb-0.5"
                   >
-                    {e.summary ?? "Event"}
+                    {e.summary ?? t("calendar.event")}
                     {e.location && <span className="text-text-tertiary"> · {e.location}</span>}
                   </button>
                 ))}

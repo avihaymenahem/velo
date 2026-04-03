@@ -13,7 +13,7 @@ describe("AccountSwitcher", () => {
 
   it("shows add account button when no accounts", () => {
     render(<AccountSwitcher collapsed={false} onAddAccount={() => {}} />);
-    expect(screen.getByText("Add Account")).toBeInTheDocument();
+    expect(screen.getByText("Add account")).toBeInTheDocument();
   });
 
   it("shows initial letter when avatarUrl is null", () => {

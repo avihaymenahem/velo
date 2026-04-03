@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { DateTimePickerDialog } from "@/components/ui/DateTimePickerDialog";
 
 interface ScheduleSendDialogProps {
@@ -46,16 +47,23 @@ function getSchedulePresets(): { label: string; detail: string; timestamp: numbe
 }
 
 export function ScheduleSendDialog({ onSchedule, onClose }: ScheduleSendDialogProps) {
-  const presets = getSchedulePresets();
+  const { t } = useTranslation();
+  const rawPresets = getSchedulePresets();
+  const presetLabels = [
+    t("schedule.tomorrowMorning"),
+    t("schedule.tomorrowAfternoon"),
+    t("schedule.mondayMorning"),
+  ];
+  const presets = rawPresets.map((p, i) => ({ ...p, label: presetLabels[i] ?? p.label }));
 
   return (
     <DateTimePickerDialog
       isOpen={true}
       onClose={onClose}
-      title="Schedule send"
+      title={t("schedule.scheduleSend")}
       presets={presets}
       onSelect={onSchedule}
-      submitLabel="Schedule"
+      submitLabel={t("schedule.schedule")}
       zIndex="z-[60]"
     />
   );

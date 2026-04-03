@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Mail, Clock, X, Send, Copy, Star, UserPlus, Check, PenLine,
   Paperclip, Building2, ChevronDown, ChevronRight,
@@ -27,6 +28,7 @@ interface ContactSidebarProps {
 }
 
 export function ContactSidebar({ email, name, accountId, onClose }: ContactSidebarProps) {
+  const { t } = useTranslation();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [stats, setStats] = useState<ContactStats | null>(null);
   const [recentThreads, setRecentThreads] = useState<{ thread_id: string; subject: string | null; last_message_at: number | null }[]>([]);
@@ -427,7 +429,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
                   className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-bg-hover transition-colors group"
                 >
                   <div className="text-text-secondary group-hover:text-text-primary truncate">
-                    {thread.subject ?? "(No subject)"}
+                    {thread.subject ?? t("common.noSubject")}
                   </div>
                   {thread.last_message_at && (
                     <div className="text-text-tertiary text-[0.625rem] mt-0.5">

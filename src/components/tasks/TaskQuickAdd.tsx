@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 
 interface TaskQuickAddProps {
@@ -6,7 +7,9 @@ interface TaskQuickAddProps {
   placeholder?: string;
 }
 
-export function TaskQuickAdd({ onAdd, placeholder = "Add a task..." }: TaskQuickAddProps) {
+export function TaskQuickAdd({ onAdd, placeholder }: TaskQuickAddProps) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t("tasks.addTaskPlaceholder");
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -32,7 +35,7 @@ export function TaskQuickAdd({ onAdd, placeholder = "Add a task..." }: TaskQuick
             handleSubmit();
           }
         }}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-tertiary outline-none"
       />
     </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { SendAsAlias } from "@/services/db/sendAsAliases";
 
 interface FromSelectorProps {
@@ -11,12 +12,13 @@ interface FromSelectorProps {
  * Only visible when more than one alias is available.
  */
 export function FromSelector({ aliases, selectedEmail, onChange }: FromSelectorProps) {
+  const { t } = useTranslation();
   if (aliases.length <= 1) return null;
 
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-text-tertiary w-8 shrink-0">
-        From
+        {t("common.from")}
       </span>
       <select
         value={selectedEmail}

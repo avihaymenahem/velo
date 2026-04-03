@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useAccountStore } from "@/stores/accountStore";
 import { getCalendarEventsInRangeMulti, upsertCalendarEvent, type DbCalendarEvent } from "@/services/db/calendarEvents";
 import { getVisibleCalendars, getCalendarsForAccount, upsertCalendar, type DbCalendar } from "@/services/db/calendars";
@@ -14,6 +15,7 @@ import { CalendarList } from "./CalendarList";
 import { CalendarReauthBanner } from "./CalendarReauthBanner";
 
 export function CalendarPage() {
+  const { t } = useTranslation();
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const accounts = useAccountStore((s) => s.accounts);
   const activeAccount = accounts.find((a) => a.id === activeAccountId) ?? null;
@@ -140,11 +142,7 @@ export function CalendarPage() {
       if (message.includes("403") || message.includes("insufficient")) {
         if (reauthDoneRef.current) {
           reauthDoneRef.current = false;
-          setCalendarError(
-            "Calendar access is still denied after re-authorization. " +
-            "Make sure the Google Calendar API is enabled in your Google Cloud Console project. " +
-            "Visit console.cloud.google.com → APIs & Services → Enable the \"Google Calendar API\".",
-          );
+          setCalendarError(t("calendar.accessDenied"));
         } else {
           setNeedsReauth(true);
         }
@@ -255,7 +253,7 @@ export function CalendarPage() {
   if (!activeAccountId) {
     return (
       <div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">
-        Connect an account to use Calendar
+        {t("calendar.connectAccount")}
       </div>
     );
   }
@@ -264,8 +262,8 @@ export function CalendarPage() {
     return (
       <div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">
         <div className="text-center">
-          <p>Calendar is not configured for this account.</p>
-          <p className="mt-1 text-xs">For IMAP accounts, configure CalDAV in Settings.</p>
+          <p>{t("calendar.notConfigured")}</p>
+          <p className="mt-1 text-xs">{t("calendar.forImapAccounts")}</p>
         </div>
       </div>
     );
@@ -301,7 +299,7 @@ export function CalendarPage() {
       {calendarError && !needsReauth && (
         <div className="mx-6 my-4 p-4 rounded-lg bg-danger/10 border border-danger/30 flex items-start gap-3">
           <div>
-            <p className="text-sm font-medium text-text-primary">Calendar access error</p>
+            <p className="text-sm font-medium text-text-primary">{t("calendar.accessError")}</p>
             <p className="text-xs text-text-secondary mt-1">{calendarError}</p>
           </div>
         </div>
@@ -309,7 +307,7 @@ export function CalendarPage() {
 
       {loading && events.length === 0 && (
         <div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">
-          Loading calendar...
+          {t("calendar.loadingCalendar")}
         </div>
       )}
 

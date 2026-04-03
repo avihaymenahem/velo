@@ -192,6 +192,13 @@ export default function App() {
 
         const ui = useUIStore.getState();
 
+        // Restore persisted language
+        const savedLanguage = await getSetting("language");
+        if (savedLanguage === "ja" || savedLanguage === "en") {
+          const { default: i18n } = await import("./i18n");
+          i18n.changeLanguage(savedLanguage);
+        }
+
         // Restore persisted theme
         const savedTheme = await getSetting("theme");
         if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") {
