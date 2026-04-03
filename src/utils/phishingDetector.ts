@@ -132,12 +132,47 @@ function checkSuspiciousTld(hostname: string): TriggeredRule | null {
 }
 
 /**
+ * Known multi-part TLD suffixes (country-code second-level domains).
+ * Covers the most common ccSLDs to avoid false positives/negatives
+ * in domain comparison (e.g., .co.uk, .co.jp, .com.au).
+ */
+const MULTI_PART_TLDS = new Set([
+  "co.uk", "org.uk", "ac.uk", "gov.uk", "me.uk", "net.uk",
+  "co.jp", "or.jp", "ne.jp", "ac.jp", "go.jp",
+  "com.au", "net.au", "org.au", "edu.au",
+  "co.kr", "or.kr", "go.kr",
+  "com.br", "org.br", "net.br",
+  "co.nz", "org.nz", "net.nz",
+  "co.in", "org.in", "net.in",
+  "com.cn", "org.cn", "net.cn",
+  "co.za", "org.za", "net.za",
+  "com.tw", "org.tw", "net.tw",
+  "com.hk", "org.hk", "net.hk",
+  "co.id", "or.id",
+  "com.sg", "org.sg",
+  "com.mx", "org.mx",
+  "com.ar", "org.ar",
+  "co.th", "or.th",
+  "com.tr", "org.tr",
+  "co.il",
+  "com.pl", "org.pl", "net.pl",
+  "com.ua", "org.ua",
+  "co.de",
+]);
+
+/**
  * Extract the registrable domain (effective second-level domain + TLD).
- * This is a simplified version that handles common cases.
+ * Handles multi-part TLDs like .co.uk, .co.jp, etc.
  */
 function getRegistrableDomain(hostname: string): string {
   const parts = hostname.toLowerCase().split(".");
-  // Return last 2 parts (e.g. "example.com" from "sub.example.com")
+  if (parts.length >= 3) {
+    const lastTwo = parts.slice(-2).join(".");
+    if (MULTI_PART_TLDS.has(lastTwo)) {
+      // e.g., "sub.example.co.uk" → "example.co.uk"
+      return parts.slice(-3).join(".");
+    }
+  }
   if (parts.length >= 2) {
     return parts.slice(-2).join(".");
   }

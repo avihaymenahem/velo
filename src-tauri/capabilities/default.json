@@ -65,10 +65,12 @@
     {
       "identifier": "http:default",
       "allow": [
-        { "url": "http://*" },
-        { "url": "http://*/*" },
         { "url": "https://*" },
-        { "url": "https://*/*" }
+        { "url": "https://*/*" },
+        { "url": "http://localhost:11434/*" },
+        { "url": "http://127.0.0.1:11434/*" },
+        { "url": "http://localhost:1234/*" },
+        { "url": "http://127.0.0.1:1234/*" }
       ]
     },
     "updater:default",

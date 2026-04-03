@@ -4,6 +4,73 @@ import { fetch } from "@tauri-apps/plugin-http";
 import { getCurrentUnixTimestamp } from "@/utils/timestamp";
 import { normalizeEmail } from "@/utils/emailUtils";
 
+/**
+ * Validate that a URL is safe to request (not targeting private/internal networks).
+ * Blocks loopback, private IP ranges, link-local, IPv6 private ranges, and non-http(s) schemes.
+ * Note: DNS rebinding attacks are a known limitation — hostname-based checks cannot
+ * prevent a public hostname from resolving to a private IP at fetch time.
+ */
+export function isSafeUrl(urlStr: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(urlStr);
+  } catch {
+    return false;
+  }
+
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return false;
+  }
+
+  // URL.hostname returns brackets for IPv6 (e.g., "[::1]"), and normalizes
+  // IPv4-mapped addresses to hex (e.g., "::ffff:127.0.0.1" → "[::ffff:7f00:1]")
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Block loopback
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]") {
+    return false;
+  }
+
+  // Block IPv6 private/reserved ranges
+  if (hostname.startsWith("[")) {
+    const ipv6 = hostname.slice(1, -1); // strip brackets
+    // IPv6 unique-local (fc00::/7)
+    if (ipv6.startsWith("fc") || ipv6.startsWith("fd")) return false;
+    // IPv6 link-local (fe80::/10)
+    if (ipv6.startsWith("fe80")) return false;
+    // IPv4-mapped IPv6 — URL normalizes to hex (::ffff:7f00:1 for 127.0.0.1)
+    // Parse the last two 16-bit groups back to IPv4 octets
+    const mappedMatch = ipv6.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (mappedMatch) {
+      const hi = parseInt(mappedMatch[1]!, 16);
+      const lo = parseInt(mappedMatch[2]!, 16);
+      const a = (hi >> 8) & 0xff;
+      const b = hi & 0xff;
+      const c = (lo >> 8) & 0xff;
+      const d = lo & 0xff;
+      return isSafeUrl(`${parsed.protocol}//${a}.${b}.${c}.${d}${parsed.pathname}${parsed.search}`);
+    }
+    // Full loopback (already normalized to [::1] above, but catch edge cases)
+    if (ipv6 === "0:0:0:0:0:0:0:1") return false;
+    return true;
+  }
+
+  // Block private/reserved IPv4 ranges
+  const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4Match) {
+    const a = Number(ipv4Match[1]);
+    const b = Number(ipv4Match[2]);
+    if (a === 10) return false;                          // 10.0.0.0/8
+    if (a === 172 && b >= 16 && b <= 31) return false;   // 172.16.0.0/12
+    if (a === 192 && b === 168) return false;             // 192.168.0.0/16
+    if (a === 169 && b === 254) return false;             // 169.254.0.0/16 (link-local / cloud metadata)
+    if (a === 0) return false;                            // 0.0.0.0/8
+    if (a === 127) return false;                          // 127.0.0.0/8
+  }
+
+  return true;
+}
+
 export interface ParsedUnsubscribe {
   httpUrl: string | null;
   mailtoAddress: string | null;
@@ -59,16 +126,21 @@ export async function executeUnsubscribe(
 
   // Method 1: RFC 8058 one-click HTTP POST
   if (parsed.hasOneClick && parsed.httpUrl) {
-    try {
-      const response = await fetch(parsed.httpUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new TextEncoder().encode("List-Unsubscribe=One-Click"),
-      });
-      success = response.ok || response.status === 200 || response.status === 202;
-      method = "http_post";
-    } catch (err) {
-      console.error("One-click unsubscribe failed, trying fallback:", err);
+    if (!isSafeUrl(parsed.httpUrl)) {
+      console.warn("Blocked unsubscribe request to unsafe URL host:", new URL(parsed.httpUrl).hostname);
+    } else {
+      try {
+        const response = await fetch(parsed.httpUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new TextEncoder().encode("List-Unsubscribe=One-Click"),
+          redirect: "manual",
+        });
+        success = response.ok || response.status === 200 || response.status === 202;
+        method = "http_post";
+      } catch (err) {
+        console.error("One-click unsubscribe failed, trying fallback:", err);
+      }
     }
   }
 
@@ -103,12 +175,16 @@ export async function executeUnsubscribe(
 
   // Method 3: open in browser
   if (!success && parsed.httpUrl) {
-    try {
-      await openUrl(parsed.httpUrl);
-      method = "browser";
-      success = true;
-    } catch (err) {
-      console.error("Browser unsubscribe failed:", err);
+    if (!isSafeUrl(parsed.httpUrl)) {
+      console.warn("Blocked opening unsafe unsubscribe URL host:", new URL(parsed.httpUrl).hostname);
+    } else {
+      try {
+        await openUrl(parsed.httpUrl);
+        method = "browser";
+        success = true;
+      } catch (err) {
+        console.error("Browser unsubscribe failed:", err);
+      }
     }
   }
 
