@@ -11,6 +11,37 @@ mod imap;
 mod oauth;
 mod smtp;
 
+#[cfg(desktop)]
+#[cfg(target_os = "linux")]
+mod linux {
+    fn check_nvidia_kernel_module_loaded() -> bool {
+        use std::path::Path;
+        let modules = ["nvidia", "nouveau"];
+        for module in &modules {
+            let path = format!("/sys/module/{}", module);
+            if Path::new(&path).exists() {
+                return true;
+            }
+        }
+        false
+    }
+    fn should_disable_dmabuf() -> Result<bool, ()> {
+        let nvidia_detected = check_nvidia_kernel_module_loaded();
+        if nvidia_detected {
+            eprintln!("Note: NVIDIA or Nouveau detected, disabling dmabuf renderer. Expect degraded renderer performance.");
+        }
+        Ok(nvidia_detected)
+    }
+
+    pub fn disable_webkit_dmabuf_rendering_if_needed() {
+        if let Ok(disable) = should_disable_dmabuf() {
+            if disable {
+                std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+            }
+        }
+    }
+}
+
 #[tauri::command]
 fn close_splashscreen(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("splashscreen") {
@@ -59,6 +90,8 @@ pub fn run() {
             let _ = SetCurrentProcessExplicitAppUserModelID(w!("com.velomail.app"));
         }
     }
+    #[cfg(target_os = "linux")]
+    linux::disable_webkit_dmabuf_rendering_if_needed();
 
     tauri::Builder::default()
         // Single instance MUST be first
