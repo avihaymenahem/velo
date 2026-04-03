@@ -36,41 +36,36 @@ export interface DbAccount {
   accept_invalid_certs: number;
 }
 
+async function decryptField(value: string, fieldName: string): Promise<string> {
+  if (!isEncrypted(value)) {
+    // Non-encrypted value — treat as legacy plaintext that needs re-encryption
+    console.warn(`[accounts] Unencrypted ${fieldName} detected — will be re-encrypted on next token refresh or account update`);
+    return value;
+  }
+  try {
+    return await decryptValue(value);
+  } catch (err) {
+    // Decryption failed — do NOT fall back to raw value (could be tampered)
+    const reason = err instanceof Error ? err.message : "unknown error";
+    throw new Error(`Failed to decrypt ${fieldName}: credential may be corrupted or tampered (${reason})`);
+  }
+}
+
 async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
-  if (account.access_token && isEncrypted(account.access_token)) {
-    try {
-      account.access_token = await decryptValue(account.access_token);
-    } catch (err) {
-      console.warn("Failed to decrypt access token, using raw value:", err);
-    }
+  if (account.access_token) {
+    account.access_token = await decryptField(account.access_token, "access_token");
   }
-  if (account.refresh_token && isEncrypted(account.refresh_token)) {
-    try {
-      account.refresh_token = await decryptValue(account.refresh_token);
-    } catch (err) {
-      console.warn("Failed to decrypt refresh token, using raw value:", err);
-    }
+  if (account.refresh_token) {
+    account.refresh_token = await decryptField(account.refresh_token, "refresh_token");
   }
-  if (account.imap_password && isEncrypted(account.imap_password)) {
-    try {
-      account.imap_password = await decryptValue(account.imap_password);
-    } catch (err) {
-      console.warn("Failed to decrypt IMAP password, using raw value:", err);
-    }
+  if (account.imap_password) {
+    account.imap_password = await decryptField(account.imap_password, "imap_password");
   }
-  if (account.oauth_client_secret && isEncrypted(account.oauth_client_secret)) {
-    try {
-      account.oauth_client_secret = await decryptValue(account.oauth_client_secret);
-    } catch (err) {
-      console.warn("Failed to decrypt OAuth client secret, using raw value:", err);
-    }
+  if (account.oauth_client_secret) {
+    account.oauth_client_secret = await decryptField(account.oauth_client_secret, "oauth_client_secret");
   }
-  if (account.caldav_password && isEncrypted(account.caldav_password)) {
-    try {
-      account.caldav_password = await decryptValue(account.caldav_password);
-    } catch (err) {
-      console.warn("Failed to decrypt CalDAV password, using raw value:", err);
-    }
+  if (account.caldav_password) {
+    account.caldav_password = await decryptField(account.caldav_password, "caldav_password");
   }
   return account;
 }
@@ -80,7 +75,16 @@ export async function getAllAccounts(): Promise<DbAccount[]> {
   const accounts = await db.select<DbAccount[]>(
     "SELECT * FROM accounts ORDER BY created_at ASC",
   );
-  return Promise.all(accounts.map(decryptAccountTokens));
+  const results = await Promise.allSettled(accounts.map(decryptAccountTokens));
+  const loaded: DbAccount[] = [];
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      loaded.push(result.value);
+    } else {
+      console.error("[accounts] Skipping account with corrupted credentials:", result.reason);
+    }
+  }
+  return loaded;
 }
 
 export async function getAccount(id: string): Promise<DbAccount | null> {

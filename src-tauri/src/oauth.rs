@@ -159,6 +159,46 @@ pub struct TokenExchangeResult {
     pub id_token: Option<String>,
 }
 
+const ALLOWED_TOKEN_URLS: &[&str] = &[
+    "https://oauth2.googleapis.com/token",
+    "https://api.login.yahoo.com/oauth2/get_token",
+    "https://appleid.apple.com/auth/token",
+];
+
+const ALLOWED_TOKEN_URL_PREFIXES: &[(&str, &str)] = &[
+    // Microsoft supports /common/, /consumers/, /organizations/, and tenant GUIDs
+    ("https://login.microsoftonline.com/", "/oauth2/v2.0/token"),
+];
+
+fn validate_token_url(token_url: &str) -> Result<(), String> {
+    // Check exact matches first
+    if ALLOWED_TOKEN_URLS.iter().any(|allowed| token_url == *allowed) {
+        return Ok(());
+    }
+
+    // Check prefix+suffix patterns (e.g., Microsoft tenant URLs)
+    for (prefix, suffix) in ALLOWED_TOKEN_URL_PREFIXES {
+        if token_url.starts_with(prefix) && token_url.ends_with(suffix) {
+            // Validate the middle segment (tenant ID) contains only safe characters
+            let middle = &token_url[prefix.len()..token_url.len() - suffix.len()];
+            if !middle.is_empty() && middle.chars().all(|c| c.is_alphanumeric() || c == '-') {
+                return Ok(());
+            }
+        }
+    }
+
+    // Log only the host portion to avoid leaking full URL in error messages
+    let host = token_url
+        .strip_prefix("https://")
+        .or_else(|| token_url.strip_prefix("http://"))
+        .and_then(|s| s.split('/').next())
+        .unwrap_or("unknown");
+    Err(format!(
+        "Rejected token URL: only known OAuth provider endpoints are allowed (host: {})",
+        host
+    ))
+}
+
 /// Exchange an OAuth authorization code for tokens via Rust HTTP client (avoids CORS).
 #[tauri::command]
 pub async fn oauth_exchange_token(
@@ -170,6 +210,8 @@ pub async fn oauth_exchange_token(
     client_secret: Option<String>,
     scope: Option<String>,
 ) -> Result<TokenExchangeResult, String> {
+    validate_token_url(&token_url)?;
+
     let mut params = vec![
         ("code", code),
         ("client_id", client_id),
@@ -219,6 +261,8 @@ pub async fn oauth_refresh_token(
     client_secret: Option<String>,
     scope: Option<String>,
 ) -> Result<TokenExchangeResult, String> {
+    validate_token_url(&token_url)?;
+
     let mut params = vec![
         ("refresh_token", refresh_token),
         ("client_id", client_id),

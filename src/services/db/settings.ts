@@ -28,7 +28,8 @@ export async function getAllSettings(): Promise<Record<string, string>> {
 
 /**
  * Get a setting that is stored encrypted. Transparently decrypts the value.
- * Falls back to returning the raw value if decryption fails (e.g. not yet encrypted).
+ * Returns null if the setting does not exist or decryption fails.
+ * Non-encrypted legacy values are returned as-is.
  */
 export async function getSecureSetting(key: string): Promise<string | null> {
   const raw = await getSetting(key);
@@ -38,10 +39,11 @@ export async function getSecureSetting(key: string): Promise<string | null> {
     try {
       return await decryptValue(raw);
     } catch {
-      // If decryption fails, the value may be plaintext (pre-encryption migration)
-      return raw;
+      console.error(`[settings] Failed to decrypt setting '${key}' — value may be corrupted`);
+      return null;
     }
   }
+  // Non-encrypted value — legacy plaintext, will be re-encrypted on next setSecureSetting call
   return raw;
 }
 

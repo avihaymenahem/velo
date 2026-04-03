@@ -308,6 +308,31 @@ describe("Rule: Brand Impersonation", () => {
     const rule = result.triggeredRules.find((r) => r.ruleId === "brand-impersonation");
     expect(rule).toBeDefined();
   });
+
+  it("detects brand impersonation with ccTLD (paypal.evil.co.uk)", () => {
+    const result = analyzeLink("https://paypal.evil.co.uk/login", "PayPal");
+    const rule = result.triggeredRules.find((r) => r.ruleId === "brand-impersonation");
+    expect(rule).toBeDefined();
+    expect(rule!.detail).toContain("evil.co.uk");
+  });
+
+  it("allows real brand domain with ccTLD (paypal.co.uk)", () => {
+    const result = analyzeLink("https://www.paypal.co.uk/login", "PayPal");
+    const rule = result.triggeredRules.find((r) => r.ruleId === "brand-impersonation");
+    expect(rule).toBeUndefined();
+  });
+
+  it("detects brand impersonation with .co.jp", () => {
+    const result = analyzeLink("https://amazon.phishing.co.jp/verify", "Amazon");
+    const rule = result.triggeredRules.find((r) => r.ruleId === "brand-impersonation");
+    expect(rule).toBeDefined();
+  });
+
+  it("allows real brand with .com.au", () => {
+    const result = analyzeLink("https://www.netflix.com.au/browse", "Netflix");
+    const rule = result.triggeredRules.find((r) => r.ruleId === "brand-impersonation");
+    expect(rule).toBeUndefined();
+  });
 });
 
 // ── Clean URL (no rules triggered) ──────────────────────────────
