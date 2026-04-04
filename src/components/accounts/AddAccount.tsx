@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Mail, Calendar } from "lucide-react";
+import { Mail, Calendar, Zap, Shield } from "lucide-react";
 import { startOAuthFlow } from "@/services/gmail/auth";
 import { insertAccount } from "@/services/db/accounts";
 import { getClientId, getClientSecret } from "@/services/gmail/tokenManager";
@@ -16,7 +16,7 @@ interface AddAccountProps {
   onSuccess: () => void;
 }
 
-type View = "select-provider" | "gmail" | "imap" | "caldav";
+type View = "select-provider" | "gmail" | "gmail-imap" | "imap" | "caldav";
 
 export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
   const { t } = useTranslation();
@@ -106,11 +106,21 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
     );
   }
 
+  if (view === "gmail-imap") {
+    return (
+      <AddImapAccount
+        onClose={onClose}
+        onSuccess={onSuccess}
+        onBack={() => setView("gmail")}
+      />
+    );
+  }
+
   if (view === "gmail") {
     return (
       <Modal isOpen={true} onClose={onClose} title={t("addAccount.addGmail")} width="w-full max-w-md">
         <div className="p-4">
-          <p className="text-text-secondary text-sm mb-6">
+          <p className="text-text-secondary text-sm mb-4">
             {t("addAccount.gmailDescription")}
           </p>
 
@@ -120,16 +130,55 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
             </div>
           )}
 
-          {status === "authenticating" && (
+          {status === "authenticating" ? (
             <div className="text-center py-4 text-text-secondary text-sm">
               <div className="mb-2">{t("addAccount.waitingForSignIn")}</div>
               <div className="text-xs text-text-tertiary">
                 {t("addAccount.completeSignIn")}
               </div>
             </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Easy Setup — IMAP + App Password */}
+              <button
+                onClick={() => setView("gmail-imap")}
+                className="w-full flex items-center gap-4 p-4 rounded-lg border-2 border-accent/30 bg-accent/5 hover:bg-accent/10 transition-colors text-left group"
+              >
+                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-text-primary group-hover:text-accent transition-colors">
+                    {t("addAccount.gmailEasy")}
+                  </div>
+                  <div className="text-xs text-text-tertiary mt-0.5">
+                    {t("addAccount.gmailEasyDescription")}
+                  </div>
+                </div>
+              </button>
+
+              {/* Fast Sync — Gmail API */}
+              <button
+                onClick={handleAddGmailAccount}
+                disabled={status === "checking"}
+                className="w-full flex items-center gap-4 p-4 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-hover transition-colors text-left group disabled:opacity-50"
+              >
+                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-bg-tertiary flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-text-secondary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-text-primary group-hover:text-accent transition-colors">
+                    {status === "checking" ? t("addAccount.checking") : t("addAccount.gmailApi")}
+                  </div>
+                  <div className="text-xs text-text-tertiary mt-0.5">
+                    {t("addAccount.gmailApiDescription")}
+                  </div>
+                </div>
+              </button>
+            </div>
           )}
 
-          <div className="flex gap-3 justify-between">
+          <div className="flex gap-3 justify-between mt-4">
             <button
               onClick={() => {
                 setView("select-provider");
@@ -140,25 +189,12 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
             >
               {t("common.back")}
             </button>
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                onClick={handleAddGmailAccount}
-                disabled={status === "authenticating" || status === "checking"}
-                className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {status === "authenticating"
-                  ? "Waiting..."
-                  : status === "checking"
-                    ? t("addAccount.checking")
-                    : t("addAccount.signInWithGoogle")}
-              </button>
-            </div>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+            >
+              {t("common.cancel")}
+            </button>
           </div>
         </div>
       </Modal>
