@@ -621,17 +621,37 @@ export function AddImapAccount({
             <label htmlFor="imap-password" className={labelClass}>
               {t("addImap.password")}
             </label>
+            {form.email.match(/@g(oogle)?mail\.com$/i) && (
+              <div className="mb-3 p-3 rounded-lg border border-accent/30 bg-accent/5">
+                <p className="text-xs text-text-secondary mb-2">
+                  {t("addImap.gmailAppPasswordGuide")}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    import("@tauri-apps/plugin-opener").then(({ openUrl }) =>
+                      openUrl("https://myaccount.google.com/apppasswords")
+                    );
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
+                >
+                  {t("addImap.gmailOpenAppPasswords")}
+                </button>
+                <p className="text-xs text-text-tertiary mt-2">
+                  {t("addImap.gmailAppPasswordHint")}
+                </p>
+              </div>
+            )}
             <input
               id="imap-password"
               type="password"
               value={form.password}
               onChange={(e) => updateForm("password", e.target.value)}
-              placeholder={t("addImap.placeholderEmailPassword")}
+              placeholder={form.email.match(/@g(oogle)?mail\.com$/i)
+                ? t("addImap.placeholderAppPassword")
+                : t("addImap.placeholderEmailPassword")}
               className={inputClass}
             />
-            <p className="text-xs text-text-tertiary mt-1">
-              {t("addImap.appPasswordHint")}
-            </p>
           </div>
         </>
       )}
