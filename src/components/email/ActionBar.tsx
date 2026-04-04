@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { Thread } from "@/stores/threadStore";
 import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
@@ -37,6 +38,7 @@ function Separator() {
 }
 
 export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply", contactSidebarVisible, taskSidebarVisible, onReply, onReplyAll, onForward, onPrint, onExport, onPopOut, onToggleContactSidebar, onToggleTaskSidebar }: ActionBarProps) {
+  const { t } = useTranslation();
   const updateThread = useThreadStore((s) => s.updateThread);
   const removeThread = useThreadStore((s) => s.removeThread);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
@@ -213,7 +215,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
               icon={defaultReplyMode === "replyAll" ? <ReplyAll size={15} /> : <Reply size={15} />}
               onClick={defaultReplyMode === "replyAll" ? onReplyAll : onReply}
               disabled={noReply}
-              title={noReply ? "This sender does not accept replies" : defaultReplyMode === "replyAll" ? "Reply All (r)" : "Reply (r)"}
+              title={noReply ? t("actions.noReplies") : defaultReplyMode === "replyAll" ? t("actions.replyAllShortcut") : t("actions.replyShortcut")}
               className="disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
             />
             <Button
@@ -222,7 +224,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
               icon={defaultReplyMode === "replyAll" ? <Reply size={15} /> : <ReplyAll size={15} />}
               onClick={defaultReplyMode === "replyAll" ? onReply : onReplyAll}
               disabled={noReply}
-              title={noReply ? "This sender does not accept replies" : defaultReplyMode === "replyAll" ? "Reply (a)" : "Reply All (a)"}
+              title={noReply ? t("actions.noReplies") : defaultReplyMode === "replyAll" ? t("actions.replyShortcut") : t("actions.replyAllShortcut")}
               className="disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
             />
             <Button
@@ -230,37 +232,37 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
               iconOnly
               icon={<Forward size={15} />}
               onClick={onForward}
-              title="Forward (f)"
+              title={t("actions.forwardShortcut")}
             />
             <Separator />
           </>
         )}
 
         {/* Core actions group */}
-        <Button variant="secondary" iconOnly icon={<Archive size={15} />} onClick={handleArchive} title="Archive (e)" />
-        <Button variant="secondary" iconOnly icon={<Trash2 size={15} />} onClick={handleDelete} title="Delete (#)" />
+        <Button variant="secondary" iconOnly icon={<Archive size={15} />} onClick={handleArchive} title={t("actions.archiveShortcut")} />
+        <Button variant="secondary" iconOnly icon={<Trash2 size={15} />} onClick={handleDelete} title={t("actions.deleteShortcut")} />
         <Button
           variant="secondary"
           iconOnly
           icon={thread.isRead ? <Mail size={15} /> : <MailOpen size={15} />}
           onClick={handleToggleRead}
-          title={thread.isRead ? "Mark unread" : "Mark read"}
+          title={thread.isRead ? t("actions.markUnread") : t("actions.markRead")}
         />
         <Button
           variant="secondary"
           iconOnly
           icon={<Star size={15} className={thread.isStarred ? "fill-current" : ""} />}
           onClick={handleToggleStar}
-          title={thread.isStarred ? "Unstar (s)" : "Star (s)"}
+          title={thread.isStarred ? t("actions.unstarShortcut") : t("actions.starShortcut")}
           className={thread.isStarred ? "text-warning" : ""}
         />
-        <Button variant="secondary" iconOnly icon={<Clock size={15} />} onClick={() => setShowSnooze(true)} title="Snooze (h)" />
+        <Button variant="secondary" iconOnly icon={<Clock size={15} />} onClick={() => setShowSnooze(true)} title={t("actions.snoozeShortcut")} />
         <Button
           variant="secondary"
           iconOnly
           icon={<Ban size={15} />}
           onClick={handleSpam}
-          title={isSpamView ? "Not Spam (!)" : "Report Spam (!)"}
+          title={isSpamView ? t("actions.notSpamShortcut") : t("actions.reportSpamShortcut")}
         />
         <Button
           variant="secondary"
@@ -270,14 +272,14 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
             if (!activeAccountId) return;
             window.dispatchEvent(new CustomEvent("velo-move-to-folder", { detail: { threadIds: [thread.id] } }));
           }}
-          title="Move to folder (v)"
+          title={t("actions.moveToFolderShortcut")}
         />
         <Button
           variant="secondary"
           iconOnly
           icon={<Pin size={15} className={thread.isPinned ? "fill-current" : ""} />}
           onClick={handleTogglePin}
-          title={thread.isPinned ? "Unpin (p)" : "Pin (p)"}
+          title={thread.isPinned ? t("actions.unpinShortcut") : t("actions.pinShortcut")}
           className={thread.isPinned ? "text-accent" : ""}
         />
         <Button
@@ -285,7 +287,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
           iconOnly
           icon={<VolumeX size={15} className={thread.isMuted ? "fill-current" : ""} />}
           onClick={handleToggleMute}
-          title={thread.isMuted ? "Unmute (m)" : "Mute (m)"}
+          title={thread.isMuted ? t("actions.unmuteShortcut") : t("actions.muteShortcut")}
           className={thread.isMuted ? "text-warning" : ""}
         />
         {hasFollowUp ? (
@@ -294,7 +296,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
             iconOnly
             icon={<BellRing size={15} className="fill-current" />}
             onClick={handleCancelFollowUp}
-            title="Cancel follow-up reminder"
+            title={t("actions.cancelFollowUp")}
             className="text-accent"
           />
         ) : (
@@ -303,7 +305,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
             iconOnly
             icon={<BellRing size={15} />}
             onClick={() => setShowFollowUp(true)}
-            title="Remind me if no reply"
+            title={t("actions.remindIfNoReply")}
           />
         )}
         {hasUnsubscribe && (
@@ -312,7 +314,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
             iconOnly
             icon={<MailMinus size={15} />}
             onClick={handleUnsubscribe}
-            title={unsubscribeStatus === "loading" ? "Unsubscribing..." : unsubscribeStatus === "done" ? "Unsubscribed" : "Unsubscribe (u)"}
+            title={unsubscribeStatus === "loading" ? t("message.unsubscribing") : unsubscribeStatus === "done" ? t("message.unsubscribed") : t("actions.unsubscribeShortcut")}
             className={unsubscribeStatus === "done" ? "text-success" : ""}
           />
         )}
@@ -321,22 +323,22 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
         <div className="ml-auto" />
 
         {/* Utility group */}
-        <Button variant="secondary" iconOnly icon={<Printer size={15} />} onClick={onPrint} title="Print" />
-        <Button variant="secondary" iconOnly icon={<Download size={15} />} onClick={onExport} title="Export as .eml" />
-        <Button variant="secondary" iconOnly icon={<ExternalLink size={15} />} onClick={onPopOut} title="Open in new window" />
+        <Button variant="secondary" iconOnly icon={<Printer size={15} />} onClick={onPrint} title={t("actions.print")} />
+        <Button variant="secondary" iconOnly icon={<Download size={15} />} onClick={onExport} title={t("actions.exportEml")} />
+        <Button variant="secondary" iconOnly icon={<ExternalLink size={15} />} onClick={onPopOut} title={t("actions.openInNewWindow")} />
         <Button
           variant="secondary"
           iconOnly
           icon={<ListTodo size={15} className={taskSidebarVisible ? "text-accent" : ""} />}
           onClick={onToggleTaskSidebar}
-          title={taskSidebarVisible ? "Hide task panel" : "Show task panel"}
+          title={taskSidebarVisible ? t("actions.hideTaskPanel") : t("actions.showTaskPanel")}
         />
         <Button
           variant="secondary"
           iconOnly
           icon={contactSidebarVisible ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
           onClick={onToggleContactSidebar}
-          title={contactSidebarVisible ? "Hide contact sidebar" : "Show contact sidebar"}
+          title={contactSidebarVisible ? t("actions.hideContactSidebar") : t("actions.showContactSidebar")}
         />
       </div>
 

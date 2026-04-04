@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -31,6 +32,7 @@ interface InlineReplyProps {
 }
 
 export function InlineReply({ thread, messages, accountId, noReply, onSent }: InlineReplyProps) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<ReplyMode | null>(null);
   const [sending, setSending] = useState(false);
   const [signatureHtml, setSignatureHtml] = useState("");
@@ -313,27 +315,27 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
         <button
           onClick={() => activateMode("reply")}
           disabled={noReply}
-          title={noReply ? "This sender does not accept replies" : undefined}
+          title={noReply ? t("actions.noReplies") : undefined}
           className="flex items-center gap-1.5 px-4 py-2 text-xs text-text-secondary border border-border-primary rounded-lg hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-secondary"
         >
           <Reply size={14} />
-          Reply
+          {t("inlineReply.reply")}
         </button>
         <button
           onClick={() => activateMode("replyAll")}
           disabled={noReply}
-          title={noReply ? "This sender does not accept replies" : undefined}
+          title={noReply ? t("actions.noReplies") : undefined}
           className="flex items-center gap-1.5 px-4 py-2 text-xs text-text-secondary border border-border-primary rounded-lg hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-secondary"
         >
           <ReplyAll size={14} />
-          Reply All
+          {t("inlineReply.replyAll")}
         </button>
         <button
           onClick={() => activateMode("forward")}
           className="flex items-center gap-1.5 px-4 py-2 text-xs text-text-secondary border border-border-primary rounded-lg hover:bg-bg-hover hover:text-text-primary transition-colors"
         >
           <Forward size={14} />
-          Forward
+          {t("inlineReply.forward")}
         </button>
       </div>
     );
@@ -341,7 +343,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
 
   // Expanded state — editor visible
   const { to } = getRecipients();
-  const modeLabel = mode === "reply" ? "Reply" : mode === "replyAll" ? "Reply All" : "Forward";
+  const modeLabel = mode === "reply" ? t("inlineReply.reply") : mode === "replyAll" ? t("inlineReply.replyAll") : t("inlineReply.forward");
 
   return (
     <div ref={containerRef} className="mx-4 my-3 border border-border-primary rounded-lg overflow-hidden bg-bg-primary">
@@ -359,13 +361,13 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
                     : "text-text-tertiary hover:text-text-primary"
                 }`}
               >
-                {m === "reply" ? "Reply" : m === "replyAll" ? "Reply All" : "Forward"}
+                {m === "reply" ? t("inlineReply.reply") : m === "replyAll" ? t("inlineReply.replyAll") : t("inlineReply.forward")}
               </button>
             ))}
           </div>
           {to.length > 0 && (
             <span className="text-[0.6875rem] text-text-tertiary truncate max-w-[200px]">
-              to {to.join(", ")}
+              {t("common.to").toLowerCase()} {to.join(", ")}
             </span>
           )}
         </div>
@@ -373,7 +375,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
           onClick={() => setMode(null)}
           className="text-xs text-text-tertiary hover:text-text-primary transition-colors"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
 
@@ -384,7 +386,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
           <div className="absolute inset-0 flex items-center justify-center bg-bg-primary/60 backdrop-blur-[1px]">
             <div className="flex items-center gap-2 text-xs text-text-secondary">
               <Loader2 size={14} className="animate-spin" />
-              Generating draft...
+              {t("ai.generatingDraft")}
             </div>
           </div>
         )}
@@ -399,7 +401,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
             className="flex items-center gap-1.5 px-2 py-1 text-xs text-text-tertiary hover:text-text-primary transition-colors"
           >
             <Maximize2 size={12} />
-            Expand
+            {t("common.expand")}
           </button>
           {hasAutoDraft && mode !== "forward" && (
             <>
@@ -410,7 +412,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
                 className="flex items-center gap-1 px-2 py-1 text-xs text-text-tertiary hover:text-accent transition-colors disabled:opacity-50"
               >
                 <RotateCcw size={11} />
-                Regenerate
+                {t("ai.regenerate")}
               </button>
               <button
                 onClick={handleClearDraft}
@@ -418,7 +420,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
                 className="flex items-center gap-1 px-2 py-1 text-xs text-text-tertiary hover:text-danger transition-colors"
               >
                 <X size={11} />
-                Clear
+                {t("common.clear")}
               </button>
             </>
           )}

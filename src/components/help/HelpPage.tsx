@@ -1,16 +1,19 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams } from "@tanstack/react-router";
 import { ArrowLeft, Search } from "lucide-react";
 import { navigateToLabel } from "@/router/navigate";
-import { HELP_CATEGORIES, getAllCards, getCategoryById } from "@/constants/helpContent";
+import { getHelpCategories, getAllCards, getCategoryById } from "@/constants/helpContent";
 import { HelpSidebar } from "./HelpSidebar";
 import { HelpSearchBar } from "./HelpSearchBar";
 import { HelpCardGrid } from "./HelpCardGrid";
 
 export function HelpPage() {
+  const { t } = useTranslation();
   const { topic } = useParams({ strict: false }) as { topic?: string };
+  const categories = getHelpCategories(t);
   const activeTopic =
-    topic && HELP_CATEGORIES.some((c) => c.id === topic) ? topic : "getting-started";
+    topic && categories.some((c) => c.id === topic) ? topic : "getting-started";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
@@ -24,7 +27,7 @@ export function HelpPage() {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return null;
 
-    const allCards = getAllCards();
+    const allCards = getAllCards(t);
     return allCards.filter((card) => {
       if (card.title.toLowerCase().includes(q)) return true;
       if (card.summary.toLowerCase().includes(q)) return true;
@@ -32,7 +35,7 @@ export function HelpPage() {
       if (card.tips?.some((tip) => tip.text.toLowerCase().includes(q))) return true;
       return false;
     });
-  }, [searchQuery]);
+  }, [searchQuery, t]);
 
   // Group search results by category
   const groupedResults = useMemo(() => {
@@ -47,7 +50,7 @@ export function HelpPage() {
     return groups;
   }, [searchResults]);
 
-  const activeCategory = getCategoryById(activeTopic);
+  const activeCategory = getCategoryById(activeTopic, t);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-bg-primary/50">
@@ -56,11 +59,11 @@ export function HelpPage() {
         <button
           onClick={() => navigateToLabel("inbox")}
           className="p-1.5 -ml-1 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
-          title="Back to Inbox"
+          title={t("help.backToInbox")}
         >
           <ArrowLeft size={18} />
         </button>
-        <h1 className="text-base font-semibold text-text-primary">Help</h1>
+        <h1 className="text-base font-semibold text-text-primary">{t("help.title")}</h1>
       </div>
 
       {/* Body: sidebar nav + content */}
@@ -77,7 +80,7 @@ export function HelpPage() {
               Object.keys(groupedResults).length > 0 ? (
                 <div className="space-y-6">
                   {Object.entries(groupedResults).map(([categoryId, cards]) => {
-                    const cat = getCategoryById(categoryId);
+                    const cat = getCategoryById(categoryId, t);
                     return (
                       <div key={categoryId}>
                         <h2 className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">
@@ -96,7 +99,7 @@ export function HelpPage() {
                 // Empty search state
                 <div className="flex flex-col items-center justify-center py-16 text-text-tertiary">
                   <Search size={32} className="mb-3 opacity-40" />
-                  <p className="text-sm">No results for &ldquo;{searchQuery}&rdquo;</p>
+                  <p className="text-sm">{t("help.noResults", { query: searchQuery })}</p>
                 </div>
               )
             ) : (

@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
@@ -78,22 +79,23 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
     }
   }, [account.id, account.email, onSaved]);
 
+  const { t } = useTranslation();
   const isConfigured = !!account.caldav_url;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-text-primary">Calendar (CalDAV)</h4>
+        <h4 className="text-sm font-medium text-text-primary">{t("caldavSettings.title")}</h4>
         {isConfigured && (
-          <span className="text-xs text-success font-medium">Connected</span>
+          <span className="text-xs text-success font-medium">{t("caldavSettings.connected")}</span>
         )}
       </div>
       <p className="text-xs text-text-tertiary">
-        Connect a CalDAV calendar server to enable calendar features for this IMAP account.
+        {t("caldavSettings.description")}
       </p>
 
       <TextField
-        label="CalDAV Server URL"
+        label={t("caldavSettings.serverUrl")}
         type="url"
         value={caldavUrl}
         onChange={(e) => setCaldavUrl(e.target.value)}
@@ -101,7 +103,7 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
       />
 
       <TextField
-        label="Username"
+        label={t("caldavSettings.username")}
         type="text"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
@@ -109,11 +111,11 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
       />
 
       <TextField
-        label="Password / App Password"
+        label={t("caldavSettings.passwordLabel")}
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        placeholder="App-specific password"
+        placeholder={t("caldavSettings.appSpecificPassword")}
       />
 
       {testResult && (
@@ -131,7 +133,7 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
           disabled={testing || !caldavUrl || !password}
         >
           {testing && <Loader2 size={14} className="animate-spin" />}
-          {testing ? "Testing..." : "Test Connection"}
+          {testing ? t("caldavSettings.testing") : t("caldavSettings.testConnection")}
         </Button>
 
         <Button
@@ -140,7 +142,7 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
           onClick={handleSave}
           disabled={saving || !caldavUrl || !password}
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? t("caldavSettings.saving") : t("caldavSettings.save")}
         </Button>
 
         {isConfigured && (
@@ -150,7 +152,7 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
             onClick={handleRemove}
             disabled={saving}
           >
-            Remove
+            {t("caldavSettings.remove")}
           </Button>
         )}
       </div>

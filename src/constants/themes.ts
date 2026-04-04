@@ -19,6 +19,7 @@ interface ThemeColors {
 export interface ColorTheme {
   id: ColorThemeId;
   name: string;
+  nameKey: string;
   swatch: string;
   light: ThemeColors;
   dark: ThemeColors;
@@ -28,6 +29,7 @@ export const COLOR_THEMES: ColorTheme[] = [
   {
     id: "indigo",
     name: "Indigo",
+    nameKey: "themes.indigo",
     swatch: "#4f46e5",
     light: {
       accent: "#4f46e5",
@@ -47,6 +49,7 @@ export const COLOR_THEMES: ColorTheme[] = [
   {
     id: "rose",
     name: "Rose",
+    nameKey: "themes.rose",
     swatch: "#e11d48",
     light: {
       accent: "#e11d48",
@@ -66,6 +69,7 @@ export const COLOR_THEMES: ColorTheme[] = [
   {
     id: "emerald",
     name: "Emerald",
+    nameKey: "themes.emerald",
     swatch: "#059669",
     light: {
       accent: "#059669",
@@ -85,6 +89,7 @@ export const COLOR_THEMES: ColorTheme[] = [
   {
     id: "amber",
     name: "Amber",
+    nameKey: "themes.amber",
     swatch: "#d97706",
     light: {
       accent: "#d97706",
@@ -104,6 +109,7 @@ export const COLOR_THEMES: ColorTheme[] = [
   {
     id: "sky",
     name: "Sky",
+    nameKey: "themes.sky",
     swatch: "#0284c7",
     light: {
       accent: "#0284c7",
@@ -123,6 +129,7 @@ export const COLOR_THEMES: ColorTheme[] = [
   {
     id: "violet",
     name: "Violet",
+    nameKey: "themes.violet",
     swatch: "#7c3aed",
     light: {
       accent: "#7c3aed",
@@ -142,6 +149,7 @@ export const COLOR_THEMES: ColorTheme[] = [
   {
     id: "orange",
     name: "Orange",
+    nameKey: "themes.orange",
     swatch: "#ea580c",
     light: {
       accent: "#ea580c",
@@ -161,6 +169,7 @@ export const COLOR_THEMES: ColorTheme[] = [
   {
     id: "slate",
     name: "Slate",
+    nameKey: "themes.slate",
     swatch: "#475569",
     light: {
       accent: "#475569",

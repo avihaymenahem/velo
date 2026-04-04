@@ -1,4 +1,5 @@
-import { HELP_CATEGORIES } from "@/constants/helpContent";
+import { useTranslation } from "react-i18next";
+import { getHelpCategories } from "@/constants/helpContent";
 import { navigateToHelp } from "@/router/navigate";
 
 interface HelpSidebarProps {
@@ -6,9 +7,11 @@ interface HelpSidebarProps {
 }
 
 export function HelpSidebar({ activeTopic }: HelpSidebarProps) {
+  const { t } = useTranslation();
+  const categories = getHelpCategories(t);
   return (
     <nav className="w-48 border-r border-border-primary py-2 overflow-y-auto shrink-0 bg-bg-primary/30">
-      {HELP_CATEGORIES.map((category) => {
+      {categories.map((category) => {
         const Icon = category.icon;
         const isActive = activeTopic === category.id;
         return (

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ShieldX, X } from "lucide-react";
 import type { AuthResult } from "@/services/gmail/authParser";
 
@@ -8,6 +9,7 @@ interface AuthWarningBannerProps {
 }
 
 export function AuthWarningBanner({ authResults, senderAddress, onDismiss }: AuthWarningBannerProps) {
+  const { t } = useTranslation();
   if (!authResults) return null;
 
   let parsed: AuthResult;
@@ -26,17 +28,16 @@ export function AuthWarningBanner({ authResults, senderAddress, onDismiss }: Aut
       <ShieldX size={16} className="text-danger shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="text-sm text-danger font-medium">
-          Authentication failed
+          {t("auth.failedBanner")}
         </p>
         <p className="text-xs text-text-secondary mt-0.5">
-          This message from {sender} failed email authentication checks (SPF/DKIM/DMARC).
-          Be cautious with any links or attachments.
+          {t("auth.messageFrom")} {sender} {t("auth.failedChecks")}
         </p>
       </div>
       <button
         onClick={onDismiss}
         className="shrink-0 p-0.5 rounded hover:bg-danger/10 text-text-tertiary hover:text-text-secondary transition-colors"
-        aria-label="Dismiss warning"
+        aria-label={t("auth.dismissWarning")}
       >
         <X size={14} />
       </button>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ChevronRight } from "lucide-react";
 import { navigateToSettings } from "@/router/navigate";
 import type { HelpCard as HelpCardData } from "@/constants/helpContent";
@@ -9,6 +10,7 @@ interface HelpCardProps {
 }
 
 export function HelpCard({ card, isExpanded, onToggle }: HelpCardProps) {
+  const { t } = useTranslation();
   const Icon = card.icon;
 
   return (
@@ -69,7 +71,7 @@ export function HelpCard({ card, isExpanded, onToggle }: HelpCardProps) {
                 }}
                 className="text-xs text-accent hover:text-accent-hover transition-colors"
               >
-                Open in Settings &rarr;
+                {t("help.openInSettings")}
               </button>
             )}
           </div>
