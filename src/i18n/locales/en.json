@@ -752,17 +752,12 @@
     "gmailDescription": "Choose how to connect your Gmail account.",
     "gmailEasy": "Easy Setup (Recommended)",
     "gmailEasyDescription": "Connect with an App Password. No developer setup required.",
-    "gmailEasyStep1": "Open",
-    "gmailEasyStep1Link": "Google App Passwords",
-    "gmailEasyStep2": "Create a new app password (name it anything, e.g. \"Velo\")",
-    "gmailEasyStep3": "Enter your Gmail address and the generated password below",
     "gmailApi": "Fast Sync (Advanced)",
     "gmailApiDescription": "Uses Gmail API for faster sync. Requires Google Cloud Console setup.",
     "waitingForSignIn": "Waiting for Google sign-in...",
     "completeSignIn": "Complete the sign-in in your browser, then return here.",
     "signInWithGoogle": "Sign in with Google",
-    "checking": "Checking...",
-    "requires2fa": "Requires 2-Step Verification enabled on your Google account"
+    "checking": "Checking..."
   },
   "addImap": {
     "title": "Add IMAP/SMTP Account",

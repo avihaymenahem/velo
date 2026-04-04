@@ -752,17 +752,12 @@
     "gmailDescription": "Gmail アカウントの接続方法を選択してください。",
     "gmailEasy": "かんたん接続（推奨）",
     "gmailEasyDescription": "アプリパスワードで接続します。開発者向けの設定は不要です。",
-    "gmailEasyStep1": "以下を開く:",
-    "gmailEasyStep1Link": "Google アプリパスワード",
-    "gmailEasyStep2": "新しいアプリパスワードを作成（名前は「Velo」など何でもOK）",
-    "gmailEasyStep3": "Gmail アドレスと生成されたパスワードを以下に入力",
     "gmailApi": "高速接続（上級者向け）",
     "gmailApiDescription": "Gmail API を使用してより高速に同期します。Google Cloud Console の設定が必要です。",
     "waitingForSignIn": "Google サインインを待っています...",
     "completeSignIn": "ブラウザでサインインを完了し、ここに戻ってください。",
     "signInWithGoogle": "Google でサインイン",
-    "checking": "確認中...",
-    "requires2fa": "Google アカウントで2段階認証を有効にする必要があります"
+    "checking": "確認中..."
   },
   "addImap": {
     "title": "IMAP/SMTP アカウントを追加",
