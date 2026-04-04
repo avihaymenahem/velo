@@ -765,6 +765,7 @@
     "requires2fa": "Requires 2-Step Verification enabled on your Google account"
   },
   "addImap": {
+    "title": "Add IMAP/SMTP Account",
     "account": "Account",
     "incoming": "Incoming",
     "outgoing": "Outgoing",

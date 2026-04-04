@@ -765,6 +765,7 @@
     "requires2fa": "Google アカウントで2段階認証を有効にする必要があります"
   },
   "addImap": {
+    "title": "IMAP/SMTP アカウントを追加",
     "account": "アカウント",
     "incoming": "受信サーバー",
     "outgoing": "送信サーバー",

@@ -923,7 +923,7 @@ export function AddImapAccount({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title={t("addImap.title", "Add IMAP/SMTP Account")}
+      title={t("addImap.title")}
       width="w-full max-w-lg"
     >
       <div className="p-4" onKeyDown={handleKeyDown}>
@@ -953,7 +953,7 @@ export function AddImapAccount({
                 disabled={!bothTestsPassed || saving}
                 className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? t("addImap.adding") : t("addAccount.title", "Add Account")}
+                {saving ? t("addImap.adding") : t("addAccount.title")}
               </button>
             ) : (
               <button
