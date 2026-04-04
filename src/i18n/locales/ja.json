@@ -1894,7 +1894,8 @@
   "emailRenderer": {
     "imagesHidden": "プライバシー保護のため画像は非表示です。",
     "loadImages": "画像を読み込む",
-    "alwaysLoadFromSender": "この送信者の画像を常に読み込む"
+    "alwaysLoadFromSender": "この送信者の画像を常に読み込む",
+    "emailContent": "メールコンテンツ"
   },
   "inlineReply": {
     "reply": "返信",
@@ -2133,5 +2134,33 @@
     "tlsFailed": "安全な接続に失敗しました — セキュリティ設定を確認してください",
     "connectionRefused": "メールサーバーに接続できません — アドレスとポートを確認してください",
     "serverNotFound": "サーバーが見つかりません — ホスト名を確認してください"
+  },
+  "rawMessage": {
+    "title": "メッセージソース",
+    "copyToClipboard": "クリップボードにコピー",
+    "copied": "コピー済み",
+    "copy": "コピー",
+    "loadingSource": "メッセージソースを読み込み中...",
+    "failedToLoad": "メッセージソースの読み込みに失敗しました: {{error}}"
+  },
+  "errorBoundary": {
+    "somethingWentWrong": "問題が発生しました",
+    "unexpectedError": "予期しないエラーが発生しました",
+    "tryAgain": "再試行"
+  },
+  "dateTimePicker": {
+    "customDateTime": "日時を指定"
+  },
+  "threadCard": {
+    "followUpReminderSet": "フォローアップリマインダー設定済み",
+    "muted": "ミュート中",
+    "pinned": "ピン留め中",
+    "hasAttachments": "添付ファイルあり",
+    "starred": "スター付き"
+  },
+  "inlineReply": {
+    "expandToFullComposer": "フルコンポーザーで開く",
+    "regenerateAiDraft": "AI下書きを再生成",
+    "clearAiDraft": "AI下書きをクリア"
   }
 }

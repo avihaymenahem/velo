@@ -242,7 +242,7 @@ export function EmailRenderer({
         sandbox="allow-same-origin"
         className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
         style={{ overflow: "hidden" }}
-        title="Email content"
+        title={t("emailRenderer.emailContent")}
       />
     </div>
   );

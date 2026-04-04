@@ -1894,7 +1894,8 @@
   "emailRenderer": {
     "imagesHidden": "Images hidden to protect your privacy.",
     "loadImages": "Load images",
-    "alwaysLoadFromSender": "Always load from sender"
+    "alwaysLoadFromSender": "Always load from sender",
+    "emailContent": "Email content"
   },
   "inlineReply": {
     "reply": "Reply",
@@ -2133,5 +2134,33 @@
     "tlsFailed": "Secure connection failed \u2014 check security settings",
     "connectionRefused": "Could not reach mail server \u2014 check address and port",
     "serverNotFound": "Server not found \u2014 check hostname"
+  },
+  "rawMessage": {
+    "title": "Message Source",
+    "copyToClipboard": "Copy to clipboard",
+    "copied": "Copied",
+    "copy": "Copy",
+    "loadingSource": "Loading message source...",
+    "failedToLoad": "Failed to load message source: {{error}}"
+  },
+  "errorBoundary": {
+    "somethingWentWrong": "Something went wrong",
+    "unexpectedError": "An unexpected error occurred",
+    "tryAgain": "Try again"
+  },
+  "dateTimePicker": {
+    "customDateTime": "Custom date & time"
+  },
+  "threadCard": {
+    "followUpReminderSet": "Follow-up reminder set",
+    "muted": "Muted",
+    "pinned": "Pinned",
+    "hasAttachments": "Has attachments",
+    "starred": "Starred"
+  },
+  "inlineReply": {
+    "expandToFullComposer": "Expand to full composer",
+    "regenerateAiDraft": "Regenerate AI draft",
+    "clearAiDraft": "Clear AI draft"
   }
 }

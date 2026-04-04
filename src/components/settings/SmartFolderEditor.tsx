@@ -151,7 +151,7 @@ export function SmartFolderEditor() {
                 type="text"
                 value={icon}
                 onChange={(e) => setIcon(e.target.value)}
-                placeholder="Search"
+                placeholder={t("common.search")}
                 className="w-full px-3 py-1 bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary outline-none focus:border-accent"
               />
               <p className="text-[0.625rem] text-text-tertiary mt-0.5">

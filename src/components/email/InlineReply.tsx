@@ -397,7 +397,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
         <div className="flex items-center gap-1">
           <button
             onClick={handleExpandToComposer}
-            title="Expand to full composer"
+            title={t("inlineReply.expandToFullComposer")}
             className="flex items-center gap-1.5 px-2 py-1 text-xs text-text-tertiary hover:text-text-primary transition-colors"
           >
             <Maximize2 size={12} />
@@ -408,7 +408,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
               <button
                 onClick={handleRegenerateDraft}
                 disabled={autoDraftLoading}
-                title="Regenerate AI draft"
+                title={t("inlineReply.regenerateAiDraft")}
                 className="flex items-center gap-1 px-2 py-1 text-xs text-text-tertiary hover:text-accent transition-colors disabled:opacity-50"
               >
                 <RotateCcw size={11} />
@@ -416,7 +416,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
               </button>
               <button
                 onClick={handleClearDraft}
-                title="Clear AI draft"
+                title={t("inlineReply.clearAiDraft")}
                 className="flex items-center gap-1 px-2 py-1 text-xs text-text-tertiary hover:text-danger transition-colors"
               >
                 <X size={11} />
