@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,6 +23,7 @@ interface AddCalDavAccountProps {
 type Step = "basic" | "server" | "test" | "done";
 
 export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccountProps) {
+  const { t } = useTranslation();
   const addAccount = useAccountStore((s) => s.addAccount);
   const [step, setStep] = useState<Step>("basic");
 
@@ -89,14 +91,14 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
       setStep("done");
     } catch (err) {
       console.error("Failed to create CalDAV account:", err);
-      setTestResult({ success: false, message: "Failed to save account" });
+      setTestResult({ success: false, message: t("addCalDav.failedToSave") });
     } finally {
       setCreating(false);
     }
-  }, [email, displayName, caldavUrl, username, password, addAccount]);
+  }, [email, displayName, caldavUrl, username, password, addAccount, t]);
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Add CalDAV Calendar" width="w-full max-w-md">
+    <Modal isOpen={true} onClose={onClose} title={t("addCalDav.title")} width="w-full max-w-md">
       <div className="p-4">
         {step === "basic" && (
           <div className="space-y-4">
@@ -105,15 +107,15 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
                 <Calendar size={20} className="text-accent" />
               </div>
               <div>
-                <h3 className="text-sm font-medium text-text-primary">CalDAV Calendar Account</h3>
+                <h3 className="text-sm font-medium text-text-primary">{t("addCalDav.accountTitle")}</h3>
                 <p className="text-xs text-text-tertiary">
-                  Connect to iCloud, Fastmail, Nextcloud, or any CalDAV server
+                  {t("addCalDav.accountDescription")}
                 </p>
               </div>
             </div>
 
             <TextField
-              label="Email"
+              label={t("addCalDav.email")}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -122,11 +124,11 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
             />
 
             <TextField
-              label="Display Name (optional)"
+              label={t("addCalDav.displayName")}
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="My Calendar"
+              placeholder={t("addCalDav.displayNamePlaceholder")}
             />
 
             <div className="flex justify-between pt-2">
@@ -135,14 +137,14 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
                 className="flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
               >
                 <ArrowLeft size={14} />
-                Back
+                {t("common.back")}
               </button>
               <button
                 onClick={handleDiscoverAndNext}
                 disabled={!email.trim()}
                 className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
               >
-                Next
+                {t("addCalDav.next")}
                 <ArrowRight size={14} />
               </button>
             </div>
@@ -153,18 +155,18 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
           <div className="space-y-4">
             {providerName && (
               <div className="text-xs text-accent font-medium">
-                Detected: {providerName}
+                {t("addCalDav.detected", { provider: providerName })}
               </div>
             )}
 
             {needsAppPassword && (
               <div className="p-3 bg-warning/10 border border-warning/30 rounded text-xs text-text-secondary">
-                This provider requires an app-specific password. Generate one in your provider's security settings.
+                {t("addCalDav.appPasswordRequired")}
               </div>
             )}
 
             <TextField
-              label="CalDAV Server URL"
+              label={t("addCalDav.serverUrl")}
               type="url"
               value={caldavUrl}
               onChange={(e) => setCaldavUrl(e.target.value)}
@@ -172,7 +174,7 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
             />
 
             <TextField
-              label="Username"
+              label={t("addCalDav.username")}
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -180,11 +182,11 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
             />
 
             <TextField
-              label={needsAppPassword ? "App Password" : "Password"}
+              label={needsAppPassword ? t("addCalDav.appPassword") : t("addCalDav.password")}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={needsAppPassword ? "App-specific password" : "Password"}
+              placeholder={needsAppPassword ? t("addCalDav.appPasswordPlaceholder") : t("addCalDav.password")}
             />
 
             <div className="flex justify-between pt-2">
@@ -193,14 +195,14 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
                 className="flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
               >
                 <ArrowLeft size={14} />
-                Back
+                {t("common.back")}
               </button>
               <button
                 onClick={() => { setStep("test"); handleTest(); }}
                 disabled={!caldavUrl || !password}
                 className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
               >
-                Test & Connect
+                {t("addCalDav.testAndConnect")}
                 <ArrowRight size={14} />
               </button>
             </div>
@@ -213,7 +215,7 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
               {testing && (
                 <>
                   <Loader2 size={32} className="animate-spin text-accent mx-auto mb-3" />
-                  <p className="text-sm text-text-secondary">Testing connection...</p>
+                  <p className="text-sm text-text-secondary">{t("addCalDav.testingConnection")}</p>
                 </>
               )}
 
@@ -223,7 +225,7 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
                   <p className="text-sm font-medium text-text-primary">{testResult.message}</p>
                   {calendarCount > 0 && (
                     <p className="text-xs text-text-tertiary mt-1">
-                      Found {calendarCount} calendar{calendarCount !== 1 ? "s" : ""}
+                      {t("addCalDav.foundCalendars", { count: calendarCount })}
                     </p>
                   )}
                 </>
@@ -232,7 +234,7 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
               {!testing && testResult && !testResult.success && (
                 <>
                   <XCircle size={32} className="text-danger mx-auto mb-3" />
-                  <p className="text-sm font-medium text-text-primary">Connection failed</p>
+                  <p className="text-sm font-medium text-text-primary">{t("addCalDav.connectionFailed")}</p>
                   <p className="text-xs text-text-tertiary mt-1">{testResult.message}</p>
                 </>
               )}
@@ -244,7 +246,7 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
                 className="flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
               >
                 <ArrowLeft size={14} />
-                Back
+                {t("common.back")}
               </button>
 
               {testResult?.success ? (
@@ -253,14 +255,14 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
                   disabled={creating}
                   className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
                 >
-                  {creating ? "Creating..." : "Add Account"}
+                  {creating ? t("addCalDav.creating") : t("addCalDav.addAccount")}
                 </button>
               ) : !testing ? (
                 <button
                   onClick={handleTest}
                   className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors"
                 >
-                  Retry
+                  {t("common.retry")}
                 </button>
               ) : null}
             </div>
@@ -270,15 +272,15 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
         {step === "done" && (
           <div className="text-center py-6">
             <CheckCircle2 size={32} className="text-success mx-auto mb-3" />
-            <p className="text-sm font-medium text-text-primary">CalDAV account added!</p>
+            <p className="text-sm font-medium text-text-primary">{t("addCalDav.accountAdded")}</p>
             <p className="text-xs text-text-tertiary mt-1">
-              Your calendars will sync automatically.
+              {t("addCalDav.calendarsWillSync")}
             </p>
             <button
               onClick={onSuccess}
               className="mt-4 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors"
             >
-              Done
+              {t("common.done")}
             </button>
           </div>
         )}

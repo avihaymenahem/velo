@@ -1,4 +1,5 @@
-import { SHORTCUTS } from "@/constants/shortcuts";
+import { useTranslation } from "react-i18next";
+import { getShortcuts } from "@/constants/shortcuts";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { Modal } from "@/components/ui/Modal";
 
@@ -8,12 +9,14 @@ interface ShortcutsHelpProps {
 }
 
 export function ShortcutsHelp({ isOpen, onClose }: ShortcutsHelpProps) {
+  const { t } = useTranslation();
   const keyMap = useShortcutStore((s) => s.keyMap);
+  const shortcuts = getShortcuts(t);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Keyboard Shortcuts" width="w-full max-w-lg" zIndex="z-[60]">
+    <Modal isOpen={isOpen} onClose={onClose} title={t("shortcuts.title")} width="w-full max-w-lg" zIndex="z-[60]">
       <div className="p-4 max-h-[60vh] overflow-y-auto space-y-4">
-        {SHORTCUTS.map((section) => (
+        {shortcuts.map((section) => (
           <div key={section.category}>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2">
               {section.category}

@@ -1,3 +1,5 @@
+import i18n from "@/i18n";
+
 export type ErrorType = "network" | "auth" | "quota" | "server" | "permanent";
 
 export interface ClassifiedError {
@@ -88,19 +90,19 @@ export function formatSyncError(rawError: string): string {
   const lower = rawError.toLowerCase();
 
   if (AUTH_PATTERNS.some((p) => lower.includes(p))) {
-    return "Authentication failed \u2014 check your password";
+    return i18n.t("networkErrors.authFailed");
   }
   if (lower.includes("timed out") || lower.includes("timeout")) {
-    return "Connection timed out \u2014 check your internet or server settings";
+    return i18n.t("networkErrors.timedOut");
   }
   if (lower.includes("tls") || lower.includes("ssl") || lower.includes("certificate")) {
-    return "Secure connection failed \u2014 check security settings";
+    return i18n.t("networkErrors.tlsFailed");
   }
   if (lower.includes("econnrefused") || lower.includes("connection refused")) {
-    return "Could not reach mail server \u2014 check address and port";
+    return i18n.t("networkErrors.connectionRefused");
   }
   if (lower.includes("dns") || lower.includes("enotfound") || lower.includes("server not found")) {
-    return "Server not found \u2014 check hostname";
+    return i18n.t("networkErrors.serverNotFound");
   }
 
   // Fallback: truncate long technical errors

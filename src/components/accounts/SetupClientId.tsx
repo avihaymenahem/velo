@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { setSetting, setSecureSetting } from "@/services/db/settings";
 import { Modal } from "@/components/ui/Modal";
 
@@ -8,6 +9,7 @@ interface SetupClientIdProps {
 }
 
 export function SetupClientId({ onComplete, onCancel }: SetupClientIdProps) {
+  const { t } = useTranslation();
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [saving, setSaving] = useState(false);
@@ -28,34 +30,34 @@ export function SetupClientId({ onComplete, onCancel }: SetupClientIdProps) {
   };
 
   return (
-    <Modal isOpen={true} onClose={onCancel} title="Google API Setup" width="w-full max-w-lg">
+    <Modal isOpen={true} onClose={onCancel} title={t("setupClientId.title")} width="w-full max-w-lg">
       <div className="p-4">
         <p className="text-text-secondary text-sm mb-4">
-          To connect Gmail accounts, you need a Google Cloud OAuth Client ID.
+          {t("setupClientId.description")}
         </p>
 
         <ol className="text-text-secondary text-sm mb-4 space-y-1 list-decimal list-inside">
           <li>
-            Go to the{" "}
-            <span className="text-accent">Google Cloud Console</span>
+            {t("setupClientId.step1")}{" "}
+            <span className="text-accent">{t("setupClientId.googleConsole")}</span>
           </li>
-          <li>Create a project (or use an existing one)</li>
-          <li>Enable the Gmail API</li>
+          <li>{t("setupClientId.step2")}</li>
+          <li>{t("setupClientId.step3")}</li>
           <li>
-            Create OAuth 2.0 credentials (Web application type)
+            {t("setupClientId.step4")}
           </li>
           <li>
-            Add <code className="bg-bg-tertiary px-1 rounded text-xs">http://127.0.0.1:17248</code>{" "}
-            as an authorized redirect URI
+            {t("setupClientId.step5")} <code className="bg-bg-tertiary px-1 rounded text-xs">http://127.0.0.1:17248</code>{" "}
+            {t("setupClientId.step5b")}
           </li>
-          <li>Copy the Client ID and Client Secret below</li>
+          <li>{t("setupClientId.step6")}</li>
         </ol>
 
         <input
           type="text"
           value={clientId}
           onChange={(e) => setClientId(e.target.value)}
-          placeholder="Paste your Client ID here..."
+          placeholder={t("setupClientId.clientIdPlaceholder")}
           className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm mb-3 outline-none focus:border-accent"
         />
 
@@ -63,11 +65,11 @@ export function SetupClientId({ onComplete, onCancel }: SetupClientIdProps) {
           type="password"
           value={clientSecret}
           onChange={(e) => setClientSecret(e.target.value)}
-          placeholder="Paste your Client Secret here..."
+          placeholder={t("setupClientId.clientSecretPlaceholder")}
           className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm mb-1 outline-none focus:border-accent"
         />
         <p className="text-text-tertiary text-xs mb-4">
-          Required for Web application credentials
+          {t("setupClientId.clientSecretNote")}
         </p>
 
         <div className="flex gap-3 justify-end">
@@ -75,14 +77,14 @@ export function SetupClientId({ onComplete, onCancel }: SetupClientIdProps) {
             onClick={onCancel}
             className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleSave}
             disabled={!clientId.trim() || !clientSecret.trim() || saving}
             className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? "Saving..." : "Save & Continue"}
+            {saving ? t("common.saving") : t("setupClientId.saveAndContinue")}
           </button>
         </div>
       </div>

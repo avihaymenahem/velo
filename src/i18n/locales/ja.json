@@ -1,0 +1,2166 @@
+{
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "update": "更新",
+    "close": "閉じる",
+    "back": "戻る",
+    "loading": "読み込み中...",
+    "saving": "保存中...",
+    "search": "検索",
+    "add": "追加",
+    "remove": "削除",
+    "create": "作成",
+    "done": "完了",
+    "failed": "失敗",
+    "retry": "再試行",
+    "clear": "クリア",
+    "reset": "リセット",
+    "enable": "有効",
+    "disable": "無効",
+    "disabled": "無効",
+    "enabled": "有効",
+    "none": "なし",
+    "default": "デフォルト",
+    "unknown": "不明",
+    "unnamed": "名前なし",
+    "noSubject": "(件名なし)",
+    "to": "宛先",
+    "cc": "Cc",
+    "bcc": "Bcc",
+    "from": "差出人",
+    "subject": "件名",
+    "change": "変更",
+    "expand": "展開",
+    "collapse": "折りたたむ",
+    "dismiss": "閉じる",
+    "confirm": "確認",
+    "connect": "接続",
+    "insert": "挿入",
+    "preview": "プレビュー",
+    "download": "ダウンロード",
+    "pending": "保留中",
+    "primary": "メイン",
+    "today": "今日",
+    "tomorrow": "明日"
+  },
+  "app": {
+    "name": "Velo",
+    "titleBar": {
+      "minimize": "最小化",
+      "restore": "元に戻す",
+      "maximize": "最大化",
+      "close": "閉じる"
+    },
+    "syncStatus": {
+      "syncingMessages": "同期中: {{current}}/{{total}} メッセージ",
+      "syncingLabels": "ラベルを同期中...",
+      "buildingThreads": "スレッドを構築中... ({{current}}/{{total}})",
+      "syncing": "同期中...",
+      "syncComplete": "同期完了",
+      "syncFailed": "同期に失敗しました",
+      "syncFailedWith": "同期に失敗しました: {{error}}"
+    },
+    "loadingInbox": "受信トレイを読み込み中..."
+  },
+  "nav": {
+    "inbox": "受信トレイ",
+    "starred": "スター付き",
+    "snoozed": "スヌーズ中",
+    "sent": "送信済み",
+    "drafts": "下書き",
+    "trash": "ゴミ箱",
+    "spam": "迷惑メール",
+    "allMail": "すべてのメール",
+    "tasks": "タスク",
+    "calendar": "カレンダー",
+    "attachments": "添付ファイル",
+    "smartFolders": "スマートフォルダ",
+    "labels": "ラベル"
+  },
+  "categories": {
+    "primary": "メイン",
+    "updates": "新着情報",
+    "promotions": "プロモーション",
+    "social": "ソーシャル",
+    "newsletters": "ニュースレター"
+  },
+  "sidebar": {
+    "compose": "新規作成",
+    "settings": "設定",
+    "help": "ヘルプ",
+    "expandSidebar": "サイドバーを展開",
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "editLabel": "ラベルを編集",
+    "addLabel": "ラベルを追加",
+    "addSmartFolder": "スマートフォルダを追加",
+    "showLess": "折りたたむ",
+    "more": "件",
+    "newSmartFolder": "新しいスマートフォルダ",
+    "name": "名前",
+    "namePlaceholder": "例: 上司からの未読",
+    "searchQuery": "検索クエリ",
+    "searchQueryPlaceholder": "例: is:unread from:boss",
+    "pending_one": "{{count}} 件の保留中の変更",
+    "pending_other": "{{count}} 件の保留中の変更",
+    "switchToUnified": "統合受信トレイに切り替え",
+    "switchToSplit": "カテゴリ別受信トレイに切り替え",
+    "sidebarSection": "サイドバー",
+    "moveUp": "上に移動",
+    "moveDown": "下に移動",
+    "hide": "非表示",
+    "show": "表示",
+    "inboxAlwaysVisible": "受信トレイは常に表示されます",
+    "resetToDefaults": "デフォルトに戻す",
+    "calendarCalDav": "カレンダー (CalDAV)"
+  },
+  "emailList": {
+    "all": "すべて",
+    "unread": "未読",
+    "read": "既読",
+    "conversation_one": "{{count}} 件のスレッド",
+    "conversation_other": "{{count}} 件のスレッド",
+    "selected": "件選択中",
+    "selectAll": "すべて選択",
+    "archiveSelected": "選択をアーカイブ",
+    "deleteSelected": "選択を削除",
+    "notSpam": "迷惑メールではない",
+    "reportSpam": "迷惑メールとして報告",
+    "clearSelection": "選択を解除",
+    "otherEmails": "その他のメール",
+    "loadingMore": "読み込み中...",
+    "allLoaded": "すべてのスレッドを読み込みました",
+    "noResults": "結果が見つかりません",
+    "tryDifferentSearch": "別の検索語をお試しください",
+    "noUnread": "未読メールはありません",
+    "tryChangingFilter": "フィルターを変更してみてください",
+    "noAccount": "アカウントが接続されていません",
+    "addGmailToStart": "Gmail アカウントを追加して始めましょう",
+    "primaryClear": "メインは空です",
+    "noImportant": "重要なスレッドはありません",
+    "noUpdates": "新着情報はありません",
+    "updatesDescription": "通知やトランザクションメールがここに表示されます",
+    "noPromotions": "プロモーションはありません",
+    "promotionsDescription": "マーケティングやプロモーションメールがここに表示されます",
+    "noSocial": "ソーシャルメールはありません",
+    "socialDescription": "SNS の通知がここに表示されます",
+    "noNewsletters": "ニュースレターはありません",
+    "newslettersDescription": "ニュースレターや購読メールがここに表示されます",
+    "allCaughtUp": "すべて確認済みです",
+    "noNewConversations": "新しいスレッドはありません",
+    "noStarred": "スター付きのスレッドはありません",
+    "starToFind": "メールにスターを付けるとここに表示されます",
+    "noSnoozed": "スヌーズ中のメールはありません",
+    "snoozedAppear": "スヌーズしたメールがここに表示されます",
+    "noSent": "送信済みメッセージはありません",
+    "noDrafts": "下書きはありません",
+    "trashEmpty": "ゴミ箱は空です",
+    "noSpam": "迷惑メールはありません",
+    "lookingGood": "問題ありません",
+    "noEmails": "メールはまだありません",
+    "noMatching": "一致するメールはありません",
+    "tryAdjustingQuery": "スマートフォルダのクエリを調整してみてください",
+    "nothingHere": "ここには何もありません",
+    "noConversationsWithLabel": "このラベルのスレッドはありません",
+    "smartFolder": "スマートフォルダ",
+    "inboxDash": "受信トレイ —"
+  },
+  "readingPane": {
+    "selectEmail": "メールを選択して閲覧"
+  },
+  "thread": {
+    "message_one": "{{count}} 件のメッセージ",
+    "message_other": "{{count}} 件のメッセージ",
+    "inThisThread": "このスレッド内",
+    "muted": "ミュート中"
+  },
+  "message": {
+    "to": "宛先:",
+    "unsubscribing": "配信停止中...",
+    "unsubscribed": "配信停止済み",
+    "unsubscribeFailed": "配信停止に失敗しました — クリックして再試行",
+    "unsubscribe": "配信停止"
+  },
+  "actions": {
+    "noReplies": "この送信者は返信を受け付けていません",
+    "reply": "返信",
+    "replyAll": "全員に返信",
+    "forward": "転送",
+    "archive": "アーカイブ",
+    "deletePermanent": "削除",
+    "markUnread": "未読にする",
+    "markRead": "既読にする",
+    "unstar": "スターを外す",
+    "star": "スターを付ける",
+    "snooze": "スヌーズ",
+    "notSpam": "迷惑メールではない",
+    "reportSpam": "迷惑メールとして報告",
+    "moveToFolder": "フォルダに移動",
+    "unpin": "ピンを外す",
+    "pin": "ピン留め",
+    "unmute": "ミュート解除",
+    "mute": "ミュート",
+    "cancelFollowUp": "フォローアップリマインダーを取り消す",
+    "remindIfNoReply": "返信がない場合にリマインド",
+    "print": "印刷",
+    "exportEml": ".eml としてエクスポート",
+    "openInNewWindow": "新しいウィンドウで開く",
+    "hideTaskPanel": "タスクパネルを非表示",
+    "showTaskPanel": "タスクパネルを表示",
+    "hideContactSidebar": "連絡先サイドバーを非表示",
+    "showContactSidebar": "連絡先サイドバーを表示",
+    "replyShortcut": "返信 (r)",
+    "replyAllShortcut": "全員に返信 (a)",
+    "forwardShortcut": "転送 (f)",
+    "archiveShortcut": "アーカイブ (e)",
+    "deleteShortcut": "削除 (#)",
+    "starShortcut": "スターを付ける (s)",
+    "unstarShortcut": "スターを外す (s)",
+    "snoozeShortcut": "スヌーズ (h)",
+    "notSpamShortcut": "迷惑メールではない (!)",
+    "reportSpamShortcut": "迷惑メールとして報告 (!)",
+    "moveToFolderShortcut": "フォルダに移動 (v)",
+    "unpinShortcut": "ピンを外す (p)",
+    "pinShortcut": "ピン留め (p)",
+    "unmuteShortcut": "ミュート解除 (m)",
+    "muteShortcut": "ミュート (m)",
+    "unsubscribeShortcut": "配信停止 (u)"
+  },
+  "snooze": {
+    "laterToday": "今日中",
+    "tomorrow": "明日",
+    "thisWeekend": "今週末",
+    "nextWeek": "来週",
+    "snoozeUntil": "指定日時までスヌーズ...",
+    "snooze": "スヌーズ"
+  },
+  "followUp": {
+    "in1Day": "1 日後",
+    "in2Days": "2 日後",
+    "in3Days": "3 日後",
+    "in1Week": "1 週間後",
+    "remindIfNoReply": "返信がない場合にリマインド...",
+    "setReminder": "リマインダーを設定"
+  },
+  "moveToFolder": {
+    "inbox": "受信トレイ",
+    "archive": "アーカイブ",
+    "trash": "ゴミ箱",
+    "spam": "迷惑メール",
+    "moveTo": "移動先...",
+    "noMatching": "一致するフォルダまたはラベルがありません",
+    "system": "システム",
+    "navigate": "移動",
+    "select": "選択",
+    "close": "閉じる"
+  },
+  "auth": {
+    "passed": "認証に成功しました",
+    "warning": "認証に警告があります",
+    "failed": "認証に失敗しました",
+    "unknown": "認証状態が不明です",
+    "failedBanner": "認証に失敗しました",
+    "messageFrom": "このメッセージの送信元",
+    "failedChecks": "はメール認証チェック (SPF/DKIM/DMARC) に失敗しました。リンクや添付ファイルにご注意ください。",
+    "dismissWarning": "警告を閉じる"
+  },
+  "phishing": {
+    "highRisk": "高リスク",
+    "suspicious": "不審",
+    "linksDetected": "なリンクが検出されました",
+    "oneLink": "不審なリンクが 1 件見つかりました",
+    "multipleLinks": "不審なリンクが {{count}} 件見つかりました",
+    "beCareful": "このメッセージ内のリンクをクリックする際はご注意ください。",
+    "trustSender": "この送信者を信頼する",
+    "fullUrl": "完全な URL",
+    "linkText": "リンクテキスト",
+    "issuesDetected": "検出された問題",
+    "pts": "点",
+    "goBack": "戻る",
+    "openAnyway": "それでも開く",
+    "highRiskLink": "高リスクリンク",
+    "suspiciousLink": "不審なリンク"
+  },
+  "ai": {
+    "summary": "AI 要約",
+    "refreshSummary": "要約を更新",
+    "generatingSummary": "要約を生成中...",
+    "quickReplies": "クイック返信",
+    "refreshSuggestions": "候補を更新",
+    "generatingSuggestions": "候補を生成中...",
+    "assist": "AI アシスト",
+    "instructionsPlaceholder": "返信の指示 (任意)...",
+    "describePlaceholder": "書きたい内容を入力...",
+    "generateReply": "返信を生成",
+    "generate": "生成",
+    "transform": "変換:",
+    "improve": "改善",
+    "shorter": "短くする",
+    "formal": "丁寧にする",
+    "generatingDraft": "下書きを生成中...",
+    "regenerate": "再生成"
+  },
+  "composer": {
+    "writePlaceholder": "メッセージを入力...",
+    "replyPlaceholder": "返信を入力...",
+    "reply": "返信",
+    "replyAll": "全員に返信",
+    "forward": "転送",
+    "newMessage": "新規メッセージ",
+    "draftSaved": "下書きを保存しました",
+    "ccBcc": "Cc / Bcc",
+    "sub": "件名",
+    "dropFiles": "ファイルをドロップして添付",
+    "openInNewWindow": "新しいウィンドウで開く",
+    "discard": "破棄",
+    "send": "送信",
+    "scheduleSend": "送信予約",
+    "addRecipients": "宛先を追加...",
+    "attachFiles": "ファイルを添付",
+    "attach": "添付",
+    "noSignature": "署名なし",
+    "templates": "テンプレート",
+    "sendingEmail": "メールを送信中...",
+    "undo": "元に戻す"
+  },
+  "editor": {
+    "bold": "太字 (Ctrl+B)",
+    "italic": "斜体 (Ctrl+I)",
+    "underline": "下線 (Ctrl+U)",
+    "strikethrough": "取り消し線",
+    "bulletList": "箇条書き",
+    "numberedList": "番号付きリスト",
+    "quote": "引用",
+    "code": "コード",
+    "rule": "水平線",
+    "link": "リンク",
+    "insertImage": "画像を挿入",
+    "image": "画像",
+    "undo": "元に戻す",
+    "redo": "やり直し",
+    "insertLink": "リンクを挿入",
+    "url": "URL",
+    "urlPlaceholder": "https://..."
+  },
+  "schedule": {
+    "tomorrowMorning": "明日の朝",
+    "tomorrowAfternoon": "明日の午後",
+    "mondayMorning": "月曜の朝",
+    "scheduleSend": "送信予約",
+    "schedule": "予約"
+  },
+  "search": {
+    "placeholder": "検索... (from: to: has:attachment)",
+    "saveAsSmartFolder": "スマートフォルダとして保存",
+    "typeCommand": "コマンドを入力...",
+    "noCommandsFound": "コマンドが見つかりません",
+    "askInbox": "受信トレイに質問",
+    "askPlaceholder": "メールについて質問...",
+    "searchingInbox": "受信トレイを検索中...",
+    "sources": "参照元",
+    "askAnother": "別の質問をする",
+    "askAnything": "メールについて何でも質問できます — 会議、やりとり、添付ファイルなど。"
+  },
+  "shortcuts": {
+    "title": "キーボードショートカット",
+    "navigation": "ナビゲーション",
+    "nextThread": "次のスレッド",
+    "previousThread": "前のスレッド",
+    "openThread": "スレッドを開く",
+    "nextMessage": "スレッド内の次のメッセージ",
+    "previousMessage": "スレッド内の前のメッセージ",
+    "goToInbox": "受信トレイへ",
+    "goToStarred": "スター付きへ",
+    "goToSent": "送信済みへ",
+    "goToDrafts": "下書きへ",
+    "goToPrimary": "メインへ",
+    "goToUpdates": "新着情報へ",
+    "goToPromotions": "プロモーションへ",
+    "goToSocial": "ソーシャルへ",
+    "goToNewsletters": "ニュースレターへ",
+    "goToTasks": "タスクへ",
+    "goToAttachments": "添付ファイルへ",
+    "closeGoBack": "閉じる / 戻る",
+    "actions": "操作",
+    "composeNew": "新規メールを作成",
+    "reply": "返信",
+    "replyAll": "全員に返信",
+    "forward": "転送",
+    "archive": "アーカイブ",
+    "deleteMail": "削除",
+    "reportSpamNotSpam": "迷惑メール報告 / 解除",
+    "starUnstar": "スター付け / 解除",
+    "pinUnpin": "ピン留め / 解除",
+    "unsubscribe": "配信停止",
+    "muteUnmute": "ミュート / 解除",
+    "createTaskAi": "メールからタスクを作成 (AI)",
+    "moveToFolderLabel": "フォルダ / ラベルに移動",
+    "selectAll": "すべて選択",
+    "selectAllFromHere": "ここからすべて選択",
+    "app": "アプリ",
+    "commandPalette": "コマンドパレット",
+    "toggleSidebar": "サイドバーの表示切替",
+    "sendEmail": "メールを送信",
+    "askAiInbox": "AI に受信トレイについて質問",
+    "showShortcuts": "キーボードショートカットを表示",
+    "syncFolder": "現在のフォルダを同期"
+  },
+  "commandPalette": {
+    "goToInbox": "受信トレイへ",
+    "goToStarred": "スター付きへ",
+    "goToSent": "送信済みへ",
+    "goToDrafts": "下書きへ",
+    "goToSnoozed": "スヌーズ中へ",
+    "goToTrash": "ゴミ箱へ",
+    "goToAllMail": "すべてのメールへ",
+    "composeNew": "新規メールを作成",
+    "closeThread": "スレッドを閉じる",
+    "notSpam": "迷惑メールではない",
+    "reportSpam": "迷惑メールとして報告",
+    "createTask": "タスクを作成",
+    "createTaskAi": "メールからタスクを作成 (AI)",
+    "viewTasks": "タスクを表示",
+    "toggleTaskPanel": "タスクパネルの表示切替",
+    "askAiInbox": "AI に受信トレイについて質問",
+    "toggleSidebar": "サイドバーの表示切替",
+    "lightTheme": "ライトテーマに切替",
+    "darkTheme": "ダークテーマに切替",
+    "systemTheme": "システムテーマを使用",
+    "insert": "挿入: ",
+    "navigation": "ナビゲーション",
+    "actions": "操作",
+    "tasks": "タスク",
+    "ai": "AI",
+    "settings": "設定",
+    "templates": "テンプレート"
+  },
+  "settings": {
+    "title": "設定",
+    "backToInbox": "受信トレイに戻る",
+    "language": {
+      "title": "言語",
+      "label": "表示言語",
+      "en": "English",
+      "ja": "日本語"
+    },
+    "tabs": {
+      "general": "一般",
+      "notifications": "通知",
+      "composing": "作成",
+      "mailRules": "メールルール",
+      "people": "連絡先",
+      "accounts": "アカウント",
+      "shortcuts": "ショートカット",
+      "ai": "AI",
+      "about": "Velo について"
+    },
+    "appearance": {
+      "title": "外観",
+      "theme": "テーマ",
+      "system": "システム",
+      "light": "ライト",
+      "dark": "ダーク",
+      "readingPane": "閲覧ペイン",
+      "right": "右",
+      "bottom": "下",
+      "off": "オフ",
+      "emailDensity": "メール表示密度",
+      "compact": "コンパクト",
+      "default": "デフォルト",
+      "spacious": "ゆったり",
+      "fontSize": "文字サイズ",
+      "small": "小",
+      "large": "大",
+      "extraLarge": "特大",
+      "accentColor": "アクセントカラー",
+      "inboxViewMode": "受信トレイの表示モード",
+      "unified": "統合",
+      "splitCategories": "分割 (カテゴリ別)",
+      "reduceMotion": "モーションを減らす",
+      "reduceMotionDescription": "アニメーション背景効果を無効にします (一部の GPU でのちらつきを改善)"
+    },
+    "startup": {
+      "title": "起動",
+      "launchAtLogin": "ログイン時に起動",
+      "launchDescription": "ログイン時に Velo を自動的に起動します (トレイに最小化)"
+    },
+    "privacy": {
+      "title": "プライバシーとセキュリティ",
+      "blockImages": "リモート画像をブロック",
+      "blockImagesDescription": "読み込みを許可するまで、トラッキングピクセルやリモート画像を非表示にします",
+      "phishingDetection": "フィッシングリンク検出",
+      "phishingDescription": "メッセージ内のリンクをスキャンしてフィッシングの兆候を検出し、警告を表示します",
+      "sensitivity": "検出感度",
+      "lowSensitivity": "低 (警告を少なく)",
+      "highSensitivity": "高 (警告を多く)"
+    },
+    "storage": {
+      "title": "ストレージ",
+      "attachmentCache": "添付ファイルキャッシュ",
+      "calculating": "計算中...",
+      "usedMb": "{{size}} MB 使用中",
+      "clearCache": "キャッシュをクリア",
+      "clearing": "クリア中...",
+      "maxCacheSize": "最大キャッシュサイズ"
+    },
+    "notifications": {
+      "enable": "通知を有効にする",
+      "smart": "スマート通知",
+      "smartDescription": "選択したカテゴリと VIP 送信者のみ通知します",
+      "categoryFilters": "カテゴリフィルター",
+      "notifyFor": "通知するカテゴリ",
+      "vipSenders": "VIP 送信者",
+      "vipDescription": "これらの送信者はカテゴリに関係なく常に通知されます",
+      "emailPlaceholder": "email@example.com"
+    },
+    "composing": {
+      "sending": "送信",
+      "undoSendDelay": "送信取り消しの猶予時間",
+      "seconds": "{{count}} 秒",
+      "sendAndArchive": "送信してアーカイブ",
+      "sendAndArchiveDescription": "返信の送信後にスレッドを自動的にアーカイブします",
+      "behavior": "動作",
+      "defaultReplyAction": "デフォルトの返信方法",
+      "markAsRead": "既読にする",
+      "instantly": "即時",
+      "after2Seconds": "2 秒後",
+      "manually": "手動"
+    },
+    "signatures": {
+      "title": "署名",
+      "writePlaceholder": "署名を入力...",
+      "signatureName": "署名の名前",
+      "htmlSource": "HTML ソース",
+      "switchToVisual": "ビジュアルエディタに切替",
+      "editHtml": "HTML ソースを編集",
+      "setAsDefault": "デフォルトに設定",
+      "addSignature": "+ 署名を追加",
+      "default": "デフォルト"
+    },
+    "templates": {
+      "title": "テンプレート"
+    },
+    "labels": {
+      "title": "ラベル",
+      "description": "Gmail ラベルの作成、名前変更、色変更、削除、並べ替えができます。",
+      "noUserLabels": "ユーザーラベルはありません",
+      "moveUp": "上に移動",
+      "moveDown": "下に移動",
+      "addLabel": "+ ラベルを追加",
+      "labelName": "ラベル名",
+      "noColor": "色なし"
+    },
+    "filters": {
+      "title": "フィルター",
+      "description": "フィルターは同期中に受信メールに自動的にアクションを適用します。",
+      "filterName": "フィルター名",
+      "matchCriteria": "一致条件",
+      "fromContains": "差出人に含まれる...",
+      "toContains": "宛先に含まれる...",
+      "subjectContains": "件名に含まれる...",
+      "bodyContains": "本文に含まれる...",
+      "hasAttachment": "添付ファイルあり",
+      "actions": "アクション",
+      "applyLabel": "ラベルを適用",
+      "archive": "アーカイブ",
+      "star": "スターを付ける",
+      "markAsRead": "既読にする",
+      "trash": "ゴミ箱に移動",
+      "addFilter": "+ フィルターを追加",
+      "noCriteria": "条件なし",
+      "invalidCriteria": "無効な条件"
+    },
+    "smartLabels": {
+      "title": "スマートラベル",
+      "description": "どのメールにラベルを付けるかを日本語で記述すると、AI が同期中に自動的にラベルを適用します。"
+    },
+    "smartFolders": {
+      "title": "スマートフォルダ",
+      "description": "スマートフォルダは、一致するメールを自動的に表示する保存済み検索です。次のような検索演算子を使用できます:",
+      "operators": {
+        "isUnread": "is:unread",
+        "from": "from:",
+        "hasAttachment": "has:attachment",
+        "after": "after:"
+      }
+    },
+    "quickSteps": {
+      "title": "クイックステップ",
+      "description": "クイックステップは複数のアクションを 1 クリックにまとめる機能です。スレッドの右クリックメニューから実行できます。"
+    },
+    "contacts": {
+      "title": "連絡先",
+      "description": "メールの送受信時に連絡先が自動的に追加されます。表示名の編集や連絡先の削除ができます。"
+    },
+    "subscriptions": {
+      "title": "購読管理",
+      "description": "検出されたニュースレターやプロモーション送信者を一覧表示します。RFC 8058 のワンクリック POST、mailto、またはブラウザ経由で配信停止できます。"
+    },
+    "accounts": {
+      "mailAccounts": "メールアカウント",
+      "noAccounts": "メールアカウントが接続されていません",
+      "imap": "IMAP",
+      "gmail": "Gmail",
+      "reauthorize": "再認証",
+      "waiting": "待機中...",
+      "resync": "再同期",
+      "resyncing": "再同期中...",
+      "calendarAccounts": "カレンダーアカウント",
+      "caldav": "CalDAV",
+      "sendAsAliases": "送信元エイリアス",
+      "aliasesDescription": "これらのエイリアスは Gmail の設定から同期されています。デフォルトの送信元として使用するエイリアスを選択できます。",
+      "noAliases": "エイリアスが見つかりません。エイリアスは起動時に Gmail から取得されます。",
+      "setAsDefault": "デフォルトに設定",
+      "primaryBadge": "プライマリ",
+      "defaultBadge": "デフォルト",
+      "googleApi": "Google API",
+      "clientId": "Client ID",
+      "clientIdPlaceholder": "Google OAuth Client ID",
+      "clientSecret": "Client Secret",
+      "clientSecretPlaceholder": "Google OAuth Client Secret",
+      "saved": "保存しました"
+    },
+    "sync": {
+      "title": "同期",
+      "checkForMail": "新着メールを確認",
+      "syncNow": "今すぐ同期",
+      "syncing": "同期中...",
+      "fullResync": "完全再同期",
+      "fullResyncDescription": "すべてのメールを最初からダウンロードし直します",
+      "syncPeriod": "同期期間",
+      "syncEmailsFrom": "同期するメールの範囲",
+      "last30Days": "過去 30 日間",
+      "last90Days": "過去 90 日間",
+      "last180Days": "過去 180 日間",
+      "last1Year": "過去 1 年間",
+      "changesApplyOnResync": "変更は次回の完全再同期時に適用されます。",
+      "pendingOps": "保留中の操作",
+      "pendingDescription": "サーバーへの同期を待っている変更",
+      "failedOps": "失敗した操作",
+      "failedDescription": "複数回の再試行後も同期できなかった変更",
+      "syncOffline": "同期とオフライン"
+    },
+    "globalShortcut": {
+      "title": "グローバルショートカット",
+      "quickCompose": "クイック作成",
+      "quickComposeDescription": "どのアプリからでも作成ウィンドウを開きます",
+      "pressKeys": "キーを押してください...",
+      "clickToRebind": "ショートカットをクリックして再設定します。任意のキーまたはキーの組み合わせを押してください。",
+      "resetAll": "すべてリセット",
+      "pressKey": "キーを押してください..."
+    },
+    "aiSettings": {
+      "provider": "プロバイダー",
+      "providerDescription": "要約、作成支援、スマート分類に使用する AI プロバイダーを選択します。",
+      "aiProvider": "AI プロバイダー",
+      "claude": "Claude (Anthropic)",
+      "openai": "OpenAI",
+      "gemini": "Gemini (Google)",
+      "localAi": "ローカル AI (Ollama / LMStudio)",
+      "githubCopilot": "GitHub Copilot",
+      "uses": "使用中:",
+      "localDescription": "ローカルの Ollama または LMStudio サーバーに接続します。API キーは不要です。",
+      "githubDescription": "models:read 権限を持つ GitHub PAT が必要です。",
+      "localServer": "ローカルサーバー",
+      "serverUrl": "サーバー URL",
+      "modelName": "モデル名",
+      "testConnection": "接続テスト",
+      "testing": "テスト中...",
+      "connected": "接続しました",
+      "connectionFailed": "接続に失敗しました",
+      "apiKey": "API キー",
+      "anthropicKey": "Anthropic API キー",
+      "openaiKey": "OpenAI API キー",
+      "githubPat": "GitHub Personal Access Token",
+      "googleAiKey": "Google AI API キー",
+      "model": "モデル",
+      "saveKey": "キーを保存",
+      "features": "機能",
+      "enableAi": "AI 機能を有効にする",
+      "masterToggle": "すべての AI 機能の一括切替",
+      "autoCategorize": "受信トレイの自動分類",
+      "autoCategorizeDescription": "AI を使用してルールベースの分類を改善します",
+      "autoSummarize": "スレッドの自動要約",
+      "autoSummarizeDescription": "複数メッセージのスレッドに AI 要約を表示します",
+      "autoDraftReplies": "返信の自動下書き",
+      "autoDraftDescription": "AI が生成した下書きを返信エディタに事前入力します",
+      "learnWritingStyle": "文体を学習",
+      "learnWritingDescription": "送信済みメールを分析して文体や口調を再現します",
+      "writingStyleProfile": "文体プロフィール",
+      "reanalyze": "再分析",
+      "reanalyzeDescription": "最近の送信済みメールから文体を再分析します",
+      "analyzing": "分析中...",
+      "categoriesDescription": "受信メールはルールベースのヒューリスティクス (Gmail ラベル、送信者ドメイン、ヘッダー) で自動分類されます。AI を有効にすると、より精度の高い分類が可能になります。",
+      "enableAutoArchive": "特定のカテゴリの自動アーカイブを有効にして、受信トレイをスキップできます。",
+      "autoArchiveUpdates": "新着情報を自動アーカイブ",
+      "autoArchiveUpdatesDescription": "新着情報メールの受信トレイをスキップ",
+      "autoArchivePromotions": "プロモーションを自動アーカイブ",
+      "autoArchivePromotionsDescription": "プロモーションメールの受信トレイをスキップ",
+      "autoArchiveSocial": "ソーシャルを自動アーカイブ",
+      "autoArchiveSocialDescription": "ソーシャルメールの受信トレイをスキップ",
+      "autoArchiveNewsletters": "ニュースレターを自動アーカイブ",
+      "autoArchiveNewslettersDescription": "ニュースレターメールの受信トレイをスキップ",
+      "bundling": "バンドルと配信スケジュール",
+      "bundlingDescription": "カテゴリを受信トレイの 1 行にまとめます。配信スケジュールを設定してメールをまとめて配信することもできます。",
+      "categoriesTitle": "カテゴリ",
+      "bundle": "バンドル",
+      "schedule": "スケジュール",
+      "deliveryAt": "配信時刻"
+    },
+    "about": {
+      "appInfo": "アプリ情報",
+      "appVersion": "アプリバージョン",
+      "tauriVersion": "Tauri バージョン",
+      "webviewVersion": "WebView バージョン",
+      "platform": "プラットフォーム",
+      "updates": "アップデート",
+      "softwareUpdates": "ソフトウェアアップデート",
+      "available": "利用可能",
+      "upToDate": "最新です",
+      "updating": "アップデート中...",
+      "updateAndRestart": "アップデートして再起動",
+      "checkForUpdates": "アップデートを確認",
+      "checking": "確認中...",
+      "devTools": "開発者ツール",
+      "openDevTools": "DevTools を開く",
+      "openDevToolsDescription": "WebView 開発者ツールのインスペクタを開きます",
+      "veloMail": "Velo Mail",
+      "version": "バージョン",
+      "description": "プライバシーを重視した高速なオープンソースのデスクトップメールクライアントです。メールはお使いのマシンに保存されます — クラウドもトラッキングもありません。",
+      "links": "リンク",
+      "website": "Web サイト",
+      "githubRepo": "GitHub リポジトリ",
+      "contact": "お問い合わせ",
+      "license": "ライセンス",
+      "apache2": "Apache License 2.0",
+      "licenseText": "Apache License, Version 2.0 の下でライセンスされています。ライセンスのコピーは以下から入手できます:",
+      "copyright": "Copyright 2025 Velo Mail. Apache 2.0 ライセンスの条件に基づき、このソフトウェアを使用、配布、変更することができます。このソフトウェアは「現状のまま」提供され、いかなる種類の保証や条件も付与されません。"
+    }
+  },
+  "addAccount": {
+    "title": "アカウントを追加",
+    "description": "メールアカウントの接続方法を選択してください。",
+    "google": "Google (Gmail)",
+    "googleDescription": "OAuth 経由で Gmail API に完全対応して接続",
+    "imapSmtp": "IMAP / SMTP",
+    "imapSmtpDescription": "手動でサーバーを設定して任意のメールプロバイダーに接続",
+    "caldav": "CalDAV (カレンダーのみ)",
+    "caldavDescription": "iCloud、Fastmail、Nextcloud、その他の CalDAV カレンダーサーバーに接続",
+    "addGmail": "Gmail アカウントを追加",
+    "gmailDescription": "Google アカウントでサインインして Velo に接続します。",
+    "waitingForSignIn": "Google サインインを待っています...",
+    "completeSignIn": "ブラウザでサインインを完了し、ここに戻ってください。",
+    "signInWithGoogle": "Google でサインイン",
+    "checking": "確認中..."
+  },
+  "addImap": {
+    "account": "アカウント",
+    "incoming": "受信サーバー",
+    "outgoing": "送信サーバー",
+    "verify": "確認",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "displayName": "表示名 (任意)",
+    "imapServer": "IMAP サーバー",
+    "imapPort": "IMAP ポート",
+    "imapSecurity": "IMAP セキュリティ",
+    "imapUsername": "IMAP ユーザー名 (任意)",
+    "smtpServer": "SMTP サーバー",
+    "smtpPort": "SMTP ポート",
+    "smtpSecurity": "SMTP セキュリティ",
+    "smtpPassword": "SMTP パスワード",
+    "sameAsImap": "IMAP パスワードと同じ",
+    "acceptInvalidCerts": "無効な証明書を許可",
+    "testConnection": "接続テスト",
+    "testing": "テスト中...",
+    "success": "成功",
+    "error": "エラー",
+    "oauthConfig": "OAuth 2.0 設定",
+    "clientId": "Client ID",
+    "clientSecret": "Client Secret (任意)",
+    "connecting": "接続中...",
+    "placeholderLeaveBlankPublic": "公開クライアントの場合は空欄のまま",
+    "placeholderYourName": "あなたの名前",
+    "placeholderLeaveBlankEmail": "メールアドレスを使用する場合は空欄のまま",
+    "placeholderEmailPassword": "メールパスワードまたはアプリパスワードを入力",
+    "placeholderSmtpPassword": "SMTP パスワード",
+    "placeholderEmail": "you@example.com",
+    "placeholderImapHost": "imap.example.com",
+    "placeholderSmtpHost": "smtp.example.com",
+    "usernameHint": "ログインユーザー名がメールアドレスと異なる場合にのみ必要です。",
+    "appPasswordHint": "プロバイダーが要求する場合は、アプリ固有のパスワードを使用してください。",
+    "oauthAutoConfigHint": "プロバイダーに基づいてサーバー設定が自動設定されました。必要に応じて調整できます。",
+    "invalidCertsHint": "ProtonMail Bridge などのローカルメールブリッジ用に有効にする",
+    "testBeforeAdding": "アカウントを追加する前に接続設定をテストしてください。",
+    "imapConnection": "IMAP 接続",
+    "smtpConnection": "SMTP 接続",
+    "adding": "追加中...",
+    "next": "次へ",
+    "authMethod": "認証方式",
+    "signInWith": "{{provider}} でサインイン",
+    "connectedAs": "接続済み:",
+    "oauthAppRegistrationHint": "Client ID を取得するには {{provider}} でアプリを登録する必要があります。",
+    "oauthMicrosoftHint": "Azure Portal (アプリの登録) でリダイレクト URI を指定して登録:",
+    "oauthYahooHint": "Yahoo Developer Network でリダイレクト URI を指定して登録:"
+  },
+  "setupClientId": {
+    "title": "Google API セットアップ",
+    "description": "Gmail アカウントを接続するには、Google Cloud OAuth Client ID が必要です。",
+    "step1": "次のサイトにアクセスしてください:",
+    "googleConsole": "Google Cloud Console",
+    "step2": "プロジェクトを作成します (既存のものを使用することもできます)",
+    "step3": "Gmail API を有効にします",
+    "step4": "OAuth 2.0 認証情報を作成します (ウェブアプリケーションタイプ)",
+    "step5": "次のアドレスを追加してください:",
+    "step5b": "を承認済みリダイレクト URI として設定",
+    "step6": "以下に Client ID と Client Secret を貼り付けてください",
+    "clientIdPlaceholder": "Client ID をここに貼り付け...",
+    "clientSecretPlaceholder": "Client Secret をここに貼り付け...",
+    "clientSecretNote": "ウェブアプリケーション認証情報に必要です",
+    "saveAndContinue": "保存して続行"
+  },
+  "accountSwitcher": {
+    "accounts": "アカウント",
+    "addAccount": "アカウントを追加"
+  },
+  "calendar": {
+    "connectAccount": "カレンダーを使用するにはアカウントを接続してください",
+    "notConfigured": "このアカウントにはカレンダーが設定されていません。",
+    "forImapAccounts": "IMAP アカウントの場合は、設定で CalDAV を構成してください。",
+    "accessDenied": "再認証後もカレンダーへのアクセスが拒否されています。Google Cloud Console プロジェクトで Google Calendar API が有効になっていることを確認してください。console.cloud.google.com → API とサービス → 「Google Calendar API」を有効にしてください。",
+    "accessError": "カレンダーアクセスエラー",
+    "loadingCalendar": "カレンダーを読み込み中...",
+    "today": "今日",
+    "create": "作成",
+    "toggleCalendarList": "カレンダー一覧の表示切替",
+    "allDay": "終日",
+    "event": "予定",
+    "noTitle": "(タイトルなし)",
+    "more": "他 {{count}} 件",
+    "createEvent": "予定を作成",
+    "title": "タイトル",
+    "titlePlaceholder": "予定のタイトル",
+    "calendarLabel": "カレンダー",
+    "start": "開始",
+    "end": "終了",
+    "location": "場所",
+    "locationPlaceholder": "場所を追加",
+    "descriptionLabel": "説明",
+    "descriptionPlaceholder": "説明を追加",
+    "days": {
+      "sun": "日",
+      "mon": "月",
+      "tue": "火",
+      "wed": "水",
+      "thu": "木",
+      "fri": "金",
+      "sat": "土"
+    },
+    "months": {
+      "january": "1月",
+      "february": "2月",
+      "march": "3月",
+      "april": "4月",
+      "may": "5月",
+      "june": "6月",
+      "july": "7月",
+      "august": "8月",
+      "september": "9月",
+      "october": "10月",
+      "november": "11月",
+      "december": "12月"
+    }
+  },
+  "attachmentLibrary": {
+    "title": "添付ファイル",
+    "searchPlaceholder": "添付ファイルを検索...",
+    "allTypes": "すべての種類",
+    "images": "画像",
+    "pdfs": "PDF",
+    "documents": "ドキュメント",
+    "spreadsheets": "スプレッドシート",
+    "archives": "アーカイブ",
+    "other": "その他",
+    "anyTime": "すべての期間",
+    "pastWeek": "過去 1 週間",
+    "pastMonth": "過去 1 か月",
+    "pastYear": "過去 1 年間",
+    "anySize": "すべてのサイズ",
+    "lessThan1Mb": "< 1 MB",
+    "between1And10Mb": "1〜10 MB",
+    "moreThan10Mb": "> 10 MB",
+    "allSenders": "すべての送信者",
+    "gridView": "グリッド表示",
+    "listView": "リスト表示",
+    "loadingAttachments": "添付ファイルを読み込み中...",
+    "noAttachments": "添付ファイルはまだありません",
+    "noMatching": "一致する添付ファイルはありません",
+    "attachmentsAppear": "メールの添付ファイルがここに表示されます",
+    "tryAdjusting": "フィルターや検索クエリを調整してみてください",
+    "jumpToEmail": "メールに移動",
+    "previewNotAvailable": "このファイル形式のプレビューは利用できません",
+    "failedToLoadText": "テキストの読み込みに失敗しました",
+    "loadingPreview": "プレビューを読み込み中...",
+    "unknownType": "不明な種類",
+    "attachment_one": "{{count}} 件の添付ファイル",
+    "attachment_other": "{{count}} 件の添付ファイル"
+  },
+  "tasks": {
+    "title": "タスク",
+    "searchPlaceholder": "タスクを検索...",
+    "active": "進行中",
+    "all": "すべて",
+    "completed": "完了済み",
+    "allPriorities": "すべての優先度",
+    "urgent": "緊急",
+    "high": "高",
+    "medium": "中",
+    "low": "低",
+    "noGrouping": "グループなし",
+    "groupByPriority": "優先度でグループ化",
+    "groupByDueDate": "期限でグループ化",
+    "groupByTag": "タグでグループ化",
+    "selected": "{{count}} 件選択中",
+    "complete": "完了",
+    "noTasks": "タスクはありません",
+    "tryDifferentSearch": "別の検索語をお試しください",
+    "addTaskHint": "上からタスクを追加するか、メールスレッドで「t」を押してください",
+    "overdue": "期限超過",
+    "thisWeek": "今週",
+    "later": "それ以降",
+    "untagged": "タグなし",
+    "overdueDay": "{{count}} 日超過",
+    "inDays": "{{count}} 日後",
+    "addTaskPlaceholder": "タスクを追加...",
+    "openTasksPage": "タスクページを開く",
+    "noTasksLinked": "このスレッドにリンクされたタスクはありません",
+    "addTaskToThread": "このスレッドにタスクを追加...",
+    "createFromEmail": "メールからタスクを作成",
+    "extracting": "メールからタスクを抽出中...",
+    "description": "説明",
+    "priority": "優先度",
+    "dueDate": "期限",
+    "creating": "作成中..."
+  },
+  "help": {
+    "title": "ヘルプ",
+    "backToInbox": "受信トレイに戻る",
+    "noResults": "「{{query}}」の検索結果はありません",
+    "searchPlaceholder": "ヘルプトピックを検索...",
+    "openInSettings": "設定で開く →",
+    "learnMore": "詳しく見る",
+    "content": {
+      "gettingStarted": {
+        "label": "はじめに",
+        "cards": {
+          "addAccount": {
+            "title": "メールアカウントを追加する",
+            "summary": "GmailまたはIMAP/SMTPアカウントを接続してアプリを使い始めます。",
+            "description": "サイドバー上部のアカウント切替ボタンをクリックしてアカウントを追加します。Gmailの場合は、ご自身のGoogle Cloudの認証情報を使ったOAuthサインインフローに従います。その他のプロバイダー（Outlook、Yahoo、iCloud、Fastmailなど）の場合は「IMAPアカウントを追加」を選択し、メールアドレスとパスワードを入力します。人気のプロバイダーではサーバー設定が自動検出されます。複数のアカウントを追加して瞬時に切り替えることができます。各アカウントはそれぞれ独立した受信トレイ、ラベル、設定で同期されます。",
+            "tips": {
+              "0": "アカウント切替ボタンはサイドバー上部に常に表示されています。",
+              "1": "GmailアカウントはOAuth、IMAPアカウントはパスワードまたはアプリパスワードを使用します。",
+              "2": "各アカウントには独自のラベル、フィルター、同期状態があります。",
+              "3": "設定 > アカウントでアカウントの削除や再認証ができます。"
+            }
+          },
+          "initialSync": {
+            "title": "初回同期",
+            "summary": "初回同期でメール履歴をダウンロードします。",
+            "description": "新しいアカウントを追加すると、過去1年分のメール（設定変更可能）をダウンロードする初回同期が実行されます。これにより高速なオフライン検索と閲覧のためのローカルデータベースが構築されます。受信トレイのサイズによっては数分かかることがあります。同期がバックグラウンドで実行されている間も通常通りアプリを使用できます。初回同期後は差分同期（60秒間隔）に切り替わり、新しい変更のみを取得します。GmailはHistory APIを、IMAPはUID追跡を使用します。",
+            "tips": {
+              "0": "設定 > アカウントで同期期間（30日〜1年）を変更できます。",
+              "1": "初回同期中もアプリは通常通り使用できます。",
+              "2": "初回同期完了後、差分同期が60秒間隔で実行されます。",
+              "3": "Gmail: 同期履歴が期限切れ（約30日間オフライン）の場合、自動的にフル同期にフォールバックします。",
+              "4": "IMAP: フォルダのUIDVALIDITYが変更された場合、そのフォルダは自動的に再同期されます。"
+            }
+          },
+          "clientIdSetup": {
+            "title": "Google Client IDの設定",
+            "summary": "Google Cloud OAuthの認証情報を設定します（Gmailのみ）。",
+            "description": "このステップはGmailアカウントにのみ必要です。アプリはOAuth認証にご自身のGoogle Cloudプロジェクトを使用します。つまり、認証情報はデバイスに保存され、外部と共有されることはありません。Gmailアカウントを初めて追加する際、セットアップウィザードがGoogle Cloudプロジェクトの作成、Gmail APIとCalendar APIの有効化、OAuth Client IDの生成を案内します。所要時間は約5分です。PKCE認証を使用するため、Client Secretは不要です。IMAP/SMTPアカウントにはClient IDは必要ありません。",
+            "tips": {
+              "0": "console.cloud.google.comでプロジェクトを作成します。",
+              "1": "Gmail APIとGoogle Calendar APIの両方を有効にしてください。",
+              "2": "OAuth認証情報の作成時に「デスクトップアプリケーション」を選択します。",
+              "3": "Client IDはローカルに保存され、外部サーバーに送信されることはありません。",
+              "4": "設定 > アバウトでClient IDを後から更新できます。",
+              "5": "IMAPアカウントではこのステップは不要です。Google Cloudプロジェクトは必要ありません。"
+            }
+          },
+          "imapSmtpSetup": {
+            "title": "IMAP/SMTPアカウントの設定",
+            "summary": "IMAP/SMTPを使用してGmail以外のメールアカウントを追加します。",
+            "description": "IMAP/SMTPアカウントを追加するには、アカウント切替で「IMAPアカウントを追加」をクリックします。セットアップウィザードは4つのステップで構成されます：(1) メールアドレス、表示名、パスワードまたはOAuth2認証情報を入力；(2) IMAPサーバー設定（ホスト、ポート、セキュリティ）を構成；(3) SMTPサーバー設定を構成；(4) 接続テスト。Outlook、Yahoo、iCloud、Fastmail、Zoho、AOL、GMXなどの人気プロバイダーでは、メールアドレスを入力するとサーバー設定が自動検出されます。Outlook/Hotmailアカウントは（Microsoftが基本パスワード認証を無効化しているため）OAuth2認証が必要です。Yahooは OAuth2とアプリパスワードの両方をサポートしています。認証情報はローカルに保存される前にAES-256-GCMで暗号化されます。",
+            "tips": {
+              "0": "自動検出はOutlook、Yahoo、iCloud、Fastmail、Zoho、AOL、GMXに対応しています。",
+              "1": "Outlook/HotmailはOAuth2が必要です。Azure PortalでアプリのClient IDを登録してください。",
+              "2": "YahooはOAuth2またはアプリパスワードをサポートしています。OAuth2を推奨します。",
+              "3": "OAuth2の場合、アプリ登録でリダイレクトURIをhttp://localhost:17248に設定してください。",
+              "4": "その他のプロバイダーについては、メールプロバイダーのヘルプページでIMAP/SMTP設定を確認してください。",
+              "5": "セキュリティオプション：SSL/TLS（最も安全）、STARTTLS、なし。",
+              "6": "IMAPとSMTPの接続は保存前にテストされます。",
+              "7": "IMAPフォルダはサイドバーのラベルに自動的にマッピングされます。"
+            }
+          },
+          "outlookSetup": {
+            "title": "Outlookアカウントの設定",
+            "summary": "Outlook、Hotmail、Liveアカウントの接続手順を説明します。",
+            "description": "MicrosoftはOutlook/Hotmail/LiveアカウントにOAuth2を必須としており、基本パスワードは無効化されています。Azure PortalでアプリのClient IDを登録する必要があります。手順：(1) developer.microsoft.com/microsoft-365/dev-programでMicrosoft 365開発者プログラムに参加し、無料のAzureテナントを取得します。(2) portal.azure.comにM365開発者アカウント（admin@yourname.onmicrosoft.com）でサインインします（個人のOutlookアカウントではなく）。(3) Microsoft Entra ID → アプリの登録 → 新規登録に移動します。名前は任意、「サポートされているアカウントの種類」を「任意の組織ディレクトリ内のアカウントと個人のMicrosoftアカウント」に設定し、リダイレクトURIを「モバイルとデスクトップアプリケーション」→ http://localhost:17248に設定します。(4) 概要ページからアプリケーション（クライアント）IDをコピーします。(5) APIのアクセス許可 → アクセス許可の追加 → Microsoft Graph → 委任されたアクセス許可 → offline_access、email、openid、profile、User.Readを追加します。(6) 認証（左サイドバー）→「詳細設定」→「パブリッククライアントフローを許可する」を「はい」に設定 → 保存。(7) アプリで「IMAPアカウントを追加」を選択し、個人のOutlookメールを入力、Client IDを貼り付け、Client Secretは空白のまま、「Microsoftでサインイン」をクリックします。",
+            "tips": {
+              "0": "M365開発者プログラムに参加して、アプリ登録用の無料Azureテナントを取得します。",
+              "1": "Azure Portalには個人のOutlookではなくM365開発者アカウントでサインインします。",
+              "2": "プラットフォームの種類は「モバイルとデスクトップアプリケーション」にしてください（WebやSPAではなく）。",
+              "3": "リダイレクトURIは正確に http://localhost:17248 にしてください。",
+              "4": "Client Secretは任意です。デスクトップアプリの場合は空白のままで構いません（PKCEがセキュリティを担保します）。",
+              "5": "認証 → 詳細設定で「パブリッククライアントフローを許可する」を有効にしてください。",
+              "6": "「Office 365 Exchange Online」がAPIアクセス許可に表示されない場合は、ManifestからresourceAppId '00000002-0000-0ff1-ce00-000000000000' のIMAPスコープid '5df07973-7d5d-46ed-f847-aeb6baeacb0b' とSMTPスコープid '258f6531-ecdc-4944-8c5f-82fee32d369b' を追加してください。",
+              "7": "個人のMicrosoftアカウント（outlook.com、hotmail.com、live.com）でのみ動作します。",
+              "8": "新しいアカウントでは、MicrosoftによるIMAP/SMTPアクセスの有効化に最大24時間かかる場合があります。",
+              "9": "トークンは自動更新されるため、再サインインは不要です。"
+            }
+          }
+        }
+      },
+      "readingEmail": {
+        "label": "メールの閲覧",
+        "cards": {
+          "threadView": {
+            "title": "スレッド表示",
+            "summary": "メールが会話単位でグループ化されます。",
+            "description": "関連するメールは自動的に会話スレッドにグループ化されます。メール一覧のスレッドをクリックすると、会話のすべてのメッセージが表示され、最新のメッセージが一番下に表示されます。各メッセージには送信者、タイムスタンプ、フォーマット済みの本文が表示されます。インライン添付ファイルや画像はメッセージ本文内に直接表示されます。フルコンポーザーを開かずに、スレッド内の個々のメッセージにインラインで返信できます。",
+            "tips": {
+              "0": "スレッドを開く",
+              "1": "スレッド間を移動する",
+              "2": "一覧に戻る",
+              "3": "アクションバーからスレッドを別ウィンドウで開けます。",
+              "4": "インライン返信でスレッドを離れずに特定のメッセージに返信できます。"
+            }
+          },
+          "readingPane": {
+            "title": "閲覧ペインの位置",
+            "summary": "右、下、または非表示のレイアウトを選択します。",
+            "description": "閲覧ペインはメール一覧の横に選択したスレッドの内容を表示します。メール一覧の右側（ワイドスクリーン向け）、下側（狭い画面向け）、または完全非表示（クリックして開くモード）に配置できます。メール一覧の幅も調整可能です。レイアウト設定は自動的に保存・復元されます。",
+            "tips": {
+              "0": "右ペインは1400px以上のスクリーンに適しています。",
+              "1": "下ペインは幅広のメールを読むのに適した水平スペースを確保します。",
+              "2": "非表示モードではメール一覧のみ表示され、スレッドをクリックするとフル幅で開きます。",
+              "3": "一覧とペインの間の仕切りをドラッグして幅を調整できます。"
+            }
+          },
+          "markAsRead": {
+            "title": "既読の動作",
+            "summary": "メッセージが既読になるタイミングを制御します。",
+            "description": "スレッドを開いたときに既読にするタイミングを選択します：選択時に即座に、短い遅延後（ざっと見る時間を確保）、または手動で行う場合のみ。未読数をToDoの指標として使用していて、ちらっと見ただけで既読にしたくない場合に便利です。",
+            "tips": {
+              "0": "「即座に」はスレッドを開いた時点で既読にします。",
+              "1": "「遅延後」は数秒待ってから既読にします。",
+              "2": "「手動のみ」は自動で既読にしません。"
+            }
+          },
+          "readFilter": {
+            "title": "既読/未読フィルター",
+            "summary": "メール一覧をすべて、未読、既読で絞り込みます。",
+            "description": "メール一覧上部のフィルタードロップダウンを使って表示を絞り込みます。「すべて」ですべてのスレッド、「未読」でまだ対応が必要なスレッド、「既読」で既に開いたスレッドを表示します。フィルターは現在表示しているフォルダまたはラベルに適用されます。フィルター設定はセッション間で保存・復元されます。",
+            "tips": {
+              "0": "フィルタードロップダウンはメール一覧ヘッダーのスレッド数の横にあります。",
+              "1": "オプション：すべて、未読、既読。",
+              "2": "ラベルやスマートフォルダと組み合わせて精密にフィルタリングできます。",
+              "3": "フィルター設定は再起動後も保持されます。"
+            }
+          },
+          "printExport": {
+            "title": "印刷とエクスポート",
+            "summary": "スレッドを印刷するか.emlファイルとしてエクスポートします。",
+            "description": "アクションバーからスレッド全体を印刷するか、.emlファイルとしてエクスポートできます。印刷はヘッダーとタイムスタンプを含むフォーマット済みの会話表示を生成し、システムの印刷ダイアログを開きます。エクスポートはスレッドを標準のRFC 2822 .emlファイルとして保存します。バックアップ、法的記録、アプリ外での共有に便利です。",
+            "tips": {
+              "0": "アクションバーの印刷アイコンをクリックしてスレッドを印刷します。",
+              "1": "アクションバーのダウンロードアイコンをクリックして.emlとしてエクスポートします。",
+              "2": ".eml形式はどのメールクライアントでも開ける標準フォーマットです。",
+              "3": "印刷ビューにはすべてのメッセージ、送信者、タイムスタンプが含まれます。"
+            }
+          },
+          "rawMessage": {
+            "title": "メールソースの表示",
+            "summary": "メールのMIMEソースを表示します。",
+            "description": "スレッド内のメッセージを右クリックして「ソースを表示」を選択すると、完全なMIMEソースコードが表示されます。ルーティング、認証、カスタムヘッダーを含むすべてのヘッダー、メッセージ本文、MIME構造を確認できます。配信の問題のデバッグ、認証ヘッダーの検証、メールの構造の理解に役立ちます。",
+            "tips": {
+              "0": "メッセージを右クリックして「ソースを表示」を選択します。",
+              "1": "From、To、Authentication-Results、DKIMなどすべてのヘッダーが表示されます。",
+              "2": "配信やスパムフィルターの問題のデバッグに役立ちます。",
+              "3": "ソース表示はスクロール可能なモーダルで開きます。"
+            }
+          }
+        }
+      },
+      "composing": {
+        "label": "メールの作成と送信",
+        "cards": {
+          "newEmail": {
+            "title": "新しいメールを作成する",
+            "summary": "書式設定と添付ファイル付きのリッチテキストエディタです。",
+            "description": "コンポーザーはTipTapを使用したリッチテキストエディタです。テキストの書式設定（太字、斜体、リスト、リンク、コードブロック）、ファイル添付、署名の挿入、テンプレートの選択がすべて一箇所で行えます。コンポーザーは画面下部のパネルとして開きます。オートコンプリート（メール頻度でランク付け）で宛先を追加し、件名を設定してメッセージを作成します。",
+            "tips": {
+              "0": "コンポーザーを開く",
+              "1": "メールを送信する",
+              "2": "宛先のオートコンプリートは連絡頻度でランク付けされます。",
+              "3": "ツールバーまたはMarkdownスタイルのショートカットで書式設定できます。",
+              "4": "Escapeキーでコンポーザーを閉じます（下書きは自動保存されます）。"
+            }
+          },
+          "replyForward": {
+            "title": "返信、全員に返信、転送",
+            "summary": "メールに返信するか転送します。",
+            "description": "返信は元の送信者にのみ応答します。全員に返信はスレッドの全員（ToとCC）に送信します。転送はメールを新しい宛先に送信できます。設定でデフォルトの返信アクション（返信 vs 全員に返信）を設定できるため、返信ショートカットが期待通りに動作します。インライン返信機能を使えば、スレッド表示内で特定のメッセージに直接返信することもできます。",
+            "tips": {
+              "0": "返信",
+              "1": "全員に返信",
+              "2": "転送",
+              "3": "設定でデフォルトの返信モード（返信または全員に返信）を設定できます。",
+              "4": "インライン返信でフルコンポーザーを開かずに返信できます。"
+            }
+          },
+          "undoSend": {
+            "title": "送信取り消し",
+            "summary": "送信したメールをキャンセルできる短い猶予時間です。",
+            "description": "送信後、「取り消し」ボタン付きのトースト通知が表示されます。メールが実際に配信される前にクリックして送信をキャンセルできます。この猶予時間は5〜30秒の間で設定できます。猶予期間中、メールはローカルにキューされますがGmailのサーバーにはまだ送信されていません。猶予期間が過ぎるとメールは送信され、取り消すことはできません。",
+            "tips": {
+              "0": "設定 > 作成で取り消し遅延（5〜30秒）を設定できます。",
+              "1": "送信後、画面下部に取り消しトーストが表示されます。",
+              "2": "猶予期間中にアプリを閉じてもメールは送信されます。"
+            }
+          },
+          "scheduleSend": {
+            "title": "送信予約",
+            "summary": "今書いて、指定した時間に後で送信します。",
+            "description": "メールを作成し、特定の日時に送信するよう予約できます。業務時間外、週末、異なるタイムゾーンでメールを書く場合に、すぐに送信せずに済みます。クイックプリセット（明日の朝、月曜の朝）から選ぶか、カスタムの日時を選択できます。予約メールは送信されるまで下書きに表示されます。送信時刻前であればキャンセルや再スケジュールが可能です。",
+            "tips": {
+              "0": "送信ボタン横のドロップダウンをクリックして予約します。",
+              "1": "クイックプリセット：明日の朝（9時）、明日の午後（13時）、月曜の朝。",
+              "2": "設定 > 作成で予約メールを確認・管理できます。",
+              "3": "送信前であればいつでも予約メールをキャンセルできます。"
+            }
+          },
+          "sendArchive": {
+            "title": "送信してアーカイブ",
+            "summary": "返信後にスレッドを自動的にアーカイブします。",
+            "description": "有効にすると、返信を送信するとスレッドが自動的にアーカイブされます。受信トレイからは消えますが、すべてのメールで検索可能です。受信トレイをきれいに保ち、返信をデフォルトで「完了」として扱います。再度受信トレイに表示したい場合は、いつでもアーカイブ解除できます。設定の作成タブでこの動作のオン/オフを切り替えられます。",
+            "tips": {
+              "0": "設定 > 作成で送信してアーカイブのオン/オフを切り替えます。",
+              "1": "アーカイブされたスレッドはすべてのメールで検索可能です。",
+              "2": "誰かが返信すると、スレッドは自動的に受信トレイに戻ります。"
+            }
+          },
+          "signatures": {
+            "title": "署名",
+            "summary": "メールの署名を作成・管理します。",
+            "description": "仕事用、個人用、フォーマル、カジュアルなど、用途に応じた複数の署名を作成できます。署名はリッチテキスト（太字、リンク、画像）をサポートしています。デフォルトの署名を設定すると、新しいメール作成時に自動挿入されます。コンポーザーの署名セレクターから別の署名を選択することもできます。署名は設定で管理され、ローカルに保存されます。",
+            "tips": {
+              "0": "設定 > 作成で署名を作成します。",
+              "1": "新しいメールに自動挿入されるデフォルトの署名を設定できます。",
+              "2": "コンポーザーの署名セレクターから署名を切り替えられます。",
+              "3": "リッチテキスト対応：太字、リンク、画像など。"
+            }
+          },
+          "templates": {
+            "title": "テンプレート",
+            "summary": "よく使うメール本文を再利用可能なテンプレートとして保存します。",
+            "description": "よく使うメール本文をテンプレートとして保存できます。作成時にテンプレートピッカーを開いて、ワンクリックでエディタにテンプレートの内容を挿入できます。会議依頼、進捗報告、顧客への返信など、繰り返しのメールに最適です。よく使うテンプレートにはキーボードショートカットを割り当てることもできます。テンプレート変数による動的コンテンツもサポートしています。",
+            "tips": {
+              "0": "設定 > 作成でテンプレートを作成します。",
+              "1": "コンポーザーツールバーのテンプレートピッカーアイコンからテンプレートを挿入します。",
+              "2": "よく使うテンプレートにキーボードショートカットを割り当てられます。",
+              "3": "テンプレートは{{name}}のような変数による動的コンテンツをサポートしています。"
+            }
+          },
+          "fromAliases": {
+            "title": "差出人エイリアス",
+            "summary": "異なるメールアドレスから送信します。",
+            "description": "Gmailアカウントに送信元エイリアスが設定されている場合（例：仕事用エイリアスや部門アドレス）、コンポーザーに「差出人」セレクターが表示され、送信元アドレスを選択できます。エイリアスはアカウント追加時にGmailの送信元設定から同期されます。新規作成ではデフォルトのエイリアスが使用され、返信では元のメールの宛先アドレスがデフォルトになります。送信元エイリアスは現在Gmail専用の機能です。",
+            "tips": {
+              "0": "エイリアスはGmailの送信元設定から自動的に取得されます。",
+              "1": "差出人セレクターはアカウントに複数のエイリアスがある場合のみ表示されます。",
+              "2": "返信では元のメールの送信先アドレスがデフォルトになります。",
+              "3": "Gmailのアカウント設定でデフォルトのエイリアスを設定できます。",
+              "4": "送信元エイリアスは現在Gmailアカウントでのみ利用可能です。"
+            }
+          },
+          "draftAutosave": {
+            "title": "下書きの自動保存",
+            "summary": "下書きは3秒ごとに自動保存されます。",
+            "description": "作成中の下書きは3秒ごとに自動保存されます。アプリが閉じたり、コンピュータが再起動したり、画面を移動しても、下書きは保持されます。Gmailアカウントの場合、下書きはデバイス間で同期されます。IMAPアカウントの場合、下書きはサーバーの下書きフォルダに保存されます。保存はバックグラウンドで行われるため、手動で保存する必要はありません。保存された下書きはサイドバーの下書きフォルダにあります。",
+            "tips": {
+              "0": "作成中は3秒ごとに下書きが自動保存されます。",
+              "1": "Gmailの下書きはデバイス間で同期されます。IMAPの下書きはサーバーの下書きフォルダに保存されます。",
+              "2": "安全に画面を移動できます — 下書きは既に保存されています。",
+              "3": "保存された下書きはサイドバーの下書きフォルダにあります。"
+            }
+          }
+        }
+      },
+      "searchNavigation": {
+        "label": "検索とナビゲーション",
+        "cards": {
+          "searchOperators": {
+            "title": "検索演算子",
+            "summary": "Gmail形式の演算子で検索結果を絞り込みます。",
+            "description": "検索はGmail形式の演算子を使用して精密にフィルタリングできます。複数の演算子を組み合わせて必要なものを正確に見つけられます。すべての検索はFTS5全文インデックスを使用してローカルデータベースに対して実行されるため、結果は瞬時に表示されます。演算子はANDロジックで自由に組み合わせられます。",
+            "tips": {
+              "0": "from:jane — 特定の送信者からのメール",
+              "1": "to:team@ — 特定のアドレスへのメール",
+              "2": "subject:quarterly report — 件名の一致",
+              "3": "has:attachment — 添付ファイル付きのメールのみ",
+              "4": "is:unread / is:starred / is:read — ステータスでフィルター",
+              "5": "before:2024-06-01 / after:2024-01-01 — 日付範囲フィルター",
+              "6": "label:work — ラベルでフィルター",
+              "7": "自由に組み合わせ可能：from:jane subject:report has:attachment after:2024-01-01"
+            }
+          },
+          "commandPalette": {
+            "title": "コマンドパレット",
+            "summary": "キーボード操作で検索、ナビゲーション、アクションを実行します。",
+            "description": "コマンドパレットはアプリ内のあらゆる操作を最速で行う方法です。ショートカットで開き、入力を開始するとメール検索、ラベルやフォルダへの移動、アカウント切り替え、アクションのトリガーが可能です。入力に応じてリアルタイムで結果が更新されます。メール内容、送信者名、件名、ラベル、フォルダをひとつの入力欄から横断検索できます。",
+            "tips": {
+              "0": "コマンドパレットを開く",
+              "1": "こちらでも開けます",
+              "2": "入力してメール、ラベル、フォルダ、アクションを検索します。",
+              "3": "入力するとリアルタイムで結果が更新されます。",
+              "4": "Enterで最初の結果を開くか、矢印キーでナビゲーションします。"
+            }
+          },
+          "keyboardShortcuts": {
+            "title": "キーボードショートカット",
+            "summary": "マウスを使わずにメールを操作します。",
+            "description": "ほぼすべてのアクションにキーボードショートカットがあり、Superhumanのキーボードファーストデザインに触発されています。入力フィールド、テキストエリア、リッチテキストエディタでの入力中はショートカットが無効になり、競合を避けます。アプリは2キーシーケンス（gを押してから1秒以内に別のキー）によるナビゲーションコマンドをサポートしています。すべてのショートカットは設定で完全にカスタマイズ可能です。",
+            "tips": {
+              "0": "すべてのショートカットを表示",
+              "1": "ナビゲーション：j/k（上/下）、o（開く）、Escape（戻る）",
+              "2": "スレッド内：矢印キー上/下でメッセージ間を移動",
+              "3": "アクション：e（アーカイブ）、s（スター）、#（ゴミ箱）、r（返信）",
+              "4": "2キー：g→i（受信トレイ）、g→s（スター付き）、g→t（送信済み）",
+              "5": "Ask Inbox（AI）",
+              "6": "現在のフォルダを同期",
+              "7": "設定 > ショートカットですべてのショートカットをカスタマイズできます。",
+              "8": "テキスト入力中はショートカットが無効になり競合を防ぎます。"
+            }
+          }
+        }
+      },
+      "organization": {
+        "label": "整理",
+        "cards": {
+          "labels": {
+            "title": "ラベル",
+            "summary": "色分けされたタグでメールを整理します。",
+            "description": "ラベルはタグのように機能します。1つのスレッドに複数のラベルを適用して、複数の方法で分類できます。色付きのカスタムラベルを作成して視覚的にカテゴリを区別できます。ラベルはサイドバーに表示され、素早くフィルタリングできます。サイドバーまたは設定からラベルの作成、編集、名前変更、色変更、削除が可能です。Gmailアカウントではラベルがデバイス間で同期されます。IMAPアカウントではサーバーフォルダが自動的にサイドバーのラベルにマッピングされます。",
+            "tips": {
+              "0": "スレッドをサイドバーのラベルにドラッグ＆ドロップして適用します。",
+              "1": "サイドバーのラベルを右クリックして編集または削除できます。",
+              "2": "サイドバーのラベルセクションの+ボタンをクリックして作成します。",
+              "3": "1つのスレッドに複数のラベルを同時に付けられます。",
+              "4": "Gmailラベルはデバイス間で同期されます。IMAPフォルダは自動的にラベルにマッピングされます。"
+            }
+          },
+          "smartFolders": {
+            "title": "スマートフォルダ",
+            "summary": "動的フォルダとして機能する保存済み検索です。",
+            "description": "スマートフォルダは、サイドバーに通常のフォルダのように表示される保存済み検索クエリです。クエリに一致するスレッドを動的に表示し、新しいメールが届くと自動的に結果が更新されます。クエリには任意の検索演算子を使用できます。動的日付トークン（__LAST_7_DAYS__や__TODAY__など）で現在の日付に対する相対的な結果を維持できます。通常のフォルダと同様に未読数バッジが表示されます。",
+            "tips": {
+              "0": "サイドバーのスマートフォルダセクションの+ボタンをクリックします。",
+              "1": "検索演算子を使用：is:unread from:boss",
+              "2": "動的トークン：__LAST_7_DAYS__、__LAST_30_DAYS__、__TODAY__",
+              "3": "各スマートフォルダにはサイドバーに未読数が表示されます。",
+              "4": "設定 > メールルールでスマートフォルダの編集・削除ができます。"
+            }
+          },
+          "filters": {
+            "title": "フィルターとルール",
+            "summary": "送信者、件名、内容で受信メールを自動分類します。",
+            "description": "受信メールを自動的に処理するフィルタールールを作成できます。条件（送信者アドレス、件名、メッセージ内容で一致）を設定し、アクション（ラベル適用、アーカイブ、ゴミ箱、スター、既読にする）を割り当てます。条件は大文字小文字を区別しない部分文字列一致でANDロジックを使用します。複数のフィルターが同じメッセージに一致した場合、アクションがマージされます。フィルターは同期中にすべての新しいメッセージに対して自動的に実行されます。",
+            "tips": {
+              "0": "設定 > メールルールでフィルターを作成します。",
+              "1": "条件：From、件名、またはコンテンツで一致（ANDロジック）。",
+              "2": "アクション：ラベル適用、アーカイブ、ゴミ箱、スター、既読にする。",
+              "3": "複数のフィルターが一致した場合、アクションがマージされます。",
+              "4": "バックグラウンド同期中にすべての新しいメッセージに対してフィルターが実行されます。"
+            }
+          },
+          "smartLabels": {
+            "title": "スマートラベル",
+            "summary": "自然言語の説明によるAI自動ラベル付けです。",
+            "description": "自然言語を使用してラベルを付けるべきメールを記述します。例えば「求人応募とキャリアの機会」と記述すると、AIが同期ごとに一致するメールに自動的にラベルを付けます。オプションで従来の条件（from、subjectなど）を追加して、AIフォールバック前の即時マッチングも可能です。スマートラベルは複数ラベルの割り当てをサポートしており、1つのスレッドが複数のルールに一致できます。「既存のメールに適用」ボタンで現在の受信トレイにラベルを遡及適用できます。",
+            "tips": {
+              "0": "設定 > メールルール > スマートラベルでスマートラベルを作成します。",
+              "1": "ラベルが一致すべき内容を自然言語で記述します。",
+              "2": "オプション：従来の条件（from、subject）を追加してAIなしの即時マッチングが可能です。",
+              "3": "「既存のメールに適用」をクリックして、現在の受信トレイに遡及的にラベルを付けます。",
+              "4": "同期中にすべての新しいメールに対してスマートラベルが自動実行されます。",
+              "5": "アクティブなAIプロバイダー（Claude、GPT、またはGemini）が必要です。"
+            }
+          },
+          "quickSteps": {
+            "title": "クイックステップ",
+            "summary": "複数のアクションをワンクリックで実行します。",
+            "description": "クイックステップで複数のアクションをひとつにまとめられます。例えば、ラベルを適用し、スレッドをアーカイブし、既読にする操作をワンクリックで実行するクイックステップを作成できます。ラベル付け、アーカイブ、ゴミ箱、スター、既読/未読マーク、返信、転送など18種類のアクションが利用可能です。プリセットテンプレートで始められ、ワークフローに合わせたカスタムステップも作成できます。",
+            "tips": {
+              "0": "スレッドのアクションバーからクイックステップにアクセスします。",
+              "1": "18種類のアクションが利用可能：ラベル、アーカイブ、ゴミ箱、スター、既読、返信、転送など。",
+              "2": "設定 > メールルールでクイックステップの作成・管理ができます。",
+              "3": "プリセットテンプレートが出発点として利用可能です。"
+            }
+          },
+          "starPinMute": {
+            "title": "スター、ピン、ミュート",
+            "summary": "スレッドにフラグを付けたり、優先したり、非表示にします。",
+            "description": "スレッドにスターを付けてフォローアップのフラグにします。スター付きスレッドはサイドバーに専用のビューがあります。スレッドをピンすると、日付に関係なくメール一覧の先頭に固定されます。スレッドをミュートすると、自動的にアーカイブされ、そのスレッドへの今後の返信は受信トレイに表示されず、通知もトリガーされません。",
+            "tips": {
+              "0": "スター付け/解除",
+              "1": "ピン留め/解除",
+              "2": "ミュート/解除",
+              "3": "スター付きスレッドはサイドバーのスター付きビューに表示されます。",
+              "4": "ピン留めされたスレッドは日付に関係なく一覧の先頭に表示されます。",
+              "5": "ミュートされたスレッドは自動アーカイブされ、通知が抑制されます。"
+            }
+          },
+          "archiveTrash": {
+            "title": "アーカイブとゴミ箱",
+            "summary": "受信トレイから削除するか完全に削除します。",
+            "description": "アーカイブはスレッドを受信トレイから削除しますが、すべてのメールには残ります。検索やアクセスは引き続き可能です。ゴミ箱はスレッドをゴミ箱フォルダに移動します。既にゴミ箱にあるスレッドを削除すると、データベースから完全に削除されます。この2段階削除により、誤った完全削除を防ぎます。アーカイブされたスレッドは誰かが返信すると受信トレイに戻ります。",
+            "tips": {
+              "0": "アーカイブ",
+              "1": "ゴミ箱",
+              "2": "DeleteキーやBackspaceキーでも操作できます。",
+              "3": "ゴミ箱から削除するとスレッドは完全に削除されます。",
+              "4": "アーカイブされたスレッドは新しい返信が届くと受信トレイに戻ります。"
+            }
+          },
+          "moveToFolder": {
+            "title": "フォルダに移動",
+            "summary": "スレッドを任意のフォルダまたはラベルに素早く移動します。",
+            "description": "Vキーを押すと検索可能なポップアップが開き、移動先のフォルダまたはラベルを選択できます。入力してリストを絞り込み、矢印キーでナビゲーションし、Enterで移動を確定します。Gmailの場合、移動先のラベルが追加され、現在の場所からスレッドが削除されます。IMAPアカウントの場合、サーバー上の選択したフォルダにスレッドが移動されます。複数選択でも動作します。",
+            "tips": {
+              "0": "移動ダイアログを開く",
+              "1": "入力して移動先を検索・絞り込みます。",
+              "2": "矢印キーでナビゲーション、Enterで選択します。",
+              "3": "アクションバーや右クリックメニューからも利用可能です。",
+              "4": "複数選択したスレッドの一括移動にも対応しています。"
+            }
+          },
+          "multiSelect": {
+            "title": "複数選択と一括操作",
+            "summary": "複数のスレッドを選択して一括操作します。",
+            "description": "スレッドをクリックして選択を切り替えます。Shift+クリックで最後に選択したスレッドからクリックしたスレッドまでの範囲を選択します。複数のスレッドを選択した状態で、アクション（アーカイブ、ゴミ箱、スター、ラベルなど）を実行すると、すべてに一度に適用されます。キーボードショートカットも選択範囲に対して動作します。",
+            "tips": {
+              "0": "すべてのスレッドを選択",
+              "1": "現在位置からの範囲選択",
+              "2": "クリックで個別のスレッド選択を切り替えます。",
+              "3": "Shift+クリックでスレッドの範囲を選択します。",
+              "4": "すべてのキーボードアクション（アーカイブ、ゴミ箱、スター）が選択範囲に対して動作します。",
+              "5": "Escapeキーで選択を解除します。"
+            }
+          },
+          "bulkActions": {
+            "title": "一括操作バー",
+            "summary": "複数のスレッドが選択されるとツールバーが表示されます。",
+            "description": "2つ以上のスレッドを選択すると、メール一覧の上部に一括操作バーが表示されます。アーカイブ、削除、迷惑メール報告、選択解除のワンクリックボタンが用意されています。選択を視覚的に確認してからアクションを実行したい場合、キーボードショートカットより便利です。バーには現在選択されているスレッド数も表示されます。",
+            "tips": {
+              "0": "複数のスレッドを選択し、バーから素早く一括操作を実行します。",
+              "1": "利用可能なアクション：アーカイブ、削除、迷惑メール、選択解除。",
+              "2": "バーには選択されたスレッドの数が表示されます。",
+              "3": "バーと並行してキーボードショートカットも選択範囲に対して動作します。"
+            }
+          },
+          "attachmentLibrary": {
+            "title": "添付ファイルライブラリ",
+            "summary": "すべての添付ファイルを一箇所で閲覧・検索します。",
+            "description": "添付ファイルライブラリは、すべてのメールの添付ファイルを検索・フィルタリングできるビューを提供します。どのメールに含まれていたか覚えていなくてもファイルを見つけられます。ファイルタイプ（画像、PDF、ドキュメント、スプレッドシート、アーカイブ）、送信者、日付範囲、ファイルサイズでフィルタリングできます。グリッドとリスト表示を切り替えられます。画像やPDFをインラインでプレビューし、ファイルをダウンロードしたり、元のメールスレッドに直接ジャンプしたりできます。",
+            "tips": {
+              "0": "添付ファイルに移動",
+              "1": "サイドバーナビゲーションの添付ファイル（クリップアイコン）から開きます。",
+              "2": "ファイル名、件名、送信者名で検索します。",
+              "3": "タイプ、送信者、日付範囲、ファイルサイズでフィルタリングします。",
+              "4": "添付ファイルをクリックしてプレビュー、ダウンロード、またはメールにジャンプします。",
+              "5": "ヘッダーのトグルでグリッドとリスト表示を切り替えます。"
+            }
+          },
+          "dragDrop": {
+            "title": "ドラッグ＆ドロップ",
+            "summary": "スレッドをサイドバーのラベルにドラッグして適用します。",
+            "description": "メール一覧からスレッド（または複数選択したスレッド）をつかみ、サイドバーの任意のラベルにドロップしてラベルを適用します。ドロップ先にカーソルを合わせるとハイライトされます。カスタムラベルとゴミ箱などのシステムフォルダの両方で動作します。複数選択したスレッドはドロップ時にすべて一度にラベル付けされます。",
+            "tips": {
+              "0": "スレッドをクリック長押しでドラッグを開始します。",
+              "1": "サイドバーの任意のラベルにドロップして適用します。",
+              "2": "複数選択したスレッドにも対応 — すべてにラベルが付きます。",
+              "3": "有効なドロップ先を検出するとサイドバーのラベルがハイライトされます。"
+            }
+          }
+        }
+      },
+      "productivity": {
+        "label": "生産性",
+        "cards": {
+          "snooze": {
+            "title": "スヌーズ",
+            "summary": "スレッドを一時的に非表示にし、後で再表示します。",
+            "description": "スヌーズはスレッドを受信トレイから削除し、指定した日時に戻します。今すぐ対応できないメールを見失わずに先送りできます。スヌーズ時間になると、スレッドは届いたばかりのように受信トレイに再表示されます。スヌーズされたスレッドはサイドバーのスヌーズフォルダで確認できます。技術的には、スヌーズはINBOXラベルを削除しSNOOZEDラベルを追加します。",
+            "tips": {
+              "0": "スレッドのアクションバーでスヌーズアイコンをクリックします。",
+              "1": "プリセット（今日中、明日、来週）から選ぶかカスタム時間を選択します。",
+              "2": "サイドバーのスヌーズフォルダですべてのスヌーズ済みスレッドを確認できます。",
+              "3": "スレッドを開いてスヌーズ解除をクリックすると早期解除できます。"
+            }
+          },
+          "followUpReminders": {
+            "title": "フォローアップリマインダー",
+            "summary": "返信がない場合にリマインドします。",
+            "description": "重要なメールを送信した後、フォローアップリマインダーを設定できます。指定した期間（例：2日、1週間）以内に誰も返信しない場合、フォローアップを促す通知を受け取ります。リマインダーはスレッドに新しい返信がない場合にのみ発動します。期限前に誰かが返信すると、リマインダーは自動的にキャンセルされます。フォローアップリマインダーは60秒ごとにバックグラウンドでチェックされます。",
+            "tips": {
+              "0": "スレッドのアクションバーからフォローアップリマインダーを設定します。",
+              "1": "期間を選択：1日、2日、1週間、またはカスタム。",
+              "2": "期限前に返信が届くとリマインダーは自動キャンセルされます。",
+              "3": "フォローアップの期限が来るとデスクトップ通知を受け取ります。"
+            }
+          },
+          "splitInbox": {
+            "title": "分割受信トレイ",
+            "summary": "受信トレイをカテゴリタブに分割します。",
+            "description": "分割受信トレイは受信トレイを5つのカテゴリタブ（メイン、アップデート、プロモーション、ソーシャル、ニュースレター）に整理します。各タブはそのカテゴリに属するスレッドのみを表示し、重要なものに集中できます。新しいメールはAI（またはルールベースのフォールバック）を使用して自動的に分類されます。サイドバーの受信トレイ横のアイコンで分割モードを切り替えます。分割モードをオフにすると、すべてのカテゴリが一緒に表示されます。",
+            "tips": {
+              "0": "サイドバーの受信トレイ横のカラムアイコンで分割受信トレイを切り替えます。",
+              "1": "カテゴリ：メイン、アップデート、プロモーション、ソーシャル、ニュースレター。",
+              "2": "AIが同期中に新しいメールを自動分類します。",
+              "3": "ルールベースの分類が先に実行され、AIが残りを補完します。",
+              "4": "設定でメイン以外のカテゴリを自動アーカイブできます。"
+            }
+          },
+          "spam": {
+            "title": "迷惑メール",
+            "summary": "迷惑メールの報告や正当なメールの救出を行います。",
+            "description": "不要なメールを迷惑メールとしてマークすると、迷惑メールフォルダに移動します。このアクションは文脈を認識します：迷惑メールフォルダを表示中は、ボタンが「迷惑メールではない」に変わり、誤って迷惑メールに分類された正当なメールを救出できます。Gmailアカウントの場合、迷惑メール報告はGmailの迷惑メールフィルターの改善に反映されます。IMAPアカウントの場合、メッセージはサーバーのJunk/Spamフォルダに移動されます。",
+            "tips": {
+              "0": "迷惑メール報告 / 迷惑メールではない",
+              "1": "迷惑メールフォルダでは、ショートカットがスレッドを「迷惑メールではない」としてマークします。",
+              "2": "Gmailアカウント：迷惑メール報告はGmailのフィルター改善に役立ちます。",
+              "3": "IMAPアカウント：メッセージはサーバーのJunk/Spamフォルダに移動されます。"
+            }
+          }
+        }
+      },
+      "aiFeatures": {
+        "label": "AI機能",
+        "cards": {
+          "aiOverview": {
+            "title": "AI概要",
+            "summary": "AIプロバイダーを選択し、自分のAPIキーを使用します。",
+            "description": "アプリは3つのAIプロバイダーをサポートしています：Anthropic Claude、OpenAI GPT、Google Gemini。ご自身のAPIキーを使用するため、メールデータはプロバイダーのAPIに直接送信されます。仲介者やサードパーティサーバーは介在しません。APIキーはローカルデータベースに安全に保存されます。AI機能にはスレッドの要約、スマートリプライ、作成アシスト、テキスト変換、自然言語による受信トレイクエリが含まれます。AI機能のグローバルな有効/無効の切り替えや、使用するプロバイダーの選択が可能です。",
+            "tips": {
+              "0": "設定 > AIでAPIキーを追加します。",
+              "1": "対応プロバイダー：Claude、OpenAI、Gemini。",
+              "2": "設定で各プロバイダーのモデルを選択できます（例：Claude Haiku 4.5、GPT-4o Mini、Gemini 2.5 Flash）。",
+              "3": "データはプロバイダーAPIに直接送信されます。仲介者はいません。",
+              "4": "APIキーはローカルデータベースに安全に保存されます。",
+              "5": "AI結果はAPIコールを削減するためにローカルにキャッシュされます。",
+              "6": "設定のトグル1つでAIをグローバルに無効化できます。"
+            }
+          },
+          "threadSummaries": {
+            "title": "スレッド要約",
+            "summary": "長い会話のAI生成要約です。",
+            "description": "メッセージの多いスレッドで要約ボタンをクリックすると、AI生成の簡潔な概要が表示されます。要約は会話全体の重要なポイント、決定事項、アクションアイテムを捕捉し、数十通のメッセージを読む手間を省きます。要約はローカルにキャッシュされるため、APIコールは一度だけです。CCされたスレッドや不在後のキャッチアップに便利です。",
+            "tips": {
+              "0": "スレッドビューヘッダーの要約アイコンをクリックします。",
+              "1": "要約はキャッシュされます。2回目以降の表示は瞬時で無料です。",
+              "2": "5通以上のメッセージがある長いスレッドに最適です。",
+              "3": "重要な決定事項、アクションアイテム、要点を捕捉します。"
+            }
+          },
+          "smartReplies": {
+            "title": "スマートリプライ",
+            "summary": "AIが提案するクイック返信オプションです。",
+            "description": "スレッドを表示中、AIが最新のメッセージを分析し、2〜3の短い返信オプションを提案します。提案をクリックして返信エディタに挿入し、送信前に編集できます。定型的な短い返信で時間を節約します。",
+            "tips": {
+              "0": "スマートリプライの提案はスレッドの最後のメッセージの下に表示されます。",
+              "1": "提案をクリックして返信エディタに挿入します。",
+              "2": "送信前に提案を編集してください。出発点であり最終版ではありません。",
+              "3": "提案はメール内容に基づいてコンテキストを認識します。"
+            }
+          },
+          "aiCompose": {
+            "title": "AI作成とテキスト変換",
+            "summary": "AIの支援でメールを下書きしたりテキストを書き換えます。",
+            "description": "コンポーザーのAIアシストパネルを開いてメールの下書きを手伝ってもらえます。書きたい内容を説明するとAIが下書きを生成します。既存のテキストを選択して変換することもできます：トーン変更（フォーマル、カジュアル、フレンドリー）、文法・スペル修正、別の言語への翻訳、テキストの短縮・拡張、複雑な表現の簡素化。すべての変換はエディタ内でインプレースで行われます。",
+            "tips": {
+              "0": "コンポーザーツールバーのスパークルアイコンからAIアシストを開きます。",
+              "1": "メールの内容を説明するとAIが下書きを生成します。",
+              "2": "テキストを選択して変換：トーン、文法、翻訳、短縮、拡張。",
+              "3": "変換は選択したテキストをインプレースで置換します。",
+              "4": "送信前にAIの出力を確認・編集してください。"
+            }
+          },
+          "autoDrafts": {
+            "title": "AI自動下書き返信",
+            "summary": "返信エディタにあなたの文体に合ったAI生成の下書きが自動入力されます。",
+            "description": "返信または全員に返信をクリックすると、あなたの文体に合ったAI生成の下書きがエディタに自動入力されます。AIは最近の送信メール15通を分析してあなたのスタイルを学習します。トーン、挨拶パターン、結びのスタイル、典型的な表現を捕捉します。スタイルプロファイルはアカウントごとにキャッシュされるため、分析は一度だけです。下書きもスレッドと返信モードごとにキャッシュされます。下書きの再生成、クリアして最初から書くこと、または単に編集することができます。下書きの読み込み前に入力を開始すると自動入力はキャンセルされ、中断されません。自動下書きは返信と全員に返信で動作し、転送では動作しません。",
+            "tips": {
+              "0": "設定 > AI > 自動下書き返信で切り替えます。",
+              "1": "文体は最近の送信メール15通から学習されます。",
+              "2": "再生成をクリックして同じスレッドの新しい下書きを取得します。",
+              "3": "クリアをクリックして下書きを削除し、最初から書きます。",
+              "4": "下書きの読み込み前に入力すると自動入力がキャンセルされます。",
+              "5": "下書きはキャッシュされます。同じ返信を再度開くと瞬時に表示されます。",
+              "6": "設定で再分析をクリックして文体プロファイルを更新できます。"
+            }
+          },
+          "askInbox": {
+            "title": "Ask Inbox",
+            "summary": "メールについて自然言語で質問します。",
+            "description": "受信トレイについて自然言語で質問し、AIが回答します。例えば「Q3の締め切りについてJohnは何と言っていた？」「先月の領収書をすべて表示して」「今日の未読メールを要約して」など。AIはローカルのメールデータベースを検索して関連するスレッドを見つけ、特定のメールへの参照を含む包括的な回答を生成します。",
+            "tips": {
+              "0": "検索エリアまたはコマンドパレットからAsk Inboxを開きます。",
+              "1": "自然言語で質問できます。検索演算子は不要です。",
+              "2": "例：「Johnsonの案件のステータスは？」",
+              "3": "AIはローカルデータベースで関連メールを検索します。",
+              "4": "回答にはクリックして開ける特定のスレッドへの参照が含まれます。"
+            }
+          }
+        }
+      },
+      "newsletters": {
+        "label": "ニュースレターと購読",
+        "cards": {
+          "newsletterBundles": {
+            "title": "ニュースレターバンドル",
+            "summary": "送信者ごとにニュースレターをグループ化し、スケジュール配信します。",
+            "description": "同じ送信者からのニュースレターをバンドルし、選択したスケジュール（毎日、毎週、特定の曜日）で配信します。一日中ニュースレターに気を取られる代わりに、まとめて配信されます。各バンドルはその送信者のすべてのメールをサイドバーの単一のエントリにグループ化します。送信者ごとにバンドルを作成し、それぞれ異なる配信スケジュールを設定できます。",
+            "tips": {
+              "0": "設定 > 連絡先でバンドルを管理します。",
+              "1": "配信頻度を選択：毎日、毎週、または特定の曜日。",
+              "2": "バンドルされたニュースレターは次の配信時間まで保持されます。",
+              "3": "各送信者に独自の配信スケジュールを設定できます。"
+            }
+          },
+          "unsubscribe": {
+            "title": "購読解除",
+            "summary": "メーリングリストからワンクリックで購読解除します。",
+            "description": "ニュースレターやマーケティングメールを表示中に、購読解除をクリック（またはuキー）で即座に購読解除します。アプリはList-Unsubscribeヘッダーを検出し、RFC 8058のワンクリックPOSTメソッドが利用可能な場合はそれを使用し、利用できない場合はmailto:による購読解除にフォールバックします。購読解除のアクションは記録され、何を購読解除したか追跡できます。",
+            "tips": {
+              "0": "現在のスレッドから購読解除する",
+              "1": "利用可能な場合はRFC 8058のワンクリック購読解除を使用します。",
+              "2": "ワンクリックがサポートされていない場合はmailto:による購読解除にフォールバックします。",
+              "3": "設定 > 連絡先で購読解除履歴を確認できます。"
+            }
+          }
+        }
+      },
+      "notificationsContacts": {
+        "label": "通知と連絡先",
+        "cards": {
+          "notificationsVip": {
+            "title": "通知とVIP送信者",
+            "summary": "スマートフィルタリング付きのデスクトップ通知です。",
+            "description": "新しいメールが届くとデスクトップ通知を受け取れます。スマート通知では、どの受信トレイカテゴリが通知をトリガーするか選択でき（例：メインのみ）、アップデートやプロモーションからのノイズを削減できます。カテゴリに関係なく常に通知するVIP送信者を追加できます。上司、重要なクライアント、家族などに便利です。ミュートされたスレッドは通知をトリガーしません。通知はOSのネイティブ通知システムを使用します。",
+            "tips": {
+              "0": "設定 > 通知で通知を有効にします。",
+              "1": "スマート通知：どのカテゴリがアラートをトリガーするか選択します。",
+              "2": "カテゴリに関係なく常に通知するVIP送信者を追加します。",
+              "3": "ミュートされたスレッドは通知をトリガーしません。",
+              "4": "OSのネイティブ通知システム（Windows、macOS、Linux）を使用します。"
+            }
+          },
+          "contactSidebar": {
+            "title": "連絡先サイドバー",
+            "summary": "連絡先の詳細、履歴、クイックアクションを表示します。",
+            "description": "送信者の名前またはアバターをクリックして連絡先サイドバーを開きます。プロフィール写真（Gravatar経由）、メールアドレス、メールの頻度、最初の連絡日、最近の会話スレッド、共有添付ファイル、クイックアクション（新しいメールを作成、アドレスをコピー）が表示されます。受信トレイを離れずにやり取りしている相手のコンテキストを把握できます。",
+            "tips": {
+              "0": "送信者の名前またはアバターをクリックして連絡先サイドバーを開きます。",
+              "1": "プロフィール写真、メール、連絡頻度、最初の連絡日が表示されます。",
+              "2": "クイックアクション：新しいメールを作成、アドレスをコピー。",
+              "3": "最近の共有スレッドと添付ファイルを閲覧できます。",
+              "4": "連絡先にメモを追加して参照用に保存できます。"
+            }
+          }
+        }
+      },
+      "security": {
+        "label": "セキュリティとプライバシー",
+        "cards": {
+          "phishingDetection": {
+            "title": "フィッシング検出",
+            "summary": "メールリンクの脅威を自動スキャンします。",
+            "description": "すべてのメールのリンクは、一般的なフィッシングパターンを検出する10のヒューリスティックルールでスキャンされます：IPベースのURL、ホモグラフ/ピュニコード攻撃、疑わしいTLD、URL短縮サービス、表示テキストと実際のURLの不一致、疑わしいパスパターン、ブランド名偽装、危険なプロトコル（javascript:、data:）、企業を偽装するフリーメールアドレス、サブドメインスプーフィング。リスクの高いメールには警告バナーが表示されます。検出感度（低、デフォルト、高）の調整や信頼できる送信者の許可リストへの追加が可能です。",
+            "tips": {
+              "0": "設定で感度（低/デフォルト/高）を調整できます。",
+              "1": "低：明らかな脅威のみ検出。高：より積極的、誤検知の可能性あり。",
+              "2": "信頼できる送信者を許可リストに追加して警告を抑制します。",
+              "3": "10のヒューリスティックルールが一般的なフィッシングパターンをカバーします。",
+              "4": "リスクの高いメールの上部に警告バナーが表示されます。",
+              "5": "スキャン結果はキャッシュされます。各リンクは一度だけ分析されます。"
+            }
+          },
+          "authBadges": {
+            "title": "認証バッジ（SPF/DKIM/DMARC）",
+            "summary": "送信者の身元が検証されているか確認します。",
+            "description": "各メールには送信者がSPF（送信者IP検証）、DKIM（メッセージ署名）、DMARC（アラインメントポリシー）のチェックに合格したかを示す認証バッジが表示されます。緑のバッジはすべてのチェックに合格したことを意味します。赤のバッジはチェックの失敗を示し、メールが偽装されている可能性があります。オレンジは部分的な合格です。この情報はメールのAuthentication-Resultsヘッダーから解析されます。",
+            "tips": {
+              "0": "緑のバッジ：すべての認証チェックに合格。",
+              "1": "赤のバッジ：1つ以上のチェックに失敗 — 偽装の可能性あり。",
+              "2": "オレンジのバッジ：部分的な合格 — 一部のチェックが不確定。",
+              "3": "バッジをクリックしてSPF、DKIM、DMARCの詳細結果を確認できます。",
+              "4": "認証データはメールのヘッダーから取得されます。"
+            }
+          },
+          "remoteImageBlocking": {
+            "title": "リモート画像のブロック",
+            "summary": "トラッキングピクセルとリモート画像をデフォルトでブロックします。",
+            "description": "リモート画像（外部サーバーから読み込まれる画像）はプライバシー保護のためデフォルトでブロックされます。多くのマーケティングメールは、メールを開いたときに送信者に通知する不可視のトラッキングピクセルを使用しています。画像がブロックされると、画像があるはずの場所にプレースホルダーが表示されます。特定の送信者の画像を許可（許可リストに追加）するか、設定でグローバルにブロックを無効にできます。許可された送信者の画像は今後のメールで自動的に読み込まれます。",
+            "tips": {
+              "0": "プライバシー保護のため画像はデフォルトでブロックされます。",
+              "1": "メールの「画像を表示」をクリックして、その送信者の画像を読み込みます。",
+              "2": "許可された送信者は記憶されます。次回から自動的に画像が読み込まれます。",
+              "3": "設定 > 一般でブロックをグローバルに無効にできます。",
+              "4": "メールを開いたときに報告するトラッキングピクセルをブロックします。"
+            }
+          },
+          "linkConfirmation": {
+            "title": "リンク確認",
+            "summary": "ブラウザで開く前にURLをプレビューします。",
+            "description": "メール内のリンクをクリックすると、実際のリンク先URLを表示する確認ダイアログが開きます。フレンドリーな表示テキストでURLを偽装する悪意のあるサイトを誤って訪問することを防ぎます。ダイアログには完全なURLが表示されるため、正当なものか確認できます。続行、URLのコピー、またはキャンセルを選択できます。フィッシング検出機能と組み合わせると効果的です。",
+            "tips": {
+              "0": "すべてのリンククリックで実際のURLを含む確認が表示されます。",
+              "1": "続行する前にドメインが正当に見えるか確認してください。",
+              "2": "不明な場合はURLをコピーしてより詳しく調べられます。",
+              "3": "フィッシング検出と連携して多層的な保護を提供します。"
+            }
+          }
+        }
+      },
+      "calendar": {
+        "label": "カレンダー",
+        "cards": {
+          "calendarIntegration": {
+            "title": "Googleカレンダー連携",
+            "summary": "メールと一緒にカレンダーを表示・管理します。",
+            "description": "サイドバーからGoogleカレンダーに直接アクセスできます。日、週、月の表示を切り替えられます。複数のGoogleカレンダーがある場合は色分けで表示されます。ブラウザに切り替えることなくアプリから直接新しいイベントを作成できます。カレンダーはメールと同じGoogleアカウントを使用し、自動的に更新されます。ツールバーのコントロールで日付間をナビゲーションできます。",
+            "tips": {
+              "0": "サイドバーナビゲーションからカレンダーを開きます。",
+              "1": "ツールバーから日、週、月の表示を切り替えます。",
+              "2": "時間枠をクリックして新しいイベントを作成します。",
+              "3": "色分けで複数のGoogleカレンダーをサポートしています。",
+              "4": "カレンダーはメールと同じGoogle OAuthを使用します。",
+              "5": "イベントはバックグラウンドで自動更新されます。"
+            }
+          }
+        }
+      },
+      "tasks": {
+        "label": "タスク",
+        "cards": {
+          "taskManager": {
+            "title": "タスク管理",
+            "summary": "優先度、期限、サブタスク付きの完全なタスク管理です。",
+            "description": "Veloにはサイドバーまたはg→kショートカットからアクセスできるタスク管理が内蔵されています。タイトル、説明、優先度（なし、低、中、高、緊急）、期限、タグ付きのタスクを作成できます。タスクにはサブタスクを1階層持たせることができ、複雑な項目を分割できます。ドラッグで並べ替え、ステータスや優先度でフィルタリング、優先度・期限・タグでグループ化できます。完了済みタスクの表示/非表示も切り替え可能です。タスクサイドバーパネルには現在のメールスレッドにリンクされたタスクが表示されます。",
+            "tips": {
+              "0": "タスクページに移動",
+              "1": "サイドバーのタスクアイテムからタスクを開きます。",
+              "2": "タスクサイドバー下部の入力欄からタスクを素早く追加できます。",
+              "3": "サイドバーのバッジに未完了のタスク数が表示されます。",
+              "4": "ステータス（すべて、進行中、完了済み）や優先度でタスクをフィルタリングします。",
+              "5": "優先度、期限、タグでタスクをグループ化します。"
+            }
+          },
+          "aiTaskExtraction": {
+            "title": "AIタスク抽出",
+            "summary": "tキーを押してAIで現在のメールからタスクを抽出します。",
+            "description": "メールスレッドを表示中にtキーを押すと、AIが会話を分析して実行可能なタスクを抽出します。AIはメール内容からタスクのタイトル、説明、推奨期限、優先度を特定します。抽出されたタスクが編集可能なフィールド付きのダイアログに表示されます。作成前にタイトル、説明、優先度、期限を調整できます。タスクはメールスレッドにリンクされるため、元のコンテキストにいつでも戻れます。コマンドパレットから「メールからタスクを作成（AI）」としても利用可能です。",
+            "tips": {
+              "0": "メールからタスクを抽出する",
+              "1": "コマンドパレット（Ctrl+K →「メールからタスクを作成」）からも利用可能です。",
+              "2": "タスク作成前に抽出されたフィールドを編集できます。",
+              "3": "タスクは元のメールスレッドにリンクされます。",
+              "4": "アクティブなAIプロバイダー（Claude、GPT、またはGemini）が必要です。"
+            }
+          },
+          "taskSidebar": {
+            "title": "タスクサイドバーパネル",
+            "summary": "現在のスレッドにリンクされたタスクを表示・管理します。",
+            "description": "アクションバーのListTodoアイコンからタスクサイドバーパネルを切り替えて、現在のメールスレッドに関連するタスクを確認できます。パネルにはリンクされたタスクのステータス、優先度、期限が表示されます。パネルから新しいタスクを素早く追加したり、完了を切り替えたり、タスクページに移動したりできます。AIで抽出されたタスクはソーススレッドに自動的にリンクされます。",
+            "tips": {
+              "0": "アクションバーのボタンからタスクパネルを切り替えます。",
+              "1": "パネル下部の入力欄からタスクを素早く追加できます。",
+              "2": "「すべてのタスクを表示」をクリックしてタスクページに移動します。",
+              "3": "AI抽出されたタスクはメールに自動的にリンクされます。"
+            }
+          },
+          "recurringTasks": {
+            "title": "繰り返しタスク",
+            "summary": "スケジュールに従って自動的に繰り返されるタスクです。",
+            "description": "日次、週次、月次、年次で設定可能な間隔で繰り返すタスクを作成できます。繰り返しタスクを完了すると、繰り返し間隔に応じて期限が進んだ次の発生が自動的に作成されます。定期レビュー、週次レポート、月次チェックインなど、繰り返しの業務に便利です。スケジュールが設定されたタスクには繰り返しアイコンが表示されます。",
+            "tips": {
+              "0": "タスクの作成時または編集時に繰り返しを設定します。",
+              "1": "オプション：日次、週次、月次、年次（間隔設定可能）。",
+              "2": "繰り返しタスクの完了で次の発生が作成されます。",
+              "3": "繰り返しアイコンはタスクにスケジュールが設定されていることを示します。"
+            }
+          }
+        }
+      },
+      "appearance": {
+        "label": "外観とレイアウト",
+        "cards": {
+          "theme": {
+            "title": "ライト＆ダークモード",
+            "summary": "ライト、ダーク、またはシステムテーマを切り替えます。",
+            "description": "ライトモード、ダークモード、またはシステム連動（OSの設定に従う）を選択できます。ダークモードは暗い環境での快適な読書のために慎重に選ばれた色を使用し、暗い背景と柔らかいテキストを提供します。テーマは即座に切り替わり、再起動後も保持されます。アニメーションされたグラデーション背景もテーマに適応します。ライトモードは青/紫/ピンク、ダークモードはより深い青と紫を使用します。",
+            "tips": {
+              "0": "設定 > 一般でテーマを変更します。",
+              "1": "「システム」はOSのライト/ダーク設定に従います。",
+              "2": "ダークモードは暗い環境向けに最適化されています。",
+              "3": "アニメーション背景グラデーションはライト/ダークモードに適応します。"
+            }
+          },
+          "accentColors": {
+            "title": "アクセントカラー",
+            "summary": "8色のプリセットでアプリを個性的にします。",
+            "description": "8つのアクセントカラープリセットからアプリの見た目をカスタマイズできます：Indigo（デフォルト）、Rose、Emerald、Amber、Sky、Violet、Orange、Slate。各プリセットには読みやすさが最適化されたライト/ダークモード用の個別バリアントがあります。アクセントカラーはボタン、アクティブ状態、リンク、バッジ、ハイライトに使用されます。アクセントカラーはライト/ダークテーマとは独立しています。",
+            "tips": {
+              "0": "設定 > 一般でアクセントカラーを変更します。",
+              "1": "8プリセット：Indigo、Rose、Emerald、Amber、Sky、Violet、Orange、Slate。",
+              "2": "各カラーにライトとダークの最適化されたバリアントがあります。",
+              "3": "アクセントカラーはライト/ダークテーマとは独立しています。"
+            }
+          },
+          "fontDensity": {
+            "title": "フォントサイズとメール密度",
+            "summary": "テキストサイズとリストの間隔を調整します。",
+            "description": "フォントスケールはアプリ全体のテキストサイズを調整します：小、デフォルト、大、特大。メール密度はメール一覧の間隔を制御します：コンパクト（より多くのスレッドを表示）、デフォルト（バランス）、ゆったり（より広い余白）。両方の設定を組み合わせられます。大きいフォントとゆったりした密度はアクセシビリティに、小さいフォントとコンパクトな密度はより多くの情報を一度に見るのに適しています。",
+            "tips": {
+              "0": "フォントサイズ：小、デフォルト、大、特大。",
+              "1": "密度オプション：コンパクト、デフォルト、ゆったり。",
+              "2": "コンパクト密度はメール一覧により多くのスレッドを表示します。",
+              "3": "大きいフォント＋ゆったり密度はアクセシビリティに最適です。"
+            }
+          },
+          "layoutCustomization": {
+            "title": "レイアウトカスタマイズ",
+            "summary": "サイドバー、閲覧ペイン、リスト幅を調整します。",
+            "description": "ワークスペースレイアウトをカスタマイズします：サイドバーをアイコンのみモードに折りたたんでスクリーンスペースを確保、閲覧ペインの位置を選択（右、下、非表示）、仕切りをドラッグしてメール一覧の幅をリサイズ、連絡先サイドバーの切り替え。すべてのレイアウト設定は起動時に自動的に保存・復元されます。サイドバーの切り替えにはキーボードショートカットもあります。",
+            "tips": {
+              "0": "サイドバーの切り替え",
+              "1": "サイドバーをアイコンのみに折りたたんでスクリーンスペースを確保します。",
+              "2": "リスト/ペインの仕切りをドラッグして幅を調整します。",
+              "3": "すべてのレイアウト設定は再起動後も保持されます。"
+            }
+          },
+          "sidebarCustomization": {
+            "title": "サイドバーカスタマイズ",
+            "summary": "サイドバーのナビゲーション項目の表示/非表示と並び替えを行います。",
+            "description": "サイドバーに表示する項目とその順序を制御できます。設定 > 一般 > サイドバーで、ナビゲーション項目（スター付き、スヌーズ、送信済み、下書き、ゴミ箱、迷惑メール、すべてのメール、タスク、カレンダー、添付ファイル）の表示/非表示を切り替え、上下矢印で並び替えられます。スマートフォルダとラベルのセクションも非表示にできます。受信トレイは常に表示され、非表示にできません。「デフォルトに戻す」で元のレイアウトを復元できます。変更は即座に反映され、再起動後も保持されます。",
+            "tips": {
+              "0": "普段使わない項目を非表示にしてサイドバーをすっきりさせます。",
+              "1": "よく使うフォルダを上に並び替えます。",
+              "2": "スマートフォルダやラベルのセクションを非表示にできます。",
+              "3": "受信トレイは常に表示されます。非表示にできません。",
+              "4": "「デフォルトに戻す」をクリックして元の順序を復元します。"
+            }
+          }
+        }
+      },
+      "accountsSystem": {
+        "label": "アカウントとシステム",
+        "cards": {
+          "multiAccount": {
+            "title": "複数アカウント",
+            "summary": "GmailとIMAPアカウントを並行して管理します。",
+            "description": "複数のメールアカウントを追加・管理できます。Gmail（OAuth）とIMAP/SMTPアカウントを自由に組み合わせられます。各アカウントには独自の受信トレイ、ラベル、フィルター、同期状態があります。サイドバー上部のアカウント切替を使用してアカウント間を切り替えます。アクティブなアカウントのメールがメインビューに表示されます。設定でアカウントの追加、再認証、削除が可能です。各アカウントは60秒サイクルで独立して同期されます。",
+            "tips": {
+              "0": "サイドバー上部のアカウント切替をクリックして切り替えます。",
+              "1": "GmailとIMAPアカウントを組み合わせて使用できます。",
+              "2": "各アカウントには独立した受信トレイ、ラベル、同期があります。",
+              "3": "設定 > アカウントでアカウントの追加や削除ができます。",
+              "4": "トークンの期限が切れた場合はGmailアカウントを再認証できます。"
+            }
+          },
+          "systemTray": {
+            "title": "システムトレイと自動起動",
+            "summary": "トレイに最小化し、起動時に自動的に開始します。",
+            "description": "アプリウィンドウを閉じると、終了する代わりにシステムトレイに最小化されます。アプリはバックグラウンドで実行され続け、メールの同期と通知のチェックが継続されます。トレイアイコンをクリックするとウィンドウが再表示されます。右クリックでメニュー（表示、メール確認、終了）が表示されます。自動起動を有効にすると、コンピュータの起動時にアプリが自動的に開始します。トレイに最小化された状態で起動するため、タスクバーを散らかしません。",
+            "tips": {
+              "0": "ウィンドウを閉じるとトレイに最小化されます（終了しません）。",
+              "1": "トレイアイコンを右クリック：表示、メール確認、終了。",
+              "2": "設定 > 一般で自動起動を有効にします。",
+              "3": "自動起動はトレイに最小化された状態で起動します。バックグラウンドで準備完了です。",
+              "4": "トレイにある間もアプリは同期と通知を継続します。"
+            }
+          },
+          "globalCompose": {
+            "title": "グローバル作成ショートカット",
+            "summary": "システム全体のショートカットでどこからでもメールを作成します。",
+            "description": "コンピュータのどこからでも作成ウィンドウを開くシステム全体のキーボードショートカットを登録できます。アプリがトレイに最小化されていたり、別のアプリにフォーカスがあっても動作します。ウィンドウを切り替えずにメールを素早く作成できます。ショートカットは設定 > ショートカットでカスタマイズ可能です。ショートカットが押されると、コンポーザーが開いた状態でアプリウィンドウが表示されます。",
+            "tips": {
+              "0": "設定 > ショートカットでグローバル作成ショートカットを設定します。",
+              "1": "アプリがトレイに最小化されていても動作します。",
+              "2": "ショートカットが押されると作成ウィンドウが即座に開きます。",
+              "3": "どのアプリケーションからでも動作します。アプリへの切り替えは不要です。"
+            }
+          },
+          "popOutWindows": {
+            "title": "ポップアウトウィンドウ",
+            "summary": "スレッドを別ウィンドウで開きます。",
+            "description": "スレッドを独立したウィンドウで開いて、並べて読んだり、参照したり、マルチタスクできます。ポップアウトウィンドウにはフル機能のスレッドビューがあり、メインウィンドウに戻ることなく閲覧、返信、転送、アクションの実行が可能です。各ポップアウトウィンドウはデフォルトで800x700ピクセルで、リサイズ可能です。複数のスレッドを同時にポップアウトできます。",
+            "tips": {
+              "0": "スレッドのアクションバーでポップアウトアイコンをクリックします。",
+              "1": "ポップアウトウィンドウはフル機能です。閲覧、返信、アクションが可能です。",
+              "2": "複数のスレッドを別々のウィンドウで開けます。",
+              "3": "ポップアウトウィンドウはメインアプリウィンドウとは独立しています。"
+            }
+          },
+          "manualSync": {
+            "title": "手動同期",
+            "summary": "現在のフォルダの即座の同期をトリガーします。",
+            "description": "F5キーを押すと、60秒のバックグラウンド同期サイクルを待たずに現在のフォルダまたはラベルを即座に同期できます。メールを待っている場合や、別のクライアントで変更を加えた後に便利です。Gmailの場合は新しい履歴変更を取得し、IMAPの場合は現在のフォルダの新しいUIDをチェックします。",
+            "tips": {
+              "0": "現在のフォルダを同期",
+              "1": "バックグラウンド同期は60秒ごとに自動的に実行されます。",
+              "2": "新しいメールを待っている場合に手動同期が便利です。"
+            }
+          },
+          "offlineMode": {
+            "title": "オフラインモード",
+            "summary": "インターネット接続なしで作業を続けます。",
+            "description": "オフラインでもアーカイブ、スター、ゴミ箱、移動、ラベル付け、メール作成が可能です。変更はローカルにキューされ、接続が回復すると自動的に同期されます。オフライン時は画面上部にバナーが表示され、サイドバーに保留中の操作数が表示されます。冗長なアクション（スター付けしてからスター解除など）は自動的に圧縮され、最終結果のみが同期されます。",
+            "tips": {
+              "0": "すべてのアクションがオフラインで動作します — アーカイブ、スター、ゴミ箱、ラベル、作成。",
+              "1": "保留中の変更は再接続時に自動的に同期されます。",
+              "2": "設定 > アカウントで保留中および失敗した操作を確認できます。",
+              "3": "失敗した操作は設定からリトライまたはクリアできます。"
+            }
+          }
+        }
+      },
+      "contextualTips": {
+        "readingPane": {
+          "title": "閲覧ペイン",
+          "body": "閲覧ペインの表示位置を選択します — 右、下、または非表示。右はワイドスクリーンに最適です。"
+        },
+        "splitInbox": {
+          "title": "分割受信トレイ",
+          "body": "受信トレイをカテゴリ（メイン、アップデート、プロモーション、ソーシャル、ニュースレター）に分割し、重要なものに集中できます。"
+        },
+        "undoSend": {
+          "title": "送信取り消し",
+          "body": "送信したメールを取り消せる秒数を設定します。最大30秒まで選択できます。"
+        },
+        "smartNotifications": {
+          "title": "スマート通知",
+          "body": "関心のあるカテゴリのみ通知を受け取ります。カテゴリに関係なく常に通知するVIP送信者を追加できます。"
+        },
+        "phishingSensitivity": {
+          "title": "フィッシング感度",
+          "body": "低は明らかな脅威のみ検出します。デフォルトはバランスが取れています。高はより積極的に検出しますが、誤検知の可能性があります。"
+        },
+        "aiProvider": {
+          "title": "AIプロバイダー",
+          "body": "Claude、OpenAI、Geminiから選択します。ご自身のAPIキーを使用し、データはプロバイダーに直接送信されます。仲介者はいません。"
+        },
+        "searchOperators": {
+          "title": "検索演算子",
+          "body": "from:、to:、subject:、has:attachment、is:unread、before:、after:、label:を使って検索を絞り込みます。"
+        },
+        "filters": {
+          "title": "自動フィルター",
+          "body": "フィルターは同期中にすべての新しいメッセージに対して実行されます。条件はANDロジックで、複数のフィルターが一致するとアクションがマージされます。"
+        },
+        "smartLabels": {
+          "title": "スマートラベル",
+          "body": "ラベルを付けるべきメールを自然言語で記述します。AIが同期中に一致するメールに自動ラベル付けします。オプションの条件でAIなしの即時マッチングも可能です。"
+        }
+      }
+    }
+  },
+  "labelForm": {
+    "labelName": "ラベル名",
+    "noColor": "色なし"
+  },
+  "dnd": {
+    "conversation_one": "{{count}} 件のスレッド",
+    "conversation_other": "{{count}} 件のスレッド"
+  },
+  "offline": {
+    "banner": "オフラインです — 再接続時に変更が同期されます"
+  },
+  "emailRenderer": {
+    "imagesHidden": "プライバシー保護のため画像は非表示です。",
+    "loadImages": "画像を読み込む",
+    "alwaysLoadFromSender": "この送信者の画像を常に読み込む",
+    "emailContent": "メールコンテンツ"
+  },
+  "inlineReply": {
+    "reply": "返信",
+    "replyAll": "全員に返信",
+    "forward": "転送"
+  },
+  "themes": {
+    "indigo": "インディゴ",
+    "rose": "ローズ",
+    "emerald": "エメラルド",
+    "amber": "アンバー",
+    "sky": "スカイ",
+    "violet": "バイオレット",
+    "orange": "オレンジ",
+    "slate": "スレート"
+  },
+  "contactSidebar": {
+    "title": "連絡先",
+    "email": "メールアドレス",
+    "firstContacted": "初回連絡日",
+    "recentEmails": "最近のメール",
+    "closeContactSidebar": "連絡先サイドバーを閉じる",
+    "sendEmail": "メールを送信",
+    "copyEmail": "メールアドレスをコピー",
+    "copied": "コピーしました",
+    "removeVip": "VIP を解除",
+    "markAsVip": "VIP に設定",
+    "added": "追加しました",
+    "addToContacts": "連絡先に追加",
+    "editName": "名前を編集",
+    "saveName": "名前を保存",
+    "emailCount": "{{count}} 通",
+    "firstEmail": "最初のメール: {{date}}",
+    "lastEmail": "最後のメール: {{date}}",
+    "notes": "メモ",
+    "notesPlaceholder": "メモを追加...",
+    "sharedFiles": "共有ファイル",
+    "othersAtDomain": "@{{domain}} の他のメンバー",
+    "recentConversations": "最近のスレッド"
+  },
+  "addCalDav": {
+    "title": "CalDAV カレンダーを追加",
+    "accountTitle": "CalDAV カレンダーアカウント",
+    "accountDescription": "iCloud、Fastmail、Nextcloud、その他の CalDAV サーバーに接続",
+    "email": "メールアドレス",
+    "displayName": "表示名 (任意)",
+    "displayNamePlaceholder": "マイカレンダー",
+    "next": "次へ",
+    "detected": "検出: {{provider}}",
+    "appPasswordRequired": "このプロバイダーではアプリ固有のパスワードが必要です。プロバイダーのセキュリティ設定から生成してください。",
+    "serverUrl": "CalDAV サーバー URL",
+    "username": "ユーザー名",
+    "appPassword": "アプリパスワード",
+    "password": "パスワード",
+    "appPasswordPlaceholder": "アプリ固有のパスワード",
+    "testAndConnect": "テストして接続",
+    "testingConnection": "接続をテスト中...",
+    "connectionFailed": "接続に失敗しました",
+    "foundCalendars_one": "{{count}} 件のカレンダーが見つかりました",
+    "foundCalendars_other": "{{count}} 件のカレンダーが見つかりました",
+    "creating": "作成中...",
+    "addAccount": "アカウントを追加",
+    "accountAdded": "CalDAV アカウントを追加しました",
+    "calendarsWillSync": "カレンダーは自動的に同期されます。",
+    "failedToSave": "アカウントの保存に失敗しました"
+  },
+  "subscriptionManager": {
+    "noActiveAccount": "アクティブなアカウントが選択されていません。",
+    "loadingSubscriptions": "購読情報を読み込み中...",
+    "searchSenders": "送信者を検索...",
+    "unsubscribeCount": "購読解除 ({{count}})",
+    "sendersDetected_one": "購読解除ヘッダーのある送信者が {{count}} 件検出されました。",
+    "sendersDetected_other": "購読解除ヘッダーのある送信者が {{count}} 件検出されました。",
+    "unsubscribed": "購読解除済み",
+    "oneClick": "ワンクリック",
+    "emails": "{{count}} 通",
+    "unsubscribe": "購読解除",
+    "noMatchingSenders": "一致する送信者が見つかりません。",
+    "noSubscriptions": "購読情報はまだ検出されていません。メールの同期に伴い表示されます。"
+  },
+  "smartLabelEditor": {
+    "applyingToExisting": "既存のメールに適用中...",
+    "applyToExisting": "既存のメールに適用",
+    "disabled": "無効",
+    "label": "ラベル",
+    "selectLabel": "ラベルを選択...",
+    "noLabels": "ユーザーラベルがありません。先にラベルを作成してください。",
+    "aiDescription": "AI の説明",
+    "aiDescriptionPlaceholder": "例: 求人応募やキャリアに関するメール",
+    "optionalFilterCriteria": "フィルター条件 (任意)",
+    "fromContains": "差出人に含まれる...",
+    "toContains": "宛先に含まれる...",
+    "subjectContains": "件名に含まれる...",
+    "bodyContains": "本文に含まれる...",
+    "hasAttachment": "添付ファイルあり",
+    "addSmartLabel": "+ スマートラベルを追加",
+    "backfillFailed": "バックフィルに失敗しました。AI プロバイダーの設定を確認してください。",
+    "appliedLabels_one": "既存のメールに {{count}} 件のラベルを適用しました。",
+    "appliedLabels_other": "既存のメールに {{count}} 件のラベルを適用しました。"
+  },
+  "smartFolderEditor": {
+    "default": "デフォルト",
+    "folderName": "フォルダー名",
+    "searchQuery": "検索クエリ (例: is:unread from:boss)",
+    "iconName": "アイコン名",
+    "iconExamples": "Search, MailOpen, Paperclip, Star, FolderSearch, Inbox, Clock, Tag",
+    "colorOptional": "色 (任意)",
+    "addSmartFolder": "+ スマートフォルダーを追加"
+  },
+  "quickStepEditor": {
+    "disabled": "無効",
+    "invalidActions": "無効なアクション",
+    "quickStepName": "クイックステップ名",
+    "descriptionOptional": "説明 (任意)",
+    "shortcutOptional": "ショートカット (任意)",
+    "shortcutPlaceholder": "例: Ctrl+Shift+1",
+    "iconOptional": "アイコン (任意)",
+    "iconPlaceholder": "例: Archive, Star",
+    "actionChain": "アクションチェーン",
+    "selectLabel": "ラベルを選択...",
+    "selectCategory": "カテゴリを選択...",
+    "selectDuration": "期間を選択...",
+    "1hour": "1 時間",
+    "4hours": "4 時間",
+    "2days": "2 日",
+    "1week": "1 週間",
+    "removeAction": "アクションを削除",
+    "addAction": "アクションを追加",
+    "continueOnError": "エラー時も続行 (1つ失敗しても残りのアクションを実行)",
+    "addQuickStep": "+ クイックステップを追加"
+  },
+  "templateEditor": {
+    "templateName": "テンプレート名",
+    "subjectOptional": "件名 (任意)",
+    "writeTemplate": "テンプレートを入力...",
+    "shortcutOptional": "ショートカット (任意、例: /thanks)",
+    "insertVariable": "変数を挿入",
+    "addTemplate": "+ テンプレートを追加"
+  },
+  "contactEditor": {
+    "searchContacts": "連絡先を検索...",
+    "noMatchingContacts": "一致する連絡先がありません",
+    "noContacts": "連絡先はまだありません",
+    "displayName": "表示名",
+    "editName": "名前を編集",
+    "deleteContact": "連絡先を削除",
+    "contactCount_one": "合計 {{count}} 件の連絡先",
+    "contactCount_other": "合計 {{count}} 件の連絡先"
+  },
+  "calendarReauth": {
+    "title": "カレンダーの再認証が必要です",
+    "description": "カレンダーのアクセス権限が追加される前にアカウントが接続されました。再認証してカレンダーへのアクセスを許可してください。メールやデータには影響しません。",
+    "waitingForAuth": "認証を待機中...",
+    "reauthorize": "再認証"
+  },
+  "eventDetail": {
+    "editEvent": "予定を編集",
+    "title": "タイトル",
+    "start": "開始",
+    "end": "終了",
+    "location": "場所",
+    "locationPlaceholder": "場所を追加",
+    "description": "説明",
+    "descriptionPlaceholder": "説明を追加",
+    "saving": "保存中...",
+    "attendees": "参加者",
+    "deleteConfirm": "この予定を削除しますか？",
+    "deleting": "削除中...",
+    "yesDelete": "削除する",
+    "event": "予定"
+  },
+  "confirmDialog": {
+    "confirm": "確認",
+    "cancel": "キャンセル"
+  },
+  "inputDialog": {
+    "save": "保存",
+    "cancel": "キャンセル"
+  },
+  "updateToast": {
+    "available": "Velo v{{version}} が利用可能です",
+    "later": "後で",
+    "updating": "更新中...",
+    "updateNow": "今すぐ更新"
+  },
+  "inlineAttachment": {
+    "loading": "読み込み中...",
+    "image": "画像"
+  },
+  "contextMenu": {
+    "syncThisFolder": "このフォルダを同期",
+    "editLabel": "ラベルを編集",
+    "deleteLabel": "ラベルを削除",
+    "reply": "返信",
+    "replyAll": "全員に返信",
+    "forward": "転送",
+    "archive": "アーカイブ",
+    "delete": "削除",
+    "deletePermanently": "完全に削除",
+    "markAsUnread": "未読にする",
+    "markAsRead": "既読にする",
+    "unstar": "スター解除",
+    "star": "スター",
+    "snooze": "スヌーズ...",
+    "unpin": "ピン留め解除",
+    "pin": "ピン留め",
+    "unmute": "ミュート解除",
+    "mute": "ミュート",
+    "notSpam": "迷惑メールではない",
+    "reportSpam": "迷惑メールとして報告",
+    "applyLabel": "ラベルを適用",
+    "moveToFolder": "フォルダに移動",
+    "moveToCategory": "カテゴリに移動",
+    "quickSteps": "クイックステップ",
+    "openInNewWindow": "新しいウィンドウで開く",
+    "copyMessageText": "メッセージをコピー",
+    "viewSource": "ソースを表示"
+  },
+  "caldavSettings": {
+    "title": "カレンダー (CalDAV)",
+    "connected": "接続済み",
+    "description": "この IMAP アカウントのカレンダー機能を有効にするため、CalDAV サーバーに接続します。",
+    "serverUrl": "CalDAV サーバー URL",
+    "username": "ユーザー名",
+    "passwordLabel": "パスワード / アプリパスワード",
+    "appSpecificPassword": "アプリ固有のパスワード",
+    "testConnection": "接続テスト",
+    "testing": "テスト中...",
+    "save": "保存",
+    "saving": "保存中...",
+    "remove": "削除"
+  },
+  "networkErrors": {
+    "authFailed": "認証に失敗しました — パスワードを確認してください",
+    "timedOut": "接続がタイムアウトしました — インターネットまたはサーバー設定を確認してください",
+    "tlsFailed": "安全な接続に失敗しました — セキュリティ設定を確認してください",
+    "connectionRefused": "メールサーバーに接続できません — アドレスとポートを確認してください",
+    "serverNotFound": "サーバーが見つかりません — ホスト名を確認してください"
+  },
+  "rawMessage": {
+    "title": "メッセージソース",
+    "copyToClipboard": "クリップボードにコピー",
+    "copied": "コピー済み",
+    "copy": "コピー",
+    "loadingSource": "メッセージソースを読み込み中...",
+    "failedToLoad": "メッセージソースの読み込みに失敗しました: {{error}}"
+  },
+  "errorBoundary": {
+    "somethingWentWrong": "問題が発生しました",
+    "unexpectedError": "予期しないエラーが発生しました",
+    "tryAgain": "再試行"
+  },
+  "dateTimePicker": {
+    "customDateTime": "日時を指定"
+  },
+  "threadCard": {
+    "followUpReminderSet": "フォローアップリマインダー設定済み",
+    "muted": "ミュート中",
+    "pinned": "ピン留め中",
+    "hasAttachments": "添付ファイルあり",
+    "starred": "スター付き"
+  },
+  "inlineReply": {
+    "expandToFullComposer": "フルコンポーザーで開く",
+    "regenerateAiDraft": "AI下書きを再生成",
+    "clearAiDraft": "AI下書きをクリア"
+  }
+}

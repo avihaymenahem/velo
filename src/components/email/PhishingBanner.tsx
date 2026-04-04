@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ShieldAlert } from "lucide-react";
 import type { MessageScanResult } from "@/utils/phishingDetector";
 
@@ -7,6 +8,7 @@ interface PhishingBannerProps {
 }
 
 export function PhishingBanner({ scanResult, onTrustSender }: PhishingBannerProps) {
+  const { t } = useTranslation();
   const isHigh = scanResult.maxRiskScore >= 60;
 
   const bgClass = isHigh
@@ -23,20 +25,20 @@ export function PhishingBanner({ scanResult, onTrustSender }: PhishingBannerProp
       <ShieldAlert size={18} className={`shrink-0 ${iconClass}`} />
       <div className="flex-1 min-w-0">
         <p className={`text-xs font-medium ${textClass}`}>
-          {isHigh ? "High risk" : "Suspicious"} links detected
+          {isHigh ? t("phishing.highRisk") : t("phishing.suspicious")} {t("phishing.linksDetected")}
         </p>
         <p className="text-xs text-text-tertiary mt-0.5">
           {scanResult.suspiciousLinkCount === 1
-            ? "1 suspicious link found"
-            : `${scanResult.suspiciousLinkCount} suspicious links found`}
-          {" "}in this message. Be cautious before clicking any links.
+            ? t("phishing.oneLink")
+            : t("phishing.multipleLinks", { count: scanResult.suspiciousLinkCount })}
+          {" "}{t("phishing.beCareful")}
         </p>
       </div>
       <button
         onClick={onTrustSender}
         className={`shrink-0 text-xs px-2.5 py-1 rounded-md border transition-colors ${buttonClass}`}
       >
-        Trust this sender
+        {t("phishing.trustSender")}
       </button>
     </div>
   );

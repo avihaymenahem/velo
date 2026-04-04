@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { DateTimePickerDialog } from "@/components/ui/DateTimePickerDialog";
 
 interface SnoozeDialogProps {
@@ -37,24 +38,26 @@ function getSnoozePresets(): { label: string; timestamp: number }[] {
   nextWeek.setHours(9, 0, 0, 0);
 
   return [
-    { label: "Later Today", timestamp: Math.floor(laterToday.getTime() / 1000) },
-    { label: "Tomorrow", timestamp: Math.floor(tomorrow.getTime() / 1000) },
-    { label: "This Weekend", timestamp: Math.floor(weekend.getTime() / 1000) },
-    { label: "Next Week", timestamp: Math.floor(nextWeek.getTime() / 1000) },
+    { label: "snooze.laterToday", timestamp: Math.floor(laterToday.getTime() / 1000) },
+    { label: "snooze.tomorrow", timestamp: Math.floor(tomorrow.getTime() / 1000) },
+    { label: "snooze.thisWeekend", timestamp: Math.floor(weekend.getTime() / 1000) },
+    { label: "snooze.nextWeek", timestamp: Math.floor(nextWeek.getTime() / 1000) },
   ];
 }
 
 export function SnoozeDialog({ isOpen = true, onSnooze, onClose }: SnoozeDialogProps) {
-  const presets = getSnoozePresets();
+  const { t } = useTranslation();
+  const rawPresets = getSnoozePresets();
+  const presets = rawPresets.map((p) => ({ ...p, label: t(p.label) }));
 
   return (
     <DateTimePickerDialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Snooze until..."
+      title={t("snooze.snoozeUntil")}
       presets={presets}
       onSelect={onSnooze}
-      submitLabel="Snooze"
+      submitLabel={t("snooze.snooze")}
     />
   );
 }

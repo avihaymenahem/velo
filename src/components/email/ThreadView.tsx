@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { MessageItem } from "./MessageItem";
 import { ActionBar } from "./ActionBar";
 import { getMessagesForThread, type DbMessage } from "@/services/db/messages";
@@ -58,6 +59,7 @@ async function handlePopOut(thread: Thread) {
 }
 
 export function ThreadView({ thread }: ThreadViewProps) {
+  const { t } = useTranslation();
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const contactSidebarVisible = useUIStore((s) => s.contactSidebarVisible);
   const toggleContactSidebar = useUIStore((s) => s.toggleContactSidebar);
@@ -401,15 +403,15 @@ export function ThreadView({ thread }: ThreadViewProps) {
         {/* Thread subject */}
         <div className="px-6 py-3 border-b border-border-primary">
           <h1 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-            {thread.subject ?? "(No subject)"}
+            {thread.subject ?? t("common.noSubject")}
             {thread.isMuted && (
-              <span className="text-warning shrink-0" title="Muted">
+              <span className="text-warning shrink-0" title={t("thread.muted")}>
                 <VolumeX size={16} />
               </span>
             )}
           </h1>
           <div className="text-xs text-text-tertiary mt-1">
-            {messages.length} message{messages.length !== 1 ? "s" : ""} in this thread
+            {t("thread.message", { count: messages.length })} {t("thread.inThisThread")}
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useDroppable } from "@dnd-kit/core";
 import { AccountSwitcher } from "../accounts/AccountSwitcher";
 import { LabelForm } from "../labels/LabelForm";
@@ -49,29 +50,64 @@ interface SidebarProps {
   onAddAccount: () => void;
 }
 
-export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "inbox", label: "Inbox", icon: Inbox },
-  { id: "starred", label: "Starred", icon: Star },
-  { id: "snoozed", label: "Snoozed", icon: Clock },
-  { id: "sent", label: "Sent", icon: Send },
-  { id: "drafts", label: "Drafts", icon: FileEdit },
-  { id: "trash", label: "Trash", icon: Trash2 },
-  { id: "spam", label: "Spam", icon: Ban },
-  { id: "all", label: "All Mail", icon: Mail },
-  { id: "tasks", label: "Tasks", icon: CheckSquare },
-  { id: "calendar", label: "Calendar", icon: Calendar },
-  { id: "attachments", label: "Attachments", icon: Paperclip },
-  { id: "smart-folders", label: "Smart Folders", icon: FolderSearch },
-  { id: "labels", label: "Labels", icon: Tag },
+export type NavItem = { id: string; label: string; icon: LucideIcon };
+
+const NAV_LABEL_KEYS: Record<string, string> = {
+  inbox: "nav.inbox",
+  starred: "nav.starred",
+  snoozed: "nav.snoozed",
+  sent: "nav.sent",
+  drafts: "nav.drafts",
+  trash: "nav.trash",
+  spam: "nav.spam",
+  all: "nav.allMail",
+  tasks: "nav.tasks",
+  calendar: "nav.calendar",
+  attachments: "nav.attachments",
+  "smart-folders": "nav.smartFolders",
+  labels: "nav.labels",
+};
+
+const NAV_ITEMS_RAW: { id: string; icon: LucideIcon }[] = [
+  { id: "inbox", icon: Inbox },
+  { id: "starred", icon: Star },
+  { id: "snoozed", icon: Clock },
+  { id: "sent", icon: Send },
+  { id: "drafts", icon: FileEdit },
+  { id: "trash", icon: Trash2 },
+  { id: "spam", icon: Ban },
+  { id: "all", icon: Mail },
+  { id: "tasks", icon: CheckSquare },
+  { id: "calendar", icon: Calendar },
+  { id: "attachments", icon: Paperclip },
+  { id: "smart-folders", icon: FolderSearch },
+  { id: "labels", icon: Tag },
 ];
 
-const CATEGORY_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "Primary", label: "Primary", icon: Inbox },
-  { id: "Updates", label: "Updates", icon: Bell },
-  { id: "Promotions", label: "Promotions", icon: Tag },
-  { id: "Social", label: "Social", icon: Users },
-  { id: "Newsletters", label: "Newsletters", icon: Newspaper },
+export const getNavItems = (t: (key: string) => string): NavItem[] =>
+  NAV_ITEMS_RAW.map((item) => ({ ...item, label: t(NAV_LABEL_KEYS[item.id] ?? item.id) }));
+
+/** @deprecated Use getNavItems(t) for translated labels. Raw items for non-component use (id + icon only). */
+export const ALL_NAV_ITEMS = NAV_ITEMS_RAW;
+
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  Primary: "categories.primary",
+  Updates: "categories.updates",
+  Promotions: "categories.promotions",
+  Social: "categories.social",
+  Newsletters: "categories.newsletters",
+};
+
+const CATEGORY_ITEMS_RAW: { id: string; icon: LucideIcon }[] = [
+  { id: "Primary", icon: Inbox },
+  { id: "Updates", icon: Bell },
+  { id: "Promotions", icon: Tag },
+  { id: "Social", icon: Users },
+  { id: "Newsletters", icon: Newspaper },
 ];
+
+const getCategoryItems = (t: (key: string) => string): NavItem[] =>
+  CATEGORY_ITEMS_RAW.map((item) => ({ ...item, label: t(CATEGORY_LABEL_KEYS[item.id] ?? item.id) }));
 
 function DroppableNavItem({
   id,
@@ -128,6 +164,7 @@ function DroppableLabelItem({
   onContextMenu: (e: React.MouseEvent) => void;
   onEditClick: () => void;
 }) {
+  const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({ id: label.id });
   const initial = (label.name[0] ?? "?").toUpperCase();
 
@@ -178,7 +215,7 @@ function DroppableLabelItem({
             onClick={(e) => { e.stopPropagation(); onEditClick(); }}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onEditClick(); } }}
             className="opacity-0 group-hover:opacity-100 p-0.5 text-sidebar-text/40 hover:text-sidebar-text transition-opacity"
-            title="Edit label"
+            title={t("sidebar.editLabel")}
           >
             <Pencil size={12} />
           </span>
@@ -206,6 +243,7 @@ function getSmartFolderIcon(iconName: string): LucideIcon {
 const LABELS_COLLAPSED_COUNT = 3;
 
 export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
+  const { t } = useTranslation();
   const activeLabel = useActiveLabel();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const sidebarNavConfig = useUIStore((s) => s.sidebarNavConfig);
@@ -225,13 +263,15 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const createSmartFolder = useSmartFolderStore((s) => s.createFolder);
   const SECTION_IDS = new Set(["smart-folders", "labels"]);
 
+  const allNavItems = useMemo(() => getNavItems(t), [t]);
+
   const { visibleNavItems, showSmartFolders, showLabels } = useMemo(() => {
     if (!sidebarNavConfig) {
-      const navOnly = ALL_NAV_ITEMS.filter((i) => !SECTION_IDS.has(i.id));
+      const navOnly = allNavItems.filter((i) => !SECTION_IDS.has(i.id));
       return { visibleNavItems: navOnly, showSmartFolders: true, showLabels: true };
     }
-    const itemMap = new Map(ALL_NAV_ITEMS.map((item) => [item.id, item]));
-    const result: typeof ALL_NAV_ITEMS = [];
+    const itemMap = new Map(allNavItems.map((item) => [item.id, item]));
+    const result: NavItem[] = [];
     const seen = new Set<string>();
     let smartFoldersVisible = true;
     let labelsVisible = true;
@@ -244,11 +284,11 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       }
     }
     // Append any new items not present in the saved config
-    for (const item of ALL_NAV_ITEMS) {
+    for (const item of allNavItems) {
       if (!seen.has(item.id) && !SECTION_IDS.has(item.id)) result.push(item);
     }
     return { visibleNavItems: result, showSmartFolders: smartFoldersVisible, showLabels: labelsVisible };
-  }, [sidebarNavConfig]);
+  }, [sidebarNavConfig, allNavItems]);
 
   const [labelsExpanded, setLabelsExpanded] = useState(false);
 
@@ -355,7 +395,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           onClick={() => openComposer()}
           className="w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent-hover text-white rounded-lg py-2 text-sm font-medium interactive-btn"
         >
-          {collapsed ? <Plus size={16} /> : "Compose"}
+          {collapsed ? <Plus size={16} /> : t("sidebar.compose")}
         </button>
       </div>
 
@@ -409,7 +449,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                             setInboxViewMode(inboxViewMode === "split" ? "unified" : "split");
                           }
                         }}
-                        title={inboxViewMode === "split" ? "Switch to unified inbox" : "Switch to split inbox"}
+                        title={inboxViewMode === "split" ? t("sidebar.switchToUnified") : t("sidebar.switchToSplit")}
                         className={`p-1 rounded transition-colors ${
                           inboxViewMode === "split"
                             ? "text-accent hover:bg-accent/10"
@@ -425,7 +465,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
               {/* Category sub-items when split mode is active */}
               {isInbox && inboxViewMode === "split" && !collapsed && (
                 <div>
-                  {CATEGORY_ITEMS.map((cat) => {
+                  {getCategoryItems(t).map((cat) => {
                     const CatIcon = cat.icon;
                     const isCatActive = activeLabel === "inbox" && activeCategory === cat.id;
                     return (
@@ -457,12 +497,12 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">
                 <span className="text-xs font-medium text-sidebar-text/60 uppercase tracking-wider">
-                  Smart Folders
+                  {t("nav.smartFolders")}
                 </span>
                 <button
                   onClick={handleAddSmartFolder}
                   className="p-0.5 text-sidebar-text/40 hover:text-sidebar-text transition-colors"
-                  title="Add smart folder"
+                  title={t("sidebar.addSmartFolder")}
                 >
                   <Plus size={14} />
                 </button>
@@ -512,12 +552,12 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">
                 <span className="text-xs font-medium text-sidebar-text/60 uppercase tracking-wider">
-                  Labels
+                  {t("nav.labels")}
                 </span>
                 <button
                   onClick={handleAddLabel}
                   className="p-0.5 text-sidebar-text/40 hover:text-sidebar-text transition-colors"
-                  title="Add label"
+                  title={t("sidebar.addLabel")}
                 >
                   <Plus size={14} />
                 </button>
@@ -579,12 +619,12 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                 {labelsExpanded ? (
                   <>
                     <ChevronUp size={12} />
-                    <span>Show less</span>
+                    <span>{t("sidebar.showLess")}</span>
                   </>
                 ) : (
                   <>
                     <ChevronDown size={12} />
-                    <span>{labels.length - LABELS_COLLAPSED_COUNT} more</span>
+                    <span>{labels.length - LABELS_COLLAPSED_COUNT} {t("sidebar.more")}</span>
                   </>
                 )}
               </button>
@@ -612,10 +652,10 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
               ? "bg-accent/10 text-accent font-medium"
               : "text-sidebar-text hover:bg-sidebar-hover"
           }`}
-          title="Settings"
+          title={t("sidebar.settings")}
         >
           <Settings size={18} className="shrink-0" />
-          {!collapsed && <span>Settings</span>}
+          {!collapsed && <span>{t("sidebar.settings")}</span>}
         </button>
         <button
           onClick={() => navigateToLabel("help")}
@@ -626,14 +666,14 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
               ? "bg-accent/10 text-accent font-medium"
               : "text-sidebar-text hover:bg-sidebar-hover"
           }`}
-          title="Help"
+          title={t("sidebar.help")}
         >
           <HelpCircle size={18} className="shrink-0" />
         </button>
         <button
           onClick={toggleSidebar}
           className="p-2 text-sidebar-text/60 hover:text-sidebar-text hover:bg-sidebar-hover rounded-md transition-colors"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? t("sidebar.expandSidebar") : t("sidebar.collapseSidebar")}
         >
           {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
         </button>
@@ -649,10 +689,10 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
             activeAccountId ?? undefined,
           );
         }}
-        title="New Smart Folder"
+        title={t("sidebar.newSmartFolder")}
         fields={[
-          { key: "name", label: "Name", placeholder: "e.g. Unread from boss" },
-          { key: "query", label: "Search query", placeholder: "e.g. is:unread from:boss" },
+          { key: "name", label: t("sidebar.name"), placeholder: t("sidebar.namePlaceholder") },
+          { key: "query", label: t("sidebar.searchQuery"), placeholder: t("sidebar.searchQueryPlaceholder") },
         ]}
       />
 
@@ -663,6 +703,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
 }
 
 function PendingOpsIndicator({ collapsed }: { collapsed: boolean }) {
+  const { t } = useTranslation();
   const pendingOpsCount = useUIStore((s) => s.pendingOpsCount);
   if (pendingOpsCount <= 0) return null;
 
@@ -674,7 +715,7 @@ function PendingOpsIndicator({ collapsed }: { collapsed: boolean }) {
         </div>
       ) : (
         <div className="text-xs text-text-secondary">
-          {pendingOpsCount} pending {pendingOpsCount === 1 ? "change" : "changes"}
+          {t("sidebar.pending", { count: pendingOpsCount })}
         </div>
       )}
     </div>

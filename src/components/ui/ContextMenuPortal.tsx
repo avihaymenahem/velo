@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { useThreadStore } from "@/stores/threadStore";
@@ -125,6 +126,7 @@ function SidebarLabelMenu({
   data: Record<string, unknown>;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const onEdit = data["onEdit"] as (() => void) | undefined;
   const onDelete = data["onDelete"] as (() => void) | undefined;
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
@@ -139,20 +141,20 @@ function SidebarLabelMenu({
   const items: ContextMenuItem[] = [
     {
       id: "sync-folder",
-      label: "Sync this folder",
+      label: t("contextMenu.syncThisFolder"),
       icon: RefreshCw,
       action: handleSync,
     },
     { id: "sep-sync", label: "", separator: true },
     {
       id: "edit-label",
-      label: "Edit label",
+      label: t("contextMenu.editLabel"),
       icon: Pencil,
       action: () => onEdit?.(),
     },
     {
       id: "delete-label",
-      label: "Delete label",
+      label: t("contextMenu.deleteLabel"),
       icon: Trash2,
       danger: true,
       action: () => onDelete?.(),
@@ -171,6 +173,7 @@ function SidebarNavMenu({
   data: Record<string, unknown>;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const navId = data["navId"] as string;
 
@@ -183,7 +186,7 @@ function SidebarNavMenu({
   const items: ContextMenuItem[] = [
     {
       id: "sync-folder",
-      label: "Sync this folder",
+      label: t("contextMenu.syncThisFolder"),
       icon: RefreshCw,
       action: handleSync,
     },
@@ -203,6 +206,7 @@ function ThreadMenu({
   onClose: () => void;
   onSnooze: (target: { threadIds: string[]; accountId: string }) => void;
 }) {
+  const { t } = useTranslation();
   const threadId = data["threadId"] as string;
   const threads = useThreadStore((s) => s.threads);
   const selectedThreadIds = useThreadStore((s) => s.selectedThreadIds);
@@ -435,7 +439,7 @@ function ThreadMenu({
   const items: ContextMenuItem[] = [
     {
       id: "reply",
-      label: "Reply",
+      label: t("contextMenu.reply"),
       icon: Reply,
       shortcut: "r",
       disabled: isMulti,
@@ -443,7 +447,7 @@ function ThreadMenu({
     },
     {
       id: "reply-all",
-      label: "Reply All",
+      label: t("contextMenu.replyAll"),
       icon: ReplyAll,
       shortcut: "a",
       disabled: isMulti,
@@ -451,7 +455,7 @@ function ThreadMenu({
     },
     {
       id: "forward",
-      label: "Forward",
+      label: t("contextMenu.forward"),
       icon: Forward,
       shortcut: "f",
       disabled: isMulti,
@@ -460,14 +464,14 @@ function ThreadMenu({
     { id: "sep-1", label: "", separator: true },
     {
       id: "archive",
-      label: "Archive",
+      label: t("contextMenu.archive"),
       icon: Archive,
       shortcut: "e",
       action: handleArchive,
     },
     {
       id: "delete",
-      label: isTrashView ? "Delete Permanently" : "Delete",
+      label: isTrashView ? t("contextMenu.deletePermanently") : t("contextMenu.delete"),
       icon: Trash2,
       shortcut: "#",
       danger: isTrashView,
@@ -475,13 +479,13 @@ function ThreadMenu({
     },
     {
       id: "toggle-read",
-      label: isRead ? "Mark as Unread" : "Mark as Read",
+      label: isRead ? t("contextMenu.markAsUnread") : t("contextMenu.markAsRead"),
       icon: isRead ? Mail : MailOpen,
       action: handleToggleRead,
     },
     {
       id: "toggle-star",
-      label: isStarred ? "Unstar" : "Star",
+      label: isStarred ? t("contextMenu.unstar") : t("contextMenu.star"),
       icon: Star,
       shortcut: "s",
       action: handleToggleStar,
@@ -489,28 +493,28 @@ function ThreadMenu({
     { id: "sep-2", label: "", separator: true },
     {
       id: "snooze",
-      label: "Snooze...",
+      label: t("contextMenu.snooze"),
       icon: Clock,
       shortcut: "h",
       action: handleSnooze,
     },
     {
       id: "toggle-pin",
-      label: isPinned ? "Unpin" : "Pin",
+      label: isPinned ? t("contextMenu.unpin") : t("contextMenu.pin"),
       icon: Pin,
       shortcut: "p",
       action: handleTogglePin,
     },
     {
       id: "toggle-mute",
-      label: isMuted ? "Unmute" : "Mute",
+      label: isMuted ? t("contextMenu.unmute") : t("contextMenu.mute"),
       icon: VolumeX,
       shortcut: "m",
       action: handleToggleMute,
     },
     {
       id: "spam",
-      label: isSpamView ? "Not Spam" : "Report Spam",
+      label: isSpamView ? t("contextMenu.notSpam") : t("contextMenu.reportSpam"),
       icon: Ban,
       shortcut: "!",
       action: handleSpam,
@@ -519,14 +523,14 @@ function ThreadMenu({
     ...(labelItems.length > 0
       ? [{
           id: "apply-label",
-          label: "Apply Label",
+          label: t("contextMenu.applyLabel"),
           icon: Tag,
           children: labelItems,
         }]
       : []),
     {
       id: "move-to-folder",
-      label: "Move to Folder",
+      label: t("contextMenu.moveToFolder"),
       icon: FolderInput,
       shortcut: "v",
       action: () => {
@@ -535,7 +539,7 @@ function ThreadMenu({
     },
     {
       id: "move-to-category",
-      label: "Move to Category",
+      label: t("contextMenu.moveToCategory"),
       icon: Layers,
       children: ALL_CATEGORIES.map((cat) => ({
         id: `cat-${cat}`,
@@ -553,7 +557,7 @@ function ThreadMenu({
           { id: "sep-4", label: "", separator: true },
           {
             id: "quick-steps",
-            label: "Quick Steps",
+            label: t("contextMenu.quickSteps"),
             icon: Zap,
             children: quickSteps.map((qs) => {
               let parsedActions: QuickStepAction[] = [];
@@ -586,7 +590,7 @@ function ThreadMenu({
       : []),
     {
       id: "pop-out",
-      label: "Open in New Window",
+      label: t("contextMenu.openInNewWindow"),
       icon: ExternalLink,
       disabled: isMulti,
       action: handlePopOut,
@@ -605,6 +609,7 @@ function MessageMenu({
   data: Record<string, unknown>;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const openComposer = useComposerStore((s) => s.openComposer);
 
   const messageId = data["messageId"] as string;
@@ -679,21 +684,21 @@ function MessageMenu({
   const items: ContextMenuItem[] = [
     {
       id: "reply",
-      label: "Reply",
+      label: t("contextMenu.reply"),
       icon: Reply,
       shortcut: "r",
       action: handleReply,
     },
     {
       id: "reply-all",
-      label: "Reply All",
+      label: t("contextMenu.replyAll"),
       icon: ReplyAll,
       shortcut: "a",
       action: handleReplyAll,
     },
     {
       id: "forward",
-      label: "Forward",
+      label: t("contextMenu.forward"),
       icon: Forward,
       shortcut: "f",
       action: handleForward,
@@ -701,7 +706,7 @@ function MessageMenu({
     { id: "sep-1", label: "", separator: true },
     {
       id: "copy-text",
-      label: "Copy Message Text",
+      label: t("contextMenu.copyMessageText"),
       icon: Copy,
       action: handleCopy,
     },
@@ -710,7 +715,7 @@ function MessageMenu({
           { id: "sep-2", label: "", separator: true },
           {
             id: "view-source",
-            label: "View Source",
+            label: t("contextMenu.viewSource"),
             icon: Code,
             action: () => {
               window.dispatchEvent(
