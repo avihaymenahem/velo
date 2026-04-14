@@ -34,42 +34,36 @@ export interface DbAccount {
   caldav_home_url: string | null;
   calendar_provider: string | null;
   accept_invalid_certs: number;
+  smtp_username: string | null;
+  smtp_password: string | null;
 }
 
+type EncryptedField =
+  | "access_token"
+  | "refresh_token"
+  | "imap_password"
+  | "oauth_client_secret"
+  | "caldav_password"
+  | "smtp_password";
+
+const ENCRYPTED_FIELDS: { key: EncryptedField; label: string }[] = [
+  { key: "access_token", label: "access token" },
+  { key: "refresh_token", label: "refresh token" },
+  { key: "imap_password", label: "IMAP password" },
+  { key: "oauth_client_secret", label: "OAuth client secret" },
+  { key: "caldav_password", label: "CalDAV password" },
+  { key: "smtp_password", label: "SMTP password" },
+];
+
 async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
-  if (account.access_token && isEncrypted(account.access_token)) {
-    try {
-      account.access_token = await decryptValue(account.access_token);
-    } catch (err) {
-      console.warn("Failed to decrypt access token, using raw value:", err);
-    }
-  }
-  if (account.refresh_token && isEncrypted(account.refresh_token)) {
-    try {
-      account.refresh_token = await decryptValue(account.refresh_token);
-    } catch (err) {
-      console.warn("Failed to decrypt refresh token, using raw value:", err);
-    }
-  }
-  if (account.imap_password && isEncrypted(account.imap_password)) {
-    try {
-      account.imap_password = await decryptValue(account.imap_password);
-    } catch (err) {
-      console.warn("Failed to decrypt IMAP password, using raw value:", err);
-    }
-  }
-  if (account.oauth_client_secret && isEncrypted(account.oauth_client_secret)) {
-    try {
-      account.oauth_client_secret = await decryptValue(account.oauth_client_secret);
-    } catch (err) {
-      console.warn("Failed to decrypt OAuth client secret, using raw value:", err);
-    }
-  }
-  if (account.caldav_password && isEncrypted(account.caldav_password)) {
-    try {
-      account.caldav_password = await decryptValue(account.caldav_password);
-    } catch (err) {
-      console.warn("Failed to decrypt CalDAV password, using raw value:", err);
+  for (const { key, label } of ENCRYPTED_FIELDS) {
+    const value = account[key];
+    if (typeof value === "string" && isEncrypted(value)) {
+      try {
+        account[key] = await decryptValue(value);
+      } catch (err) {
+        console.warn(`Failed to decrypt ${label}, using raw value:`, err);
+      }
     }
   }
   return account;
@@ -194,13 +188,18 @@ export async function insertImapAccount(account: {
   authMethod: string;
   password: string;
   imapUsername?: string | null;
+  smtpUsername?: string | null;
+  smtpPassword?: string | null;
   acceptInvalidCerts?: boolean;
 }): Promise<void> {
   const db = await getDb();
   const encPassword = await encryptValue(account.password);
+  const encSmtpPassword = account.smtpPassword != null
+    ? await encryptValue(account.smtpPassword)
+    : null;
   await db.execute(
-    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password, imap_username, accept_invalid_certs)
-     VALUES ($1, $2, $3, $4, NULL, NULL, 'imap', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password, imap_username, smtp_username, smtp_password, accept_invalid_certs)
+     VALUES ($1, $2, $3, $4, NULL, NULL, 'imap', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
     [
       account.id,
       account.email,
@@ -215,6 +214,8 @@ export async function insertImapAccount(account: {
       account.authMethod,
       encPassword,
       account.imapUsername || null,
+      account.smtpUsername || null,
+      encSmtpPassword,
       account.acceptInvalidCerts ? 1 : 0,
     ],
   );

@@ -171,6 +171,8 @@ describe("accounts", () => {
         "password",
         "enc:my-app-password", // encrypted
         null, // imap_username
+        null, // smtp_username
+        null, // smtp_password
         0, // accept_invalid_certs
       ]);
     });
@@ -221,6 +223,90 @@ describe("accounts", () => {
       const [sql] = mockExecute.mock.calls[0] as [string, unknown[]];
       expect(sql).toContain("NULL, NULL");
       expect(sql).toContain("'imap'");
+    });
+  });
+
+  describe("insertImapAccount with SMTP credentials", () => {
+    it("stores smtp_username and encrypted smtp_password", async () => {
+      mockExecute.mockResolvedValue(undefined);
+
+      await insertImapAccount({
+        id: "imap-smtp",
+        email: "user@example.com",
+        displayName: null,
+        avatarUrl: null,
+        imapHost: "imap.example.com",
+        imapPort: 993,
+        imapSecurity: "ssl",
+        smtpHost: "smtp.relay.com",
+        smtpPort: 587,
+        smtpSecurity: "starttls",
+        authMethod: "password",
+        password: "imap-pass",
+        smtpUsername: "relay-user",
+        smtpPassword: "relay-secret",
+      });
+
+      expect(mockExecute).toHaveBeenCalledTimes(1);
+      const [sql, params] = mockExecute.mock.calls[0] as [string, unknown[]];
+      expect(sql).toContain("smtp_username");
+      expect(sql).toContain("smtp_password");
+      expect(params).toContain("relay-user");
+      expect(params).toContain("enc:relay-secret");
+    });
+
+    it("stores null for smtp_username/smtp_password when not provided", async () => {
+      mockExecute.mockResolvedValue(undefined);
+
+      await insertImapAccount({
+        id: "imap-no-smtp",
+        email: "user@example.com",
+        displayName: null,
+        avatarUrl: null,
+        imapHost: "imap.example.com",
+        imapPort: 993,
+        imapSecurity: "ssl",
+        smtpHost: "smtp.example.com",
+        smtpPort: 465,
+        smtpSecurity: "ssl",
+        authMethod: "password",
+        password: "pass",
+      });
+
+      expect(mockExecute).toHaveBeenCalledTimes(1);
+      const [sql, params] = mockExecute.mock.calls[0] as [string, unknown[]];
+      expect(sql).toContain("smtp_username");
+      expect(sql).toContain("smtp_password");
+      expect(params).toEqual([
+        "imap-no-smtp",
+        "user@example.com",
+        null, // displayName
+        null, // avatarUrl
+        "imap.example.com",
+        993,
+        "ssl",
+        "smtp.example.com",
+        465,
+        "ssl",
+        "password",
+        "enc:pass", // encrypted imap password
+        null, // imap_username
+        null, // smtp_username
+        null, // smtp_password
+        0, // accept_invalid_certs
+      ]);
+    });
+  });
+
+  describe("decryptAccountTokens with smtp_password", () => {
+    it("decrypts smtp_password when encrypted", async () => {
+      mockSelectFirstBy.mockResolvedValue(
+        createMockImapAccount({ smtp_password: "enc:smtp-secret" }),
+      );
+
+      const result = await getAccount("acc-imap");
+
+      expect(result!.smtp_password).toBe("smtp-secret");
     });
   });
 
