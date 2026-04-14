@@ -450,6 +450,75 @@ describe("AddImapAccount", () => {
       const nextBtn = screen.getByText("Next").closest("button")!;
       expect(nextBtn).not.toBeDisabled();
     });
+
+    it("Next is not blocked by sameCredentials in OAuth mode", async () => {
+      // Edge case: user unchecks sameCredentials in password mode on SMTP step,
+      // then goes back and switches to OAuth. sameCredentials stays false and
+      // smtpPassword is empty — Next must still work because OAuth uses tokens.
+      mockDiscoverSettings.mockReturnValue({
+        settings: {
+          imapHost: "outlook.office365.com",
+          imapPort: 993,
+          imapSecurity: "ssl",
+          smtpHost: "smtp.office365.com",
+          smtpPort: 587,
+          smtpSecurity: "starttls",
+        },
+        authMethods: ["oauth2", "password"],
+        oauthProviderId: "microsoft",
+      });
+      mockStartProviderOAuthFlow.mockResolvedValue({
+        tokens: {
+          access_token: "acc-tok",
+          refresh_token: "ref-tok",
+          expires_in: 3600,
+        },
+        userInfo: { email: "user@outlook.com", name: "Test User" },
+      });
+
+      renderComponent();
+      // 1. Basic step: enter email, discovery auto-selects OAuth — switch to Password first
+      const emailInput = screen.getByPlaceholderText("you@example.com");
+      fireEvent.change(emailInput, { target: { value: "user@outlook.com" } });
+      fireEvent.blur(emailInput);
+      fireEvent.click(screen.getByText("Password"));
+      fireEvent.change(
+        screen.getByPlaceholderText("Enter your email password or app password"),
+        { target: { value: "temp" } },
+      );
+      fireEvent.click(screen.getByText("Next"));
+
+      // 2. IMAP step: advance
+      fireEvent.click(screen.getByText("Next"));
+
+      // 3. SMTP step: uncheck sameCredentials (smtpPassword is empty)
+      const checkbox = document.getElementById("smtp-same-credentials") as HTMLInputElement;
+      fireEvent.click(checkbox);
+      expect(checkbox.checked).toBe(false);
+      // Next is blocked (no SMTP password in password mode)
+      expect(screen.getByText("Next").closest("button")).toBeDisabled();
+
+      // 4. Go back to basic step and switch to OAuth
+      fireEvent.click(screen.getByText("Back")); // → IMAP
+      fireEvent.click(screen.getByText("Back")); // → Basic
+      fireEvent.click(screen.getByText("OAuth2"));
+      fireEvent.change(
+        screen.getByPlaceholderText("Microsoft app Client ID"),
+        { target: { value: "client-id" } },
+      );
+      fireEvent.click(screen.getByText("Sign in with Microsoft").closest("button")!);
+      await waitFor(() => {
+        expect(screen.getByText("user@outlook.com")).toBeInTheDocument();
+      });
+
+      // 5. Navigate back to SMTP step
+      fireEvent.click(screen.getByText("Next")); // → IMAP
+      fireEvent.click(screen.getByText("Next")); // → SMTP
+
+      // 6. Next must NOT be blocked despite sameCredentials=false
+      const nextBtn = screen.getByText("Next").closest("button")!;
+      expect(nextBtn).not.toBeDisabled();
+    });
   });
 
   // ── 6. OAuth Flow ─────────────────────────────────────────────────────

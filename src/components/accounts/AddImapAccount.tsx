@@ -200,7 +200,7 @@ export function AddImapAccount({
   const canAdvanceFromSmtp =
     form.smtpHost.trim().length > 0 &&
     form.smtpPort > 0 &&
-    (form.sameCredentials || form.smtpPassword.length > 0);
+    (isOAuth || form.sameCredentials || form.smtpPassword.length > 0);
   const bothTestsPassed = imapTest.state === "success" && smtpTest.state === "success";
 
   const goNext = useCallback(() => {

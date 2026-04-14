@@ -58,6 +58,8 @@ export function buildImapConfig(
  * Build a SmtpConfig from a DbAccount's SMTP fields.
  * Uses smtp_username / smtp_password when set, falling back to
  * imap_username / imap_password for backwards compatibility.
+ * Assumes whichever stored password field is used (`smtp_password`
+ * or fallback `imap_password`) has already been decrypted.
  *
  * For OAuth2 accounts, pass a fresh `accessToken` obtained from
  * `ensureFreshToken()` — it will be used as the password field.
@@ -80,7 +82,7 @@ export function buildSmtpConfig(
     host: account.smtp_host,
     port: account.smtp_port ?? 587,
     security: mapSecurity(account.smtp_security),
-    username: account.smtp_username ?? account.imap_username ?? account.email,
+    username: account.smtp_username || account.imap_username || account.email,
     password,
     auth_method: authMethod,
     accept_invalid_certs: !!account.accept_invalid_certs,
