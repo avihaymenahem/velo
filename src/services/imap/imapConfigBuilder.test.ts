@@ -146,6 +146,53 @@ describe("imap_username override", () => {
   });
 });
 
+describe("separate SMTP credentials", () => {
+  it("uses smtp_username when set", () => {
+    const account = createMockDbAccount({
+      smtp_username: "smtp-user",
+      imap_username: "imap-user",
+    });
+    const config = buildSmtpConfig(account);
+    expect(config.username).toBe("smtp-user");
+  });
+
+  it("falls back to imap_username when smtp_username is null", () => {
+    const account = createMockDbAccount({
+      smtp_username: null,
+      imap_username: "imap-user",
+    });
+    const config = buildSmtpConfig(account);
+    expect(config.username).toBe("imap-user");
+  });
+
+  it("falls back to email when both smtp_username and imap_username are null", () => {
+    const account = createMockDbAccount({
+      smtp_username: null,
+      imap_username: null,
+    });
+    const config = buildSmtpConfig(account);
+    expect(config.username).toBe("user@example.com");
+  });
+
+  it("uses smtp_password when set", () => {
+    const account = createMockDbAccount({
+      smtp_password: "smtp-secret",
+      imap_password: "imap-secret",
+    });
+    const config = buildSmtpConfig(account);
+    expect(config.password).toBe("smtp-secret");
+  });
+
+  it("falls back to imap_password when smtp_password is null", () => {
+    const account = createMockDbAccount({
+      smtp_password: null,
+      imap_password: "imap-secret",
+    });
+    const config = buildSmtpConfig(account);
+    expect(config.password).toBe("imap-secret");
+  });
+});
+
 describe("accept_invalid_certs", () => {
   it("defaults to false when account flag is 0", () => {
     const account = createMockDbAccount({ accept_invalid_certs: 0 });
