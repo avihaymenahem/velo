@@ -38,7 +38,15 @@ export interface DbAccount {
   smtp_password: string | null;
 }
 
-const ENCRYPTED_FIELDS: { key: keyof DbAccount; label: string }[] = [
+type EncryptedField =
+  | "access_token"
+  | "refresh_token"
+  | "imap_password"
+  | "oauth_client_secret"
+  | "caldav_password"
+  | "smtp_password";
+
+const ENCRYPTED_FIELDS: { key: EncryptedField; label: string }[] = [
   { key: "access_token", label: "access token" },
   { key: "refresh_token", label: "refresh token" },
   { key: "imap_password", label: "IMAP password" },
@@ -52,7 +60,7 @@ async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
     const value = account[key];
     if (typeof value === "string" && isEncrypted(value)) {
       try {
-        (account as Record<string, unknown>)[key] = await decryptValue(value);
+        account[key] = await decryptValue(value);
       } catch (err) {
         console.warn(`Failed to decrypt ${label}, using raw value:`, err);
       }

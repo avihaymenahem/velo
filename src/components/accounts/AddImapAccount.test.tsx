@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { ReactNode } from "react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { AddImapAccount } from "./AddImapAccount";
 
@@ -69,7 +70,7 @@ vi.mock("react-transition-group", () => ({
     unmountOnExit,
   }: {
     in: boolean;
-    children: React.ReactNode;
+    children: ReactNode;
     unmountOnExit?: boolean;
   }) => {
     if (!inProp && unmountOnExit) return null;
@@ -124,12 +125,18 @@ function navigateToStep(step: "imap" | "smtp" | "test") {
 
 // ── Setup ──────────────────────────────────────────────────────────────────
 
+const originalRandomUUID = crypto.randomUUID;
+
 beforeEach(() => {
   vi.clearAllMocks();
   crypto.randomUUID = vi.fn(
     () => "test-uuid-1234",
   ) as () => `${string}-${string}-${string}-${string}-${string}`;
   mockDiscoverSettings.mockReturnValue(null);
+});
+
+afterEach(() => {
+  crypto.randomUUID = originalRandomUUID;
 });
 
 // ── Phase 1: Tests for existing behavior ───────────────────────────────────
