@@ -197,7 +197,10 @@ export function AddImapAccount({
     form.email.trim().includes("@") &&
     (isOAuth ? hasOAuthTokens : form.password.trim().length > 0);
   const canAdvanceFromImap = form.imapHost.trim().length > 0 && form.imapPort > 0;
-  const canAdvanceFromSmtp = form.smtpHost.trim().length > 0 && form.smtpPort > 0;
+  const canAdvanceFromSmtp =
+    form.smtpHost.trim().length > 0 &&
+    form.smtpPort > 0 &&
+    (form.sameCredentials || form.smtpPassword.length > 0);
   const bothTestsPassed = imapTest.state === "success" && smtpTest.state === "success";
 
   const goNext = useCallback(() => {

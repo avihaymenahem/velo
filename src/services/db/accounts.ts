@@ -186,7 +186,7 @@ export async function insertImapAccount(account: {
 }): Promise<void> {
   const db = await getDb();
   const encPassword = await encryptValue(account.password);
-  const encSmtpPassword = account.smtpPassword
+  const encSmtpPassword = account.smtpPassword != null
     ? await encryptValue(account.smtpPassword)
     : null;
   await db.execute(

@@ -416,6 +416,40 @@ describe("AddImapAccount", () => {
         screen.getByPlaceholderText("SMTP password"),
       ).toBeInTheDocument();
     });
+
+    it("Next is disabled when sameCredentials is unchecked and SMTP password is empty", () => {
+      renderComponent();
+      navigateToStep("smtp");
+      fireEvent.change(screen.getByPlaceholderText("smtp.example.com"), {
+        target: { value: "smtp.test.com" },
+      });
+      // Uncheck same credentials
+      const checkbox = document.getElementById(
+        "smtp-same-credentials",
+      ) as HTMLInputElement;
+      fireEvent.click(checkbox);
+      // Don't fill SMTP password
+      const nextBtn = screen.getByText("Next").closest("button")!;
+      expect(nextBtn).toBeDisabled();
+    });
+
+    it("Next is enabled when sameCredentials is unchecked and SMTP password is filled", () => {
+      renderComponent();
+      navigateToStep("smtp");
+      fireEvent.change(screen.getByPlaceholderText("smtp.example.com"), {
+        target: { value: "smtp.test.com" },
+      });
+      // Uncheck same credentials and fill password
+      const checkbox = document.getElementById(
+        "smtp-same-credentials",
+      ) as HTMLInputElement;
+      fireEvent.click(checkbox);
+      fireEvent.change(screen.getByPlaceholderText("SMTP password"), {
+        target: { value: "smtp-pass" },
+      });
+      const nextBtn = screen.getByText("Next").closest("button")!;
+      expect(nextBtn).not.toBeDisabled();
+    });
   });
 
   // ── 6. OAuth Flow ─────────────────────────────────────────────────────
