@@ -32,19 +32,23 @@ export function createOllamaProvider(serverUrl: string, model: string): AiProvid
           { role: "user", content: req.userContent },
         ],
       });
-
       return response.choices[0]?.message?.content ?? "";
     },
 
     async testConnection(): Promise<boolean> {
       try {
-        await client.chat.completions.create({
-          model,
-          max_tokens: 10,
-          messages: [{ role: "user", content: "Say hi" }],
+        const baseUrl = serverUrl.replace(/\/+$/, "");
+        const response = await fetch(`${baseUrl}/api/tags`, {
+          method: "GET",
         });
-        return true;
-      } catch {
+        
+        if (!response.ok) return false;
+        
+        const data = await response.json() as any;
+        // Controllo flessibile: Ollama può restituire { models: [...] } o direttamente [...]
+        return !!(data && (Array.isArray(data.models) || Array.isArray(data)));
+      } catch (err) {
+        console.error("Ollama connection test failed:", err);
         return false;
       }
     },

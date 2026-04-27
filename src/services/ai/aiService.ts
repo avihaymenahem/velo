@@ -1,3 +1,4 @@
+import { getSetting } from "@/services/db/settings";
 import { getActiveProvider } from "./providerManager";
 import { getAiCache, setAiCache } from "@/services/db/aiCache";
 import { AiError } from "./errors";
@@ -17,9 +18,36 @@ import {
 } from "./prompts";
 
 async function callAi(systemPrompt: string, userContent: string): Promise<string> {
+  let finalSystemPrompt = systemPrompt;
+
+  // Append language instruction for text-heavy responses if a non-English language is set
+  const textPrompts = [
+    SUMMARIZE_PROMPT,
+    COMPOSE_PROMPT,
+    REPLY_PROMPT,
+    IMPROVE_PROMPT,
+    SHORTEN_PROMPT,
+    FORMALIZE_PROMPT,
+    ASK_INBOX_PROMPT,
+    SMART_REPLY_PROMPT,
+    EXTRACT_TASK_PROMPT,
+  ];
+
+  if (textPrompts.includes(systemPrompt)) {
+    try {
+      const lang = await getSetting("ai_language");
+      if (lang && lang !== "English") {
+        finalSystemPrompt += `\n\nIMPORTANT: You must output your response in ${lang}.`;
+      }
+    } catch (err) {
+      console.error("Failed to fetch AI language setting:", err);
+    }
+  }
+
   try {
     const provider = await getActiveProvider();
-    return await provider.complete({ systemPrompt, userContent });
+    return await provider.complete({ systemPrompt: finalSystemPrompt, userContent });
+
   } catch (err) {
     if (err instanceof AiError) throw err;
     const message = err instanceof Error ? err.message : String(err);

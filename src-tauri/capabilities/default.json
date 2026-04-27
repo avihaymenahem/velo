@@ -68,7 +68,9 @@
         { "url": "http://*" },
         { "url": "http://*/*" },
         { "url": "https://*" },
-        { "url": "https://*/*" }
+        { "url": "https://*/*" },
+        { "url": "http://localhost:11434/*" },
+        { "url": "http://127.0.0.1:11434/*" }
       ]
     },
     "updater:default",

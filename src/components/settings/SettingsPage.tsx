@@ -143,6 +143,8 @@ export function SettingsPage() {
   const [notifyCategories, setNotifyCategories] = useState<Set<string>>(() => new Set(["Primary"]));
   const [vipSenders, setVipSenders] = useState<{ email_address: string; display_name: string | null }[]>([]);
   const [newVipEmail, setNewVipEmail] = useState("");
+  const [aiLanguage, setAiLanguage] = useState("English");
+
 
   // Load settings from DB
   useEffect(() => {
@@ -205,6 +207,9 @@ export function SettingsPage() {
       setAiAutoDraftEnabled(aiDraft !== "false");
       const aiStyle = await getSetting("ai_writing_style_enabled");
       setAiWritingStyleEnabled(aiStyle !== "false");
+      const lang = await getSetting("ai_language");
+      if (lang) setAiLanguage(lang);
+
 
       // Load auto-archive categories
       const autoArchive = await getSetting("auto_archive_categories");
@@ -1298,7 +1303,27 @@ export function SettingsPage() {
                         await setSetting("ai_auto_summarize", newVal ? "true" : "false");
                       }}
                     />
+                    <SettingRow label="AI Language">
+                      <select
+                        value={aiLanguage}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          setAiLanguage(val);
+                          await setSetting("ai_language", val);
+                        }}
+                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                      >
+                        <option value="English">English</option>
+                        <option value="Italian">Italiano</option>
+                        <option value="French">Français</option>
+                        <option value="German">Deutsch</option>
+                        <option value="Spanish">Español</option>
+                        <option value="Portuguese">Português</option>
+                        <option value="Dutch">Nederlands</option>
+                      </select>
+                    </SettingRow>
                   </Section>
+
 
                   <Section title="Auto-Draft Replies">
                     <ToggleRow
