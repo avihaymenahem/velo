@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { getDb, withTransaction } from "./connection";
 
 export interface DbThread {
   id: string;
@@ -97,26 +97,27 @@ export async function upsertThread(thread: {
   isImportant: boolean;
   hasAttachments: boolean;
 }): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    `INSERT INTO threads (id, account_id, subject, snippet, last_message_at, message_count, is_read, is_starred, is_important, has_attachments)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     ON CONFLICT(account_id, id) DO UPDATE SET
-       subject = $3, snippet = $4, last_message_at = $5, message_count = $6,
-       is_read = $7, is_starred = $8, is_important = $9, has_attachments = $10`,
-    [
-      thread.id,
-      thread.accountId,
-      thread.subject,
-      thread.snippet,
-      thread.lastMessageAt,
-      thread.messageCount,
-      thread.isRead ? 1 : 0,
-      thread.isStarred ? 1 : 0,
-      thread.isImportant ? 1 : 0,
-      thread.hasAttachments ? 1 : 0,
-    ],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      `INSERT INTO threads (id, account_id, subject, snippet, last_message_at, message_count, is_read, is_starred, is_important, has_attachments)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT(account_id, id) DO UPDATE SET
+         subject = $3, snippet = $4, last_message_at = $5, message_count = $6,
+         is_read = $7, is_starred = $8, is_important = $9, has_attachments = $10`,
+      [
+        thread.id,
+        thread.accountId,
+        thread.subject,
+        thread.snippet,
+        thread.lastMessageAt,
+        thread.messageCount,
+        thread.isRead ? 1 : 0,
+        thread.isStarred ? 1 : 0,
+        thread.isImportant ? 1 : 0,
+        thread.hasAttachments ? 1 : 0,
+      ],
+    );
+  });
 }
 
 export async function setThreadLabels(
@@ -124,19 +125,20 @@ export async function setThreadLabels(
   threadId: string,
   labelIds: string[],
 ): Promise<void> {
-  const db = await getDb();
-  // Remove existing labels
-  await db.execute(
-    "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
-    [accountId, threadId],
-  );
-  // Insert new labels
-  for (const labelId of labelIds) {
+  await withTransaction(async (db) => {
+    // Remove existing labels
     await db.execute(
-      "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, $3)",
-      [accountId, threadId, labelId],
+      "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
+      [accountId, threadId],
     );
-  }
+    // Insert new labels
+    for (const labelId of labelIds) {
+      await db.execute(
+        "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, $3)",
+        [accountId, threadId, labelId],
+      );
+    }
+  });
 }
 
 export async function getThreadLabelIds(
@@ -190,65 +192,71 @@ export async function deleteThread(
   accountId: string,
   threadId: string,
 ): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    "DELETE FROM threads WHERE account_id = $1 AND id = $2",
-    [accountId, threadId],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      "DELETE FROM threads WHERE account_id = $1 AND id = $2",
+      [accountId, threadId],
+    );
+  });
 }
 
 export async function deleteAllThreadsForAccount(
   accountId: string,
 ): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    "DELETE FROM threads WHERE account_id = $1",
-    [accountId],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      "DELETE FROM threads WHERE account_id = $1",
+      [accountId],
+    );
+  });
 }
 
 export async function pinThread(
   accountId: string,
   threadId: string,
 ): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    "UPDATE threads SET is_pinned = 1 WHERE account_id = $1 AND id = $2",
-    [accountId, threadId],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      "UPDATE threads SET is_pinned = 1 WHERE account_id = $1 AND id = $2",
+      [accountId, threadId],
+    );
+  });
 }
 
 export async function unpinThread(
   accountId: string,
   threadId: string,
 ): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    "UPDATE threads SET is_pinned = 0 WHERE account_id = $1 AND id = $2",
-    [accountId, threadId],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      "UPDATE threads SET is_pinned = 0 WHERE account_id = $1 AND id = $2",
+      [accountId, threadId],
+    );
+  });
 }
 
 export async function muteThread(
   accountId: string,
   threadId: string,
 ): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    "UPDATE threads SET is_muted = 1 WHERE account_id = $1 AND id = $2",
-    [accountId, threadId],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      "UPDATE threads SET is_muted = 1 WHERE account_id = $1 AND id = $2",
+      [accountId, threadId],
+    );
+  });
 }
 
 export async function unmuteThread(
   accountId: string,
   threadId: string,
 ): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    "UPDATE threads SET is_muted = 0 WHERE account_id = $1 AND id = $2",
-    [accountId, threadId],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      "UPDATE threads SET is_muted = 0 WHERE account_id = $1 AND id = $2",
+      [accountId, threadId],
+    );
+  });
 }
 
 export async function getMutedThreadIds(

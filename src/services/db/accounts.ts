@@ -1,4 +1,4 @@
-import { getDb, selectFirstBy } from "./connection";
+import { getDb, selectFirstBy, withTransaction } from "./connection";
 import { encryptValue, decryptValue, isEncrypted } from "@/utils/crypto";
 
 export interface DbAccount {
@@ -133,12 +133,13 @@ export async function updateAccountTokens(
   accessToken: string,
   tokenExpiresAt: number,
 ): Promise<void> {
-  const db = await getDb();
   const encAccessToken = await encryptValue(accessToken);
-  await db.execute(
-    "UPDATE accounts SET access_token = $1, token_expires_at = $2, updated_at = unixepoch() WHERE id = $3",
-    [encAccessToken, tokenExpiresAt, id],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      "UPDATE accounts SET access_token = $1, token_expires_at = $2, updated_at = unixepoch() WHERE id = $3",
+      [encAccessToken, tokenExpiresAt, id],
+    );
+  });
 }
 
 export async function updateAccountSyncState(
@@ -166,13 +167,14 @@ export async function updateAccountAllTokens(
   refreshToken: string,
   tokenExpiresAt: number,
 ): Promise<void> {
-  const db = await getDb();
   const encAccessToken = await encryptValue(accessToken);
   const encRefreshToken = await encryptValue(refreshToken);
-  await db.execute(
-    "UPDATE accounts SET access_token = $1, refresh_token = $2, token_expires_at = $3, updated_at = unixepoch() WHERE id = $4",
-    [encAccessToken, encRefreshToken, tokenExpiresAt, id],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      "UPDATE accounts SET access_token = $1, refresh_token = $2, token_expires_at = $3, updated_at = unixepoch() WHERE id = $4",
+      [encAccessToken, encRefreshToken, tokenExpiresAt, id],
+    );
+  });
 }
 
 export async function deleteAccount(id: string): Promise<void> {

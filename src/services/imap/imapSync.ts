@@ -38,7 +38,7 @@ import { getPendingOpsForResource } from "../db/pendingOperations";
 
 const BATCH_SIZE = 50;
 /** Number of messages to fetch per IPC call during initial sync. */
-const CHUNK_SIZE = 200;
+const CHUNK_SIZE = 100; // Increased now that DB is stable
 /** Number of thread groups to process per transaction in Phase 4. */
 const THREAD_BATCH_SIZE = 100;
 
@@ -400,12 +400,31 @@ export async function imapInitialSync(
   const config = buildImapConfig(account);
 
   // Phase 1: List and sync folders
+  console.log(`[imapSync] Phase 1: Listing folders for account ${accountId}...`);
   onProgress?.({ phase: "folders", current: 0, total: 1 });
-  const allFolders = await imapListFolders(config);
+  
+  let allFolders;
+  try {
+    allFolders = await imapListFolders(config);
+    console.log(`[imapSync] Received ${allFolders.length} folders from server`);
+  } catch (err) {
+    console.error(`[imapSync] Failed to list folders:`, err);
+    throw err;
+  }
+
   const syncableFolders = getSyncableFolders(allFolders);
-  await syncFoldersToLabels(accountId, syncableFolders);
-  console.log(`[imapSync] Initial sync for account ${accountId}: ${syncableFolders.length} syncable folders`);
+  console.log(`[imapSync] Found ${syncableFolders.length} syncable folders. Starting DB sync...`);
+  
+  try {
+    await syncFoldersToLabels(accountId, syncableFolders);
+    console.log(`[imapSync] Folder metadata synced to DB successfully`);
+  } catch (err) {
+    console.error(`[imapSync] Failed to sync folders to DB:`, err);
+    throw err;
+  }
+
   onProgress?.({ phase: "folders", current: 1, total: 1 });
+
 
   // ---------------------------------------------------------------------------
   // Phase 2: Streaming fetch & store

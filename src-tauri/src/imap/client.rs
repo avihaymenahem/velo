@@ -316,6 +316,17 @@ pub async fn fetch_messages(
         }
     }
 
+    // If async-imap received fetch responses but none had a parseable body,
+    // DavMail and some Exchange proxies return BODY[] in a non-standard format
+    // that async-imap can't extract. Fall back to raw TCP which handles it correctly.
+    if messages.is_empty() && !fetches.is_empty() {
+        log::warn!(
+            "IMAP {folder}: {} fetches received but 0 messages had parseable bodies. Falling back to raw TCP fetch...",
+            fetches.len()
+        );
+        return Err(format!("ASYNC_IMAP_EMPTY:{folder}"));
+    }
+
     Ok(ImapFetchResult {
         messages,
         folder_status,

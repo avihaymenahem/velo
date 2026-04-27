@@ -128,8 +128,10 @@ export async function syncFoldersToLabels(
   accountId: string,
   folders: ImapFolder[],
 ): Promise<void> {
+  console.log(`[folderMapper] Syncing ${folders.length} folders to DB...`);
   for (const folder of folders) {
     const mapping = mapFolderToLabel(folder);
+    console.log(`[folderMapper] Upserting label for folder: ${folder.path} -> ${mapping.labelId}`);
     await upsertLabel({
       id: mapping.labelId,
       accountId,

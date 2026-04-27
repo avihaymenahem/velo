@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { getDb, withTransaction } from "./connection";
 
 export type ThreadCategory = "Primary" | "Updates" | "Promotions" | "Social" | "Newsletters";
 
@@ -90,32 +90,34 @@ export async function setThreadCategory(
   category: string,
   isManual = false,
 ): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    `INSERT INTO thread_categories (account_id, thread_id, category, is_manual)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT(account_id, thread_id) DO UPDATE SET
-       category = $3, is_manual = $4`,
-    [accountId, threadId, category, isManual ? 1 : 0],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      `INSERT INTO thread_categories (account_id, thread_id, category, is_manual)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT(account_id, thread_id) DO UPDATE SET
+         category = $3, is_manual = $4`,
+      [accountId, threadId, category, isManual ? 1 : 0],
+    );
+  });
 }
 
 export async function setThreadCategoriesBatch(
   accountId: string,
   categories: Map<string, string>,
 ): Promise<void> {
-  const db = await getDb();
-  for (const [threadId, category] of categories) {
-    // Respect manual overrides — don't overwrite if is_manual = 1
-    await db.execute(
-      `INSERT INTO thread_categories (account_id, thread_id, category, is_manual)
-       VALUES ($1, $2, $3, 0)
-       ON CONFLICT(account_id, thread_id) DO UPDATE SET
-         category = $3
-       WHERE is_manual = 0`,
-      [accountId, threadId, category],
-    );
-  }
+  await withTransaction(async (db) => {
+    for (const [threadId, category] of categories) {
+      // Respect manual overrides — don't overwrite if is_manual = 1
+      await db.execute(
+        `INSERT INTO thread_categories (account_id, thread_id, category, is_manual)
+         VALUES ($1, $2, $3, 0)
+         ON CONFLICT(account_id, thread_id) DO UPDATE SET
+           category = $3
+         WHERE is_manual = 0`,
+        [accountId, threadId, category],
+      );
+    }
+  });
 }
 
 export async function getCategoryUnreadCounts(

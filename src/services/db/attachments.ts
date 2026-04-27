@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { getDb, withTransaction } from "./connection";
 
 export interface DbAttachment {
   id: string;
@@ -24,25 +24,26 @@ export async function upsertAttachment(att: {
   contentId: string | null;
   isInline: boolean;
 }): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    `INSERT INTO attachments (id, message_id, account_id, filename, mime_type, size, gmail_attachment_id, content_id, is_inline)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     ON CONFLICT(id) DO UPDATE SET
-       filename = $4, mime_type = $5, size = $6,
-       gmail_attachment_id = $7, content_id = $8, is_inline = $9`,
-    [
-      att.id,
-      att.messageId,
-      att.accountId,
-      att.filename,
-      att.mimeType,
-      att.size,
-      att.gmailAttachmentId,
-      att.contentId,
-      att.isInline ? 1 : 0,
-    ],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      `INSERT INTO attachments (id, message_id, account_id, filename, mime_type, size, gmail_attachment_id, content_id, is_inline)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT(id) DO UPDATE SET
+         filename = $4, mime_type = $5, size = $6,
+         gmail_attachment_id = $7, content_id = $8, is_inline = $9`,
+      [
+        att.id,
+        att.messageId,
+        att.accountId,
+        att.filename,
+        att.mimeType,
+        att.size,
+        att.gmailAttachmentId,
+        att.contentId,
+        att.isInline ? 1 : 0,
+      ],
+    );
+  });
 }
 
 export interface AttachmentWithContext {
