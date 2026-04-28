@@ -57,13 +57,14 @@ export function Composer() {
   const setFromEmail = useComposerStore((s) => s.setFromEmail);
   const setViewMode = useComposerStore((s) => s.setViewMode);
   const addAttachment = useComposerStore((s) => s.addAttachment);
+  const aiSidebarOpen = useComposerStore((s) => s.aiSidebarOpen);
+  const toggleAiSidebar = useComposerStore((s) => s.toggleAiSidebar);
 
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const accounts = useAccountStore((s) => s.accounts);
   const activeAccount = accounts.find((a) => a.id === activeAccountId);
   const sendingRef = useRef(false);
   const [showSchedule, setShowSchedule] = useState(false);
-  const [showAiAssist, setShowAiAssist] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [aliases, setAliases] = useState<SendAsAlias[]>([]);
   const templateShortcutsRef = useRef<DbTemplate[]>([]);
@@ -440,7 +441,7 @@ export function Composer() {
       {/* Composer window */}
       <div
         className={`relative bg-bg-primary border rounded-lg glass-modal pointer-events-auto flex flex-col slide-up-panel ${
-          isFullpage ? "w-full h-full max-w-5xl" : "w-full max-w-2xl max-h-[80vh]"
+          isFullpage ? "w-full h-full max-w-5xl" : aiSidebarOpen ? "w-full max-w-5xl max-h-[85vh]" : "w-full max-w-2xl max-h-[80vh]"
         } ${isDragging ? "border-accent border-2" : "border-border-primary"}`}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
@@ -524,26 +525,31 @@ export function Composer() {
         {/* Editor toolbar */}
         <EditorToolbar
           editor={editor}
-          onToggleAiAssist={() => setShowAiAssist(!showAiAssist)}
-          aiAssistOpen={showAiAssist}
+          onToggleAiAssist={toggleAiSidebar}
+          aiAssistOpen={aiSidebarOpen}
         />
 
-        {/* AI Assist Panel */}
-        {showAiAssist && (
-          <AiAssistPanel
-            editor={editor}
-            isReplyMode={mode === "reply" || mode === "replyAll"}
-          />
-        )}
-
-        {/* Editor */}
-        <div className="flex-1 overflow-y-auto">
-          <EditorContent editor={editor} />
+        {/* Main content with AI sidebar */}
+        <div className="flex-1 flex flex-row overflow-hidden">
+          {/* Editor */}
+          <div className="flex-1 overflow-y-auto min-w-0">
+            <EditorContent editor={editor} />
+          </div>
           {signatureHtml && (
             <div
               className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary"
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }}
             />
+          )}
+
+          {/* AI Sidebar - right side */}
+          {aiSidebarOpen && (
+            <div className="w-96 h-full flex-shrink-0 border-l border-border-secondary bg-bg-secondary">
+              <AiAssistPanel
+                editor={editor}
+                isReplyMode={mode === "reply" || mode === "replyAll"}
+              />
+            </div>
           )}
         </div>
 

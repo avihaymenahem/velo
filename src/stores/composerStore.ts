@@ -33,6 +33,7 @@ export interface ComposerState {
   viewMode: ComposerViewMode;
   signatureHtml: string;
   signatureId: string | null;
+  aiSidebarOpen: boolean;
 
   openComposer: (opts?: {
     mode?: ComposerMode;
@@ -64,6 +65,8 @@ export interface ComposerState {
   setViewMode: (mode: ComposerViewMode) => void;
   setSignatureHtml: (html: string) => void;
   setSignatureId: (id: string | null) => void;
+  setAiSidebarOpen: (open: boolean) => void;
+  toggleAiSidebar: () => void;
 }
 
 export const useComposerStore = create<ComposerState>((set) => ({
@@ -87,6 +90,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
   isSaving: false,
   signatureHtml: "",
   signatureId: null,
+  aiSidebarOpen: false,
 
   openComposer: (opts) =>
     set({
@@ -129,6 +133,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
       isSaving: false,
       signatureHtml: "",
       signatureId: null,
+      aiSidebarOpen: false,
     }),
   setTo: (to) => set({ to }),
   setCc: (cc) => set({ cc }),
@@ -152,4 +157,6 @@ export const useComposerStore = create<ComposerState>((set) => ({
   setViewMode: (viewMode) => set({ viewMode }),
   setSignatureHtml: (signatureHtml) => set({ signatureHtml }),
   setSignatureId: (signatureId) => set({ signatureId }),
+  setAiSidebarOpen: (aiSidebarOpen) => set({ aiSidebarOpen }),
+  toggleAiSidebar: () => set((state) => ({ aiSidebarOpen: !state.aiSidebarOpen })),
 }));

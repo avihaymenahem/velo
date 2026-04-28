@@ -17,7 +17,7 @@ import {
   EXTRACT_TASK_PROMPT,
 } from "./prompts";
 
-async function callAi(systemPrompt: string, userContent: string): Promise<string> {
+async function callAi(systemPrompt: string, userContent: string, options?: { skipLanguage?: boolean }): Promise<string> {
   let finalSystemPrompt = systemPrompt;
 
   // Append language instruction for text-heavy responses if a non-English language is set
@@ -33,7 +33,7 @@ async function callAi(systemPrompt: string, userContent: string): Promise<string
     EXTRACT_TASK_PROMPT,
   ];
 
-  if (textPrompts.includes(systemPrompt)) {
+  if (textPrompts.includes(systemPrompt) && !options?.skipLanguage) {
     try {
       const lang = await getSetting("ai_language");
       if (lang && lang !== "English") {
@@ -93,19 +93,20 @@ export async function summarizeThread(
   return summary;
 }
 
-export async function composeFromPrompt(instructions: string): Promise<string> {
-  return callAi(COMPOSE_PROMPT, instructions);
+export async function composeFromPrompt(instructions: string, options?: { skipLanguage?: boolean }): Promise<string> {
+  return callAi(COMPOSE_PROMPT, instructions, options);
 }
 
 export async function generateReply(
   messagesText: string[],
   instructions?: string,
+  options?: { skipLanguage?: boolean },
 ): Promise<string> {
   const combined = messagesText.join("\n---\n").slice(0, 4000);
   const userContent = instructions
     ? `<email_content>${combined}</email_content>\n\nInstructions: ${instructions}`
     : `<email_content>${combined}</email_content>`;
-  return callAi(REPLY_PROMPT, userContent);
+  return callAi(REPLY_PROMPT, userContent, options);
 }
 
 export type TransformType = "improve" | "shorten" | "formalize";
