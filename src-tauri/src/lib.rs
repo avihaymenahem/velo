@@ -137,10 +137,8 @@ pub fn run() {
                 let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
                 let menu = Menu::with_items(app, &[&show, &check_mail, &quit])?;
 
-                let icon = app
-                    .default_window_icon()
-                    .cloned()
-                    .expect("app should have a default icon configured in tauri.conf.json bundle");
+                // Use tray icon (embed PNG at compile time)
+                let icon = tauri::include_image!("icons/tray-16x16.png");
 
                 TrayIconBuilder::with_id("main-tray")
                     .icon(icon)
