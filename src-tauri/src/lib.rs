@@ -137,8 +137,8 @@ pub fn run() {
                 let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
                 let menu = Menu::with_items(app, &[&show, &check_mail, &quit])?;
 
-                // Use tray icon (embed PNG at compile time)
-                let icon = tauri::include_image!("icons/tray-16x16.png");
+                // Use tray icon (embed PNG at compile time, Template for automatic dark/light mode)
+                let icon = tauri::include_image!("icons/tray-16x16Template.png");
 
                 TrayIconBuilder::with_id("main-tray")
                     .icon(icon)
