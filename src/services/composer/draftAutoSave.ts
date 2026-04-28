@@ -89,6 +89,18 @@ export function startAutoSave(accountId: string): void {
 }
 
 /**
+ * Save the draft immediately, cancelling any pending debounce.
+ * Call this before stopAutoSave so currentAccountId is still set.
+ */
+export async function saveNow(): Promise<void> {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
+  await saveDraft();
+}
+
+/**
  * Stop auto-saving and clean up.
  */
 export function stopAutoSave(): void {

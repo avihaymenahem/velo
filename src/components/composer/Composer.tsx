@@ -31,7 +31,7 @@ import { insertScheduledEmail } from "@/services/db/scheduledEmails";
 import { getDefaultSignature } from "@/services/db/signatures";
 import { getAliasesForAccount, mapDbAlias, type SendAsAlias } from "@/services/db/sendAsAliases";
 import { resolveFromAddress } from "@/utils/resolveFromAddress";
-import { startAutoSave, stopAutoSave } from "@/services/composer/draftAutoSave";
+import { startAutoSave, stopAutoSave, saveNow } from "@/services/composer/draftAutoSave";
 import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
 import { readFileAsBase64 } from "@/utils/fileUtils";
 import { interpolateVariables } from "@/utils/templateVariables";
@@ -196,6 +196,20 @@ export function Composer() {
     startAutoSave(activeAccountId);
     return () => { stopAutoSave(); };
   }, [isOpen, activeAccountId]);
+
+  // Sync editor content when composer opens (clear on fresh compose, load content on draft restore)
+  useEffect(() => {
+    if (!isOpen || !editor) return;
+    const state = useComposerStore.getState();
+    // Only sync if bodyHtml changed (to handle draft restore)
+    const editorContent = editor.getHTML();
+    if (state.bodyHtml !== editorContent && state.bodyHtml !== "") {
+      editor.commands.setContent(state.bodyHtml);
+    } else if (state.bodyHtml === "" && editorContent !== "") {
+      // Fresh compose: clear editor
+      editor.commands.setContent("");
+    }
+  }, [isOpen, editor]);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -381,6 +395,16 @@ export function Composer() {
     closeComposer();
   }, [activeAccountId, closeComposer]);
 
+  const handleClose = useCallback(async () => {
+    const state = useComposerStore.getState();
+    const hasContent = !!(state.bodyHtml || state.subject || state.to.length > 0);
+    if (hasContent && activeAccountId) {
+      await saveNow();
+    }
+    stopAutoSave();
+    closeComposer();
+  }, [activeAccountId, closeComposer]);
+
   const handlePopOutComposer = useCallback(async () => {
     try {
       const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
@@ -445,7 +469,7 @@ export function Composer() {
       {/* Backdrop */}
       <div
         className="absolute inset-0 pointer-events-auto backdrop-animate"
-        onClick={closeComposer}
+        onClick={handleClose}
       />
 
       {/* Composer window */}
@@ -485,7 +509,7 @@ export function Composer() {
               <ExternalLink size={14} />
             </button>
             <button
-              onClick={closeComposer}
+              onClick={handleClose}
               className="text-text-tertiary hover:text-text-primary text-lg leading-none p-1"
             >
               ×
@@ -554,7 +578,7 @@ export function Composer() {
 
           {/* AI Sidebar - right side */}
           {aiSidebarOpen && (
-            <div className="w-96 h-full flex-shrink-0 border-l border-border-secondary bg-bg-secondary">
+            <div className="w-96 flex-shrink-0 border-l border-border-secondary bg-bg-secondary overflow-hidden">
               <AiAssistPanel
                 editor={editor}
                 isReplyMode={mode === "reply" || mode === "replyAll"}

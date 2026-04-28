@@ -5,6 +5,8 @@ import { isAiAvailable } from "@/services/ai/providerManager";
 import {
   composeFromPrompt,
   generateReply,
+  modifyEmailContent,
+  generateComposerFeedback,
   transformText,
   type TransformType,
 } from "@/services/ai/aiService";
@@ -14,6 +16,8 @@ interface AiMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  /** True only for messages that contain actual email content the user can insert */
+  insertable?: boolean;
 }
 
 interface AiAssistPanelProps {
@@ -22,7 +26,7 @@ interface AiAssistPanelProps {
   threadMessages?: string[];
 }
 
-// Keywords that trigger "write to body" behavior
+// Keywords indicating "write new from scratch" when body is empty
 const WRITE_KEYWORDS = [
   "write",
   "compose",
@@ -34,7 +38,7 @@ const WRITE_KEYWORDS = [
   "fammi una",
 ];
 
-// Keywords that should show as "chat suggestion" (not write to body)
+// Keywords that should show as "chat suggestion" (not write to body) — only when body is empty
 const CHAT_ONLY_KEYWORDS = [
   "translate",
   "traduci",
@@ -48,7 +52,26 @@ const CHAT_ONLY_KEYWORDS = [
   "aiutami",
 ];
 
-// Language keywords that indicate explicit language request (should NOT use default language setting)
+// Keywords meaning "clear everything and start fresh" — used when body is NOT empty
+const CLEAR_KEYWORDS = [
+  "delete all",
+  "clear all",
+  "start over",
+  "start from scratch",
+  "rewrite all",
+  "rewrite everything",
+  "from scratch",
+  "cancella tutto",
+  "elimina tutto",
+  "ricomincia",
+  "ricomincia da capo",
+  "rifai tutto",
+  "riscrivi tutto",
+  "scrivi da zero",
+  "riparti da zero",
+];
+
+// Language keywords that indicate explicit language request
 const LANGUAGE_KEYWORDS = [
   "in italian",
   "in italiano",
@@ -68,6 +91,12 @@ const LANGUAGE_KEYWORDS = [
   "in giapponese",
 ];
 
+const isBodyEmpty = (editor: Editor | null): boolean => {
+  if (!editor) return true;
+  const html = editor.getHTML();
+  return !html || html === "<p></p>" || html === "<p> </p>" || editor.getText().trim() === "";
+};
+
 export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistPanelProps) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -77,12 +106,10 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const setBodyHtml = useComposerStore((s) => s.setBodyHtml);
 
-  // Check availability on mount
   useEffect(() => {
     isAiAvailable().then(setAvailable);
   }, []);
 
-  // Scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -104,72 +131,81 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
 
   const applyToEditor = (html: string) => {
     if (!editor) return;
-    // Clean up markdown fences like ```html and ```
     const cleaned = html.replace(/^```html\s*/i, "").replace(/```$/gm, "").trim();
     editor.chain().focus().setContent(cleaned).run();
     setBodyHtml(editor.getHTML());
   };
 
-  // Check if prompt should write to body vs. show as chat
-  const shouldWriteToBody = (text: string): boolean => {
-    const lower = text.toLowerCase();
-    // First check if it's a chat-only request
-    if (CHAT_ONLY_KEYWORDS.some((keyword) => lower.includes(keyword))) {
-      return false;
-    }
-    // Otherwise check if it's a write request
-    return WRITE_KEYWORDS.some((keyword) => lower.includes(keyword));
+  const addAiMessage = (content: string, insertable = false) => {
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content, timestamp: Date.now(), insertable },
+    ]);
   };
 
-  // Check if user explicitly requested a different language
+  // Fire-and-forget: generates feedback in the configured language and adds it to chat
+  const addAiFeedback = (description: string) => {
+    generateComposerFeedback(description)
+      .then((msg) => addAiMessage(msg, false))
+      .catch(() => {/* silently skip feedback if AI call fails */});
+  };
+
+  const isClearRequest = (text: string): boolean => {
+    const lower = text.toLowerCase();
+    return CLEAR_KEYWORDS.some((kw) => lower.includes(kw));
+  };
+
+  const shouldWriteToBodyWhenEmpty = (text: string): boolean => {
+    const lower = text.toLowerCase();
+    if (CHAT_ONLY_KEYWORDS.some((kw) => lower.includes(kw))) return false;
+    return WRITE_KEYWORDS.some((kw) => lower.includes(kw));
+  };
+
   const wantsDifferentLanguage = (text: string): boolean => {
     const lower = text.toLowerCase();
-    return LANGUAGE_KEYWORDS.some((keyword) => lower.includes(keyword));
+    return LANGUAGE_KEYWORDS.some((kw) => lower.includes(kw));
   };
 
   const handleSend = async () => {
     if (!prompt.trim() || loading) return;
 
     const userPrompt = prompt.trim();
-    const isWriteCommand = shouldWriteToBody(userPrompt);
+    const bodyEmpty = isBodyEmpty(editor);
     const skipLanguage = wantsDifferentLanguage(userPrompt);
 
-    // Add user message to chat
     setMessages((prev) => [
       ...prev,
       { role: "user", content: userPrompt, timestamp: Date.now() },
     ]);
-
     setLoading(true);
     setError(null);
+    setPrompt("");
 
     try {
       let result: string;
 
-      if (isWriteCommand || isReplyMode) {
-        // Write directly to body
-        if (isReplyMode && threadMessages?.length) {
-          result = await generateReply(threadMessages, userPrompt, { skipLanguage });
-        } else {
-          result = await composeFromPrompt(userPrompt, { skipLanguage });
-        }
+      if (!bodyEmpty && !isClearRequest(userPrompt)) {
+        result = await modifyEmailContent(editor!.getHTML(), userPrompt);
         applyToEditor(result);
-        setPrompt("");
-      } else {
-        // Show as chat suggestion
-        if (isReplyMode && threadMessages?.length) {
-          result = await generateReply(threadMessages, userPrompt, { skipLanguage });
+        addAiFeedback(`Modified the email draft following user instructions: "${userPrompt}"`);
+      } else if (isReplyMode && threadMessages?.length) {
+        result = await generateReply(threadMessages, userPrompt, { skipLanguage });
+        applyToEditor(result);
+        addAiFeedback(`Generated a reply draft for the email thread. User instructions: "${userPrompt}"`);
+      } else if (bodyEmpty) {
+        result = await composeFromPrompt(userPrompt, { skipLanguage });
+        if (shouldWriteToBodyWhenEmpty(userPrompt)) {
+          applyToEditor(result);
+          addAiFeedback(`Composed a new email draft based on user instructions: "${userPrompt}"`);
         } else {
-          // General chat - use compose but don't insert
-          result = await composeFromPrompt(userPrompt, { skipLanguage });
+          // Chat suggestion: user asked for ideas/advice, not a direct write — show as insertable
+          addAiMessage(result, true);
         }
-
-        // Add AI response to chat
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: result, timestamp: Date.now() },
-        ]);
-        setPrompt("");
+      } else {
+        // Clear request → compose fresh
+        result = await composeFromPrompt(userPrompt, { skipLanguage });
+        applyToEditor(result);
+        addAiFeedback(`Rewrote the email from scratch based on user instructions: "${userPrompt}"`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "AI generation failed");
@@ -178,17 +214,23 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
     }
   };
 
+  const TRANSFORM_DESCRIPTIONS: Record<TransformType, string> = {
+    improve: "Improved the email's clarity, flow, and phrasing while preserving its meaning and length",
+    shorten: "Made the email more concise by removing redundancies and keeping only the essential points",
+    formalize: "Rewrote the email in a more formal, professional tone",
+  };
+
   const handleTransform = async (type: TransformType) => {
     if (!editor || loading) return;
-    const html = editor.getHTML();
-    if (!html || html === "<p></p>") return;
+    if (isBodyEmpty(editor)) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const result = await transformText(html, type);
+      const result = await transformText(editor.getHTML(), type);
       applyToEditor(result);
+      addAiFeedback(TRANSFORM_DESCRIPTIONS[type]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "AI transform failed");
     } finally {
@@ -198,30 +240,42 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
 
   const insertSuggestionToBody = (content: string) => {
     applyToEditor(content);
-    // Remove from chat after inserting
     setMessages((prev) => prev.filter((m) => m.content !== content));
   };
 
+  const bodyHasContent = !isBodyEmpty(editor);
+
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full w-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border-secondary">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border-secondary flex-shrink-0">
         <Sparkles size={14} className="text-accent" />
         <span className="text-sm font-medium text-text-primary">AI Assistant</span>
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 overflow-y-auto min-h-0 p-3 space-y-3">
         {messages.length === 0 && (
           <div className="text-center py-8">
             <p className="text-xs text-text-tertiary mb-3">
-              Ask me to help with your email
+              {bodyHasContent
+                ? "Ask me to modify, extend, or improve your email"
+                : "Ask me to help with your email"}
             </p>
-            <div className="text-xs text-text-tertiary space-y-1">
-              <p>• "Write a professional email about..."</p>
-              <p>• "Suggest an opener for..."</p>
-              <p>• "Improve this text" (with text selected)</p>
-            </div>
+            {!bodyHasContent && (
+              <div className="text-xs text-text-tertiary space-y-1">
+                <p>• "Write a professional email about..."</p>
+                <p>• "Suggest an opener for..."</p>
+                <p>• "Improve this text" (with text selected)</p>
+              </div>
+            )}
+            {bodyHasContent && (
+              <div className="text-xs text-text-tertiary space-y-1">
+                <p>• "Add a closing paragraph"</p>
+                <p>• "Make it more formal"</p>
+                <p>• "Add details about delivery time"</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -241,7 +295,7 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
               }`}
             >
               <p className="whitespace-pre-wrap">{msg.content}</p>
-              {msg.role === "assistant" && (
+              {msg.role === "assistant" && msg.insertable && (
                 <button
                   onClick={() => insertSuggestionToBody(msg.content)}
                   className="mt-2 text-accent hover:underline text-xs flex items-center gap-1"
@@ -274,14 +328,14 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
 
       {/* Error */}
       {error && (
-        <div className="px-3 py-1">
+        <div className="px-3 py-1 flex-shrink-0">
           <p className="text-xs text-danger">{error}</p>
         </div>
       )}
 
       {/* Quick Actions */}
-      {editor && editor.getHTML() && editor.getHTML() !== "<p></p>" && (
-        <div className="px-3 py-2 border-t border-border-secondary">
+      {bodyHasContent && (
+        <div className="px-3 py-2 border-t border-border-secondary flex-shrink-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-xs text-text-tertiary">Transform:</span>
             <QuickAction
@@ -307,7 +361,7 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
       )}
 
       {/* Input */}
-      <div className="p-3 border-t border-border-secondary">
+      <div className="p-3 border-t border-border-secondary flex-shrink-0">
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -320,9 +374,11 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
               }
             }}
             placeholder={
-              isReplyMode
-                ? "Describe what to write..."
-                : "Ask AI for help..."
+              bodyHasContent
+                ? "Modify, add or extend..."
+                : isReplyMode
+                  ? "Describe what to write..."
+                  : "Ask AI for help..."
             }
             className="flex-1 px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded-lg outline-none focus:border-accent text-text-primary placeholder:text-text-tertiary"
             disabled={loading}

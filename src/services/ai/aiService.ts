@@ -6,6 +6,8 @@ import type { DbMessage } from "@/services/db/messages";
 import {
   SUMMARIZE_PROMPT,
   COMPOSE_PROMPT,
+  MODIFY_PROMPT,
+  COMPOSER_FEEDBACK_PROMPT,
   REPLY_PROMPT,
   IMPROVE_PROMPT,
   SHORTEN_PROMPT,
@@ -31,6 +33,7 @@ async function callAi(systemPrompt: string, userContent: string, options?: { ski
     ASK_INBOX_PROMPT,
     SMART_REPLY_PROMPT,
     EXTRACT_TASK_PROMPT,
+    COMPOSER_FEEDBACK_PROMPT,
   ];
 
   if (textPrompts.includes(systemPrompt) && !options?.skipLanguage) {
@@ -97,6 +100,16 @@ export async function composeFromPrompt(instructions: string, options?: { skipLa
   return callAi(COMPOSE_PROMPT, instructions, options);
 }
 
+export async function generateComposerFeedback(operationDescription: string): Promise<string> {
+  return callAi(COMPOSER_FEEDBACK_PROMPT, operationDescription);
+}
+
+export async function modifyEmailContent(currentBody: string, instructions: string): Promise<string> {
+  const userContent = `<current_body>${currentBody}</current_body>\n\nUser instructions: ${instructions}`;
+  // skipLanguage: true because MODIFY_PROMPT itself handles language continuity
+  return callAi(MODIFY_PROMPT, userContent, { skipLanguage: true });
+}
+
 export async function generateReply(
   messagesText: string[],
   instructions?: string,
@@ -120,7 +133,8 @@ export async function transformText(
     shorten: SHORTEN_PROMPT,
     formalize: FORMALIZE_PROMPT,
   };
-  return callAi(prompts[type], text);
+  // skipLanguage: true — prompts already enforce "same language as input"
+  return callAi(prompts[type], text, { skipLanguage: true });
 }
 
 export async function generateSmartReplies(

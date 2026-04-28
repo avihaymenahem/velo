@@ -104,6 +104,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
       threadId: opts?.threadId ?? null,
       inReplyToMessageId: opts?.inReplyToMessageId ?? null,
       showCcBcc: (opts?.cc?.length ?? 0) > 0 || (opts?.bcc?.length ?? 0) > 0,
+      // Always clear draftId when opening fresh compose (unless restoring a specific draft)
       draftId: opts?.draftId ?? null,
       viewMode: "modal",
       fromEmail: null,
@@ -112,6 +113,8 @@ export const useComposerStore = create<ComposerState>((set) => ({
       isSaving: false,
       signatureHtml: "",
       signatureId: null,
+      // Force close AI sidebar on new compose
+      aiSidebarOpen: false,
     }),
   closeComposer: () =>
     set({
