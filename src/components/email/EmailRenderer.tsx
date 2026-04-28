@@ -1,4 +1,4 @@
-import { useRef, useCallback, useLayoutEffect, useMemo, useState, useEffect } from "react";
+import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import { ImageOff } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { stripRemoteImages, hasBlockedImages } from "@/utils/imageBlocker";
@@ -29,8 +29,6 @@ export function EmailRenderer({
   inlineAttachments,
 }: EmailRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const observerRef = useRef<ResizeObserver | null>(null);
-  const rafRef = useRef<number>(0);
   const [overrideShow, setOverrideShow] = useState(false);
   const [cidMap, setCidMap] = useState<Map<string, string>>(new Map());
 
@@ -115,90 +113,68 @@ export function EmailRenderer({
     return hasBlockedImages(stripRemoteImages(sanitizedBody));
   }, [shouldBlock, sanitizedBody]);
 
-  // Write content directly into iframe document — synchronous, no srcDoc async parsing
-  useLayoutEffect(() => {
+  // Build the full srcdoc string including an injected script.
+  // The iframe uses sandbox="allow-scripts allow-popups" WITHOUT allow-same-origin,
+  // giving it a null origin so Tauri's CSP (bound to ipc://localhost) does not apply
+  // to its content — remote images load freely for allowlisted senders.
+  // The injected script is safe: email HTML is already DOMPurify-sanitised, and the
+  // sandbox prevents the iframe from accessing parent DOM or Tauri APIs.
+  const srcdoc = useMemo(() => {
+    const plainTextDark = isDark && isPlainText;
+    const htmlDark = isDark && !isPlainText;
+
+    // Script communicates height updates and link clicks to the parent via postMessage.
+    // Using string concatenation for the closing script tag avoids bundler issues.
+    const script = `<scri` + `pt>(function(){`
+      + `function sh(){var h=document.body?document.body.scrollHeight:0;`
+      + `window.parent.postMessage({t:'h',v:h},'*');}`
+      + `document.addEventListener('click',function(e){`
+      + `var a=e.target&&e.target.closest?e.target.closest('a'):null;`
+      + `if(a&&a.href){e.preventDefault();window.parent.postMessage({t:'l',u:a.href},'*');}`
+      + `});`
+      + `if(window.ResizeObserver){new ResizeObserver(sh).observe(document.body);}`
+      + `window.addEventListener('load',sh);`
+      + `setTimeout(sh,0);`
+      + `})();</scri` + `pt>`;
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+<style>
+body{margin:0;padding:16px;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;line-height:1.6;color:${plainTextDark ? "#e5e7eb" : "#1f2937"};background:${htmlDark ? "#f8f9fa" : "transparent"};word-wrap:break-word;overflow-wrap:break-word;overflow:hidden;}
+img{max-width:100%;height:auto;}
+a{color:${plainTextDark ? "#60a5fa" : "#3b82f6"};}
+blockquote{border-left:3px solid ${plainTextDark ? "#4b5563" : "#d1d5db"};margin:8px 0;padding:4px 12px;color:${plainTextDark ? "#9ca3af" : "#6b7280"};}
+pre{overflow-x:auto;}
+table{max-width:100%;}
+</style>
+</head>
+<body>${bodyHtml}${script}</body>
+</html>`;
+  }, [bodyHtml, isDark, isPlainText]);
+
+  // Listen for postMessage events from the iframe (height + link clicks).
+  // We re-register whenever srcdoc changes so we always have the freshest iframe ref.
+  useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
 
-    observerRef.current?.disconnect();
-
-    const doc = iframe.contentDocument;
-    if (!doc) return;
-
-    doc.open();
-    // Plain text: blend with app theme (dark text on light bg, light text on dark bg)
-    // HTML emails: always render on a light background since senders design for white/light
-    const plainTextDark = isDark && isPlainText;
-    const htmlDark = isDark && !isPlainText;
-    doc.write(`<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body {
-      margin: 0;
-      padding: 16px;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      font-size: 14px;
-      line-height: 1.6;
-      color: ${plainTextDark ? "#e5e7eb" : "#1f2937"};
-      background: ${htmlDark ? "#f8f9fa" : "transparent"};
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-      overflow: hidden;
-    }
-    img { max-width: 100%; height: auto; }
-    a { color: ${plainTextDark ? "#60a5fa" : "#3b82f6"}; }
-    blockquote {
-      border-left: 3px solid ${plainTextDark ? "#4b5563" : "#d1d5db"};
-      margin: 8px 0;
-      padding: 4px 12px;
-      color: ${plainTextDark ? "#9ca3af" : "#6b7280"};
-    }
-    pre { overflow-x: auto; }
-    table { max-width: 100%; }
-  </style>
-</head>
-<body>${bodyHtml}</body>
-</html>`);
-    doc.close();
-
-    // Calculate and set height synchronously before paint
-    const applyHeight = () => {
-      if (!doc.body) return;
-      const h = doc.body.scrollHeight;
-      if (h > 0) {
-        iframe.style.height = h + "px";
-      }
-    };
-    applyHeight();
-
-    // Watch for dynamic changes (images loading, etc.) — batched with rAF
-    const resizeObserver = new ResizeObserver(() => {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(applyHeight);
-    });
-    resizeObserver.observe(doc.body);
-    observerRef.current = resizeObserver;
-
-    // Open links in external browser via Tauri opener
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const anchor = target.closest("a");
-      if (anchor?.href) {
-        e.preventDefault();
-        openUrl(anchor.href).catch((err) => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.source !== iframe.contentWindow) return;
+      const d = e.data as { t: string; v?: number; u?: string } | null;
+      if (!d) return;
+      if (d.t === "h" && d.v != null && d.v > 0) {
+        iframe.style.height = d.v + "px";
+      } else if (d.t === "l" && d.u) {
+        openUrl(d.u).catch((err) => {
           console.error("Failed to open link:", err);
         });
       }
     };
-    doc.addEventListener("click", handleClick);
 
-    return () => {
-      doc.removeEventListener("click", handleClick);
-      observerRef.current?.disconnect();
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [bodyHtml, isDark, isPlainText]);
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [srcdoc]);
 
   const handleLoadImages = useCallback(() => {
     setOverrideShow(true);
@@ -237,12 +213,12 @@ export function EmailRenderer({
       )}
       <iframe
         ref={iframeRef}
-        sandbox="allow-same-origin"
+        sandbox="allow-scripts allow-popups"
+        srcDoc={srcdoc}
         className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
-        style={{ overflow: "hidden" }}
+        style={{ overflow: "hidden", height: "0px" }}
         title="Email content"
       />
     </div>
   );
 }
-

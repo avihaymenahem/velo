@@ -10,6 +10,7 @@ import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { markThreadRead } from "@/services/emailActions";
 import { getSetting } from "@/services/db/settings";
 import { getAllowlistedSenders } from "@/services/db/imageAllowlist";
+import { normalizeEmail } from "@/utils/emailUtils";
 import { VolumeX } from "lucide-react";
 import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { isNoReplyAddress } from "@/utils/noReply";
@@ -433,7 +434,7 @@ export function ThreadView({ thread }: ThreadViewProps) {
                 isLast={i === messages.length - 1}
                 focused={i === focusedMsgIdx}
                 blockImages={blockImages}
-                senderAllowlisted={msg.from_address ? allowlistedSenders.has(msg.from_address) : false}
+                senderAllowlisted={msg.from_address ? allowlistedSenders.has(normalizeEmail(msg.from_address)) : false}
                 isSpam={thread.labelIds.includes("SPAM")}
                 onContextMenu={(e) => handleMessageContextMenu(e, msg)}
               />
