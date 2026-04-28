@@ -8,6 +8,7 @@ import { PROVIDER_MODELS } from "@/services/ai/types";
 import { deleteAccount } from "@/services/db/accounts";
 import { removeClient, reauthorizeAccount } from "@/services/gmail/tokenManager";
 import { triggerSync, forceFullSync, resyncAccount } from "@/services/gmail/syncManager";
+import { syncGoogleContacts } from "@/services/contacts/googleContacts";
 import {
   registerComposeShortcut,
   getCurrentShortcut,
@@ -350,6 +351,36 @@ export function SettingsPage() {
       } catch (err) {
         console.error("Resync failed:", err);
         setResyncStatus((prev) => ({ ...prev, [accountId]: "error" }));
+        setTimeout(() => {
+          setResyncStatus((prev) => ({ ...prev, [accountId]: "idle" }));
+        }, 3000);
+      }
+    },
+    [],
+  );
+
+  // Track contacts sync progress: { current, total }
+  const [contactsProgress, setContactsProgress] = useState<{ current: number; total: number | undefined } | null>(null);
+
+  const handleSyncGoogleContacts = useCallback(
+    async (accountId: string) => {
+      setResyncStatus((prev) => ({ ...prev, [accountId]: "syncing" }));
+      setContactsProgress({ current: 0, total: undefined });
+      try {
+        const count = await syncGoogleContacts(accountId, (current, total) => {
+          setContactsProgress({ current, total });
+        });
+        setResyncStatus((prev) => ({ ...prev, [accountId]: "done" }));
+        console.log(`Synced ${count} contacts`);
+        setContactsProgress({ current: count, total: count });
+        setTimeout(() => {
+          setContactsProgress(null);
+          setResyncStatus((prev) => ({ ...prev, [accountId]: "idle" }));
+        }, 3000);
+      } catch (err) {
+        console.error("Contacts sync failed:", err);
+        setResyncStatus((prev) => ({ ...prev, [accountId]: "error" }));
+        setContactsProgress(null);
         setTimeout(() => {
           setResyncStatus((prev) => ({ ...prev, [accountId]: "idle" }));
         }, 3000);
@@ -897,6 +928,19 @@ export function SettingsPage() {
                                   {resyncStatus[account.id] === "error" && "Failed"}
                                   {(!resyncStatus[account.id] || resyncStatus[account.id] === "idle") && "Resync"}
                                 </button>
+                                {account.provider === "gmail_api" && (
+                                  <button
+                                    onClick={() => handleSyncGoogleContacts(account.id)}
+                                    disabled={resyncStatus[account.id] === "syncing"}
+                                    className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                                  >
+                                    {resyncStatus[account.id] === "syncing"
+                                      ? contactsProgress
+                                        ? `Syncing ${contactsProgress.current} contacts...`
+                                        : "Syncing contacts..."
+                                      : "Sync Contacts"}
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleRemoveAccount(account.id)}
                                   className="text-xs text-danger hover:text-danger/80 transition-colors"

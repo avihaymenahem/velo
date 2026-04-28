@@ -46,7 +46,7 @@ export async function searchContacts(
  * Get all contacts, ordered by frequency descending.
  */
 export async function getAllContacts(
-  limit = 500,
+  limit = 10_000,
   offset = 0,
 ): Promise<DbContact[]> {
   const db = await getDb();
@@ -96,6 +96,27 @@ export async function upsertContact(
        display_name = COALESCE($3, display_name),
        frequency = frequency + 1,
        last_contacted_at = unixepoch(),
+       updated_at = unixepoch()`,
+    [id, normalizeEmail(email), displayName],
+  );
+}
+
+/**
+ * Import a contact from an external source (e.g. Google Contacts sync).
+ * Does not increment frequency or update last_contacted_at — those reflect
+ * real email interactions only. New contacts start at frequency 0.
+ */
+export async function importContact(
+  email: string,
+  displayName: string | null,
+): Promise<void> {
+  const db = await getDb();
+  const id = crypto.randomUUID();
+  await db.execute(
+    `INSERT INTO contacts (id, email, display_name, frequency, last_contacted_at)
+     VALUES ($1, $2, $3, 0, NULL)
+     ON CONFLICT(email) DO UPDATE SET
+       display_name = COALESCE($3, display_name),
        updated_at = unixepoch()`,
     [id, normalizeEmail(email), displayName],
   );
