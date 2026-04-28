@@ -4,6 +4,11 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
+import Underline from "@tiptap/extension-underline";
+import { FontFamily, FontSize } from "./tiptapExtensions";
+
 import { Clock, Maximize2, Minimize2, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -84,6 +89,11 @@ export function Composer() {
         inline: true,
         allowBase64: true,
       }),
+      TextStyle,
+      Color,
+      Underline,
+      FontFamily,
+      FontSize,
     ],
     content: useComposerStore.getState().bodyHtml,
     onUpdate: ({ editor: ed }) => {
@@ -441,7 +451,7 @@ export function Composer() {
       {/* Composer window */}
       <div
         className={`relative bg-bg-primary border rounded-lg glass-modal pointer-events-auto flex flex-col slide-up-panel ${
-          isFullpage ? "w-full h-full max-w-5xl" : aiSidebarOpen ? "w-full max-w-5xl max-h-[85vh]" : "w-full max-w-2xl max-h-[80vh]"
+          isFullpage ? "w-full h-full max-w-6xl" : "w-full max-w-6xl max-h-[85vh]"
         } ${isDragging ? "border-accent border-2" : "border-border-primary"}`}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}

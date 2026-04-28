@@ -430,3 +430,92 @@ body {
     display: none;
   }
 }
+
+/* TipTap Editor styling */
+.ProseMirror {
+  min-height: 200px;
+  padding: 0.5rem 1rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+}
+
+/* TextStyle mark - ensure inline styles are applied */
+.ProseMirror span[style*="font-size"] {
+  font-size: attr(data-font-size, 14px);
+}
+
+.ProseMirror span[style*="font-family"] {
+  font-family: attr(data-font-family, inherit);
+}
+
+/* Also support direct style attribute - this is what Tiptap actually outputs */
+.ProseMirror span[style*="font-size:"] {
+  /* Extract font-size from inline style - CSS can't do this directly without JS */
+}
+
+/* Simple span styling */
+.ProseMirror span {
+  /* Allow inline styles to work */
+}
+
+.ProseMirror p {
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror h1 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror h2 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--color-border-primary);
+  padding-left: 1em;
+  margin-left: 0;
+  color: var(--color-text-secondary);
+}
+
+.ProseMirror code {
+  background: var(--color-bg-tertiary);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}
+
+.ProseMirror pre {
+  background: var(--color-bg-tertiary);
+  padding: 0.5em;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+}
