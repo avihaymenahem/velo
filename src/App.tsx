@@ -310,10 +310,10 @@ export default function App() {
         // Initialize Gmail clients for existing accounts
         await initializeClients();
 
-        // Fetch send-as aliases for each active email account (skip CalDAV-only)
+        // Fetch send-as aliases for Gmail API accounts only (IMAP and CalDAV have no OAuth tokens)
         const activeIds = mapped.filter((a) => a.isActive).map((a) => a.id);
-        const emailAccountIds = mapped.filter((a) => a.isActive && a.provider !== "caldav").map((a) => a.id);
-        for (const accountId of emailAccountIds) {
+        const gmailAccountIds = mapped.filter((a) => a.isActive && a.provider === "gmail_api").map((a) => a.id);
+        for (const accountId of gmailAccountIds) {
           try {
             const client = await getGmailClient(accountId);
             await fetchSendAsAliases(client, accountId);

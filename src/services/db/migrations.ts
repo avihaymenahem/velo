@@ -840,6 +840,19 @@ export async function runMigrations(): Promise<void> {
   );
   const appliedVersions = new Set(applied.map((r) => r.version));
 
+  // Repair: if migration 14 is marked applied but imap_folder_path column is missing
+  // from labels (schema change failed to persist), force re-run from v14.
+  if (appliedVersions.has(14)) {
+    const cols = await db.select<{ name: string }[]>(
+      "SELECT name FROM pragma_table_info('labels') WHERE name = 'imap_folder_path'",
+    );
+    if (cols.length === 0) {
+      console.warn("Migration v14 marked applied but imap_folder_path column missing — re-running from v14");
+      await db.execute("DELETE FROM _migrations WHERE version >= 14");
+      for (const v of [...appliedVersions].filter((v) => v >= 14)) appliedVersions.delete(v);
+    }
+  }
+
   // Repair: if migration 18 is marked applied but tasks table is missing,
   // remove the stale record so it re-runs
   if (appliedVersions.has(18)) {

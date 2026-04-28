@@ -151,10 +151,18 @@ async function applyLocalDbUpdate(
         "UPDATE threads SET is_read = $1 WHERE account_id = $2 AND id = $3",
         [action.read ? 1 : 0, accountId, action.threadId],
       );
+      await db.execute(
+        "UPDATE messages SET is_read = $1 WHERE account_id = $2 AND thread_id = $3",
+        [action.read ? 1 : 0, accountId, action.threadId],
+      );
       break;
     case "star":
       await db.execute(
         "UPDATE threads SET is_starred = $1 WHERE account_id = $2 AND id = $3",
+        [action.starred ? 1 : 0, accountId, action.threadId],
+      );
+      await db.execute(
+        "UPDATE messages SET is_starred = $1 WHERE account_id = $2 AND thread_id = $3",
         [action.starred ? 1 : 0, accountId, action.threadId],
       );
       if (action.starred) {

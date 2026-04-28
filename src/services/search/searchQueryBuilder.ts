@@ -8,11 +8,15 @@ interface BuiltQuery {
 /**
  * Build a parameterized SQL query from a parsed search query.
  * Returns { sql, params } for safe execution.
+ *
+ * @param excludeSystemLabels - When true, threads in TRASH or SPAM are excluded
+ *   unless the query already filters by those labels (mirrors Gmail's default behaviour).
  */
 export function buildSearchQuery(
   parsed: ParsedSearchQuery,
   accountId?: string,
   limit = 50,
+  excludeSystemLabels = false,
 ): BuiltQuery {
   const params: unknown[] = [];
   let paramIdx = 1;
@@ -103,6 +107,13 @@ export function buildSearchQuery(
     );
     params.push(parsed.label);
     paramIdx++;
+  }
+
+  // Exclude TRASH and SPAM unless the query explicitly targets those labels
+  if (excludeSystemLabels && !parsed.label) {
+    whereClauses.push(
+      `NOT EXISTS (SELECT 1 FROM thread_labels tl2 JOIN labels l2 ON l2.account_id = tl2.account_id AND l2.id = tl2.label_id WHERE tl2.account_id = m.account_id AND tl2.thread_id = m.thread_id AND UPPER(l2.name) IN ('TRASH', 'SPAM'))`,
+    );
   }
 
   const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";

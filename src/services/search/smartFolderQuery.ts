@@ -51,7 +51,8 @@ export function getSmartFolderSearchQuery(
 ): { sql: string; params: unknown[] } {
   const resolved = resolveQueryTokens(rawQuery);
   const parsed = parseSearchQuery(resolved);
-  return buildSearchQuery(parsed, accountId, limit ?? 50);
+  const excludeSystem = !parsed.label || !["trash", "spam"].includes(parsed.label.toLowerCase());
+  return buildSearchQuery(parsed, accountId, limit ?? 50, excludeSystem);
 }
 
 /**
@@ -67,11 +68,12 @@ export function getSmartFolderUnreadCount(
 
   // Force unread filter
   const withUnread = { ...parsed, isUnread: true };
-  const { sql: baseSql, params } = buildSearchQuery(withUnread, accountId, 999999);
+  const excludeSystem = !parsed.label || !["trash", "spam"].includes(parsed.label.toLowerCase());
+  const { sql: baseSql, params } = buildSearchQuery(withUnread, accountId, 999999, excludeSystem);
 
-  // Replace SELECT ... FROM with SELECT COUNT(DISTINCT ...) FROM and remove LIMIT
+  // Replace SELECT ... FROM with SELECT COUNT(DISTINCT thread_id) FROM and remove LIMIT
   const countSql = baseSql
-    .replace(/SELECT DISTINCT[\s\S]*?(?=\bFROM\s)/i, "SELECT COUNT(DISTINCT m.id) as count ")
+    .replace(/SELECT DISTINCT[\s\S]*?(?=\bFROM\s)/i, "SELECT COUNT(DISTINCT m.thread_id) as count ")
     .replace(/ORDER BY[\s\S]*?(?=LIMIT|$)/i, "")
     .replace(/LIMIT \$\d+/i, "");
 

@@ -57,25 +57,26 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
 
   const handleToggleRead = async () => {
     if (!activeAccountId) return;
-    await markThreadRead(activeAccountId, thread.id, [], !thread.isRead);
+    await markThreadRead(activeAccountId, thread.id, messages?.map(m => m.id) || [], !thread.isRead);
   };
 
   const handleToggleStar = async () => {
     if (!activeAccountId) return;
-    await starThread(activeAccountId, thread.id, [], !thread.isStarred);
+    await starThread(activeAccountId, thread.id, messages?.map(m => m.id) || [], !thread.isStarred);
   };
 
   const handleArchive = async () => {
     if (!activeAccountId) return;
-    await archiveThread(activeAccountId, thread.id, []);
+    await archiveThread(activeAccountId, thread.id, messages?.map(m => m.id) || []);
   };
 
   const handleDelete = async () => {
     if (!activeAccountId) return;
     const isTrashView = activeLabel === "trash";
     const isDraftsView = activeLabel === "drafts";
+    const msgIds = messages?.map((m) => m.id) || [];
     if (isTrashView) {
-      await permanentDeleteThread(activeAccountId, thread.id, []);
+      await permanentDeleteThread(activeAccountId, thread.id, msgIds);
       await deleteThreadFromDb(activeAccountId, thread.id);
     } else if (isDraftsView) {
       removeThread(thread.id);
@@ -86,7 +87,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
         console.error("Failed to delete drafts:", err);
       }
     } else {
-      await trashThread(activeAccountId, thread.id, []);
+      await trashThread(activeAccountId, thread.id, msgIds);
     }
   };
 
@@ -103,7 +104,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
 
   const handleSpam = async () => {
     if (!activeAccountId) return;
-    await spamThread(activeAccountId, thread.id, [], !isSpamView);
+    await spamThread(activeAccountId, thread.id, messages?.map(m => m.id) || [], !isSpamView);
   };
 
   // Find the first message with an unsubscribe header

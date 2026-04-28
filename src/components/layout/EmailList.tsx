@@ -12,6 +12,7 @@ import { navigateToThread, navigateToLabel } from "@/router/navigate";
 import { getThreadsForAccount, getThreadsForCategory, getThreadLabelIds, deleteThread as deleteThreadFromDb } from "@/services/db/threads";
 import { getCategoriesForThreads, getCategoryUnreadCounts } from "@/services/db/threadCategories";
 import { getActiveFollowUpThreadIds } from "@/services/db/followUpReminders";
+import { archiveThread, trashThread, permanentDeleteThread, spamThread, markThreadRead } from "@/services/emailActions";
 import { getBundleRules, getHeldThreadIds, getBundleSummaries, type DbBundleRule } from "@/services/db/bundleRules";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { useLabelStore } from "@/stores/labelStore";
@@ -21,7 +22,7 @@ import { useComposerStore } from "@/stores/composerStore";
 import { getMessagesForThread } from "@/services/db/messages";
 import { getSmartFolderSearchQuery, mapSmartFolderRows, type SmartFolderRow } from "@/services/search/smartFolderQuery";
 import { getDb } from "@/services/db/connection";
-import { Archive, Trash2, X, Ban, Filter, ChevronRight, Package, FolderSearch } from "lucide-react";
+import { Archive, Trash2, X, Ban, Filter, ChevronRight, Package, FolderSearch, Mail, MailOpen } from "lucide-react";
 import { EmptyState } from "../ui/EmptyState";
 import {
   InboxClearIllustration,
@@ -111,7 +112,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
       try {
         const client = await getGmailClient(activeAccountId);
         const drafts = await client.listDrafts();
-        const match = drafts.find((d) => d.message.id === draftMsg.id);
+        const match = drafts.find((d: any) => d.message.id === draftMsg.id);
         if (match) draftId = match.id;
       } catch {
         // If we can't get draft ID, composer will create a new draft on save
@@ -154,19 +155,24 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     if (!activeAccountId || multiSelectCount === 0) return;
     const isTrashView = activeLabel === "trash";
     const ids = [...selectedThreadIds];
+    
+    // Optimistic remove is handled by executeEmailAction, but for bulk 
+    // we do it here for immediate feedback since we process them in parallel
     removeThreads(ids);
+    clearMultiSelect();
+
     try {
-      const client = await getGmailClient(activeAccountId);
       await Promise.all(ids.map(async (id) => {
         if (isTrashView) {
-          await client.deleteThread(id);
+          await permanentDeleteThread(activeAccountId, id, []);
           await deleteThreadFromDb(activeAccountId, id);
         } else {
-          await client.modifyThread(id, ["TRASH"], ["INBOX"]);
+          await trashThread(activeAccountId, id, []);
         }
       }));
     } catch (err) {
       console.error("Bulk delete failed:", err);
+      // Next sync will restore any that failed
     }
   };
 
@@ -174,9 +180,10 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     if (!activeAccountId || multiSelectCount === 0) return;
     const ids = [...selectedThreadIds];
     removeThreads(ids);
+    clearMultiSelect();
+    
     try {
-      const client = await getGmailClient(activeAccountId);
-      await Promise.all(ids.map((id) => client.modifyThread(id, undefined, ["INBOX"])));
+      await Promise.all(ids.map((id) => archiveThread(activeAccountId, id, [])));
     } catch (err) {
       console.error("Bulk archive failed:", err);
     }
@@ -187,15 +194,25 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     const ids = [...selectedThreadIds];
     const isSpamView = activeLabel === "spam";
     removeThreads(ids);
+    clearMultiSelect();
+    
     try {
-      const client = await getGmailClient(activeAccountId);
-      await Promise.all(ids.map((id) =>
-        isSpamView
-          ? client.modifyThread(id, ["INBOX"], ["SPAM"])
-          : client.modifyThread(id, ["SPAM"], ["INBOX"]),
+      await Promise.all(ids.map((id) => 
+        spamThread(activeAccountId, id, [], !isSpamView)
       ));
     } catch (err) {
       console.error("Bulk spam failed:", err);
+    }
+  };
+
+  const handleBulkMarkRead = async (read: boolean) => {
+    if (!activeAccountId || multiSelectCount === 0) return;
+    const ids = [...selectedThreadIds];
+    clearMultiSelect();
+    try {
+      await Promise.all(ids.map((id) => markThreadRead(activeAccountId, id, [], read)));
+    } catch (err) {
+      console.error(`Bulk mark ${read ? "read" : "unread"} failed:`, err);
     }
   };
 
@@ -566,6 +583,20 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
               className="p-1.5 text-text-secondary hover:text-error hover:bg-bg-hover rounded transition-colors"
             >
               <Trash2 size={14} />
+            </button>
+            <button
+              onClick={() => handleBulkMarkRead(true)}
+              title="Mark as read"
+              className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
+            >
+              <MailOpen size={14} />
+            </button>
+            <button
+              onClick={() => handleBulkMarkRead(false)}
+              title="Mark as unread"
+              className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
+            >
+              <Mail size={14} />
             </button>
             <button
               onClick={handleBulkSpam}

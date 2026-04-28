@@ -38,6 +38,8 @@ export const SHORTCUTS: ShortcutCategory[] = [
     { id: "action.delete", keys: "#", desc: "Delete" },
     { id: "action.spam", keys: "!", desc: "Report Spam / Not Spam" },
     { id: "action.star", keys: "s", desc: "Star / Unstar" },
+    { id: "action.markRead", keys: "Shift+I", desc: "Mark as read" },
+    { id: "action.markUnread", keys: "Shift+U", desc: "Mark as unread" },
     { id: "action.pin", keys: "p", desc: "Pin / Unpin" },
     { id: "action.unsubscribe", keys: "u", desc: "Unsubscribe" },
     { id: "action.mute", keys: "m", desc: "Mute / Unmute" },

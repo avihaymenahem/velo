@@ -6,7 +6,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { navigateToLabel, navigateToThread, navigateBack, getActiveLabel, getSelectedThreadId } from "@/router/navigate";
-import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread } from "@/services/emailActions";
+import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread, markThreadRead } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
 import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
 import { getGmailClient } from "@/services/gmail/tokenManager";
@@ -357,6 +357,21 @@ async function executeAction(actionId: string): Promise<void> {
         if (thread) {
           await starThread(activeAccountId, selectedId, [], !thread.isStarred);
         }
+      }
+      break;
+    }
+    case "action.markRead":
+    case "action.markUnread": {
+      const read = actionId === "action.markRead";
+      const multiMarkIds = useThreadStore.getState().selectedThreadIds;
+      if (multiMarkIds.size > 0 && activeAccountId) {
+        const ids = [...multiMarkIds];
+        for (const id of ids) {
+          await markThreadRead(activeAccountId, id, [], read);
+        }
+        useThreadStore.getState().clearMultiSelect();
+      } else if (selectedId && activeAccountId) {
+        await markThreadRead(activeAccountId, selectedId, [], read);
       }
       break;
     }
