@@ -259,6 +259,18 @@ export default function App() {
           ui.setFontScale(savedFontScale);
         }
 
+        // Restore composer font family
+        const savedComposerFont = await getSetting("composer_font_family");
+        if (savedComposerFont === "system" || savedComposerFont === "arial" || savedComposerFont === "calibri" || savedComposerFont === "times" || savedComposerFont === "courier" || savedComposerFont === "georgia" || savedComposerFont === "verdana" || savedComposerFont === "avenir") {
+          ui.setComposerFontFamily(savedComposerFont);
+        }
+
+        // Restore composer font size
+        const savedComposerSize = await getSetting("composer_font_size");
+        if (savedComposerSize === "10px" || savedComposerSize === "12px" || savedComposerSize === "14px" || savedComposerSize === "16px" || savedComposerSize === "18px" || savedComposerSize === "20px" || savedComposerSize === "24px") {
+          ui.setComposerFontSize(savedComposerSize);
+        }
+
         // Restore color theme
         const savedColorTheme = await getSetting("color_theme");
         if (savedColorTheme && COLOR_THEMES.some((t) => t.id === savedColorTheme)) {

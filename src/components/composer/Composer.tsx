@@ -23,7 +23,7 @@ import { FromSelector } from "./FromSelector";
 import { ComposerAccountSwitcher } from "./ComposerAccountSwitcher";
 import { useComposerStore } from "@/stores/composerStore";
 import { useAccountStore } from "@/stores/accountStore";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore, type ComposerFontFamily } from "@/stores/uiStore";
 import { sendEmail, archiveThread, deleteDraft as deleteDraftAction } from "@/services/emailActions";
 import { buildRawEmail } from "@/utils/emailBuilder";
 import { upsertContact } from "@/services/db/contacts";
@@ -37,6 +37,17 @@ import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates
 import { readFileAsBase64 } from "@/utils/fileUtils";
 import { interpolateVariables } from "@/utils/templateVariables";
 import { sanitizeHtml } from "@/utils/sanitize";
+
+const COMPOSER_FONT_MAP: Record<ComposerFontFamily, string> = {
+  system: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif",
+  arial: "Arial, sans-serif",
+  calibri: "Calibri, sans-serif",
+  times: "Times New Roman, serif",
+  courier: "Courier New, monospace",
+  georgia: "Georgia, serif",
+  verdana: "Verdana, sans-serif",
+  avenir: "Avenir, sans-serif",
+};
 
 export function Composer() {
   // Individual selectors — only re-render when each specific value changes
@@ -81,6 +92,9 @@ export function Composer() {
   const templateShortcutsRef = useRef<DbTemplate[]>([]);
   const dragCounterRef = useRef(0);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  const composerFontFamily = useUIStore((s) => s.composerFontFamily);
+  const composerFontSize = useUIStore((s) => s.composerFontSize);
 
   const editor = useEditor({
     extensions: [
@@ -144,6 +158,7 @@ export function Composer() {
       attributes: {
         class:
           "prose prose-sm max-w-none px-4 py-3 min-h-[200px] focus:outline-none text-text-primary",
+        style: `font-family: ${COMPOSER_FONT_MAP[composerFontFamily]}; font-size: ${composerFontSize}`,
       },
       handleDrop: (_view, event) => {
         // Prevent TipTap from handling file drops as inline content.
@@ -156,6 +171,14 @@ export function Composer() {
       },
     },
   });
+
+  // Apply composer default font/size whenever they change
+  useEffect(() => {
+    if (!editor) return;
+    const el = editor.view.dom as HTMLElement;
+    el.style.fontFamily = COMPOSER_FONT_MAP[composerFontFamily];
+    el.style.fontSize = composerFontSize;
+  }, [editor, composerFontFamily, composerFontSize]);
 
   // Load signature, aliases, and templates in parallel when composer opens or account changes
   useEffect(() => {

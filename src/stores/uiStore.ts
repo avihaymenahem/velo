@@ -9,6 +9,8 @@ export type EmailDensity = "compact" | "default" | "spacious";
 export type DefaultReplyMode = "reply" | "replyAll";
 export type MarkAsReadBehavior = "instant" | "2s" | "manual";
 export type FontScale = "small" | "default" | "large" | "xlarge";
+export type ComposerFontFamily = "system" | "arial" | "calibri" | "times" | "courier" | "georgia" | "verdana" | "avenir";
+export type ComposerFontSize = "10px" | "12px" | "14px" | "16px" | "18px" | "20px" | "24px";
 export type InboxViewMode = "unified" | "split";
 
 export interface SidebarNavItem {
@@ -29,6 +31,8 @@ interface UIState {
   fontScale: FontScale;
   colorTheme: ColorThemeId;
   sendAndArchive: boolean;
+  composerFontFamily: ComposerFontFamily;
+  composerFontSize: ComposerFontSize;
   inboxViewMode: InboxViewMode;
   taskSidebarVisible: boolean;
   sidebarNavConfig: SidebarNavItem[] | null;
@@ -50,6 +54,8 @@ interface UIState {
   setFontScale: (scale: FontScale) => void;
   setColorTheme: (theme: ColorThemeId) => void;
   setSendAndArchive: (enabled: boolean) => void;
+  setComposerFontFamily: (family: ComposerFontFamily) => void;
+  setComposerFontSize: (size: ComposerFontSize) => void;
   setInboxViewMode: (mode: InboxViewMode) => void;
   toggleTaskSidebar: () => void;
   setTaskSidebarVisible: (visible: boolean) => void;
@@ -74,6 +80,8 @@ export const useUIStore = create<UIState>((set) => ({
   fontScale: "default",
   colorTheme: "indigo",
   sendAndArchive: false,
+  composerFontFamily: "system",
+  composerFontSize: "14px",
   inboxViewMode: "unified",
   taskSidebarVisible: false,
   sidebarNavConfig: null,
@@ -132,6 +140,14 @@ export const useUIStore = create<UIState>((set) => ({
   setSendAndArchive: (sendAndArchive) => {
     setSetting("send_and_archive", String(sendAndArchive)).catch(() => {});
     set({ sendAndArchive });
+  },
+  setComposerFontFamily: (composerFontFamily) => {
+    setSetting("composer_font_family", composerFontFamily).catch(() => {});
+    set({ composerFontFamily });
+  },
+  setComposerFontSize: (composerFontSize) => {
+    setSetting("composer_font_size", composerFontSize).catch(() => {});
+    set({ composerFontSize });
   },
   setInboxViewMode: (inboxViewMode) => {
     setSetting("inbox_view_mode", inboxViewMode).catch(() => {});

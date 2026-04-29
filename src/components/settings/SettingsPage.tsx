@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "@tanstack/react-router";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore, type ComposerFontFamily, type ComposerFontSize } from "@/stores/uiStore";
 import { navigateToLabel, navigateToSettings } from "@/router/navigate";
 import { useAccountStore } from "@/stores/accountStore";
 import { getSetting, setSetting, getSecureSetting, setSecureSetting } from "@/services/db/settings";
@@ -95,6 +95,10 @@ export function SettingsPage() {
   const setSendAndArchive = useUIStore((s) => s.setSendAndArchive);
   const inboxViewMode = useUIStore((s) => s.inboxViewMode);
   const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
+  const composerFontFamily = useUIStore((s) => s.composerFontFamily);
+  const setComposerFontFamily = useUIStore((s) => s.setComposerFontFamily);
+  const composerFontSize = useUIStore((s) => s.composerFontSize);
+  const setComposerFontSize = useUIStore((s) => s.setComposerFontSize);
   const reduceMotion = useUIStore((s) => s.reduceMotion);
   const setReduceMotion = useUIStore((s) => s.setReduceMotion);
   const accounts = useAccountStore((s) => s.accounts);
@@ -808,6 +812,40 @@ export function SettingsPage() {
                         <option value="instant">Instantly</option>
                         <option value="2s">After 2 seconds</option>
                         <option value="manual">Manually</option>
+                      </select>
+                    </SettingRow>
+                  </Section>
+
+                  <Section title="Style">
+                    <SettingRow label="Default font">
+                      <select
+                        value={composerFontFamily}
+                        onChange={(e) => setComposerFontFamily(e.target.value as ComposerFontFamily)}
+                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                      >
+                        <option value="system">System</option>
+                        <option value="arial">Arial</option>
+                        <option value="calibri">Calibri</option>
+                        <option value="times">Times New Roman</option>
+                        <option value="courier">Courier New</option>
+                        <option value="georgia">Georgia</option>
+                        <option value="verdana">Verdana</option>
+                        <option value="avenir">Avenir</option>
+                      </select>
+                    </SettingRow>
+                    <SettingRow label="Default size">
+                      <select
+                        value={composerFontSize}
+                        onChange={(e) => setComposerFontSize(e.target.value as ComposerFontSize)}
+                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                      >
+                        <option value="10px">10</option>
+                        <option value="12px">12</option>
+                        <option value="14px">14</option>
+                        <option value="16px">16</option>
+                        <option value="18px">18</option>
+                        <option value="20px">20</option>
+                        <option value="24px">24</option>
                       </select>
                     </SettingRow>
                   </Section>
