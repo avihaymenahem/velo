@@ -4,18 +4,22 @@ declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     fontFamily: {
       setFontFamily: (fontFamily: string) => ReturnType;
+      unsetFontFamily: () => ReturnType;
     };
     fontSize: {
       setFontSize: (fontSize: string) => ReturnType;
+      unsetFontSize: () => ReturnType;
     };
   }
 }
 
 export const FontFamily = Extension.create({
   name: "fontFamily",
+
   addOptions() {
     return { types: ["textStyle"] };
   },
+
   addGlobalAttributes() {
     return [
       {
@@ -23,31 +27,43 @@ export const FontFamily = Extension.create({
         attributes: {
           fontFamily: {
             default: null,
-            parseHTML: (el: HTMLElement) =>
-              el.style.fontFamily?.replace(/['"]/g, "") ?? null,
-            renderHTML: (attrs: Record<string, unknown>) => {
-              if (!attrs["fontFamily"]) return {};
-              return { style: `font-family: ${attrs["fontFamily"]}` };
+            parseHTML: (element: HTMLElement) =>
+              element.style.fontFamily?.replace(/['"]/g, "") ?? null,
+            renderHTML: (attributes: Record<string, unknown>) => {
+              if (!attributes.fontFamily) {
+                return {};
+              }
+              return {
+                style: `font-family: ${attributes.fontFamily}`,
+              };
             },
           },
         },
       },
     ];
   },
+
   addCommands() {
     return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setFontFamily: (fontFamily: string) => ({ chain }: any) =>
-        chain().setMark("textStyle", { fontFamily }).run(),
+      setFontFamily:
+        (fontFamily: string) =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { fontFamily }).run(),
+      unsetFontFamily:
+        () =>
+        ({ chain }) =>
+          chain().unsetMark("textStyle").run(),
     };
   },
 });
 
 export const FontSize = Extension.create({
   name: "fontSize",
+
   addOptions() {
     return { types: ["textStyle"] };
   },
+
   addGlobalAttributes() {
     return [
       {
@@ -55,21 +71,32 @@ export const FontSize = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            parseHTML: (el: HTMLElement) => el.style.fontSize || null,
-            renderHTML: (attrs: Record<string, unknown>) => {
-              if (!attrs["fontSize"]) return {};
-              return { style: `font-size: ${attrs["fontSize"]}` };
+            parseHTML: (element: HTMLElement) =>
+              element.style.fontSize || null,
+            renderHTML: (attributes: Record<string, unknown>) => {
+              if (!attributes.fontSize) {
+                return {};
+              }
+              return {
+                style: `font-size: ${attributes.fontSize}`,
+              };
             },
           },
         },
       },
     ];
   },
+
   addCommands() {
     return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setFontSize: (fontSize: string) => ({ chain }: any) =>
-        chain().setMark("textStyle", { fontSize }).run(),
+      setFontSize:
+        (fontSize: string) =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { fontSize }).run(),
+      unsetFontSize:
+        () =>
+        ({ chain }) =>
+          chain().unsetMark("textStyle").run(),
     };
   },
 });

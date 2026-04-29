@@ -176,6 +176,22 @@ table{max-width:100%;}
     return () => window.removeEventListener("message", handleMessage);
   }, [srcdoc]);
 
+  // Fallback: set height after load in case postMessage was missed.
+  // Wrapped in try-catch because sandboxed iframes (no allow-same-origin) throw
+  // a SecurityError when the parent tries to access contentWindow.document.
+  const handleIframeLoad = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    try {
+      const body = iframe.contentWindow?.document?.body;
+      if (!body) return;
+      const height = body.scrollHeight;
+      if (height > 0) iframe.style.height = height + "px";
+    } catch {
+      // Cross-origin sandbox — height is managed via postMessage
+    }
+  }, []);
+
   const handleLoadImages = useCallback(() => {
     setOverrideShow(true);
   }, []);
@@ -216,8 +232,9 @@ table{max-width:100%;}
         sandbox="allow-scripts allow-popups"
         srcDoc={srcdoc}
         className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
-        style={{ overflow: "hidden", height: "0px" }}
+        style={{ overflow: "hidden", minHeight: "100px" }}
         title="Email content"
+        onLoad={handleIframeLoad}
       />
     </div>
   );

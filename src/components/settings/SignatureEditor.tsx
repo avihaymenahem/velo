@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
+import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import { Trash2, Pencil, Code } from "lucide-react";
 import { TextField } from "@/components/ui/TextField";
 import { EditorToolbar } from "@/components/composer/EditorToolbar";
+import { FontFamily, FontSize } from "@/components/composer/tiptapExtensions";
 import { useAccountStore } from "@/stores/accountStore";
 import {
   getSignaturesForAccount,
@@ -28,8 +32,13 @@ export function SignatureEditor() {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: { openOnClick: false } }),
+      TextStyle,
+      Color,
+      Underline,
       Image.configure({ inline: true, allowBase64: true }),
       Placeholder.configure({ placeholder: "Write your signature..." }),
+      FontFamily,
+      FontSize,
     ],
     content: "",
     editorProps: {

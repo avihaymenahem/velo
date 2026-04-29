@@ -210,6 +210,7 @@ async function syncCalendarForAccount(accountId: string): Promise<void> {
  * Routes to Gmail or IMAP sync based on account provider.
  */
 async function syncAccountInternal(accountId: string): Promise<void> {
+  let accountLabel = accountId;
   try {
     const account = await getAccount(accountId);
 
@@ -217,9 +218,10 @@ async function syncAccountInternal(accountId: string): Promise<void> {
       throw new Error("Account not found");
     }
 
+    accountLabel = `${account.email} (${accountId})`;
     statusCallback?.(accountId, "syncing");
 
-    console.log(`[syncManager] Syncing account ${accountId} (provider=${account.provider}, history_id=${account.history_id ?? "null"})`);
+    console.log(`[syncManager] Syncing account ${accountLabel} (provider=${account.provider}, history_id=${account.history_id ?? "null"})`);
 
     if (account.provider === "caldav") {
       // CalDAV-only accounts — skip email sync, only sync calendar
@@ -245,7 +247,7 @@ async function syncAccountInternal(accountId: string): Promise<void> {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err ?? "Unknown error");
-    console.error(`[syncManager] Sync failed for account ${accountId}:`, message);
+    console.error(`[syncManager] Sync failed for account ${accountLabel}:`, message);
     statusCallback?.(accountId, "error", undefined, message);
   }
 }

@@ -412,7 +412,9 @@ export default function App() {
             .catch((err) => console.error("Backfill error:", err));
         }
       } else if (status === "error") {
-        setSyncStatus(error ? `Sync failed: ${formatSyncError(error)}` : "Sync failed");
+        const acct = useAccountStore.getState().accounts.find((a) => a.id === accountId);
+        const acctLabel = acct ? acct.email : accountId;
+        setSyncStatus(error ? `Sync failed (${acctLabel}): ${formatSyncError(error)}` : `Sync failed (${acctLabel})`);
         // Still dispatch sync-done so the UI refreshes with any partially stored data
         window.dispatchEvent(new Event("velo-sync-done"));
         // Auto-clear the error after 8 seconds
