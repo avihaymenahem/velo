@@ -92,6 +92,8 @@ export interface DeltaCheckRequest {
   folder: string;
   last_uid: number;
   uidvalidity: number;
+  /** Unix timestamp of the last successful sync; used as SINCE-date fallback for DavMail/Exchange. */
+  last_sync_at: number | null;
 }
 
 export interface DeltaCheckResult {

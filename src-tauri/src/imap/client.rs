@@ -727,7 +727,7 @@ pub async fn delta_check_folders(
 
         // UID SEARCH for messages newer than last_uid
         let query = format!("{}:*", req.last_uid + 1);
-        let new_uids = match tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&query)).await {
+        let range_uids = match tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&query)).await {
             Ok(Ok(uids)) => {
                 let mut result: Vec<u32> = uids.into_iter().filter(|&u| u > req.last_uid).collect();
                 result.sort();
@@ -741,6 +741,48 @@ pub async fn delta_check_folders(
                 log::warn!("delta_check: UID SEARCH {} timed out after {}s", req.folder, IMAP_SEARCH_TIMEOUT.as_secs());
                 vec![]
             }
+        };
+
+        // DavMail/Exchange fallback: if UID range search returns empty but we have a
+        // last_sync_at, also try a SINCE date search. DavMail sometimes doesn't honour
+        // `UID SEARCH n:*` range queries and silently returns an empty set even when
+        // new messages have arrived.
+        let new_uids = if range_uids.is_empty() {
+            if let Some(last_sync_at) = req.last_sync_at {
+                // Subtract one day as a safety margin for timezone/clock differences.
+                let since_ts = last_sync_at - 86_400;
+                let since_date = format_imap_date(since_ts);
+                log::info!(
+                    "delta_check: UID range search empty for {}, trying SINCE {} fallback",
+                    req.folder, since_date
+                );
+                let since_query = format!("SINCE {since_date}");
+                match tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&since_query)).await {
+                    Ok(Ok(uids)) => {
+                        let mut result: Vec<u32> = uids.into_iter().filter(|&u| u > req.last_uid).collect();
+                        result.sort();
+                        if !result.is_empty() {
+                            log::info!(
+                                "delta_check: SINCE fallback found {} new UIDs for {}",
+                                result.len(), req.folder
+                            );
+                        }
+                        result
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("delta_check: SINCE fallback UID SEARCH {} failed: {e}", req.folder);
+                        vec![]
+                    }
+                    Err(_) => {
+                        log::warn!("delta_check: SINCE fallback UID SEARCH {} timed out", req.folder);
+                        vec![]
+                    }
+                }
+            } else {
+                vec![]
+            }
+        } else {
+            range_uids
         };
 
         results.push(DeltaCheckResult {
@@ -1398,6 +1440,37 @@ fn parse_imap_date(s: &str) -> Option<i64> {
 
 fn is_leap_year(y: i64) -> bool {
     (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)
+}
+
+/// Format a Unix timestamp as `DD-Mon-YYYY` for the IMAP SINCE search criterion.
+fn format_imap_date(unix_ts: i64) -> String {
+    const MONTH_NAMES: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    // Compute days since Unix epoch
+    let days = (unix_ts / 86_400) as i64;
+    // Compute year, month, day using a simple algorithm
+    let mut y = 1970i64;
+    let mut remaining = days;
+    loop {
+        let days_in_year = if is_leap_year(y) { 366 } else { 365 };
+        if remaining < days_in_year { break; }
+        remaining -= days_in_year;
+        y += 1;
+    }
+    let month_days_in_year: [i64; 12] = [
+        31, if is_leap_year(y) { 29 } else { 28 },
+        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+    ];
+    let mut month = 0usize;
+    for &d in &month_days_in_year {
+        if remaining < d { break; }
+        remaining -= d;
+        month += 1;
+    }
+    let day = remaining + 1;
+    format!("{}-{}-{}", day, MONTH_NAMES[month], y)
 }
 
 /// Extract literal size from a line ending with {1234}\r\n

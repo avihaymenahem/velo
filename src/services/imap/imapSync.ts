@@ -936,6 +936,7 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
         folder: folder.raw_path,
         last_uid: savedState.last_uid,
         uidvalidity: savedState.uidvalidity ?? 0,
+        last_sync_at: savedState.last_sync_at ?? null,
       };
     });
 
@@ -964,7 +965,17 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
               uidvalidity_changed: true,
             });
           } else {
-            const newUids = await imapFetchNewUids(config, folder.raw_path, savedState.last_uid);
+            let newUids = await imapFetchNewUids(config, folder.raw_path, savedState.last_uid);
+            // DavMail/Exchange fallback: if UID range search is empty but we have a
+            // last_sync_at, retry with a SINCE date search.
+            if (newUids.length === 0 && savedState.last_sync_at) {
+              const sinceDate = formatImapDate(new Date((savedState.last_sync_at - 86_400) * 1000));
+              const searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
+              newUids = searchResult.uids.filter((uid) => uid > savedState.last_uid);
+              if (newUids.length > 0) {
+                console.log(`[imapSync] Per-folder SINCE fallback found ${newUids.length} new UIDs in ${folder.path}`);
+              }
+            }
             deltaResultMap.set(folder.raw_path, {
               folder: folder.raw_path,
               uidvalidity: currentStatus.uidvalidity,

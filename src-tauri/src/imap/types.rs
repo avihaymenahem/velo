@@ -94,6 +94,11 @@ pub struct DeltaCheckRequest {
     pub folder: String,
     pub last_uid: u32,
     pub uidvalidity: u32,
+    /// Unix timestamp of the last successful sync for this folder.
+    /// Used as a SINCE-date fallback when UID range search returns empty
+    /// (works around DavMail/Exchange servers that don't reliably handle
+    /// `UID SEARCH n:*` range queries).
+    pub last_sync_at: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
