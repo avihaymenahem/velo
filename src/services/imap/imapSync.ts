@@ -171,7 +171,7 @@ export function imapMessageToParsedMessage(
     subject: msg.subject,
     snippet,
     date: msg.date * 1000,
-    isRead: msg.is_read,
+    isRead: msg.is_read || msg.is_draft || folderLabelId === "TRASH",
     isStarred: msg.is_starred,
     bodyHtml: msg.body_html,
     bodyText: msg.body_text,

@@ -45,7 +45,13 @@ async function saveDraft(): Promise<void> {
     } else {
       const result = await createDraftAction(accountId, raw, state.threadId ?? undefined);
       if (result.data && typeof result.data === "object" && "draftId" in result.data) {
-        state.setDraftId((result.data as { draftId: string }).draftId);
+        const data = result.data as { draftId: string; threadId?: string };
+        state.setDraftId(data.draftId);
+        // For new composes (no reply thread), store the draft's thread so deleteDraft
+        // can clean up the local DB when the composer is closed or the email is sent.
+        if (data.threadId && !state.threadId) {
+          useComposerStore.setState({ threadId: data.threadId });
+        }
       }
     }
 

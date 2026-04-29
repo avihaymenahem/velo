@@ -149,7 +149,7 @@ export class GmailApiProvider implements EmailProvider {
   }
 
   async trash(threadId: string, _messageIds: string[]): Promise<void> {
-    await this.client.modifyThread(threadId, ["TRASH"], ["INBOX"]);
+    await this.client.modifyThread(threadId, ["TRASH"], ["INBOX", "DRAFT"]);
   }
 
   async permanentDelete(
@@ -222,25 +222,25 @@ export class GmailApiProvider implements EmailProvider {
   async createDraft(
     rawBase64Url: string,
     threadId?: string,
-  ): Promise<{ draftId: string }> {
+  ): Promise<{ draftId: string; threadId?: string }> {
     const resp = await this.client.createDraft(rawBase64Url, threadId);
-    return { draftId: resp.id };
+    return { draftId: resp.id, threadId: resp.message.threadId };
   }
 
   async updateDraft(
     draftId: string,
     rawBase64Url: string,
     threadId?: string,
-  ): Promise<{ draftId: string }> {
+  ): Promise<{ draftId: string; threadId?: string }> {
     const resp = await this.client.updateDraft(
       draftId,
       rawBase64Url,
       threadId,
     );
-    return { draftId: resp.id };
+    return { draftId: resp.id, threadId: resp.message.threadId };
   }
 
-  async deleteDraft(draftId: string): Promise<void> {
+  async deleteDraft(draftId: string, _threadId?: string): Promise<void> {
     await this.client.deleteDraft(draftId);
   }
 

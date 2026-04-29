@@ -6,10 +6,8 @@ import { useAccountStore } from "@/stores/accountStore";
 import { getActiveLabel } from "@/router/navigate";
 import { useComposerStore } from "@/stores/composerStore";
 import { useLabelStore } from "@/stores/labelStore";
-import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, addThreadLabel, removeThreadLabel } from "@/services/emailActions";
+import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, addThreadLabel, removeThreadLabel, deleteDraftThread } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
-import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
-import { getGmailClient } from "@/services/gmail/tokenManager";
 import { getMessagesForThread } from "@/services/db/messages";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { getEnabledQuickStepsForAccount, type DbQuickStep } from "@/services/db/quickSteps";
@@ -308,12 +306,7 @@ function ThreadMenu({
         await deleteThreadFromDb(activeAccountId, id);
       } else if (isDraftsView) {
         useThreadStore.getState().removeThread(id);
-        try {
-          const client = await getGmailClient(activeAccountId);
-          await deleteDraftsForThread(client, activeAccountId, id);
-        } catch (err) {
-          console.error("Failed to delete drafts:", err);
-        }
+        await deleteDraftThread(activeAccountId, id);
       } else {
         await trashThread(activeAccountId, id, []);
       }

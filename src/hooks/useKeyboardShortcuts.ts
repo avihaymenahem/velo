@@ -6,10 +6,8 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { navigateToLabel, navigateToThread, navigateBack, getActiveLabel, getSelectedThreadId } from "@/router/navigate";
-import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread, markThreadRead } from "@/services/emailActions";
+import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread, markThreadRead, deleteDraftThread } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
-import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
-import { getGmailClient } from "@/services/gmail/tokenManager";
 import { getMessagesForThread } from "@/services/db/messages";
 import { parseUnsubscribeUrl } from "@/components/email/MessageItem";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -200,7 +198,17 @@ export function useKeyboardShortcuts() {
 
 async function executeAction(actionId: string): Promise<void> {
   const threads = useThreadStore.getState().threads;
-  const selectedId = getSelectedThreadId();
+  // Get selected thread: prefer store's selectedThreadId, then router, then first thread
+  let selectedId: string | null = useThreadStore.getState().selectedThreadId;
+  if (!selectedId) {
+    selectedId = getSelectedThreadId();
+  }
+  if (!selectedId && threads.length > 0) {
+    const firstThread = threads[0];
+    if (firstThread) {
+      selectedId = firstThread.id;
+    }
+  }
   const currentIdx = threads.findIndex((t) => t.id === selectedId);
   const activeAccountId = useAccountStore.getState().activeAccountId;
 
@@ -209,6 +217,7 @@ async function executeAction(actionId: string): Promise<void> {
       const nextIdx = Math.min(currentIdx + 1, threads.length - 1);
       if (threads[nextIdx]) {
         navigateToThread(threads[nextIdx].id);
+        useThreadStore.getState().selectThread(threads[nextIdx].id);
       }
       break;
     }
@@ -216,6 +225,7 @@ async function executeAction(actionId: string): Promise<void> {
       const prevIdx = Math.max(currentIdx - 1, 0);
       if (threads[prevIdx]) {
         navigateToThread(threads[prevIdx].id);
+        useThreadStore.getState().selectThread(threads[prevIdx].id);
       }
       break;
     }
@@ -322,13 +332,8 @@ async function executeAction(actionId: string): Promise<void> {
             await permanentDeleteThread(activeAccountId, id, []);
             await deleteThreadFromDb(activeAccountId, id);
           } else if (isDraftsView) {
-            try {
-              const client = await getGmailClient(activeAccountId);
-              await deleteDraftsForThread(client, activeAccountId, id);
-              useThreadStore.getState().removeThread(id);
-            } catch (err) {
-              console.error("Draft delete failed:", err);
-            }
+            useThreadStore.getState().removeThread(id);
+            await deleteDraftThread(activeAccountId, id);
           } else {
             await trashThread(activeAccountId, id, []);
           }
@@ -338,13 +343,8 @@ async function executeAction(actionId: string): Promise<void> {
           await permanentDeleteThread(activeAccountId, selectedId, []);
           await deleteThreadFromDb(activeAccountId, selectedId);
         } else if (isDraftsView) {
-          try {
-            const client = await getGmailClient(activeAccountId);
-            await deleteDraftsForThread(client, activeAccountId, selectedId);
-            useThreadStore.getState().removeThread(selectedId);
-          } catch (err) {
-            console.error("Draft delete failed:", err);
-          }
+          useThreadStore.getState().removeThread(selectedId);
+          await deleteDraftThread(activeAccountId, selectedId);
         } else {
           await trashThread(activeAccountId, selectedId, []);
         }

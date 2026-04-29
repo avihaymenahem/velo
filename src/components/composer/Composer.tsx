@@ -362,7 +362,7 @@ export function Composer() {
 
         // Delete draft if it was saved
         if (currentDraftId) {
-          try { await deleteDraftAction(effectiveAccountId, currentDraftId); } catch { /* ignore */ }
+          try { await deleteDraftAction(effectiveAccountId, currentDraftId, state.threadId ?? undefined); } catch { /* ignore */ }
         }
 
         // Send & archive: remove from inbox if replying to a thread
@@ -437,7 +437,7 @@ export function Composer() {
     // Delete the draft if exists
     if (state.draftId) {
       try {
-        await deleteDraftAction(effectiveAccountId, state.draftId);
+        await deleteDraftAction(effectiveAccountId, state.draftId, state.threadId ?? undefined);
       } catch { /* ignore */ }
     }
 
@@ -449,9 +449,10 @@ export function Composer() {
     stopAutoSave();
     // Delete the draft if it was saved
     const currentDraftId = useComposerStore.getState().draftId;
+    const currentThreadId = useComposerStore.getState().threadId;
     if (currentDraftId && effectiveAccountId) {
       try {
-        await deleteDraftAction(effectiveAccountId, currentDraftId);
+        await deleteDraftAction(effectiveAccountId, currentDraftId, currentThreadId ?? undefined);
       } catch { /* ignore */ }
     }
     closeComposer();

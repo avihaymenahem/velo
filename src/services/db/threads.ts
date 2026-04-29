@@ -198,6 +198,29 @@ export async function deleteThread(
   threadId: string,
 ): Promise<void> {
   await withTransaction(async (db) => {
+    // Delete attachments for messages in this thread
+    await db.execute(
+      `DELETE FROM attachments WHERE account_id = $1 AND message_id IN (
+        SELECT id FROM messages WHERE account_id = $1 AND thread_id = $2
+      )`,
+      [accountId, threadId],
+    );
+    // Delete messages
+    await db.execute(
+      "DELETE FROM messages WHERE account_id = $1 AND thread_id = $2",
+      [accountId, threadId],
+    );
+    // Delete thread labels
+    await db.execute(
+      "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
+      [accountId, threadId],
+    );
+    // Delete thread categories
+    await db.execute(
+      "DELETE FROM thread_categories WHERE account_id = $1 AND thread_id = $2",
+      [accountId, threadId],
+    );
+    // Finally delete the thread itself
     await db.execute(
       "DELETE FROM threads WHERE account_id = $1 AND id = $2",
       [accountId, threadId],

@@ -1,7 +1,7 @@
 import { GmailClient } from "./client";
 import { parseGmailMessage, type ParsedMessage } from "./messageParser";
 import { upsertLabel } from "../db/labels";
-import { upsertThread, setThreadLabels } from "../db/threads";
+import { upsertThread, setThreadLabels, deleteThread } from "../db/threads";
 import { upsertMessage } from "../db/messages";
 import { upsertAttachment } from "../db/attachments";
 import { updateAccountSyncState } from "../db/accounts";
@@ -48,7 +48,7 @@ async function processAndStoreThread(
     }
   }
 
-  const isRead = parsedMessages.every((m) => m.isRead);
+  const isRead = parsedMessages.every((m) => m.isRead) || allLabelIds.has("DRAFT") || allLabelIds.has("TRASH");
   const isStarred = parsedMessages.some((m) => m.isStarred);
   const isImportant = allLabelIds.has("IMPORTANT");
   const hasAttachments = parsedMessages.some((m) => m.hasAttachments);
@@ -360,7 +360,19 @@ export async function deltaSync(
             return;
           }
 
-          const thread = await client.getThread(threadId, "full");
+          let thread;
+          try {
+            thread = await client.getThread(threadId, "full");
+          } catch (err) {
+            // Thread not found on server (404) — remove from local DB
+            const message = err instanceof Error ? err.message : String(err);
+            if (message.includes("404") || message.includes("Not Found")) {
+              console.log(`[deltaSync] Thread ${threadId} not found on server, removing from local DB`);
+              await deleteThread(accountId, threadId);
+              return;
+            }
+            throw err;
+          }
 
           if (!thread.messages || thread.messages.length === 0) return;
 

@@ -571,17 +571,25 @@ export class ImapSmtpProvider implements EmailProvider {
     rawBase64Url: string,
     _threadId?: string,
   ): Promise<{ draftId: string }> {
-    // Delete the old draft first, then create a new one
+    // Pseudo-IDs (imap-draft-...) were generated locally before we had the real IMAP UID.
+    // We cannot delete the old message without a UID, and creating a new one every 3 s
+    // would accumulate zombie drafts on the server. Return the same ID unchanged and let
+    // the next folder sync replace it with a real UID-based ID.
+    if (draftId.startsWith("imap-draft-")) {
+      return { draftId };
+    }
+
+    // Real UID-based ID — delete old, append new
     try {
       await this.deleteDraft(draftId);
     } catch {
-      // Old draft may already be gone; continue with creating the new one
+      // Old draft may already be gone; continue
     }
 
     return this.createDraft(rawBase64Url, _threadId);
   }
 
-  async deleteDraft(draftId: string): Promise<void> {
+  async deleteDraft(draftId: string, _threadId?: string): Promise<void> {
     // Try to parse draft ID to get folder + UID info
     // Draft IDs from IMAP are in message ID format: imap-{accountId}-{folder}-{uid}
     const { folder, uid } = this.parseImapMessageId(draftId);

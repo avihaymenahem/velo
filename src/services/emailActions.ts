@@ -5,6 +5,8 @@ import { enqueuePendingOperation } from "@/services/db/pendingOperations";
 import { classifyError } from "@/utils/networkErrors";
 import { getDb } from "@/services/db/connection";
 import { navigateToThread, getSelectedThreadId } from "@/router/navigate";
+import { getAccount } from "@/services/db/accounts";
+import { deleteThread as deleteThreadFromDb } from "@/services/db/threads";
 
 // ---------------------------------------------------------------------------
 // Action types
@@ -56,7 +58,7 @@ export type EmailAction =
       rawBase64Url: string;
       threadId?: string;
     }
-  | { type: "deleteDraft"; draftId: string };
+  | { type: "deleteDraft"; draftId: string; threadId?: string };
 
 // ---------------------------------------------------------------------------
 // Result type
@@ -109,14 +111,19 @@ function applyOptimisticUpdate(action: EmailAction): void {
     case "star":
       store.updateThread(action.threadId, { isStarred: action.starred });
       break;
-    case "addLabel":
-    case "removeLabel":
-    case "sendMessage":
-    case "createDraft":
-    case "updateDraft":
-    case "deleteDraft":
-      // No universal optimistic update for these
-      break;
+     case "addLabel":
+      case "removeLabel":
+      case "sendMessage":
+      case "createDraft":
+      case "updateDraft":
+        // No universal optimistic update for these
+        break;
+      case "deleteDraft":
+        // Remove thread from local store if threadId is available
+        if (action.threadId) {
+          store.removeThread(action.threadId);
+        }
+        break;
   }
 }
 
@@ -185,7 +192,7 @@ async function applyLocalDbUpdate(
       break;
     case "trash":
       await db.execute(
-        "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'INBOX'",
+        "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id IN ('INBOX', 'DRAFT')",
         [accountId, action.threadId],
       );
       await db.execute(
@@ -220,19 +227,36 @@ async function applyLocalDbUpdate(
         );
       }
       break;
-    case "addLabel":
-      await db.execute(
-        "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, $3)",
-        [accountId, action.threadId, action.labelId],
-      );
-      break;
-    case "removeLabel":
-      await db.execute(
-        "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = $3",
-        [accountId, action.threadId, action.labelId],
-      );
-      break;
-    default:
+     case "addLabel":
+        await db.execute(
+          "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, $3)",
+          [accountId, action.threadId, action.labelId],
+        );
+        break;
+      case "removeLabel":
+        await db.execute(
+          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = $3",
+          [accountId, action.threadId, action.labelId],
+        );
+        break;
+      case "deleteDraft":
+        // Clean up local DB: remove thread and its labels/messages
+        if (action.threadId) {
+          await db.execute(
+            "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
+            [accountId, action.threadId],
+          );
+          await db.execute(
+            "DELETE FROM messages WHERE account_id = $1 AND thread_id = $2",
+            [accountId, action.threadId],
+          );
+          await db.execute(
+            "DELETE FROM threads WHERE account_id = $1 AND id = $2",
+            [accountId, action.threadId],
+          );
+        }
+        break;
+      default:
       break;
   }
 }
@@ -304,7 +328,7 @@ async function executeViaProvider(
         action.threadId,
       );
     case "deleteDraft":
-      return provider.deleteDraft(action.draftId);
+      return provider.deleteDraft(action.draftId, action.threadId);
   }
 }
 
@@ -539,6 +563,36 @@ export function updateDraft(
 export function deleteDraft(
   accountId: string,
   draftId: string,
+  threadId?: string,
 ): Promise<ActionResult> {
-  return executeEmailAction(accountId, { type: "deleteDraft", draftId });
+  return executeEmailAction(accountId, { type: "deleteDraft", draftId, threadId });
+}
+
+/**
+ * Delete a draft thread from the Drafts folder view.
+ * Routes to the correct path based on account provider:
+ * - Gmail: uses the Drafts API (drafts.delete) which properly removes the draft
+ * - IMAP: permanently deletes the message directly from the Drafts folder (no MOVE to Trash)
+ *
+ * This is the correct entry point when the user presses # in the Drafts view.
+ * Never use trashThread() for drafts — IMAP MOVE assigns new UIDs, breaking
+ * subsequent permanentDelete attempts.
+ */
+export async function deleteDraftThread(
+  accountId: string,
+  threadId: string,
+): Promise<void> {
+  const account = await getAccount(accountId);
+  if (!account) return;
+
+  if (account.provider === "gmail_api") {
+    const { getGmailClient } = await import("@/services/gmail/tokenManager");
+    const { deleteDraftsForThread } = await import("@/services/gmail/draftDeletion");
+    const client = await getGmailClient(accountId);
+    await deleteDraftsForThread(client, accountId, threadId);
+  } else {
+    // IMAP: delete directly from current folder (avoids UID-changing MOVE to Trash)
+    await permanentDeleteThread(accountId, threadId, []);
+    await deleteThreadFromDb(accountId, threadId);
+  }
 }
