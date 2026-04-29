@@ -565,16 +565,16 @@ export function Composer() {
 
         {/* Main content with AI sidebar */}
         <div className="flex-1 flex flex-row overflow-hidden">
-          {/* Editor */}
-          <div className="flex-1 overflow-y-auto min-w-0">
+          {/* Editor + Signature */}
+          <div className="flex-1 overflow-y-auto min-w-0 flex flex-col">
             <EditorContent editor={editor} />
+            {signatureHtml && (
+              <div
+                className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }}
+              />
+            )}
           </div>
-          {signatureHtml && (
-            <div
-              className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }}
-            />
-          )}
 
           {/* AI Sidebar - right side */}
           {aiSidebarOpen && (
