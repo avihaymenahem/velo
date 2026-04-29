@@ -173,13 +173,17 @@ export function Composer() {
     },
   });
 
-  // Apply composer default font/size whenever they change
+  // Apply composer default font/size whenever they change.
+  // Guard with isOpen: in TipTap v3, editor.view is a Proxy that throws for
+  // unknown keys (including 'dom') when the EditorView hasn't been mounted yet.
+  // EditorContent only mounts when isOpen is true (unmountOnExit), so we must
+  // not access editor.view.dom while the composer is closed.
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || !isOpen) return;
     const el = editor.view.dom as HTMLElement;
     el.style.fontFamily = COMPOSER_FONT_MAP[composerFontFamily];
     el.style.fontSize = composerFontSize;
-  }, [editor, composerFontFamily, composerFontSize]);
+  }, [editor, isOpen, composerFontFamily, composerFontSize]);
 
   // Load signature, aliases, and templates in parallel when composer opens or account changes
   useEffect(() => {

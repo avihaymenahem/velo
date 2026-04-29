@@ -253,6 +253,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     return Promise.all(
       dbThreads.map(async (t) => {
         const labelIds = await getThreadLabelIds(t.account_id, t.id);
+        const alwaysRead = labelIds.includes("DRAFT") || labelIds.includes("TRASH");
         return {
           id: t.id,
           accountId: t.account_id,
@@ -260,7 +261,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
           snippet: t.snippet,
           lastMessageAt: t.last_message_at ?? 0,
           messageCount: t.message_count,
-          isRead: t.is_read === 1,
+          isRead: alwaysRead || t.is_read === 1,
           isStarred: t.is_starred === 1,
           isPinned: t.is_pinned === 1,
           isMuted: t.is_muted === 1,
