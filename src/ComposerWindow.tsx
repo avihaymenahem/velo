@@ -68,6 +68,7 @@ export default function ComposerWindow() {
         const inReplyToMessageId = params.get("inReplyToMessageId") ?? null;
         const draftId = params.get("draftId") ?? null;
         const fromEmail = params.get("fromEmail");
+        const accountId = params.get("accountId"); // Account selezionato nel compositor
 
         // Decode base64 body
         let bodyHtml = "";
@@ -93,9 +94,12 @@ export default function ComposerWindow() {
           draftId,
         });
 
-        // Set fromEmail and force fullpage mode
+        // Set fromEmail and accountId, then force fullpage mode
         if (fromEmail) {
           useComposerStore.getState().setFromEmail(fromEmail);
+        }
+        if (accountId) {
+          useComposerStore.getState().setComposerAccountId(accountId);
         }
         useComposerStore.getState().setViewMode("fullpage");
       } catch (err) {

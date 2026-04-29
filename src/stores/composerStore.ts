@@ -30,6 +30,7 @@ export interface ComposerState {
   lastSavedAt: number | null;
   isSaving: boolean;
   fromEmail: string | null;
+  composerAccountId: string | null; // Account selezionato nel compositor (null = usa activeAccountId)
   viewMode: ComposerViewMode;
   signatureHtml: string;
   signatureId: string | null;
@@ -62,6 +63,7 @@ export interface ComposerState {
   setLastSavedAt: (ts: number | null) => void;
   setIsSaving: (saving: boolean) => void;
   setFromEmail: (email: string | null) => void;
+  setComposerAccountId: (accountId: string | null) => void;
   setViewMode: (mode: ComposerViewMode) => void;
   setSignatureHtml: (html: string) => void;
   setSignatureId: (id: string | null) => void;
@@ -86,6 +88,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
   attachments: [],
   viewMode: "modal",
   fromEmail: null,
+  composerAccountId: null,
   lastSavedAt: null,
   isSaving: false,
   signatureHtml: "",
@@ -108,6 +111,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
       draftId: opts?.draftId ?? null,
       viewMode: "modal",
       fromEmail: null,
+      composerAccountId: null,
       attachments: [],
       lastSavedAt: null,
       isSaving: false,
@@ -131,6 +135,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
       draftId: null,
       viewMode: "modal",
       fromEmail: null,
+      composerAccountId: null,
       attachments: [],
       lastSavedAt: null,
       isSaving: false,
@@ -157,6 +162,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
   setLastSavedAt: (lastSavedAt) => set({ lastSavedAt }),
   setIsSaving: (isSaving) => set({ isSaving }),
   setFromEmail: (fromEmail) => set({ fromEmail }),
+  setComposerAccountId: (composerAccountId) => set({ composerAccountId }),
   setViewMode: (viewMode) => set({ viewMode }),
   setSignatureHtml: (signatureHtml) => set({ signatureHtml }),
   setSignatureId: (signatureId) => set({ signatureId }),

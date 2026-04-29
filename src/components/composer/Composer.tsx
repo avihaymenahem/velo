@@ -20,6 +20,7 @@ import { ScheduleSendDialog } from "./ScheduleSendDialog";
 import { SignatureSelector } from "./SignatureSelector";
 import { TemplatePicker } from "./TemplatePicker";
 import { FromSelector } from "./FromSelector";
+import { ComposerAccountSwitcher } from "./ComposerAccountSwitcher";
 import { useComposerStore } from "@/stores/composerStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -67,7 +68,12 @@ export function Composer() {
 
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const accounts = useAccountStore((s) => s.accounts);
-  const activeAccount = accounts.find((a) => a.id === activeAccountId);
+  const composerAccountId = useComposerStore((s) => s.composerAccountId);
+  const setComposerAccountId = useComposerStore((s) => s.setComposerAccountId);
+
+  // Account effettivamente usato nel compositor (composerAccountId se impostato, altrimenti activeAccountId)
+  const effectiveAccountId = composerAccountId ?? activeAccountId;
+  const activeAccount = accounts.find((a) => a.id === effectiveAccountId);
   const sendingRef = useRef(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -151,15 +157,15 @@ export function Composer() {
     },
   });
 
-  // Load signature, aliases, and templates in parallel when composer opens
+  // Load signature, aliases, and templates in parallel when composer opens or account changes
   useEffect(() => {
-    if (!isOpen || !activeAccountId) return;
+    if (!isOpen || !effectiveAccountId) return;
     let cancelled = false;
 
     Promise.all([
-      getDefaultSignature(activeAccountId),
-      getAliasesForAccount(activeAccountId),
-      getTemplatesForAccount(activeAccountId),
+      getDefaultSignature(effectiveAccountId),
+      getAliasesForAccount(effectiveAccountId),
+      getTemplatesForAccount(effectiveAccountId),
     ]).then(([sig, dbAliases, templates]) => {
       if (cancelled) return;
       const store = useComposerStore.getState();
@@ -168,19 +174,32 @@ export function Composer() {
       if (sig) {
         store.setSignatureHtml(sig.body_html);
         store.setSignatureId(sig.id);
+      } else {
+        store.setSignatureHtml("");
+        store.setSignatureId(null);
       }
 
       // Aliases + fromEmail resolution
       const mapped = dbAliases.map(mapDbAlias);
       setAliases(mapped);
-      if (!store.fromEmail && mapped.length > 0) {
-        if (store.mode === "reply" || store.mode === "replyAll" || store.mode === "forward") {
-          const resolved = resolveFromAddress(mapped, store.to.join(", "), store.cc.join(", "));
-          if (resolved) store.setFromEmail(resolved.email);
+
+      // Reset fromEmail when changing account, then resolve new default
+      if (!store.fromEmail || store.composerAccountId !== composerAccountId) {
+        if (mapped.length > 0) {
+          if (store.mode === "reply" || store.mode === "replyAll" || store.mode === "forward") {
+            const resolved = resolveFromAddress(mapped, store.to.join(", "), store.cc.join(", "));
+            if (resolved) store.setFromEmail(resolved.email);
+          } else {
+            const defaultAlias = mapped.find((a) => a.isDefault) ?? mapped.find((a) => a.isPrimary) ?? mapped[0];
+            if (defaultAlias) store.setFromEmail(defaultAlias.email);
+          }
         } else {
-          const defaultAlias = mapped.find((a) => a.isDefault) ?? mapped.find((a) => a.isPrimary) ?? mapped[0];
-          if (defaultAlias) store.setFromEmail(defaultAlias.email);
+          store.setFromEmail(null);
         }
+      }
+      // If fromEmail is set but not in current aliases, reset it
+      if (store.fromEmail && !mapped.some((a) => a.email === store.fromEmail)) {
+        store.setFromEmail(null);
       }
 
       // Templates
@@ -188,14 +207,14 @@ export function Composer() {
     });
 
     return () => { cancelled = true; };
-  }, [isOpen, activeAccountId]);
+  }, [isOpen, effectiveAccountId, composerAccountId]);
 
   // Start/stop draft auto-save
   useEffect(() => {
-    if (!isOpen || !activeAccountId) return;
-    startAutoSave(activeAccountId);
+    if (!isOpen || !effectiveAccountId) return;
+    startAutoSave(effectiveAccountId);
     return () => { stopAutoSave(); };
-  }, [isOpen, activeAccountId]);
+  }, [isOpen, effectiveAccountId]);
 
   // Sync editor content when composer opens (clear on fresh compose, load content on draft restore)
   useEffect(() => {
@@ -259,7 +278,7 @@ export function Composer() {
   }, [editor, signatureHtml]);
 
   const handleSend = useCallback(async () => {
-    if (!activeAccountId || !activeAccount || sendingRef.current) return;
+    if (!effectiveAccountId || !activeAccount || sendingRef.current) return;
     const state = useComposerStore.getState();
     if (state.to.length === 0) return;
 
@@ -296,16 +315,16 @@ export function Composer() {
 
     const timer = setTimeout(async () => {
       try {
-        await sendEmail(activeAccountId, raw, state.threadId ?? undefined);
+        await sendEmail(effectiveAccountId, raw, state.threadId ?? undefined);
 
         // Delete draft if it was saved
         if (currentDraftId) {
-          try { await deleteDraftAction(activeAccountId, currentDraftId); } catch { /* ignore */ }
+          try { await deleteDraftAction(effectiveAccountId, currentDraftId); } catch { /* ignore */ }
         }
 
         // Send & archive: remove from inbox if replying to a thread
         if (useUIStore.getState().sendAndArchive && state.threadId) {
-          try { await archiveThread(activeAccountId, state.threadId, []); } catch { /* ignore */ }
+          try { await archiveThread(effectiveAccountId, state.threadId, []); } catch { /* ignore */ }
         }
 
         // Update contacts frequency
@@ -322,10 +341,10 @@ export function Composer() {
 
     state.setUndoSendTimer(timer);
     closeComposer();
-  }, [activeAccountId, activeAccount, closeComposer, getFullHtml]);
+  }, [effectiveAccountId, activeAccount, closeComposer, getFullHtml]);
 
   const handleSchedule = useCallback(async (scheduledAt: number) => {
-    if (!activeAccountId || !activeAccount) return;
+    if (!effectiveAccountId || !activeAccount) return;
     const state = useComposerStore.getState();
     if (state.to.length === 0) return;
 
@@ -340,7 +359,7 @@ export function Composer() {
       : null;
 
     await insertScheduledEmail({
-      accountId: activeAccountId,
+      accountId: effectiveAccountId,
       toAddresses: state.to.join(", "),
       ccAddresses: state.cc.length > 0 ? state.cc.join(", ") : null,
       bccAddresses: state.bcc.length > 0 ? state.bcc.join(", ") : null,
@@ -361,7 +380,7 @@ export function Composer() {
       // Get the most recently inserted scheduled email for this account
       const rows = await db.select<{ id: string }[]>(
         "SELECT id FROM scheduled_emails WHERE account_id = $1 ORDER BY created_at DESC LIMIT 1",
-        [activeAccountId],
+        [effectiveAccountId],
       );
       if (rows[0]) {
         await db.execute(
@@ -375,35 +394,35 @@ export function Composer() {
     // Delete the draft if exists
     if (state.draftId) {
       try {
-        await deleteDraftAction(activeAccountId, state.draftId);
+        await deleteDraftAction(effectiveAccountId, state.draftId);
       } catch { /* ignore */ }
     }
 
     setShowSchedule(false);
     closeComposer();
-  }, [activeAccountId, activeAccount, closeComposer, getFullHtml]);
+  }, [effectiveAccountId, activeAccount, closeComposer, getFullHtml]);
 
   const handleDiscard = useCallback(async () => {
     stopAutoSave();
     // Delete the draft if it was saved
     const currentDraftId = useComposerStore.getState().draftId;
-    if (currentDraftId && activeAccountId) {
+    if (currentDraftId && effectiveAccountId) {
       try {
-        await deleteDraftAction(activeAccountId, currentDraftId);
+        await deleteDraftAction(effectiveAccountId, currentDraftId);
       } catch { /* ignore */ }
     }
     closeComposer();
-  }, [activeAccountId, closeComposer]);
+  }, [effectiveAccountId, closeComposer]);
 
   const handleClose = useCallback(async () => {
     const state = useComposerStore.getState();
     const hasContent = !!(state.bodyHtml || state.subject || state.to.length > 0);
-    if (hasContent && activeAccountId) {
+    if (hasContent && effectiveAccountId) {
       await saveNow();
     }
     stopAutoSave();
     closeComposer();
-  }, [activeAccountId, closeComposer]);
+  }, [effectiveAccountId, closeComposer]);
 
   const handlePopOutComposer = useCallback(async () => {
     try {
@@ -420,6 +439,8 @@ export function Composer() {
       if (state.inReplyToMessageId) params.set("inReplyToMessageId", state.inReplyToMessageId);
       if (state.draftId) params.set("draftId", state.draftId);
       if (state.fromEmail) params.set("fromEmail", state.fromEmail);
+      // Pass composerAccountId to the popped out window
+      if (state.composerAccountId) params.set("accountId", state.composerAccountId);
       // Encode body as base64 to safely pass HTML
       const bodyHtml = editor?.getHTML() ?? "";
       if (bodyHtml) params.set("body", btoa(unescape(encodeURIComponent(bodyHtml))));
@@ -490,9 +511,18 @@ export function Composer() {
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-border-primary bg-bg-secondary rounded-t-lg">
-          <span className="text-sm font-medium text-text-primary">
-            {modeLabel}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-text-primary">
+              {modeLabel}
+            </span>
+            {accounts.length > 1 && (
+              <ComposerAccountSwitcher
+                accounts={accounts}
+                currentAccountId={effectiveAccountId}
+                onSwitch={setComposerAccountId}
+              />
+            )}
+          </div>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setViewMode(isFullpage ? "modal" : "fullpage")}
@@ -597,6 +627,9 @@ export function Composer() {
           <div className="flex items-center gap-3">
             <div className="text-xs text-text-tertiary">
               {fromEmail ?? activeAccount?.email ?? "No account"}
+              {composerAccountId && (
+                <span className="ml-1 text-text-tertiary/60">({accounts.find(a => a.id === composerAccountId)?.email})</span>
+              )}
             </div>
             {savedLabel && (
               <span className={`text-xs text-text-tertiary italic transition-opacity duration-200 ${isSaving ? "animate-pulse" : ""}`}>
