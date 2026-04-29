@@ -61,6 +61,7 @@ export function Composer() {
   const fromEmail = useComposerStore((s) => s.fromEmail);
   const viewMode = useComposerStore((s) => s.viewMode);
   const signatureHtml = useComposerStore((s) => s.signatureHtml);
+  const quotedHtml = useComposerStore((s) => s.quotedHtml);
   const isSaving = useComposerStore((s) => s.isSaving);
   const lastSavedAt = useComposerStore((s) => s.lastSavedAt);
   // Note: bodyHtml intentionally NOT subscribed — TipTap manages its own editor state.
@@ -296,8 +297,23 @@ export function Composer() {
 
   const getFullHtml = useCallback(() => {
     const editorHtml = editor?.getHTML() ?? "";
-    if (!signatureHtml) return editorHtml;
-    return `${editorHtml}<div style="margin-top:16px;border-top:1px solid #e5e5e5;padding-top:12px">${sanitizeHtml(signatureHtml)}</div>`;
+    const quotedHtml = useComposerStore.getState().quotedHtml;
+    
+    // Start with editor content (user's message)
+    let html = editorHtml;
+    
+    // Add signature after user's message (for all modes)
+    if (signatureHtml) {
+      const signatureDiv = `<div style="margin-top:16px;border-top:1px solid #e5e5e5;padding-top:12px">${sanitizeHtml(signatureHtml)}</div>`;
+      html = `${html}${signatureDiv}`;
+    }
+    
+    // Add quoted content (reply/forward) after signature
+    if (quotedHtml) {
+      html = `${html}${quotedHtml}`;
+    }
+    
+    return html;
   }, [editor, signatureHtml]);
 
   const handleSend = useCallback(async () => {
@@ -618,13 +634,21 @@ export function Composer() {
 
         {/* Main content with AI sidebar */}
         <div className="flex-1 flex flex-row overflow-hidden">
-          {/* Editor + Signature */}
+          {/* Editor + Signature + Quoted content */}
           <div className="flex-1 overflow-y-auto min-w-0 flex flex-col">
             <EditorContent editor={editor} />
+            {/* Signature preview (always show if exists) */}
             {signatureHtml && (
               <div
                 className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary"
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }}
+              />
+            )}
+            {/* Quoted content preview for reply/forward (read-only) */}
+            {quotedHtml && (
+              <div
+                className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: quotedHtml }}
               />
             )}
           </div>

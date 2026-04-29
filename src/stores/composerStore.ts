@@ -20,6 +20,7 @@ export interface ComposerState {
   bcc: string[];
   subject: string;
   bodyHtml: string;
+  quotedHtml?: string; // Citazioni per reply/forward (vuoto per nuovi messaggi)
   threadId: string | null;
   inReplyToMessageId: string | null;
   showCcBcc: boolean;
@@ -43,6 +44,7 @@ export interface ComposerState {
     bcc?: string[];
     subject?: string;
     bodyHtml?: string;
+    quotedHtml?: string; // Citazioni per reply/forward
     threadId?: string | null;
     inReplyToMessageId?: string | null;
     draftId?: string | null;
@@ -67,6 +69,7 @@ export interface ComposerState {
   setViewMode: (mode: ComposerViewMode) => void;
   setSignatureHtml: (html: string) => void;
   setSignatureId: (id: string | null) => void;
+  setQuotedHtml: (html: string) => void;
   setAiSidebarOpen: (open: boolean) => void;
   toggleAiSidebar: () => void;
 }
@@ -104,11 +107,14 @@ export const useComposerStore = create<ComposerState>((set) => ({
       bcc: opts?.bcc ?? [],
       subject: opts?.subject ?? "",
       bodyHtml: opts?.bodyHtml ?? "",
+      quotedHtml: opts?.quotedHtml ?? "",
       threadId: opts?.threadId ?? null,
       inReplyToMessageId: opts?.inReplyToMessageId ?? null,
       showCcBcc: (opts?.cc?.length ?? 0) > 0 || (opts?.bcc?.length ?? 0) > 0,
       // Always clear draftId when opening fresh compose (unless restoring a specific draft)
       draftId: opts?.draftId ?? null,
+      undoSendTimer: null,
+      undoSendVisible: false,
       viewMode: "modal",
       fromEmail: null,
       composerAccountId: null,
@@ -129,10 +135,13 @@ export const useComposerStore = create<ComposerState>((set) => ({
       bcc: [],
       subject: "",
       bodyHtml: "",
+      quotedHtml: "",
       threadId: null,
       inReplyToMessageId: null,
       showCcBcc: false,
       draftId: null,
+      undoSendTimer: null,
+      undoSendVisible: false,
       viewMode: "modal",
       fromEmail: null,
       composerAccountId: null,
@@ -166,6 +175,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
   setViewMode: (viewMode) => set({ viewMode }),
   setSignatureHtml: (signatureHtml) => set({ signatureHtml }),
   setSignatureId: (signatureId) => set({ signatureId }),
+  setQuotedHtml: (quotedHtml) => set({ quotedHtml }),
   setAiSidebarOpen: (aiSidebarOpen) => set({ aiSidebarOpen }),
   toggleAiSidebar: () => set((state) => ({ aiSidebarOpen: !state.aiSidebarOpen })),
 }));
