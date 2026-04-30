@@ -1,11 +1,10 @@
-import { useRef, useCallback, useEffect, useMemo, useState } from "react";
+import { useRef, useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { ImageOff } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { stripRemoteImages, hasBlockedImages } from "@/utils/imageBlocker";
 import { addToAllowlist } from "@/services/db/imageAllowlist";
 import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { useUIStore } from "@/stores/uiStore";
-import type { DbAttachment } from "@/services/db/attachments";
 
 interface EmailRendererProps {
   html: string | null;
@@ -14,8 +13,6 @@ interface EmailRendererProps {
   senderAddress?: string | null;
   accountId?: string | null;
   senderAllowlisted?: boolean;
-  messageId?: string | null;
-  inlineAttachments?: DbAttachment[];
 }
 
 export function EmailRenderer({
@@ -25,12 +22,11 @@ export function EmailRenderer({
   senderAddress,
   accountId,
   senderAllowlisted = false,
-  messageId,
-  inlineAttachments,
 }: EmailRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const rafRef = useRef<number>(0);
   const [overrideShow, setOverrideShow] = useState(false);
-  const [cidMap, setCidMap] = useState<Map<string, string>>(new Map());
 
   const theme = useUIStore((s) => s.theme);
   const isDark = theme === "dark"
@@ -38,50 +34,6 @@ export function EmailRenderer({
 
   const shouldBlock = blockImages && !senderAllowlisted && !overrideShow;
 
-  // Resolve cid: references by fetching inline attachment data
-  useEffect(() => {
-    if (!accountId || !messageId || !inlineAttachments?.length) return;
-
-    const cidAttachments = inlineAttachments.filter(
-      (a) => a.content_id && a.gmail_attachment_id,
-    );
-    if (cidAttachments.length === 0) return;
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const { getEmailProvider } = await import("@/services/email/providerFactory");
-        const provider = await getEmailProvider(accountId);
-        const resolved = new Map<string, string>();
-
-        await Promise.all(
-          cidAttachments.map(async (att) => {
-            try {
-              const response = await provider.fetchAttachment(
-                messageId,
-                att.gmail_attachment_id!,
-              );
-              const base64 = response.data.replace(/-/g, "+").replace(/_/g, "/");
-              resolved.set(att.content_id!, `data:${att.mime_type ?? "image/png"};base64,${base64}`);
-            } catch {
-              // Skip individual failures
-            }
-          }),
-        );
-
-        if (!cancelled && resolved.size > 0) {
-          setCidMap(resolved);
-        }
-      } catch {
-        // Non-critical — images just won't render
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [accountId, messageId, inlineAttachments]);
-
-  // Sanitize once — reused by both content and blocked-image check
   const sanitizedBody = useMemo(() => {
     if (!html) return null;
     return sanitizeHtml(html);
@@ -97,114 +49,89 @@ export function EmailRenderer({
       body = stripRemoteImages(body);
     }
 
-    // Replace cid: references with resolved data URIs
-    if (cidMap.size > 0) {
-      body = body.replace(
-        /\bcid:([^"'\s)]+)/gi,
-        (match, cidRef: string) => cidMap.get(cidRef) ?? match,
-      );
-    }
-
     return body;
-  }, [sanitizedBody, text, shouldBlock, cidMap]);
+  }, [sanitizedBody, text, shouldBlock]);
 
   const blocked = useMemo(() => {
     if (!shouldBlock || !sanitizedBody) return false;
     return hasBlockedImages(stripRemoteImages(sanitizedBody));
   }, [shouldBlock, sanitizedBody]);
 
-  // Build the full srcdoc string including an injected script.
-  // The iframe uses sandbox="allow-scripts allow-popups" WITHOUT allow-same-origin,
-  // giving it a null origin so Tauri's CSP (bound to ipc://localhost) does not apply
-  // to its content — remote images load freely for allowlisted senders.
-  // The injected script is safe: email HTML is already DOMPurify-sanitised, and the
-  // sandbox prevents the iframe from accessing parent DOM or Tauri APIs.
-  const srcdoc = useMemo(() => {
-    const plainTextDark = isDark && isPlainText;
-    const htmlDark = isDark && !isPlainText;
-
-    // Script communicates height updates and link clicks to the parent via postMessage.
-    // Using string concatenation for the closing script tag avoids bundler issues.
-    const script = `<scri` + `pt>(function(){`
-      + `function sh(){`
-      + `var b=document.body,e=document.documentElement;`
-      + `var h=Math.max(b.scrollHeight,b.offsetHeight,e.clientHeight,e.scrollHeight,e.offsetHeight);`
-      + `window.parent.postMessage({t:'h',v:h},'*');}`
-      + `document.addEventListener('click',function(e){`
-      + `var a=e.target&&e.target.closest?e.target.closest('a'):null;`
-      + `if(a&&a.href){e.preventDefault();window.parent.postMessage({t:'l',u:a.href},'*');}`
-      + `});`
-      + `if(window.ResizeObserver){new ResizeObserver(sh).observe(document.body);}`
-      + `window.addEventListener('load',sh);`
-      + `setTimeout(sh,100);`
-      + `})();</scri` + `pt>`;
-
-    return `<!DOCTYPE html>
-<html>
-<head>
-<style>
-body{margin:0;padding:16px;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;line-height:1.6;color:${plainTextDark ? "#e5e7eb" : "#1f2937"};background:${htmlDark ? "#f8f9fa" : "transparent"};word-wrap:break-word;overflow-wrap:break-word;overflow:hidden;}
-img{max-width:100%;height:auto;}
-a{color:${plainTextDark ? "#60a5fa" : "#3b82f6"};}
-blockquote{border-left:3px solid ${plainTextDark ? "#4b5563" : "#d1d5db"};margin:8px 0;padding:4px 12px;color:${plainTextDark ? "#9ca3af" : "#6b7280"};}
-pre{overflow-x:auto;}
-table{max-width:100%;}
-</style>
-</head>
-<body>${bodyHtml}${script}</body>
-</html>`;
-  }, [bodyHtml, isDark, isPlainText]);
-
-  // Write content and monitor height
-  useEffect(() => {
+  useLayoutEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
 
+    observerRef.current?.disconnect();
+
+    const doc = iframe.contentDocument;
+    if (!doc) return;
+
+    doc.open();
+    const applyDarkStyles = isDark && isPlainText;
+    doc.write(`<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: ${applyDarkStyles ? "#e5e7eb" : "#1f2937"};
+      background: transparent;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      overflow: hidden;
+    }
+    img { max-width: 100%; height: auto; }
+    a { color: ${applyDarkStyles ? "#60a5fa" : "#3b82f6"}; }
+    blockquote {
+      border-left: 3px solid ${applyDarkStyles ? "#4b5563" : "#d1d5db"};
+      margin: 8px 0;
+      padding: 4px 12px;
+      color: ${applyDarkStyles ? "#9ca3af" : "#6b7280"};
+    }
+    pre { overflow-x: auto; }
+    table { max-width: 100%; }
+  </style>
+</head>
+<body>${bodyHtml}</body>
+</html>`);
+    doc.close();
+
     const applyHeight = () => {
-      try {
-        const doc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (doc && doc.body) {
-          const height = doc.body.scrollHeight;
-          if (height > 0) {
-            iframe.style.height = height + "px";
-          }
-        }
-      } catch (e) {
-        // Ignore cross-origin errors if any
+      if (!doc.body) return;
+      const h = doc.body.scrollHeight;
+      if (h > 0) {
+        iframe.style.height = h + "px";
       }
     };
-
-    const handleLoad = () => {
-      applyHeight();
-      try {
-        const doc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (doc && doc.body) {
-          const observer = new ResizeObserver(applyHeight);
-          observer.observe(doc.body);
-          // Handle link clicks
-          doc.addEventListener("click", (e) => {
-            const target = e.target as HTMLElement;
-            const anchor = target.closest("a");
-            if (anchor?.href) {
-              e.preventDefault();
-              openUrl(anchor.href).catch(console.error);
-            }
-          });
-          return () => observer.disconnect();
-        }
-      } catch (e) {
-        console.error("Iframe access failed:", e);
-      }
-    };
-
-    iframe.addEventListener("load", handleLoad);
-    // Initial apply if already loaded
     applyHeight();
 
+    const resizeObserver = new ResizeObserver(() => {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(applyHeight);
+    });
+    resizeObserver.observe(doc.body);
+    observerRef.current = resizeObserver;
+
+    doc.addEventListener("click", (e) => {
+      const target = e.target as HTMLElement;
+      const anchor = target.closest("a");
+      if (anchor?.href) {
+        e.preventDefault();
+        openUrl(anchor.href).catch((err) => {
+          console.error("Failed to open link:", err);
+        });
+      }
+    });
+
     return () => {
-      iframe.removeEventListener("load", handleLoad);
+      observerRef.current?.disconnect();
+      cancelAnimationFrame(rafRef.current);
     };
-  }, [srcdoc]);
+  }, [bodyHtml, isDark, isPlainText]);
 
   const handleLoadImages = useCallback(() => {
     setOverrideShow(true);
@@ -243,13 +170,9 @@ table{max-width:100%;}
       )}
       <iframe
         ref={iframeRef}
-        sandbox="allow-same-origin allow-scripts allow-popups"
-        srcDoc={srcdoc}
-        className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
-        style={{ 
-          height: "150px", // Initial fallback
-          overflow: "hidden" 
-        }}
+        sandbox="allow-same-origin"
+        className="w-full border-0"
+        style={{ overflow: "hidden" }}
         title="Email content"
       />
     </div>
