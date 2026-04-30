@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TextStyle } from "@tiptap/extension-text-style";
@@ -6,11 +6,12 @@ import { Color } from "@tiptap/extension-color";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
-import { Trash2, Pencil, Code, ChevronDown, AlertCircle, Download } from "lucide-react";
+import { ChevronDown, Check, Trash2, Pencil, Code, AlertCircle, Download } from "lucide-react";
 import { TextField } from "@/components/ui/TextField";
 import { EditorToolbar } from "@/components/composer/EditorToolbar";
 import { FontFamily, FontSize } from "@/components/composer/tiptapExtensions";
 import { useAccountStore } from "@/stores/accountStore";
+import { useClickOutside } from "@/hooks/useClickOutside";
 import {
   getSignaturesForAccount,
   getAvailableSignaturesForAccount,
@@ -35,6 +36,10 @@ export function SignatureEditor() {
   const [rawHtml, setRawHtml] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [openAccountDropdown, setOpenAccountDropdown] = useState(false);
+  const accountDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useClickOutside(accountDropdownRef, () => setOpenAccountDropdown(false));
 
   // Initialize selected account
   useEffect(() => {
@@ -49,6 +54,15 @@ export function SignatureEditor() {
       }
     }
   }, [accounts, activeAccountId, selectedAccountId]);
+
+  const handleAccountSelect = useCallback(
+    (accountId: string) => {
+      setSelectedAccountId(accountId);
+      setOpenAccountDropdown(false);
+      resetForm();
+    },
+    [setSelectedAccountId],
+  );
 
   const editor = useEditor({
     extensions: [
@@ -168,39 +182,57 @@ export function SignatureEditor() {
     <div className="space-y-3">
       {/* Account selector */}
       {accounts.length > 1 && (
-        <div className="space-y-1.5">
-          <p className="text-[0.7rem] font-medium text-text-tertiary uppercase tracking-wide px-0.5">
-            Account
-          </p>
-          <div className="relative flex items-center gap-2.5 py-2 px-3 bg-bg-secondary hover:bg-bg-hover border border-border-primary rounded-lg transition-colors">
-            <div className="w-6 h-6 rounded-full bg-accent/15 text-accent text-[0.625rem] font-bold flex items-center justify-center shrink-0 select-none">
-              {accountInitial}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-text-primary truncate leading-none">
-                {selectedAccount?.displayName ?? selectedAccount?.email ?? "—"}
-              </p>
-              {selectedAccount?.displayName && (
-                <p className="text-[0.65rem] text-text-tertiary truncate mt-0.5">
-                  {selectedAccount.email}
-                </p>
-              )}
-            </div>
-            <ChevronDown size={13} className="text-text-tertiary shrink-0" />
-            <select
-              value={selectedAccountId ?? ""}
-              onChange={(e) => {
-                setSelectedAccountId(e.target.value);
-                resetForm();
-              }}
-              className="absolute inset-0 w-full opacity-0 cursor-pointer"
+        <div className="flex items-center gap-2 py-2 px-3 bg-bg-secondary rounded-md">
+          <div className="w-5 h-5 rounded-full bg-accent/15 text-accent text-[0.6rem] font-bold flex items-center justify-center shrink-0 select-none">
+            {accountInitial}
+          </div>
+          <div ref={accountDropdownRef} className="relative flex-1 min-w-0">
+            <button
+              onClick={() => setOpenAccountDropdown((v) => !v)}
+              className="flex items-center gap-2 w-full text-left px-1 py-0.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
             >
-              {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.displayName ? `${acc.displayName} (${acc.email})` : acc.email}
-                </option>
-              ))}
-            </select>
+              <span className="truncate">
+                {selectedAccount?.displayName
+                  ? `${selectedAccount.displayName} (${selectedAccount.email})`
+                  : selectedAccount?.email ?? "Select account"}
+              </span>
+              <ChevronDown
+                size={12}
+                className={`shrink-0 text-text-secondary transition-transform duration-200 ${
+                  openAccountDropdown ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {openAccountDropdown && (
+              <div className="absolute left-0 top-full mt-1 py-1 w-full rounded-lg border border-border-primary bg-bg-primary shadow-lg z-50 glass-panel">
+                {accounts.map((account) => {
+                  const isActive = account.id === selectedAccountId;
+                  return (
+                    <button
+                      key={account.id}
+                      onClick={() => handleAccountSelect(account.id)}
+                      className={`flex items-center gap-2 w-full px-3 py-1.5 text-left transition-colors ${
+                        isActive
+                          ? "bg-accent/8 text-accent"
+                          : "text-text-primary hover:bg-bg-hover"
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium truncate leading-tight">
+                          {account.displayName || account.email.split("@")[0]}
+                        </div>
+                        <div className="text-[0.625rem] text-text-secondary truncate leading-tight">
+                          {account.email}
+                        </div>
+                      </div>
+                      {isActive && (
+                        <Check size={12} className="shrink-0 text-accent" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -254,7 +286,7 @@ export function SignatureEditor() {
           {availableSignatures.map((sig) => (
             <div
               key={sig.id}
-              className="flex items-center justify-between py-2 px-3 bg-bg-secondary/40 border border-border-primary/40 rounded-md opacity-60"
+              className="flex items-center justify-between py-2 px-3 bg-bg-secondary rounded-md opacity-40"
             >
               <p className="flex-1 min-w-0 text-sm font-medium text-text-secondary truncate">
                 {sig.name}
