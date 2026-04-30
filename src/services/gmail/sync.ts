@@ -1,7 +1,7 @@
 import { GmailClient } from "./client";
 import { parseGmailMessage, type ParsedMessage } from "./messageParser";
 import { upsertLabel } from "../db/labels";
-import { upsertThread, setThreadLabels, deleteThread } from "../db/threads";
+import { upsertThread, setThreadLabels, deleteThread, recalculateThreadStats } from "../db/threads";
 import { upsertMessage } from "../db/messages";
 import { upsertAttachment } from "../db/attachments";
 import { updateAccountSyncState } from "../db/accounts";
@@ -67,6 +67,9 @@ async function processAndStoreThread(
   });
 
   await setThreadLabels(accountId, thread.id, [...allLabelIds]);
+
+  // Ensure thread stats (count, unread, etc.) are up to date
+  await recalculateThreadStats(accountId, thread.id);
 
   // Rule-based categorization for inbox threads
   if (allLabelIds.has("INBOX")) {
@@ -149,6 +152,9 @@ async function processAndStoreThread(
       }),
     ));
   }));
+
+  // Ensure thread stats (count, unread, etc.) are up to date after message upserts
+  await recalculateThreadStats(accountId, thread.id);
 }
 
 /**

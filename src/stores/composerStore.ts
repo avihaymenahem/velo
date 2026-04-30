@@ -99,7 +99,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
   aiSidebarOpen: false,
 
   openComposer: (opts) => {
-    const isTest = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
+    const isTest = import.meta.env.MODE === 'test';
     const isComposerWindow = new URLSearchParams(window.location.search).has("compose") || isTest;
 
     if (isComposerWindow) {

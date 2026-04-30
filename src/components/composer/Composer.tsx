@@ -235,21 +235,27 @@ export function Composer() {
   const handleDragOver = useCallback((e: React.DragEvent) => e.preventDefault(), []);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounterRef.current = 0;
-    setIsDragging(false);
     const files = e.dataTransfer.files;
-    if (!files || files.length === 0) return;
-    for (const file of Array.from(files)) {
-      const content = await readFileAsBase64(file);
-      addAttachment({
-        id: crypto.randomUUID(),
-        file,
-        filename: file.name,
-        mimeType: file.type || "application/octet-stream",
-        size: file.size,
-        content,
-      });
+    // Only intercept if we have actual local files to attach
+    if (files && files.length > 0) {
+      e.preventDefault();
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+      for (const file of Array.from(files)) {
+        const content = await readFileAsBase64(file);
+        addAttachment({
+          id: crypto.randomUUID(),
+          file,
+          filename: file.name,
+          mimeType: file.type || "application/octet-stream",
+          size: file.size,
+          content,
+        });
+      }
+    } else {
+      // For remote images/links, let the editor (Tiptap) handle it
+      dragCounterRef.current = 0;
+      setIsDragging(false);
     }
   }, [addAttachment]);
 

@@ -9,6 +9,12 @@ let currentAccountId: string | null = null;
 
 const DEBOUNCE_MS = 3000;
 
+function getPersistenceKey(accountId: string): string {
+  const state = useComposerStore.getState();
+  // Tie the draft to the account + thread (if any). Use 'new' for new messages.
+  return `v_draft_${accountId}_${state.threadId ?? "new"}`;
+}
+
 async function saveDraft(): Promise<void> {
   const state = useComposerStore.getState();
   // Capture the accountId at save time to avoid mismatch if user switches accounts during debounce
@@ -43,14 +49,34 @@ async function saveDraft(): Promise<void> {
     if (state.draftId) {
       await updateDraftAction(accountId, state.draftId, raw, state.threadId ?? undefined);
     } else {
-      const result = await createDraftAction(accountId, raw, state.threadId ?? undefined);
-      if (result.data && typeof result.data === "object" && "draftId" in result.data) {
-        const data = result.data as { draftId: string; threadId?: string };
-        state.setDraftId(data.draftId);
-        // For new composes (no reply thread), store the draft's thread so deleteDraft
-        // can clean up the local DB when the composer is closed or the email is sent.
-        if (data.threadId && !state.threadId) {
-          useComposerStore.setState({ threadId: data.threadId });
+      // Recovery: Check if we have a persisted draftId for this context (survives reload)
+      const key = getPersistenceKey(accountId);
+      const persistedId = localStorage.getItem(key);
+      if (persistedId) {
+        try {
+          await updateDraftAction(accountId, persistedId, raw, state.threadId ?? undefined);
+          state.setDraftId(persistedId);
+        } catch {
+          // If the persisted draft is gone (sent/deleted), create a new one
+          const result = await createDraftAction(accountId, raw, state.threadId ?? undefined);
+          if (result.data && typeof result.data === "object" && "draftId" in result.data) {
+            const data = result.data as { draftId: string; threadId?: string };
+            state.setDraftId(data.draftId);
+            localStorage.setItem(key, data.draftId);
+            if (data.threadId && !state.threadId) {
+              useComposerStore.setState({ threadId: data.threadId });
+            }
+          }
+        }
+      } else {
+        const result = await createDraftAction(accountId, raw, state.threadId ?? undefined);
+        if (result.data && typeof result.data === "object" && "draftId" in result.data) {
+          const data = result.data as { draftId: string; threadId?: string };
+          state.setDraftId(data.draftId);
+          localStorage.setItem(key, data.draftId);
+          if (data.threadId && !state.threadId) {
+            useComposerStore.setState({ threadId: data.threadId });
+          }
         }
       }
     }
@@ -117,6 +143,10 @@ export function stopAutoSave(): void {
   if (unsubscribe) {
     unsubscribe();
     unsubscribe = null;
+  }
+  // Clear persistence ONLY if the composer is actually closed (not just HMR)
+  if (currentAccountId && !useComposerStore.getState().isOpen) {
+    localStorage.removeItem(getPersistenceKey(currentAccountId));
   }
   currentAccountId = null;
 }
