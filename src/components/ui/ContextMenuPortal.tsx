@@ -40,6 +40,7 @@ import {
 import { triggerSync } from "@/services/gmail/syncManager";
 import { useUIStore } from "@/stores/uiStore";
 import { setThreadCategory, ALL_CATEGORIES } from "@/services/db/threadCategories";
+import { normalizeEmail } from "@/utils/emailUtils";
 
 function buildQuote(msg: { from_name: string | null; from_address: string | null; date: string | number; body_html: string | null; body_text: string | null }): string {
   const date = new Date(msg.date).toLocaleString();
@@ -261,16 +262,31 @@ function ThreadMenu({
     const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
     const allRecipients = new Set<string>();
     if (replyTo) allRecipients.add(replyTo);
+
+    const myEmails = new Set(useAccountStore.getState().accounts.map(a => normalizeEmail(a.email)));
+
     if (lastMessage.to_addresses) {
-      lastMessage.to_addresses.split(",").forEach((a) => allRecipients.add(a.trim()));
+      lastMessage.to_addresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          allRecipients.add(trimmed);
+        }
+      });
     }
+
     const ccList: string[] = [];
     if (lastMessage.cc_addresses) {
-      lastMessage.cc_addresses.split(",").forEach((a) => ccList.push(a.trim()));
+      lastMessage.cc_addresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          ccList.push(trimmed);
+        }
+      });
     }
+
     openComposer({
       mode: "replyAll",
-      to: Array.from(allRecipients),
+      to: Array.from(allRecipients).filter(r => !myEmails.has(normalizeEmail(r))),
       cc: ccList,
       subject: `Re: ${lastMessage.subject ?? ""}`,
       bodyHtml: buildQuote(lastMessage),
@@ -631,16 +647,29 @@ function MessageMenu({
     const replyAddr = replyTo ?? fromAddress;
     const allRecipients = new Set<string>();
     if (replyAddr) allRecipients.add(replyAddr);
+
+    const myEmails = new Set(useAccountStore.getState().accounts.map(a => normalizeEmail(a.email)));
+
     if (toAddresses) {
-      toAddresses.split(",").forEach((a) => allRecipients.add(a.trim()));
+      toAddresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          allRecipients.add(trimmed);
+        }
+      });
     }
     const ccList: string[] = [];
     if (ccAddresses) {
-      ccAddresses.split(",").forEach((a) => ccList.push(a.trim()));
+      ccAddresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          ccList.push(trimmed);
+        }
+      });
     }
     openComposer({
       mode: "replyAll",
-      to: Array.from(allRecipients),
+      to: Array.from(allRecipients).filter(r => !myEmails.has(normalizeEmail(r))),
       cc: ccList,
       subject: `Re: ${subject ?? ""}`,
       bodyHtml: buildQuote(msg),

@@ -9,6 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { sendEmail, archiveThread } from "@/services/emailActions";
 import { buildRawEmail } from "@/utils/emailBuilder";
 import { upsertContact } from "@/services/db/contacts";
+import { normalizeEmail } from "@/utils/emailUtils";
 import { getSetting } from "@/services/db/settings";
 import { getDefaultSignature } from "@/services/db/signatures";
 import {
@@ -140,18 +141,29 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
       lastMessage.to_addresses.split(",").forEach((a) => allTo.add(a.trim()));
     }
     // Remove self from recipients
-    if (activeAccount?.email) allTo.delete(activeAccount.email);
+    const myEmails = new Set(accounts.map((a) => normalizeEmail(a.email)));
+
+    if (lastMessage.to_addresses) {
+      lastMessage.to_addresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          allTo.add(trimmed);
+        }
+      });
+    }
 
     const ccList: string[] = [];
     if (lastMessage.cc_addresses) {
       lastMessage.cc_addresses.split(",").forEach((a) => {
         const trimmed = a.trim();
-        if (trimmed && trimmed !== activeAccount?.email) ccList.push(trimmed);
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          ccList.push(trimmed);
+        }
       });
     }
 
-    return { to: Array.from(allTo), cc: ccList };
-  }, [lastMessage, mode, activeAccount?.email]);
+    return { to: Array.from(allTo).filter(r => !myEmails.has(normalizeEmail(r))), cc: ccList };
+  }, [lastMessage, mode, accounts]);
 
   const getSubject = useCallback((): string => {
     const sub = lastMessage?.subject ?? "";

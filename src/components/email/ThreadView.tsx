@@ -132,6 +132,9 @@ export function ThreadView({ thread }: ThreadViewProps) {
   const defaultReplyMode = useUIStore((s) => s.defaultReplyMode);
   const lastMessage = messages[messages.length - 1];
 
+  const accounts = useAccountStore((s) => s.accounts);
+  const activeAccount = accounts.find((a) => a.id === activeAccountId);
+
   const handleReply = useCallback(() => {
     if (!lastMessage) return;
     const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
@@ -146,27 +149,50 @@ export function ThreadView({ thread }: ThreadViewProps) {
   }, [lastMessage, openComposer]);
 
   const handleReplyAll = useCallback(() => {
-    if (!lastMessage) return;
+    if (!lastMessage || !activeAccount) return;
     const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
     const allRecipients = new Set<string>();
     if (replyTo) allRecipients.add(replyTo);
+
+    const myEmails = new Set(accounts.map((a) => normalizeEmail(a.email)));
+
     if (lastMessage.to_addresses) {
-      lastMessage.to_addresses.split(",").forEach((a) => allRecipients.add(a.trim()));
+      lastMessage.to_addresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          allRecipients.add(trimmed);
+        }
+      });
     }
+
+    // Always remove all self emails from 'to' if they were added from replyTo
+    for (const email of myEmails) {
+      allRecipients.delete(email);
+    }
+    // Also delete normalized version just in case (though Set is case-sensitive, so we should be careful)
+    // Wait, allRecipients stores the original strings.
+    // Let's do it better.
+    
     const ccList: string[] = [];
     if (lastMessage.cc_addresses) {
-      lastMessage.cc_addresses.split(",").forEach((a) => ccList.push(a.trim()));
+      lastMessage.cc_addresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          ccList.push(trimmed);
+        }
+      });
     }
+
     openComposer({
       mode: "replyAll",
-      to: Array.from(allRecipients),
+      to: Array.from(allRecipients).filter(r => !myEmails.has(normalizeEmail(r))),
       cc: ccList,
       subject: `Re: ${lastMessage.subject ?? ""}`,
       quotedHtml: buildQuote(lastMessage),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
-  }, [lastMessage, openComposer]);
+  }, [lastMessage, openComposer, activeAccount]);
 
   const handleForward = useCallback(() => {
     if (!lastMessage) return;
