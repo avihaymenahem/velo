@@ -13,6 +13,8 @@ interface EmailRendererProps {
   senderAddress?: string | null;
   accountId?: string | null;
   senderAllowlisted?: boolean;
+  messageId?: string | null;
+  inlineAttachments?: any[];
 }
 
 export function EmailRenderer({
@@ -22,6 +24,8 @@ export function EmailRenderer({
   senderAddress,
   accountId,
   senderAllowlisted = false,
+  messageId,
+  inlineAttachments,
 }: EmailRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
