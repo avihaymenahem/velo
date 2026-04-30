@@ -8,7 +8,7 @@ import { Color } from "@tiptap/extension-color";
 import Underline from "@tiptap/extension-underline";
 import { FontFamily, FontSize } from "./tiptapExtensions";
 
-import { Clock, Maximize2, Minimize2, ExternalLink } from "lucide-react";
+import { Clock } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { AddressInput } from "./AddressInput";
@@ -31,7 +31,7 @@ import { insertScheduledEmail } from "@/services/db/scheduledEmails";
 import { getDefaultSignature } from "@/services/db/signatures";
 import { getAliasesForAccount, mapDbAlias, type SendAsAlias } from "@/services/db/sendAsAliases";
 import { resolveFromAddress } from "@/utils/resolveFromAddress";
-import { startAutoSave, stopAutoSave, saveNow } from "@/services/composer/draftAutoSave";
+import { startAutoSave, stopAutoSave } from "@/services/composer/draftAutoSave";
 import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
 import { readFileAsBase64 } from "@/utils/fileUtils";
 import { interpolateVariables } from "@/utils/templateVariables";
@@ -69,7 +69,6 @@ export function Composer() {
   const setSubject = useComposerStore((s) => s.setSubject);
   const setShowCcBcc = useComposerStore((s) => s.setShowCcBcc);
   const setFromEmail = useComposerStore((s) => s.setFromEmail);
-  const setViewMode = useComposerStore((s) => s.setViewMode);
   const addAttachment = useComposerStore((s) => s.addAttachment);
   const aiSidebarOpen = useComposerStore((s) => s.aiSidebarOpen);
   const toggleAiSidebar = useComposerStore((s) => s.toggleAiSidebar);
@@ -353,14 +352,6 @@ export function Composer() {
     if (currentDraftId && effectiveAccountId) {
       try { await deleteDraftAction(effectiveAccountId, currentDraftId, currentThreadId ?? undefined); } catch { /* ignore */ }
     }
-    closeComposer();
-  }, [effectiveAccountId, closeComposer]);
-
-  const handleClose = useCallback(async () => {
-    const state = useComposerStore.getState();
-    const hasContent = !!(state.bodyHtml || state.subject || state.to.length > 0);
-    if (hasContent && effectiveAccountId) await saveNow();
-    stopAutoSave();
     closeComposer();
   }, [effectiveAccountId, closeComposer]);
 

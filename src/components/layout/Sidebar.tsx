@@ -351,7 +351,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     setShowSmartFolderModal(true);
   }, []);
 
-  const editingLabel = editingLabelId ? labels.find((l) => l.id === editingLabelId) ?? null : null;
+  const editingLabel = editingLabelId ? labels.find((l: Label) => l.id === editingLabelId) ?? null : null;
 
   return (
     <aside
@@ -474,7 +474,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                       >
                         <CatIcon size={14} className="shrink-0" />
                         <span className="flex-1 truncate">{cat.label}</span>
-                        {categoryUnreadCounts[cat.id] > 0 && (
+                        {(categoryUnreadCounts[cat.id] ?? 0) > 0 && (
                           <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
                             {categoryUnreadCounts[cat.id]}
                           </span>
@@ -561,7 +561,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
               </div>
             )}
             {/* Always-visible labels */}
-            {labels.slice(0, LABELS_COLLAPSED_COUNT).map((label) => (
+            {labels.slice(0, LABELS_COLLAPSED_COUNT).map((label: Label) => (
               <div key={label.id}>
                 <DroppableLabelItem
                   label={label}
@@ -586,7 +586,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
             {labels.length > LABELS_COLLAPSED_COUNT && (
               <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${labelsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                 <div className="overflow-hidden">
-                  {labels.slice(LABELS_COLLAPSED_COUNT).map((label) => (
+                  {labels.slice(LABELS_COLLAPSED_COUNT).map((label: Label) => (
                     <div key={label.id}>
                       <DroppableLabelItem
                         label={label}

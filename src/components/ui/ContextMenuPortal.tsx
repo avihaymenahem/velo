@@ -5,7 +5,7 @@ import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { getActiveLabel } from "@/router/navigate";
 import { useComposerStore } from "@/stores/composerStore";
-import { useLabelStore } from "@/stores/labelStore";
+import { useLabelStore, type Label } from "@/stores/labelStore";
 import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, addThreadLabel, removeThreadLabel, deleteDraftThread } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
 import { getMessagesForThread } from "@/services/db/messages";
@@ -430,7 +430,7 @@ function ThreadMenu({
   };
 
   // Build label submenu items
-  const labelItems: ContextMenuItem[] = labels.map((label) => {
+  const labelItems: ContextMenuItem[] = labels.map((label: Label) => {
     // For single thread, show checkmark if label is applied
     const isApplied = !isMulti && thread.labelIds.includes(label.id);
     return {

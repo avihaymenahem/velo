@@ -34,6 +34,7 @@ export function isSystemLabel(id: string): boolean {
 }
 
 interface LabelState {
+  labels: Label[];
   unreadCounts: Record<string, number>;
   categoryUnreadCounts: Record<string, number>;
   isLoading: boolean;

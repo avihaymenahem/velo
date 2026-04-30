@@ -275,6 +275,20 @@ export async function getUnreadCountsByCategory(accountId: string): Promise<Reco
   return result;
 }
 
+export async function getUnreadInboxCount(accountId?: string): Promise<number> {
+  const db = await getDb();
+  const sql = accountId 
+    ? `SELECT COUNT(*) as count FROM threads t
+       INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
+       WHERE tl.account_id = $1 AND tl.label_id = 'INBOX' AND t.is_read = 0`
+    : `SELECT COUNT(*) as count FROM threads t
+       INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
+       WHERE tl.label_id = 'INBOX' AND t.is_read = 0`;
+  const params = accountId ? [accountId] : [];
+  const rows = await db.select<{ count: number }[]>(sql, params);
+  return rows[0]?.count ?? 0;
+}
+
 export async function deleteThread(
   accountId: string,
   threadId: string,

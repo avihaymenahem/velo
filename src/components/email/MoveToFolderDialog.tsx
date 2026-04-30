@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import { CSSTransition } from "react-transition-group";
-import { useLabelStore } from "@/stores/labelStore";
+import { useLabelStore, type Label } from "@/stores/labelStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useThreadStore } from "@/stores/threadStore";
 import {
@@ -65,7 +65,7 @@ export function MoveToFolderDialog({
 
   // Build the full destination list: system destinations + user labels
   const destinations = useMemo(() => {
-    const userLabels: Destination[] = labels.map((l) => ({
+    const userLabels: Destination[] = labels.map((l: Label) => ({
       id: l.id,
       label: l.name,
       icon: Tag,

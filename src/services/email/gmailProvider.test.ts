@@ -156,7 +156,7 @@ describe("GmailApiProvider", () => {
       expect(mockClient.modifyThread).toHaveBeenCalledWith(
         "thread-1",
         ["TRASH"],
-        ["INBOX"],
+        ["INBOX", "DRAFT"],
       );
     });
   });
@@ -330,7 +330,7 @@ describe("GmailApiProvider", () => {
         "base64data",
         "thread-1",
       );
-      expect(result).toEqual({ draftId: "draft-1" });
+      expect(result).toEqual({ draftId: "draft-1", threadId: "thread-1" });
     });
   });
 
@@ -367,7 +367,7 @@ describe("GmailApiProvider", () => {
         "base64data",
         "thread-1",
       );
-      expect(result).toEqual({ draftId: "draft-1" });
+      expect(result).toEqual({ draftId: "draft-1", threadId: "thread-1" });
     });
   });
 

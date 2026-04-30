@@ -5,7 +5,7 @@ import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { useAccountStore } from "./stores/accountStore";
 import { useComposerStore } from "./stores/composerStore";
 import { useUIStore } from "./stores/uiStore";
-import { runMigrations } from "./services/db/migrations";
+// import { runMigrations } from "./services/db/migrations";
 import { getAllAccounts } from "./services/db/accounts";
 import { getSetting } from "./services/db/settings";
 import { initializeClients } from "./services/gmail/tokenManager";

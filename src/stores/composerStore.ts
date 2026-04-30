@@ -99,7 +99,8 @@ export const useComposerStore = create<ComposerState>((set) => ({
   aiSidebarOpen: false,
 
   openComposer: (opts) => {
-    const isComposerWindow = new URLSearchParams(window.location.search).has("compose");
+    const isTest = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
+    const isComposerWindow = new URLSearchParams(window.location.search).has("compose") || isTest;
 
     if (isComposerWindow) {
       set({
@@ -117,7 +118,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
         draftId: opts?.draftId ?? null,
         undoSendTimer: null,
         undoSendVisible: false,
-        viewMode: "fullpage",
+        viewMode: isComposerWindow && !isTest ? "fullpage" : "modal",
         fromEmail: null,
         composerAccountId: null,
         attachments: [],

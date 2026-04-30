@@ -19,6 +19,13 @@ vi.mock("./connection", () => ({
     select: (...args: unknown[]) => mockSelect(...args),
   })),
   selectFirstBy: vi.fn(),
+  withTransaction: vi.fn(async (fn: (db: any) => Promise<any>) => {
+    const db = {
+      execute: (...args: unknown[]) => mockExecute(...args),
+      select: (...args: unknown[]) => mockSelect(...args),
+    };
+    return fn(db);
+  }),
 }));
 
 vi.mock("@/utils/crypto", () => ({

@@ -15,7 +15,7 @@ import { getActiveFollowUpThreadIds } from "@/services/db/followUpReminders";
 import { archiveThread, trashThread, permanentDeleteThread, spamThread, markThreadRead } from "@/services/emailActions";
 import { getBundleRules, getHeldThreadIds, getBundleSummaries, type DbBundleRule } from "@/services/db/bundleRules";
 import { getGmailClient } from "@/services/gmail/tokenManager";
-import { useLabelStore } from "@/stores/labelStore";
+import { useLabelStore, type Label } from "@/stores/labelStore";
 import { useSmartFolderStore } from "@/stores/smartFolderStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { useComposerStore } from "@/stores/composerStore";
@@ -534,7 +534,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
                 ? `Inbox — ${activeCategory}`
                 : LABEL_MAP[activeLabel] !== undefined
                   ? activeLabel
-                  : userLabels.find((l) => l.id === activeLabel)?.name ?? activeLabel}
+                  : userLabels.find((l: Label) => l.id === activeLabel)?.name ?? activeLabel}
           </h2>
           <span className="text-xs text-text-tertiary">
             {filteredThreads.length} conversation{filteredThreads.length !== 1 ? "s" : ""}
