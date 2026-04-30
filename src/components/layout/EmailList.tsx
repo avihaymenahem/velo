@@ -345,7 +345,13 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
 
       const mapped = await mapDbThreads(dbThreads);
       if (mapped.length > 0) {
-        setThreads([...threads, ...mapped]);
+        // Deduplicate: prevent threads that shifted positions (due to a sync)
+        // from appearing twice when loading more pages.
+        const existingIds = new Set(threads.map((t) => t.id));
+        const newThreads = mapped.filter((t) => !existingIds.has(t.id));
+        if (newThreads.length > 0) {
+          setThreads([...threads, ...newThreads]);
+        }
       }
       setHasMore(dbThreads.length === PAGE_SIZE);
     } catch (err) {

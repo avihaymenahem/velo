@@ -31,6 +31,7 @@ import {
   type ThreadGroup,
 } from "../threading/threadBuilder";
 import { getPendingOpsForResource } from "../db/pendingOperations";
+import { recalculateThreadStats } from "../db/threads";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -338,6 +339,9 @@ async function storeThreadsAndMessages(
 
           storedMessages.push(parsed);
         }
+        
+        // Ensure thread stats are up-to-date with all DB messages, not just the current delta batch
+        await recalculateThreadStats(accountId, group.threadId);
       }
     });
   }
@@ -551,6 +555,17 @@ export async function imapInitialSync(
             msg.date = nowSeconds;
           }
           if (msg.date < cutoffDate) continue;
+
+          // Skip duplicate messages: same RFC Message-ID already seen from the SAME folder type.
+          // (Cross-folder duplicates like INBOX+Sent are fine — labels get merged via labelsByRfcId)
+          const rfcId = msg.message_id;
+          if (rfcId) {
+            const existingLabels = labelsByRfcId.get(rfcId);
+            if (existingLabels && existingLabels.has(folderMapping.labelId)) {
+              // Same RFC Message-ID already stored for this label — skip duplicate
+              continue;
+            }
+          }
 
           const { parsed, threadable } = imapMessageToParsedMessage(
             msg,
@@ -782,6 +797,8 @@ export async function imapInitialSync(
         // Batch-update thread IDs for all messages in this thread
         const messageIds = messages.map((m) => m.id);
         await updateMessageThreadIds(accountId, messageIds, group.threadId);
+        
+        await recalculateThreadStats(accountId, group.threadId);
       }
     });
 
@@ -1037,12 +1054,31 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
         }
 
         // Normal delta: fetch the new UIDs returned by delta check
-        if (deltaResult.new_uids.length === 0) continue;
+        // If delta check returned empty UIDs, fall back to a SINCE search to catch
+        // messages on servers that don't honour UID range queries properly.
+        let uidsToFetch = deltaResult.new_uids;
+        if (uidsToFetch.length === 0 && savedState.last_sync_at) {
+          const sinceFallback = formatImapDate(new Date((savedState.last_sync_at - 86_400) * 1000));
+          try {
+            const searchResult = await imapSearchFolder(config, folder.raw_path, sinceFallback);
+            // Fetch all UIDs from SINCE — upsert handles duplicates gracefully
+            if (searchResult.uids.length > 0) {
+              console.log(
+                `[imapSync] Delta fallback SINCE ${sinceFallback} found ${searchResult.uids.length} UIDs in ${folder.path}`,
+              );
+              uidsToFetch = searchResult.uids;
+            }
+          } catch (sinceErr) {
+            console.warn(`[imapSync] Delta fallback SINCE search failed for ${folder.path}:`, sinceErr);
+          }
+        }
+
+        if (uidsToFetch.length === 0) continue;
 
         const { messages, lastUid, uidvalidity } = await fetchMessagesInBatches(
           config,
           folder.raw_path,
-          deltaResult.new_uids,
+          uidsToFetch,
         );
 
         for (const msg of messages) {

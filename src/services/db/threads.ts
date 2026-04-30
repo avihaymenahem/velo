@@ -125,6 +125,62 @@ export async function upsertThread(thread: {
   });
 }
 
+export async function recalculateThreadStats(
+  accountId: string,
+  threadId: string,
+): Promise<void> {
+  await withTransaction(async (db) => {
+    // 1. Update basic stats
+    await db.execute(
+      `UPDATE threads
+       SET
+         is_read = COALESCE((SELECT MIN(is_read) FROM messages WHERE account_id = $1 AND thread_id = $2), 1),
+         is_starred = COALESCE((SELECT MAX(is_starred) FROM messages WHERE account_id = $1 AND thread_id = $2), 0),
+         has_attachments = CASE WHEN EXISTS(SELECT 1 FROM attachments a JOIN messages m ON a.message_id = m.id WHERE m.account_id = $1 AND m.thread_id = $2) THEN 1 ELSE 0 END,
+         message_count = (SELECT COUNT(*) FROM messages WHERE account_id = $1 AND thread_id = $2),
+         last_message_at = COALESCE((SELECT MAX(date) FROM messages WHERE account_id = $1 AND thread_id = $2), threads.last_message_at)
+       WHERE account_id = $1 AND id = $2`,
+      [accountId, threadId],
+    );
+
+    // 2. Recalculate labels
+    // We look up labels that correspond to the imap_folder of any message in this thread
+    const labelRows = await db.select<{ id: string }[]>(
+      `SELECT DISTINCT l.id
+       FROM messages m
+       JOIN labels l ON l.account_id = m.account_id AND l.imap_folder_path = m.imap_folder
+       WHERE m.account_id = $1 AND m.thread_id = $2`,
+      [accountId, threadId],
+    );
+
+    const labels = new Set(labelRows.map((r) => r.id));
+
+    // Add pseudo-labels based on thread state
+    const thread = await db.select<{ is_read: number; is_starred: number }[]>(
+      "SELECT is_read, is_starred FROM threads WHERE account_id = $1 AND id = $2",
+      [accountId, threadId],
+    );
+
+    if (thread[0]) {
+      if (thread[0].is_read === 0) labels.add("UNREAD");
+      if (thread[0].is_starred === 1) labels.add("STARRED");
+    }
+
+    // Update thread_labels table
+    await db.execute(
+      "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
+      [accountId, threadId],
+    );
+
+    for (const labelId of labels) {
+      await db.execute(
+        "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, $3)",
+        [accountId, threadId, labelId],
+      );
+    }
+  });
+}
+
 export async function setThreadLabels(
   accountId: string,
   threadId: string,

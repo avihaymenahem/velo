@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Outlet } from "@tanstack/react-router";
 import { Sidebar } from "./components/layout/Sidebar";
 import { AddAccount } from "./components/accounts/AddAccount";
-import { Composer } from "./components/composer/Composer";
 import { UndoSendToast } from "./components/composer/UndoSendToast";
 import { CommandPalette } from "./components/search/CommandPalette";
 import { ShortcutsHelp } from "./components/search/ShortcutsHelp";
@@ -595,9 +594,6 @@ export default function App() {
         />
       )}
 
-      <ErrorBoundary name="Composer">
-        <Composer />
-      </ErrorBoundary>
       <UndoSendToast />
       <UpdateToast />
       <ErrorBoundary name="CommandPalette">

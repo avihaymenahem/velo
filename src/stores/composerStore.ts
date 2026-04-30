@@ -98,34 +98,70 @@ export const useComposerStore = create<ComposerState>((set) => ({
   signatureId: null,
   aiSidebarOpen: false,
 
-  openComposer: (opts) =>
-    set({
-      isOpen: true,
-      mode: opts?.mode ?? "new",
-      to: opts?.to ?? [],
-      cc: opts?.cc ?? [],
-      bcc: opts?.bcc ?? [],
-      subject: opts?.subject ?? "",
-      bodyHtml: opts?.bodyHtml ?? "",
-      quotedHtml: opts?.quotedHtml ?? "",
-      threadId: opts?.threadId ?? null,
-      inReplyToMessageId: opts?.inReplyToMessageId ?? null,
-      showCcBcc: (opts?.cc?.length ?? 0) > 0 || (opts?.bcc?.length ?? 0) > 0,
-      // Always clear draftId when opening fresh compose (unless restoring a specific draft)
-      draftId: opts?.draftId ?? null,
-      undoSendTimer: null,
-      undoSendVisible: false,
-      viewMode: "modal",
-      fromEmail: null,
-      composerAccountId: null,
-      attachments: [],
-      lastSavedAt: null,
-      isSaving: false,
-      signatureHtml: "",
-      signatureId: null,
-      // Force close AI sidebar on new compose
-      aiSidebarOpen: false,
-    }),
+  openComposer: (opts) => {
+    const isComposerWindow = new URLSearchParams(window.location.search).has("compose");
+
+    if (isComposerWindow) {
+      set({
+        isOpen: true,
+        mode: opts?.mode ?? "new",
+        to: opts?.to ?? [],
+        cc: opts?.cc ?? [],
+        bcc: opts?.bcc ?? [],
+        subject: opts?.subject ?? "",
+        bodyHtml: opts?.bodyHtml ?? "",
+        quotedHtml: opts?.quotedHtml ?? "",
+        threadId: opts?.threadId ?? null,
+        inReplyToMessageId: opts?.inReplyToMessageId ?? null,
+        showCcBcc: (opts?.cc?.length ?? 0) > 0 || (opts?.bcc?.length ?? 0) > 0,
+        draftId: opts?.draftId ?? null,
+        undoSendTimer: null,
+        undoSendVisible: false,
+        viewMode: "fullpage",
+        fromEmail: null,
+        composerAccountId: null,
+        attachments: [],
+        lastSavedAt: null,
+        isSaving: false,
+        signatureHtml: "",
+        signatureId: null,
+        aiSidebarOpen: false,
+      });
+    } else {
+      import("@tauri-apps/api/webviewWindow").then(({ WebviewWindow }) => {
+        const windowLabel = `compose-${Date.now()}`;
+        
+        // Save opts to localStorage to avoid URL length limits with large emails
+        if (opts) {
+          localStorage.setItem(`composer_opts_${windowLabel}`, JSON.stringify(opts));
+        }
+
+        const params = new URLSearchParams();
+        params.set("compose", "true");
+        params.set("windowLabel", windowLabel);
+
+        WebviewWindow.getByLabel(windowLabel).then(existing => {
+          if (existing) {
+            existing.setFocus();
+          } else {
+            new WebviewWindow(windowLabel, {
+              url: `index.html?${params.toString()}`,
+              title: "", // Hide title since we have it in the UI/Footer
+              width: 700,
+              height: 650,
+              center: true,
+              // @ts-ignore - titleBarStyle is valid for macOS in Tauri 2
+              titleBarStyle: "Overlay",
+            });
+          }
+        }).catch(err => {
+          console.error("Failed to pop out composer:", err);
+        });
+      }).catch(err => {
+        console.error("Failed to load WebviewWindow", err);
+      });
+    }
+  },
   closeComposer: () =>
     set({
       isOpen: false,

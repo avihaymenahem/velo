@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Composer } from "./components/composer/Composer";
 import { UndoSendToast } from "./components/composer/UndoSendToast";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { useAccountStore } from "./stores/accountStore";
 import { useComposerStore } from "./stores/composerStore";
 import { useUIStore } from "./stores/uiStore";
@@ -23,8 +24,6 @@ export default function ComposerWindow() {
 
     async function init() {
       try {
-        await runMigrations();
-
         // Restore theme
         const savedTheme = await getSetting("theme");
         if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") {
@@ -53,54 +52,60 @@ export default function ComposerWindow() {
           isActive: a.is_active === 1,
           provider: a.provider,
         }));
-        setAccounts(mapped);
+        const savedAccountId = await getSetting("active_account_id");
+        setAccounts(mapped, savedAccountId);
 
         // Initialize Gmail clients
         await initializeClients();
 
-        // Parse composer state from URL params
-        const mode = (params.get("mode") as ComposerMode) ?? "new";
-        const to = params.get("to")?.split(",").filter(Boolean) ?? [];
-        const cc = params.get("cc")?.split(",").filter(Boolean) ?? [];
-        const bcc = params.get("bcc")?.split(",").filter(Boolean) ?? [];
-        const subject = params.get("subject") ?? "";
-        const threadId = params.get("threadId") ?? null;
-        const inReplyToMessageId = params.get("inReplyToMessageId") ?? null;
-        const draftId = params.get("draftId") ?? null;
-        const fromEmail = params.get("fromEmail");
-        const accountId = params.get("accountId"); // Account selezionato nel compositor
+        // Parse composer state
+        let opts: any = {};
+        
+        const windowLabel = params.get("windowLabel");
+        if (windowLabel) {
+          const raw = localStorage.getItem(`composer_opts_${windowLabel}`);
+          if (raw) {
+            try { opts = JSON.parse(raw); } catch (e) { console.error("Failed to parse composer opts", e); }
+            localStorage.removeItem(`composer_opts_${windowLabel}`);
+          }
+        }
 
-        // Decode base64 body
-        let bodyHtml = "";
-        const bodyParam = params.get("body");
-        if (bodyParam) {
-          try {
-            bodyHtml = decodeURIComponent(escape(atob(bodyParam)));
-          } catch {
-            bodyHtml = "";
+        // Fallback to URL params if localStorage was empty (e.g. legacy deep links)
+        if (!opts || Object.keys(opts).length === 0) {
+          const mode = (params.get("mode") as ComposerMode) ?? "new";
+          const to = params.get("to")?.split(",").filter(Boolean) ?? [];
+          const cc = params.get("cc")?.split(",").filter(Boolean) ?? [];
+          const bcc = params.get("bcc")?.split(",").filter(Boolean) ?? [];
+          const subject = params.get("subject") ?? "";
+          const threadId = params.get("threadId") ?? null;
+          const inReplyToMessageId = params.get("inReplyToMessageId") ?? null;
+          const draftId = params.get("draftId") ?? null;
+          const fromEmail = params.get("fromEmail");
+          const accountId = params.get("accountId");
+
+          let bodyHtml = "";
+          const bodyParam = params.get("body");
+          if (bodyParam) {
+            try {
+              bodyHtml = decodeURIComponent(escape(atob(bodyParam)));
+            } catch {
+              bodyHtml = "";
+            }
+          }
+
+          opts = { mode, to, cc, bcc, subject, bodyHtml, threadId, inReplyToMessageId, draftId };
+          
+          if (fromEmail) {
+            useComposerStore.getState().setFromEmail(fromEmail);
+          }
+          if (accountId) {
+            useComposerStore.getState().setComposerAccountId(accountId);
           }
         }
 
         // Open composer with parsed state
-        useComposerStore.getState().openComposer({
-          mode,
-          to,
-          cc,
-          bcc,
-          subject,
-          bodyHtml,
-          threadId,
-          inReplyToMessageId,
-          draftId,
-        });
+        useComposerStore.getState().openComposer(opts);
 
-        // Set fromEmail and accountId, then force fullpage mode
-        if (fromEmail) {
-          useComposerStore.getState().setFromEmail(fromEmail);
-        }
-        if (accountId) {
-          useComposerStore.getState().setComposerAccountId(accountId);
-        }
         useComposerStore.getState().setViewMode("fullpage");
       } catch (err) {
         console.error("Failed to initialize composer window:", err);
@@ -112,6 +117,16 @@ export default function ComposerWindow() {
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- store setters are stable references
   }, []);
+
+  const isOpen = useComposerStore((s) => s.isOpen);
+
+  useEffect(() => {
+    if (!loading && !isOpen) {
+      import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+        getCurrentWindow().close();
+      }).catch(err => console.error("Failed to close window", err));
+    }
+  }, [isOpen, loading]);
 
   // Sync theme class to <html>
   const theme = useUIStore((s) => s.theme);
@@ -190,8 +205,12 @@ export default function ComposerWindow() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-bg-primary text-text-primary">
-      <Composer />
+    <div className="flex flex-col h-screen bg-bg-primary text-text-primary overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0">
+        <ErrorBoundary name="Composer">
+          <Composer />
+        </ErrorBoundary>
+      </div>
       <UndoSendToast />
     </div>
   );
