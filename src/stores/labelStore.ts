@@ -34,9 +34,11 @@ export function isSystemLabel(id: string): boolean {
 }
 
 interface LabelState {
-  labels: Label[];
+  unreadCounts: Record<string, number>;
+  categoryUnreadCounts: Record<string, number>;
   isLoading: boolean;
   loadLabels: (accountId: string) => Promise<void>;
+  refreshUnreadCounts: (accountId: string) => Promise<void>;
   clearLabels: () => void;
   createLabel: (accountId: string, name: string, color?: { textColor: string; backgroundColor: string }) => Promise<void>;
   updateLabel: (accountId: string, labelId: string, updates: { name?: string; color?: { textColor: string; backgroundColor: string } | null }) => Promise<void>;
@@ -46,6 +48,8 @@ interface LabelState {
 
 export const useLabelStore = create<LabelState>((set, get) => ({
   labels: [],
+  unreadCounts: {},
+  categoryUnreadCounts: {},
   isLoading: false,
 
   loadLabels: async (accountId: string) => {
@@ -70,7 +74,20 @@ export const useLabelStore = create<LabelState>((set, get) => ({
     }
   },
 
-  clearLabels: () => set({ labels: [], isLoading: false }),
+  refreshUnreadCounts: async (accountId: string) => {
+    try {
+      const { getUnreadCountsByLabel, getUnreadCountsByCategory } = await import("@/services/db/threads");
+      const [unreadCounts, categoryUnreadCounts] = await Promise.all([
+        getUnreadCountsByLabel(accountId),
+        getUnreadCountsByCategory(accountId),
+      ]);
+      set({ unreadCounts, categoryUnreadCounts });
+    } catch (err) {
+      console.error("Failed to refresh label unread counts:", err);
+    }
+  },
+
+  clearLabels: () => set({ labels: [], unreadCounts: {}, categoryUnreadCounts: {}, isLoading: false }),
 
   createLabel: async (accountId: string, name: string, color?: { textColor: string; backgroundColor: string }) => {
     const client = await getGmailClient(accountId);

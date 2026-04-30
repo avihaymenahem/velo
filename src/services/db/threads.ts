@@ -239,14 +239,40 @@ export async function getThreadCountForAccount(accountId: string): Promise<numbe
   return rows[0]?.count ?? 0;
 }
 
-export async function getUnreadInboxCount(): Promise<number> {
+export async function getUnreadCountsByLabel(accountId: string): Promise<Record<string, number>> {
   const db = await getDb();
-  const rows = await db.select<{ count: number }[]>(
-    `SELECT COUNT(*) as count FROM threads t
+  const rows = await db.select<{ label_id: string; count: number }[]>(
+    `SELECT tl.label_id, COUNT(*) as count
+     FROM threads t
      INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
-     WHERE tl.label_id = 'INBOX' AND t.is_read = 0`,
+     WHERE t.account_id = $1 AND t.is_read = 0
+     GROUP BY tl.label_id`,
+    [accountId],
   );
-  return rows[0]?.count ?? 0;
+  const result: Record<string, number> = {};
+  for (const row of rows) {
+    result[row.label_id] = row.count;
+  }
+  return result;
+}
+
+export async function getUnreadCountsByCategory(accountId: string): Promise<Record<string, number>> {
+  const db = await getDb();
+  const rows = await db.select<{ category: string | null; count: number }[]>(
+    `SELECT tc.category, COUNT(*) as count
+     FROM threads t
+     INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
+     LEFT JOIN thread_categories tc ON tc.account_id = t.account_id AND tc.thread_id = t.id
+     WHERE t.account_id = $1 AND tl.label_id = 'INBOX' AND t.is_read = 0
+     GROUP BY tc.category`,
+    [accountId],
+  );
+  const result: Record<string, number> = {};
+  for (const row of rows) {
+    const cat = row.category ?? "Primary";
+    result[cat] = (result[cat] ?? 0) + row.count;
+  }
+  return result;
 }
 
 export async function deleteThread(

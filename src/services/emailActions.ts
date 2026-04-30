@@ -360,6 +360,7 @@ export async function executeEmailAction(
   // 4. Try online execution
   try {
     const data = await executeViaProvider(accountId, action);
+    window.dispatchEvent(new Event("velo-sync-done"));
     return { success: true, data };
   } catch (err) {
     const classified = classifyError(err);

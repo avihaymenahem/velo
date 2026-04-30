@@ -120,6 +120,7 @@ function DroppableLabelItem({
   onClick,
   onContextMenu,
   onEditClick,
+  unreadCount,
 }: {
   label: Label;
   isActive: boolean;
@@ -127,6 +128,7 @@ function DroppableLabelItem({
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onEditClick: () => void;
+  unreadCount?: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: label.id });
   const initial = (label.name[0] ?? "?").toUpperCase();
@@ -172,12 +174,17 @@ function DroppableLabelItem({
             <Tag size={14} className="shrink-0" />
           )}
           <span className="flex-1 truncate">{label.name}</span>
+          {unreadCount !== undefined && unreadCount > 0 && (
+            <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
+              {unreadCount}
+            </span>
+          )}
           <span
             role="button"
             tabIndex={0}
             onClick={(e) => { e.stopPropagation(); onEditClick(); }}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onEditClick(); } }}
-            className="opacity-0 group-hover:opacity-100 p-0.5 text-sidebar-text/40 hover:text-sidebar-text transition-opacity"
+            className="opacity-0 group-hover:opacity-100 p-0.5 text-sidebar-text/40 hover:text-sidebar-text transition-opacity shrink-0"
             title="Edit label"
           >
             <Pencil size={12} />
@@ -217,6 +224,9 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const labels = useLabelStore((s) => s.labels);
   const loadLabels = useLabelStore((s) => s.loadLabels);
+  const unreadCounts = useLabelStore((s) => s.unreadCounts);
+  const categoryUnreadCounts = useLabelStore((s) => s.categoryUnreadCounts);
+  const refreshLabelUnreadCounts = useLabelStore((s) => s.refreshUnreadCounts);
   const deleteLabel = useLabelStore((s) => s.deleteLabel);
   const smartFolders = useSmartFolderStore((s) => s.folders);
   const smartFolderCounts = useSmartFolderStore((s) => s.unreadCounts);
@@ -268,8 +278,9 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   useEffect(() => {
     if (activeAccountId) {
       loadLabels(activeAccountId);
+      refreshLabelUnreadCounts(activeAccountId);
     }
-  }, [activeAccountId, loadLabels]);
+  }, [activeAccountId, loadLabels, refreshLabelUnreadCounts]);
 
   // Load smart folders when active account changes
   useEffect(() => {
@@ -287,6 +298,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       timer = setTimeout(() => {
         if (activeAccountId) {
           loadLabels(activeAccountId);
+          refreshLabelUnreadCounts(activeAccountId);
           refreshSmartFolderCounts(activeAccountId);
         }
         useUIStore.getState().setSyncingFolder(null);
@@ -363,6 +375,21 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
         {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isInbox = item.id === "inbox";
+          
+          // Map sidebar IDs to DB label IDs for unread counts
+          const labelIdMap: Record<string, string> = {
+            inbox: "INBOX",
+            sent: "SENT",
+            drafts: "DRAFT",
+            trash: "TRASH",
+            spam: "SPAM",
+            starred: "STARRED",
+            snoozed: "SNOOZED",
+            all: "UNREAD",
+          };
+          const dbLabelId = labelIdMap[item.id] || item.id.toUpperCase();
+          const unreadCount = unreadCounts[dbLabelId] || 0;
+
           return (
             <div key={item.id}>
               <DroppableNavItem
@@ -392,6 +419,11 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                     {item.id === "tasks" && taskIncompleteCount > 0 && !collapsed && (
                       <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
                         {taskIncompleteCount}
+                      </span>
+                    )}
+                    {unreadCount > 0 && !collapsed && item.id !== "tasks" && (
+                      <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
+                        {unreadCount}
                       </span>
                     )}
                     {isInbox && !collapsed && (
@@ -442,6 +474,11 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                       >
                         <CatIcon size={14} className="shrink-0" />
                         <span className="flex-1 truncate">{cat.label}</span>
+                        {categoryUnreadCounts[cat.id] > 0 && (
+                          <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
+                            {categoryUnreadCounts[cat.id]}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -533,6 +570,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                   onClick={() => navigateToLabel(label.id)}
                   onContextMenu={(e) => handleLabelContextMenu(e, label.id)}
                   onEditClick={() => handleEditLabel(label.id)}
+                  unreadCount={unreadCounts[label.id]}
                 />
                 {editingLabelId === label.id && activeAccountId && !collapsed && (
                   <LabelForm
@@ -557,6 +595,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                         onClick={() => navigateToLabel(label.id)}
                         onContextMenu={(e) => handleLabelContextMenu(e, label.id)}
                         onEditClick={() => handleEditLabel(label.id)}
+                        unreadCount={unreadCounts[label.id]}
                       />
                       {editingLabelId === label.id && activeAccountId && !collapsed && (
                         <LabelForm
