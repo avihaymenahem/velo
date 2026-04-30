@@ -1,4 +1,4 @@
-import { useRef, useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import { ImageOff } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { stripRemoteImages, hasBlockedImages } from "@/utils/imageBlocker";
@@ -13,8 +13,6 @@ interface EmailRendererProps {
   senderAddress?: string | null;
   accountId?: string | null;
   senderAllowlisted?: boolean;
-  messageId?: string | null;
-  inlineAttachments?: any[];
 }
 
 export function EmailRenderer({
@@ -24,8 +22,6 @@ export function EmailRenderer({
   senderAddress,
   accountId,
   senderAllowlisted = false,
-  messageId,
-  inlineAttachments,
 }: EmailRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
@@ -61,18 +57,10 @@ export function EmailRenderer({
     return hasBlockedImages(stripRemoteImages(sanitizedBody));
   }, [shouldBlock, sanitizedBody]);
 
-  useLayoutEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    observerRef.current?.disconnect();
-
-    const doc = iframe.contentDocument;
-    if (!doc) return;
-
-    doc.open();
-    const applyDarkStyles = isDark && isPlainText;
-    doc.write(`<!DOCTYPE html>
+  const srcdoc = useMemo(() => {
+    const plainTextDark = isDark && isPlainText;
+    const htmlDark = isDark && !isPlainText;
+    return `<!DOCTYPE html>
 <html>
 <head>
   <style>
@@ -82,47 +70,60 @@ export function EmailRenderer({
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       font-size: 14px;
       line-height: 1.6;
-      color: ${applyDarkStyles ? "#e5e7eb" : "#1f2937"};
-      background: transparent;
+      color: ${plainTextDark ? "#e5e7eb" : "#1f2937"};
+      background: ${htmlDark ? "#f8f9fa" : "transparent"};
       word-wrap: break-word;
       overflow-wrap: break-word;
       overflow: hidden;
     }
     img { max-width: 100%; height: auto; }
-    a { color: ${applyDarkStyles ? "#60a5fa" : "#3b82f6"}; }
+    a { color: ${plainTextDark ? "#60a5fa" : "#3b82f6"}; }
     blockquote {
-      border-left: 3px solid ${applyDarkStyles ? "#4b5563" : "#d1d5db"};
+      border-left: 3px solid ${plainTextDark ? "#4b5563" : "#d1d5db"};
       margin: 8px 0;
       padding: 4px 12px;
-      color: ${applyDarkStyles ? "#9ca3af" : "#6b7280"};
+      color: ${plainTextDark ? "#9ca3af" : "#6b7280"};
     }
     pre { overflow-x: auto; }
     table { max-width: 100%; }
   </style>
 </head>
 <body>${bodyHtml}</body>
-</html>`);
-    doc.close();
+</html>`;
+  }, [bodyHtml, isDark, isPlainText]);
+
+  // Disconnect observer on unmount
+  useEffect(() => {
+    return () => {
+      observerRef.current?.disconnect();
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  const handleLoad = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    observerRef.current?.disconnect();
+
+    const doc = iframe.contentDocument;
+    if (!doc?.body) return;
 
     const applyHeight = () => {
-      if (!doc.body) return;
       const h = doc.body.scrollHeight;
-      if (h > 0) {
-        iframe.style.height = h + "px";
-      }
+      if (h > 0) iframe.style.height = h + "px";
     };
     applyHeight();
 
-    const resizeObserver = new ResizeObserver(() => {
+    const ro = new ResizeObserver(() => {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(applyHeight);
     });
-    resizeObserver.observe(doc.body);
-    observerRef.current = resizeObserver;
+    ro.observe(doc.body);
+    observerRef.current = ro;
 
     doc.addEventListener("click", (e) => {
-      const target = e.target as HTMLElement;
-      const anchor = target.closest("a");
+      const anchor = (e.target as HTMLElement).closest("a");
       if (anchor?.href) {
         e.preventDefault();
         openUrl(anchor.href).catch((err) => {
@@ -130,12 +131,7 @@ export function EmailRenderer({
         });
       }
     });
-
-    return () => {
-      observerRef.current?.disconnect();
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [bodyHtml, isDark, isPlainText]);
+  }, []);
 
   const handleLoadImages = useCallback(() => {
     setOverrideShow(true);
@@ -175,8 +171,10 @@ export function EmailRenderer({
       <iframe
         ref={iframeRef}
         sandbox="allow-same-origin"
-        className="w-full border-0"
-        style={{ overflow: "hidden" }}
+        srcDoc={srcdoc}
+        onLoad={handleLoad}
+        className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
+        style={{ overflow: "hidden", minHeight: "40px" }}
         title="Email content"
       />
     </div>

@@ -142,8 +142,6 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
               senderAddress={message.from_address}
               accountId={message.account_id}
               senderAllowlisted={senderAllowlisted}
-              messageId={message.id}
-              inlineAttachments={attachments.filter((a) => a.content_id)}
             />
           ) : (
             <div className="py-8 text-center text-text-tertiary text-sm">Loading...</div>
