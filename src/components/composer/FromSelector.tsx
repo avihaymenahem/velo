@@ -19,8 +19,6 @@ export function FromSelector({ aliases, selectedEmail, onChange }: FromSelectorP
 
   useClickOutside(dropdownRef, () => setOpen(false));
 
-  if (aliases.length <= 1) return null;
-
   const handleSelect = useCallback(
     (email: string) => {
       const alias = aliases.find((a) => a.email === email);
@@ -31,6 +29,8 @@ export function FromSelector({ aliases, selectedEmail, onChange }: FromSelectorP
     },
     [aliases, onChange],
   );
+
+  if (aliases.length <= 1) return null;
 
   const currentAlias = aliases.find((a) => a.email === selectedEmail);
 

@@ -29,8 +29,6 @@ export function SignatureSelector() {
     return () => { cancelled = true; };
   }, [isOpen, activeAccountId]);
 
-  if (signatures.length === 0) return null;
-
   const handleSelect = useCallback(
     (id: string) => {
       if (id === "") {
@@ -47,6 +45,8 @@ export function SignatureSelector() {
     },
     [signatures, setSignatureId, setSignatureHtml],
   );
+
+  if (signatures.length === 0) return null;
 
   const currentSignature = signatures.find((s) => s.id === signatureId);
 
