@@ -775,12 +775,28 @@ const MIGRATIONS = [
     description: "Accept self-signed certificates for IMAP/SMTP",
     sql: `ALTER TABLE accounts ADD COLUMN accept_invalid_certs INTEGER DEFAULT 0;`,
   },
-  {
-    version: 24,
-    description: "Reset contact frequency inflated by Google Contacts sync bug",
-    sql: `UPDATE contacts SET frequency = 0;`,
-  },
-];
+   {
+     version: 24,
+     description: "Reset contact frequency inflated by Google Contacts sync bug",
+     sql: `UPDATE contacts SET frequency = 0;`,
+   },
+   {
+     version: 25,
+     description: "Add group_id to signatures for cross-account signature sharing",
+     sql: `
+       -- Add group_id column.
+       -- SQLite does not support "IF NOT EXISTS" for ADD COLUMN,
+       -- but this migration runs only once (version check in runner).
+       ALTER TABLE signatures ADD COLUMN group_id TEXT;
+
+       -- For existing signatures, set group_id = id (each is its own group/master)
+       UPDATE signatures SET group_id = id WHERE group_id IS NULL;
+
+       -- Add index for group lookups
+       CREATE INDEX IF NOT EXISTS idx_signatures_group ON signatures(group_id);
+     `,
+   },
+ ];
 
 /**
  * Split a SQL string into individual statements, correctly handling
@@ -868,6 +884,19 @@ export async function runMigrations(): Promise<void> {
       console.warn("Migration v18 marked applied but tasks table missing — re-running");
       await db.execute("DELETE FROM _migrations WHERE version = 18");
       appliedVersions.delete(18);
+    }
+  }
+
+  // Repair: if migration 25 is marked applied but group_id column is missing
+  // from signatures, force re-run v25.
+  if (appliedVersions.has(25)) {
+    const cols = await db.select<{ name: string }[]>(
+      "SELECT name FROM pragma_table_info('signatures') WHERE name = 'group_id'",
+    );
+    if (cols.length === 0) {
+      console.warn("Migration v25 marked applied but group_id column missing — re-running v25");
+      await db.execute("DELETE FROM _migrations WHERE version = 25");
+      appliedVersions.delete(25);
     }
   }
 
