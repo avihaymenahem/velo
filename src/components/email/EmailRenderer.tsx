@@ -126,7 +126,9 @@ export function EmailRenderer({
     // Script communicates height updates and link clicks to the parent via postMessage.
     // Using string concatenation for the closing script tag avoids bundler issues.
     const script = `<scri` + `pt>(function(){`
-      + `function sh(){var h=document.body?document.body.scrollHeight:0;`
+      + `function sh(){`
+      + `var b=document.body,e=document.documentElement;`
+      + `var h=Math.max(b.scrollHeight,b.offsetHeight,e.clientHeight,e.scrollHeight,e.offsetHeight);`
       + `window.parent.postMessage({t:'h',v:h},'*');}`
       + `document.addEventListener('click',function(e){`
       + `var a=e.target&&e.target.closest?e.target.closest('a'):null;`
@@ -134,7 +136,7 @@ export function EmailRenderer({
       + `});`
       + `if(window.ResizeObserver){new ResizeObserver(sh).observe(document.body);}`
       + `window.addEventListener('load',sh);`
-      + `setTimeout(sh,0);`
+      + `setTimeout(sh,100);`
       + `})();</scri` + `pt>`;
 
     return `<!DOCTYPE html>
@@ -232,7 +234,11 @@ table{max-width:100%;}
         sandbox="allow-scripts allow-popups"
         srcDoc={srcdoc}
         className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
-        style={{ overflow: "hidden", minHeight: "100px" }}
+        style={{ 
+          minHeight: "150px",
+          height: "auto",
+          overflow: "auto" 
+        }}
         title="Email content"
         onLoad={handleIframeLoad}
       />

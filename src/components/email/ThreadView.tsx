@@ -450,37 +450,21 @@ export function ThreadView({ thread }: ThreadViewProps) {
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pb-20">
           <ErrorBoundary name="MessageList">
-            {(() => {
-              const deduped: typeof messages = [];
-              for (const msg of messages) {
-                const last = deduped[deduped.length - 1];
-                // If it's the same sender, same snippet, and within 10 mins, it's likely an autosave duplicate
-                if (last && 
-                    last.from_address === msg.from_address && 
-                    last.snippet === msg.snippet && 
-                    Math.abs(msg.date - last.date) < 600000) {
-                  // Replace the older one with the newer one (it might have more content)
-                  deduped[deduped.length - 1] = msg;
-                } else {
-                  deduped.push(msg);
-                }
-              }
-              return deduped.map((msg, i) => (
-                <MessageItem
-                  key={msg.id}
-                  ref={(el) => { messageRefs.current[i] = el; }}
-                  message={msg}
-                  isLast={i === deduped.length - 1}
-                  focused={i === focusedMsgIdx}
-                  blockImages={blockImages}
-                  senderAllowlisted={msg.from_address ? allowlistedSenders.has(normalizeEmail(msg.from_address)) : false}
-                  isSpam={thread.labelIds.includes("SPAM")}
-                  onContextMenu={(e) => handleMessageContextMenu(e, msg)}
-                />
-              ));
-            })()}
+            {messages.map((msg, i) => (
+              <MessageItem
+                key={msg.id}
+                ref={(el) => { messageRefs.current[i] = el; }}
+                message={msg}
+                isLast={i === messages.length - 1}
+                focused={i === focusedMsgIdx}
+                blockImages={blockImages}
+                senderAllowlisted={msg.from_address ? allowlistedSenders.has(normalizeEmail(msg.from_address)) : false}
+                isSpam={thread.labelIds.includes("SPAM")}
+                onContextMenu={(e) => handleMessageContextMenu(e, msg)}
+              />
+            ))}
           </ErrorBoundary>
 
           {/* Smart Reply Suggestions */}
