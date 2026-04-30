@@ -155,44 +155,56 @@ table{max-width:100%;}
 </html>`;
   }, [bodyHtml, isDark, isPlainText]);
 
-  // Listen for postMessage events from the iframe (height + link clicks).
-  // We re-register whenever srcdoc changes so we always have the freshest iframe ref.
+  // Write content and monitor height
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
 
-    const handleMessage = (e: MessageEvent) => {
-      if (e.source !== iframe.contentWindow) return;
-      const d = e.data as { t: string; v?: number; u?: string } | null;
-      if (!d) return;
-      if (d.t === "h" && d.v != null && d.v > 0) {
-        iframe.style.height = d.v + "px";
-      } else if (d.t === "l" && d.u) {
-        openUrl(d.u).catch((err) => {
-          console.error("Failed to open link:", err);
-        });
+    const applyHeight = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (doc && doc.body) {
+          const height = doc.body.scrollHeight;
+          if (height > 0) {
+            iframe.style.height = height + "px";
+          }
+        }
+      } catch (e) {
+        // Ignore cross-origin errors if any
       }
     };
 
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [srcdoc]);
+    const handleLoad = () => {
+      applyHeight();
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (doc && doc.body) {
+          const observer = new ResizeObserver(applyHeight);
+          observer.observe(doc.body);
+          // Handle link clicks
+          doc.addEventListener("click", (e) => {
+            const target = e.target as HTMLElement;
+            const anchor = target.closest("a");
+            if (anchor?.href) {
+              e.preventDefault();
+              openUrl(anchor.href).catch(console.error);
+            }
+          });
+          return () => observer.disconnect();
+        }
+      } catch (e) {
+        console.error("Iframe access failed:", e);
+      }
+    };
 
-  // Fallback: set height after load in case postMessage was missed.
-  // Wrapped in try-catch because sandboxed iframes (no allow-same-origin) throw
-  // a SecurityError when the parent tries to access contentWindow.document.
-  const handleIframeLoad = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    try {
-      const body = iframe.contentWindow?.document?.body;
-      if (!body) return;
-      const height = body.scrollHeight;
-      if (height > 0) iframe.style.height = height + "px";
-    } catch {
-      // Cross-origin sandbox — height is managed via postMessage
-    }
-  }, []);
+    iframe.addEventListener("load", handleLoad);
+    // Initial apply if already loaded
+    applyHeight();
+
+    return () => {
+      iframe.removeEventListener("load", handleLoad);
+    };
+  }, [srcdoc]);
 
   const handleLoadImages = useCallback(() => {
     setOverrideShow(true);
@@ -231,16 +243,14 @@ table{max-width:100%;}
       )}
       <iframe
         ref={iframeRef}
-        sandbox="allow-scripts allow-popups"
+        sandbox="allow-same-origin allow-scripts allow-popups"
         srcDoc={srcdoc}
         className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
         style={{ 
-          minHeight: "150px",
-          height: "auto",
-          overflow: "auto" 
+          height: "150px", // Initial fallback
+          overflow: "hidden" 
         }}
         title="Email content"
-        onLoad={handleIframeLoad}
       />
     </div>
   );
