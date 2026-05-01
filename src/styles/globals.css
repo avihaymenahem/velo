@@ -42,31 +42,44 @@
  * Dark mode overrides — applied when <html class="dark">
  */
 .dark {
-    --color-bg-primary: rgba(30, 30, 46, 0.88);
-    --color-bg-secondary: rgba(24, 24, 37, 0.82);
-    --color-bg-tertiary: rgba(17, 17, 27, 0.78);
-    --color-bg-hover: rgba(49, 50, 68, 0.58);
-    --color-bg-selected: rgba(49, 50, 68, 0.68);
+    /* Superfici: Deep Blue-Gray (Morbido e moderno) */
+    /* Più chiaro del precedente, ispirato alle interfacce AI */
+    --color-bg-primary: #1e1f20; /* Colore base di Gemini Dark */
+    --color-bg-secondary: #282a2d; /* Superficie elevata (es. sidebar o box messaggi) */
+    --color-bg-tertiary: #333538; /* Per elementi nidificati o input fields */
 
-    --color-text-primary: #cdd6f4;
-    --color-text-secondary: #a6adc8;
-    --color-text-tertiary: #707088;
+    /* Hover e Selezione: toni freddi e trasparenti */
+    --color-bg-hover: rgba(154, 160, 166, 0.08);
+    --color-bg-selected: rgba(
+        138,
+        180,
+        248,
+        0.12
+    ); /* Un blu "Link" molto soft */
 
-    --color-border-primary: rgba(49, 50, 68, 0.4);
-    --color-border-secondary: rgba(49, 50, 68, 0.2);
+    /* Tipografia: Grigio fumo ghiacciato (High readability) */
+    --color-text-primary: #e8eaed; /* Quasi bianco, ma con una frazione di grigio */
+    --color-text-secondary: #bdc1c6; /* Il classico grigio "Claude" per i testi di supporto */
+    --color-text-tertiary: #9aa0a6; /* Per placeholder e metadati */
 
-    --color-accent: #89b4fa;
-    --color-accent-hover: #b4befe;
-    --color-accent-light: #313244;
+    /* Bordi: Estremamente discreti */
+    --color-border-primary: #3c4043; /* Grigio neutro-freddo definisce bene senza staccare */
+    --color-border-secondary: #303134;
 
-    --color-sidebar-bg: rgba(17, 17, 27, 0.88);
-    --color-sidebar-text: #cdd6f4;
-    --color-sidebar-hover: rgba(30, 30, 46, 0.7);
+    /* Accento: Il blu "AI Blue" — bilanciato tra saturo e pastello */
+    --color-accent: #8ab4f8; /* Il blu iconico di Google/Gemini */
+    --color-accent-hover: #aecbfa;
+    --color-accent-light: rgba(138, 180, 248, 0.1);
 
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    --glass-shadow-elevated: 0 16px 48px rgba(0, 0, 0, 0.3);
-    --glass-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+    /* Sidebar: spesso le AI usano un tono leggermente diverso per staccare il menu */
+    --color-sidebar-bg: #131314; /* Leggermente più scuro del main per dare focus */
+    --color-sidebar-text: #e8eaed;
+    --color-sidebar-hover: rgba(255, 255, 255, 0.04);
+
+    /* Glass: Più "Blur" e meno "Scurimento" */
+    --glass-border: rgba(255, 255, 255, 0.06);
+    --glass-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --glass-highlight: transparent; /* Le UI moderne tendono a eliminare l'highlight interno */
 }
 
 /* Font scale — set on <html> like .dark */
@@ -114,10 +127,10 @@ body {
 .dark body {
     background-image: linear-gradient(
         135deg,
-        #08080d 0%,
-        #12121c 35%,
-        #1e293b 65%,
-        #0f172a 100%
+        #131314 0%,
+        #1e1f20 35%,
+        #242526 65%,
+        #1a1a1b 100%
     );
 }
 
