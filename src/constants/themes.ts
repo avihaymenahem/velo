@@ -1,12 +1,12 @@
 export type ColorThemeId =
-  | "indigo"
-  | "rose"
-  | "emerald"
-  | "amber"
-  | "sky"
-  | "violet"
+  | "twilight_indigo"
+  | "night_bordeaux"
+  | "ink_black"
+  | "golden_bronze"
+  | "prussian_blue"
+  | "midnight_violet"
   | "orange"
-  | "slate";
+  | "gunmetal";
 
 interface ThemeColors {
   accent: string;
@@ -26,160 +26,160 @@ export interface ColorTheme {
 
 export const COLOR_THEMES: ColorTheme[] = [
   {
-    id: "indigo",
-    name: "Indigo",
-    swatch: "#4f46e5",
+    id: "twilight_indigo",
+    name: "Twilight Indigo",
+    swatch: "#1D3461",
     light: {
-      accent: "#4f46e5",
-      accentHover: "#4338ca",
-      accentLight: "#e0e7ff",
-      bgSelected: "rgba(224, 231, 255, 0.65)",
-      sidebarActive: "#4f46e5",
+      accent: "#1D3461",
+      accentHover: "#11213D",
+      accentLight: "#EDF2FB",
+      bgSelected: "rgba(29, 52, 97, 0.1)",
+      sidebarActive: "#1D3461",
     },
     dark: {
-      accent: "#818cf8",
-      accentHover: "#6366f1",
-      accentLight: "#312e81",
-      bgSelected: "rgba(30, 58, 95, 0.55)",
-      sidebarActive: "#818cf8",
+      accent: "#375A9E", // Un indaco crepuscolare, saturo ma scuro
+      accentHover: "#4A72C2",
+      accentLight: "rgba(55, 90, 158, 0.18)",
+      bgSelected: "rgba(55, 90, 158, 0.14)",
+      sidebarActive: "#375A9E",
     },
   },
   {
-    id: "rose",
-    name: "Rose",
-    swatch: "#e11d48",
+    id: "night_bordeaux",
+    name: "Night Bordeaux",
+    swatch: "#4c0519",
     light: {
-      accent: "#e11d48",
-      accentHover: "#be123c",
-      accentLight: "#ffe4e6",
-      bgSelected: "rgba(255, 228, 230, 0.65)",
-      sidebarActive: "#e11d48",
+      accent: "#640d14",
+      accentHover: "#38040e",
+      accentLight: "#fdf2f2",
+      bgSelected: "rgba(100, 13, 20, 0.1)",
+      sidebarActive: "#640d14",
     },
     dark: {
-      accent: "#fb7185",
-      accentHover: "#f43f5e",
-      accentLight: "#4c0519",
-      bgSelected: "rgba(76, 5, 25, 0.55)",
-      sidebarActive: "#fb7185",
+      accent: "#991b1b",
+      accentHover: "#b91c1c",
+      accentLight: "rgba(153, 27, 27, 0.18)",
+      bgSelected: "rgba(153, 27, 27, 0.14)",
+      sidebarActive: "#991b1b",
     },
   },
   {
-    id: "emerald",
-    name: "Emerald",
-    swatch: "#059669",
+    id: "ink_black",
+    name: "Ink Black",
+    swatch: "#011C27",
     light: {
-      accent: "#059669",
-      accentHover: "#047857",
-      accentLight: "#d1fae5",
-      bgSelected: "rgba(209, 250, 229, 0.65)",
-      sidebarActive: "#059669",
+      accent: "#011C27",
+      accentHover: "#000B11",
+      accentLight: "#E1E8EB",
+      bgSelected: "rgba(1, 28, 39, 0.12)",
+      sidebarActive: "#011C27",
     },
     dark: {
-      accent: "#34d399",
-      accentHover: "#10b981",
-      accentLight: "#064e3b",
-      bgSelected: "rgba(6, 78, 59, 0.55)",
-      sidebarActive: "#34d399",
+      accent: "#024B6A", // Blu inchiostro denso
+      accentHover: "#036994",
+      accentLight: "rgba(2, 75, 106, 0.2)",
+      bgSelected: "rgba(2, 75, 106, 0.15)",
+      sidebarActive: "#024B6A",
     },
   },
   {
-    id: "amber",
-    name: "Amber",
-    swatch: "#d97706",
+    id: "golden_bronze",
+    name: "Golden Bronze",
+    swatch: "#92400e",
     light: {
-      accent: "#d97706",
-      accentHover: "#b45309",
-      accentLight: "#fef3c7",
-      bgSelected: "rgba(254, 243, 199, 0.65)",
-      sidebarActive: "#d97706",
+      accent: "#8B5E34",
+      accentHover: "#6F4A27",
+      accentLight: "#fdfaf7",
+      bgSelected: "rgba(139, 94, 52, 0.1)",
+      sidebarActive: "#8B5E34",
     },
     dark: {
-      accent: "#fbbf24",
-      accentHover: "#f59e0b",
-      accentLight: "#78350f",
-      bgSelected: "rgba(120, 53, 15, 0.55)",
-      sidebarActive: "#fbbf24",
+      accent: "#A87F32",
+      accentHover: "#C59D5F",
+      accentLight: "rgba(168, 127, 50, 0.18)",
+      bgSelected: "rgba(168, 127, 50, 0.14)",
+      sidebarActive: "#A87F32",
     },
   },
   {
-    id: "sky",
-    name: "Sky",
-    swatch: "#0284c7",
+    id: "prussian_blue",
+    name: "Prussian Blue",
+    swatch: "#03254E",
     light: {
-      accent: "#0284c7",
-      accentHover: "#0369a1",
-      accentLight: "#e0f2fe",
-      bgSelected: "rgba(224, 242, 254, 0.65)",
-      sidebarActive: "#0284c7",
+      accent: "#03254E",
+      accentHover: "#01162E",
+      accentLight: "#E6EAEE",
+      bgSelected: "rgba(3, 37, 78, 0.1)",
+      sidebarActive: "#03254E",
     },
     dark: {
-      accent: "#38bdf8",
-      accentHover: "#0ea5e9",
-      accentLight: "#0c4a6e",
-      bgSelected: "rgba(12, 74, 110, 0.55)",
-      sidebarActive: "#38bdf8",
+      accent: "#1167B1", // Blu di Prussia illuminato, nobile e profondo
+      accentHover: "#187BCD",
+      accentLight: "rgba(17, 103, 177, 0.18)",
+      bgSelected: "rgba(17, 103, 177, 0.14)",
+      sidebarActive: "#1167B1",
     },
   },
   {
-    id: "violet",
-    name: "Violet",
-    swatch: "#7c3aed",
+    id: "midnight_violet",
+    name: "Midnight Violet",
+    swatch: "#2e1065",
     light: {
-      accent: "#7c3aed",
-      accentHover: "#6d28d9",
-      accentLight: "#ede9fe",
-      bgSelected: "rgba(237, 233, 254, 0.65)",
-      sidebarActive: "#7c3aed",
+      accent: "#432371",
+      accentHover: "#2B1648",
+      accentLight: "#f7f4fb",
+      bgSelected: "rgba(67, 35, 113, 0.1)",
+      sidebarActive: "#432371",
     },
     dark: {
-      accent: "#a78bfa",
-      accentHover: "#8b5cf6",
-      accentLight: "#2e1065",
-      bgSelected: "rgba(46, 16, 101, 0.55)",
-      sidebarActive: "#a78bfa",
+      accent: "#5b3a8c",
+      accentHover: "#7651b1",
+      accentLight: "rgba(91, 58, 140, 0.18)",
+      bgSelected: "rgba(91, 58, 140, 0.14)",
+      sidebarActive: "#5b3a8c",
     },
   },
   {
     id: "orange",
-    name: "Orange",
+    name: "Pure Orange",
     swatch: "#ea580c",
     light: {
-      accent: "#ea580c",
-      accentHover: "#c2410c",
-      accentLight: "#ffedd5",
-      bgSelected: "rgba(255, 237, 213, 0.65)",
-      sidebarActive: "#ea580c",
+      accent: "#D35400",
+      accentHover: "#A04000",
+      accentLight: "#fff7ed",
+      bgSelected: "rgba(211, 84, 0, 0.1)",
+      sidebarActive: "#D35400",
     },
     dark: {
-      accent: "#fb923c",
-      accentHover: "#f97316",
-      accentLight: "#7c2d12",
-      bgSelected: "rgba(124, 45, 18, 0.55)",
-      sidebarActive: "#fb923c",
+      accent: "#E67E22",
+      accentHover: "#F39C12",
+      accentLight: "rgba(230, 126, 34, 0.18)",
+      bgSelected: "rgba(230, 126, 34, 0.14)",
+      sidebarActive: "#E67E22",
     },
   },
   {
-    id: "slate",
-    name: "Slate",
-    swatch: "#475569",
+    id: "gunmetal",
+    name: "Gunmetal",
+    swatch: "#2a3439",
     light: {
-      accent: "#475569",
-      accentHover: "#334155",
-      accentLight: "#e2e8f0",
-      bgSelected: "rgba(226, 232, 240, 0.65)",
-      sidebarActive: "#475569",
+      accent: "#2a3439",
+      accentHover: "#1c2326",
+      accentLight: "#f2f4f5",
+      bgSelected: "rgba(42, 52, 57, 0.1)",
+      sidebarActive: "#2a3439",
     },
     dark: {
-      accent: "#94a3b8",
-      accentHover: "#64748b",
-      accentLight: "#1e293b",
-      bgSelected: "rgba(30, 41, 59, 0.55)",
-      sidebarActive: "#94a3b8",
+      accent: "#4A5D66",
+      accentHover: "#607885",
+      accentLight: "rgba(74, 93, 102, 0.18)",
+      bgSelected: "rgba(74, 93, 102, 0.14)",
+      sidebarActive: "#4A5D66",
     },
   },
 ];
 
-export const DEFAULT_COLOR_THEME: ColorThemeId = "indigo";
+export const DEFAULT_COLOR_THEME: ColorThemeId = "prussian_blue";
 
 export function getThemeById(id: string): ColorTheme {
   return (
