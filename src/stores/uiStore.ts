@@ -9,8 +9,23 @@ export type EmailDensity = "compact" | "default" | "spacious";
 export type DefaultReplyMode = "reply" | "replyAll";
 export type MarkAsReadBehavior = "instant" | "2s" | "manual";
 export type FontScale = "small" | "default" | "large" | "xlarge";
-export type ComposerFontFamily = "system" | "arial" | "calibri" | "times" | "courier" | "georgia" | "verdana" | "avenir";
-export type ComposerFontSize = "10px" | "12px" | "14px" | "16px" | "18px" | "20px" | "24px";
+export type ComposerFontFamily =
+  | "system"
+  | "arial"
+  | "calibri"
+  | "times"
+  | "courier"
+  | "georgia"
+  | "verdana"
+  | "avenir";
+export type ComposerFontSize =
+  | "10px"
+  | "12px"
+  | "14px"
+  | "16px"
+  | "18px"
+  | "20px"
+  | "24px";
 export type InboxViewMode = "unified" | "split";
 
 export interface SidebarNavItem {
@@ -78,7 +93,7 @@ export const useUIStore = create<UIState>((set) => ({
   defaultReplyMode: "reply",
   markAsReadBehavior: "instant",
   fontScale: "default",
-  colorTheme: "indigo",
+  colorTheme: "night_bordeaux",
   sendAndArchive: false,
   composerFontFamily: "system",
   composerFontSize: "14px",
@@ -104,7 +119,8 @@ export const useUIStore = create<UIState>((set) => ({
       setSetting("contact_sidebar_visible", String(visible)).catch(() => {});
       return { contactSidebarVisible: visible };
     }),
-  setContactSidebarVisible: (contactSidebarVisible) => set({ contactSidebarVisible }),
+  setContactSidebarVisible: (contactSidebarVisible) =>
+    set({ contactSidebarVisible }),
   setReadingPanePosition: (readingPanePosition) => {
     setSetting("reading_pane_position", readingPanePosition).catch(() => {});
     set({ readingPanePosition });
@@ -161,7 +177,9 @@ export const useUIStore = create<UIState>((set) => ({
     }),
   setTaskSidebarVisible: (taskSidebarVisible) => set({ taskSidebarVisible }),
   setSidebarNavConfig: (sidebarNavConfig) => {
-    setSetting("sidebar_nav_config", JSON.stringify(sidebarNavConfig)).catch(() => {});
+    setSetting("sidebar_nav_config", JSON.stringify(sidebarNavConfig)).catch(
+      () => {},
+    );
     set({ sidebarNavConfig });
   },
   restoreSidebarNavConfig: (sidebarNavConfig) => set({ sidebarNavConfig }),
