@@ -18,10 +18,11 @@ interface MessageItemProps {
   threadId?: string;
   isSpam?: boolean;
   focused?: boolean;
+  onSelect?: (messageId: string) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(function MessageItem({ message, isLast, blockImages, senderAllowlisted, accountId, threadId, isSpam, focused, onContextMenu }, ref) {
+export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(function MessageItem({ message, isLast, blockImages, senderAllowlisted, accountId, threadId, isSpam, focused, onSelect, onContextMenu }, ref) {
   const [expanded, setExpanded] = useState(isLast);
   const [attachments, setAttachments] = useState<DbAttachment[]>([]);
   const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
@@ -47,17 +48,21 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
 
   // Auto-expand when focused via keyboard navigation
   useEffect(() => {
-    if (focused && !expanded) {
-      setExpanded(true);
-      loadAttachments();
+    if (focused) {
+      onSelect?.(message.id);
+      if (!expanded) {
+        setExpanded(true);
+        loadAttachments();
+      }
     }
-  }, [focused]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [focused, message.id, onSelect]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggle = () => {
     const willExpand = !expanded;
     setExpanded(willExpand);
     if (willExpand) {
       loadAttachments();
+      onSelect?.(message.id);
     }
   };
 

@@ -66,6 +66,7 @@ export function ThreadView({ thread }: ThreadViewProps) {
   const [showTaskExtract, setShowTaskExtract] = useState(false);
   const updateThread = useThreadStore((s) => s.updateThread);
   const [messages, setMessages] = useState<DbMessage[]>([]);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const markedReadRef = useRef<string | null>(null);
   // null = not yet loaded; defer iframe rendering until setting is known
@@ -257,6 +258,7 @@ export function ThreadView({ thread }: ThreadViewProps) {
   // Reset focused index when thread changes
   useEffect(() => {
     setFocusedMsgIdx(-1);
+    setSelectedMessageId(null);
   }, [thread.id]);
 
   // Scroll focused message into view
@@ -399,10 +401,11 @@ export function ThreadView({ thread }: ThreadViewProps) {
 
   // Detect no-reply senders — disable reply buttons but still allow forward
   const noReply = isNoReplyAddress(lastMessage?.reply_to ?? lastMessage?.from_address);
-
+  
   // Get the primary sender for the contact sidebar
-  const primarySender = lastMessage?.from_address ?? null;
-  const primarySenderName = lastMessage?.from_name ?? null;
+  const selectedMessage = messages.find(m => m.id === selectedMessageId) || lastMessage;
+  const primarySender = selectedMessage?.from_address ?? null;
+  const primarySenderName = selectedMessage?.from_name ?? null;
 
   return (
     <div className="flex h-full @container relative">
@@ -459,6 +462,7 @@ export function ThreadView({ thread }: ThreadViewProps) {
                 message={msg}
                 isLast={i === messages.length - 1}
                 focused={i === focusedMsgIdx}
+                onSelect={setSelectedMessageId}
                 blockImages={blockImages}
                 senderAllowlisted={msg.from_address ? allowlistedSenders.has(normalizeEmail(msg.from_address)) : false}
                 isSpam={thread.labelIds.includes("SPAM")}
