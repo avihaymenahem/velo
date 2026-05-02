@@ -1,7 +1,11 @@
 import type { EmailProvider, EmailFolder, SyncResult } from "./types";
 import type { ParsedMessage } from "../gmail/messageParser";
 import { buildImapConfig, buildSmtpConfig } from "../imap/imapConfigBuilder";
-import { imapInitialSync, imapDeltaSync, imapMessageToParsedMessage } from "../imap/imapSync";
+import {
+  imapInitialSync,
+  imapDeltaSync,
+  imapMessageToParsedMessage,
+} from "../imap/imapSync";
 import { mapFolderToLabel, getSyncableFolders } from "../imap/folderMapper";
 import {
   imapListFolders,
@@ -22,7 +26,11 @@ import { getAccount, type DbAccount } from "../db/accounts";
 import { findSpecialFolder } from "../imap/messageHelper";
 import { ensureFreshToken } from "../oauth/oauthTokenManager";
 import { upsertMessage, getMessagesForThread } from "../db/messages";
-import { upsertThread, setThreadLabels, getThreadLabelIds } from "../db/threads";
+import {
+  upsertThread,
+  setThreadLabels,
+  getThreadLabelIds,
+} from "../db/threads";
 
 /**
  * Decode base64url (Gmail/RFC 4648 URL-safe, no padding) to a UTF-8 string.
@@ -206,9 +214,15 @@ export class ImapSmtpProvider implements EmailProvider {
     daysBack: number,
     onProgress?: (phase: string, current: number, total: number) => void,
   ): Promise<SyncResult> {
-    return imapInitialSync(this.accountId, daysBack, onProgress ? (p) => {
-      onProgress(p.phase, p.current, p.total);
-    } : undefined);
+    return imapInitialSync(
+      this.accountId,
+      daysBack,
+      onProgress
+        ? (p) => {
+            onProgress(p.phase, p.current, p.total);
+          }
+        : undefined,
+    );
   }
 
   async deltaSync(_syncToken: string): Promise<SyncResult> {
@@ -292,55 +306,62 @@ export class ImapSmtpProvider implements EmailProvider {
     return grouped;
   }
 
-  async archive(
-    threadId: string,
-    messageIds: string[],
-  ): Promise<void> {
+  async archive(threadId: string, messageIds: string[]): Promise<void> {
     const config = await this.getImapConfig();
     const grouped = await this.resolveGrouped(threadId, messageIds);
     const archiveFolder =
       (await findSpecialFolder(this.accountId, "\\Archive")) ?? "Archive";
 
-    console.log(`[imap_] archive thread=${threadId} archiveFolder=${archiveFolder} groups=`, [...grouped.entries()].map(([f, u]) => `${f}:${u}`));
+    console.log(
+      `[imap_] archive thread=${threadId} archiveFolder=${archiveFolder} groups=`,
+      [...grouped.entries()].map(([f, u]) => `${f}:${u}`),
+    );
     for (const [folder, uids] of grouped) {
       if (folder === archiveFolder) continue;
       await imapMoveMessages(config, folder, uids, archiveFolder);
-      console.log(`[imap_] archive move ${folder} → ${archiveFolder} uids=${uids} OK`);
+      console.log(
+        `[imap_] archive move ${folder} → ${archiveFolder} uids=${uids} OK`,
+      );
     }
   }
 
-  async trash(
-    threadId: string,
-    messageIds: string[],
-  ): Promise<void> {
+  async trash(threadId: string, messageIds: string[]): Promise<void> {
     const config = await this.getImapConfig();
     const grouped = await this.resolveGrouped(threadId, messageIds);
     const trashFolder =
       (await findSpecialFolder(this.accountId, "\\Trash")) ?? "Trash";
 
-    console.log(`[imap_] trash thread=${threadId} trashFolder=${trashFolder} groups=`, [...grouped.entries()].map(([f, u]) => `${f}:${u}`));
+    console.log(
+      `[imap_] trash thread=${threadId} trashFolder=${trashFolder} groups=`,
+      [...grouped.entries()].map(([f, u]) => `${f}:${u}`),
+    );
     for (const [folder, uids] of grouped) {
       if (folder === trashFolder) continue;
       await imapMoveMessages(config, folder, uids, trashFolder);
-      console.log(`[imap_] trash move ${folder} → ${trashFolder} uids=${uids} OK`);
+      console.log(
+        `[imap_] trash move ${folder} → ${trashFolder} uids=${uids} OK`,
+      );
     }
   }
 
-  async permanentDelete(
-    threadId: string,
-    messageIds: string[],
-  ): Promise<void> {
+  async permanentDelete(threadId: string, messageIds: string[]): Promise<void> {
     const config = await this.getImapConfig();
     const grouped = await this.resolveGrouped(threadId, messageIds);
 
-    console.log(`[imap_] permanentDelete thread=${threadId} groups=`, [...grouped.entries()].map(([f, u]) => `${f}:${u}`));
+    console.log(
+      `[imap_] permanentDelete thread=${threadId} groups=`,
+      [...grouped.entries()].map(([f, u]) => `${f}:${u}`),
+    );
     for (const [folder, uids] of grouped) {
       try {
         await imapDeleteMessages(config, folder, uids);
         console.log(`[imap_] permanentDelete ${folder} uids=${uids} OK`);
       } catch (err) {
         // Stale UIDs from moved messages are silently ignored — only log
-        console.warn(`[imap_] permanentDelete ${folder} uids=${uids} failed (stale?):`, err);
+        console.warn(
+          `[imap_] permanentDelete ${folder} uids=${uids} failed (stale?):`,
+          err,
+        );
       }
     }
   }
@@ -353,7 +374,10 @@ export class ImapSmtpProvider implements EmailProvider {
     const config = await this.getImapConfig();
     const grouped = await this.resolveGrouped(threadId, messageIds);
 
-    console.log(`[imap_] markRead thread=${threadId} read=${read} groups=`, [...grouped.entries()].map(([f, u]) => `${f}:${u}`));
+    console.log(
+      `[imap_] markRead thread=${threadId} read=${read} groups=`,
+      [...grouped.entries()].map(([f, u]) => `${f}:${u}`),
+    );
     for (const [folder, uids] of grouped) {
       await imapSetFlags(config, folder, uids, ["Seen"], read);
       console.log(`[imap_] markRead ${folder} uids=${uids} read=${read} OK`);
@@ -384,7 +408,10 @@ export class ImapSmtpProvider implements EmailProvider {
       (await findSpecialFolder(this.accountId, "\\Junk")) ?? "Junk";
     const destination = isSpam ? junkFolder : "INBOX";
 
-    console.log(`[imap_] spam thread=${threadId} isSpam=${isSpam} destination=${destination} groups=`, [...grouped.entries()].map(([f, u]) => `${f}:${u}`));
+    console.log(
+      `[imap_] spam thread=${threadId} isSpam=${isSpam} destination=${destination} groups=`,
+      [...grouped.entries()].map(([f, u]) => `${f}:${u}`),
+    );
     for (const [folder, uids] of grouped) {
       if (folder === destination) continue;
       await imapMoveMessages(config, folder, uids, destination);
@@ -415,20 +442,26 @@ export class ImapSmtpProvider implements EmailProvider {
         targetFolder = "INBOX";
         break;
       case "SENT":
-        targetFolder = (await findSpecialFolder(this.accountId, "\\Sent")) ?? "Sent";
+        targetFolder =
+          (await findSpecialFolder(this.accountId, "\\Sent")) ?? "Sent";
         break;
       case "TRASH":
-        targetFolder = (await findSpecialFolder(this.accountId, "\\Trash")) ?? "Trash";
+        targetFolder =
+          (await findSpecialFolder(this.accountId, "\\Trash")) ?? "Trash";
         break;
       case "SPAM":
-        targetFolder = (await findSpecialFolder(this.accountId, "\\Junk")) ?? "Junk";
+        targetFolder =
+          (await findSpecialFolder(this.accountId, "\\Junk")) ?? "Junk";
         break;
       case "DRAFT":
-        targetFolder = (await findSpecialFolder(this.accountId, "\\Drafts")) ?? "Drafts";
+        targetFolder =
+          (await findSpecialFolder(this.accountId, "\\Drafts")) ?? "Drafts";
         break;
       default:
         // IMAP has no concept of custom labels
-        console.warn(`[imap_] addLabel: "${labelId}" — IMAP does not support custom labels`);
+        console.warn(
+          `[imap_] addLabel: "${labelId}" — IMAP does not support custom labels`,
+        );
         return;
     }
     await this.moveToFolder(threadId, [], targetFolder);
@@ -438,7 +471,9 @@ export class ImapSmtpProvider implements EmailProvider {
     // After addLabel() has already moved the messages to the target folder, the
     // source folder (e.g. Trash) no longer contains them, so no server action is
     // needed here. The local DB is updated by the emailActions pipeline.
-    console.log(`[imap_] removeLabel: "${labelId}" on thread ${threadId} — handled by prior addLabel move`);
+    console.log(
+      `[imap_] removeLabel: "${labelId}" on thread ${threadId} — handled by prior addLabel move`,
+    );
   }
 
   // ---- Send/Draft operations ----
@@ -510,7 +545,10 @@ export class ImapSmtpProvider implements EmailProvider {
       // Reply: add SENT label to existing thread
       const existingLabels = await getThreadLabelIds(this.accountId, threadId);
       if (!existingLabels.includes("SENT")) {
-        await setThreadLabels(this.accountId, threadId, [...existingLabels, "SENT"]);
+        await setThreadLabels(this.accountId, threadId, [
+          ...existingLabels,
+          "SENT",
+        ]);
       }
     } else {
       // New thread: create thread record
@@ -571,7 +609,12 @@ export class ImapSmtpProvider implements EmailProvider {
     const draftsFolder =
       (await findSpecialFolder(this.accountId, "\\Drafts")) ?? "Drafts";
 
-    const uid = await imapAppendMessage(config, draftsFolder, rawBase64Url, "(\\Draft)");
+    const uid = await imapAppendMessage(
+      config,
+      draftsFolder,
+      rawBase64Url,
+      "(\\Draft)",
+    );
 
     // Build a real UID-based ID so deleteDraft can find and remove it from IMAP
     const draftId = `imap-${this.accountId}-${draftsFolder}-${uid}`;
@@ -588,7 +631,15 @@ export class ImapSmtpProvider implements EmailProvider {
     // would accumulate zombie drafts on the server. Return the same ID unchanged and let
     // the next folder sync replace it with a real UID-based ID.
     if (draftId.startsWith("imap-draft-")) {
-      return { draftId };
+      // For drafts with pseudo-IDs, we cannot delete the old message without a real UID.
+      // Instead, we create a new draft on the server and discard the old local pseudo-ID.
+      // The sync process will then pick up the new draft with its real UID.
+      const { draftId: newDraftId } = await this.createDraft(
+        rawBase64Url,
+        _threadId,
+      );
+      // The local composer store will be updated with the newDraftId.
+      return { draftId: newDraftId };
     }
 
     // Real UID-based ID — delete old, append new
