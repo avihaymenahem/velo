@@ -7,6 +7,7 @@ import { getDb } from "@/services/db/connection";
 import { navigateToThread, getSelectedThreadId } from "@/router/navigate";
 import { getAccount } from "@/services/db/accounts";
 import { deleteThread as deleteThreadFromDb } from "@/services/db/threads";
+import { getMessagesForThread } from "@/services/db/messages";
 
 // ---------------------------------------------------------------------------
 // Action types
@@ -567,6 +568,80 @@ export function deleteDraft(
   threadId?: string,
 ): Promise<ActionResult> {
   return executeEmailAction(accountId, { type: "deleteDraft", draftId, threadId });
+}
+
+/**
+ * Delete a single message within a thread.
+ * When permanent=true: permanently removes the message (used when already in Trash).
+ * When permanent=false: moves the message to Trash.
+ * If the message was the last one in the thread, the thread is also removed from UI and DB.
+ */
+export async function deleteSingleMessage(
+  accountId: string,
+  threadId: string,
+  messageId: string,
+  permanent: boolean = false,
+): Promise<ActionResult> {
+  const db = await getDb();
+
+  // 1. Local DB: remove the message
+  await db.execute(
+    "DELETE FROM messages WHERE account_id = $1 AND id = $2",
+    [accountId, messageId],
+  );
+
+  // 2. Check remaining messages in thread
+  const remaining = await getMessagesForThread(accountId, threadId);
+
+  // 3. Optimistic UI
+  if (remaining.length === 0) {
+    await db.execute(
+      "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
+      [accountId, threadId],
+    );
+    await db.execute(
+      "DELETE FROM threads WHERE account_id = $1 AND id = $2",
+      [accountId, threadId],
+    );
+    const nextId = getNextThreadId(threadId);
+    useThreadStore.getState().removeThread(threadId);
+    if (nextId) navigateToThread(nextId);
+  } else {
+    window.dispatchEvent(new CustomEvent("velo-message-deleted", { detail: { messageId, threadId } }));
+  }
+
+  // 4. If offline, queue
+  if (!useUIStore.getState().isOnline) {
+    const actionType = permanent ? "permanentDelete" : "trash";
+    await enqueuePendingOperation(accountId, actionType, messageId, {
+      threadId,
+      messageIds: [messageId],
+    });
+    return { success: true, queued: true };
+  }
+
+  // 5. Execute via provider
+  try {
+    const provider = await getEmailProvider(accountId);
+    if (permanent) {
+      await provider.permanentDelete(threadId, [messageId]);
+    } else {
+      await provider.trash(threadId, [messageId]);
+    }
+    return { success: true };
+  } catch (err) {
+    const classified = classifyError(err);
+    if (classified.isRetryable) {
+      const actionType = permanent ? "permanentDelete" : "trash";
+      await enqueuePendingOperation(accountId, actionType, messageId, {
+        threadId,
+        messageIds: [messageId],
+      });
+      return { success: true, queued: true };
+    }
+    console.error("deleteSingleMessage failed:", err);
+    return { success: false, error: classified.message };
+  }
 }
 
 /**

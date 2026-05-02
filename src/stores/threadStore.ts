@@ -22,11 +22,13 @@ interface ThreadState {
   threadMap: Map<string, Thread>;
   selectedThreadId: string | null;
   selectedThreadIds: Set<string>;
+  selectedMessageId: string | null;
   isLoading: boolean;
   searchQuery: string;
   searchThreadIds: Set<string> | null; // null = no active search
   setThreads: (threads: Thread[]) => void;
   selectThread: (id: string | null) => void;
+  setSelectedMessageId: (id: string | null) => void;
   toggleThreadSelection: (id: string) => void;
   selectThreadRange: (id: string) => void;
   clearMultiSelect: () => void;
@@ -45,12 +47,14 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   threadMap: new Map(),
   selectedThreadId: null,
   selectedThreadIds: new Set(),
+  selectedMessageId: null,
   isLoading: false,
   searchQuery: "",
   searchThreadIds: null,
 
   setThreads: (threads) => set({ threads, threadMap: new Map(threads.map((t) => [t.id, t])) }),
   selectThread: (selectedThreadId) => set({ selectedThreadId, selectedThreadIds: new Set() }),
+  setSelectedMessageId: (selectedMessageId) => set({ selectedMessageId }),
   toggleThreadSelection: (id) =>
     set((state) => {
       const next = new Set(state.selectedThreadIds);

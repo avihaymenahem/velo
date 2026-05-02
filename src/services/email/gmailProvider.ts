@@ -148,15 +148,23 @@ export class GmailApiProvider implements EmailProvider {
     await this.client.modifyThread(threadId, undefined, ["INBOX"]);
   }
 
-  async trash(threadId: string, _messageIds: string[]): Promise<void> {
-    await this.client.modifyThread(threadId, ["TRASH"], ["INBOX", "DRAFT"]);
+  async trash(threadId: string, messageIds: string[]): Promise<void> {
+    if (messageIds.length > 0) {
+      for (const id of messageIds) await this.client.trashMessage(id);
+    } else {
+      await this.client.modifyThread(threadId, ["TRASH"], ["INBOX", "DRAFT"]);
+    }
   }
 
   async permanentDelete(
     threadId: string,
-    _messageIds: string[],
+    messageIds: string[],
   ): Promise<void> {
-    await this.client.deleteThread(threadId);
+    if (messageIds.length > 0) {
+      for (const id of messageIds) await this.client.deleteMessage(id);
+    } else {
+      await this.client.deleteThread(threadId);
+    }
   }
 
   async markRead(

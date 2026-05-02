@@ -144,14 +144,14 @@ describe("GmailApiProvider", () => {
   });
 
   describe("trash", () => {
-    it("calls modifyThread adding TRASH and removing INBOX", async () => {
+    it("calls modifyThread adding TRASH when no messageIds (thread-level)", async () => {
       vi.mocked(mockClient.modifyThread).mockResolvedValue({
         id: "thread-1",
         historyId: "123",
         messages: [],
       });
 
-      await provider.trash("thread-1", ["msg-1"]);
+      await provider.trash("thread-1", []);
 
       expect(mockClient.modifyThread).toHaveBeenCalledWith(
         "thread-1",
@@ -159,15 +159,37 @@ describe("GmailApiProvider", () => {
         ["INBOX", "DRAFT"],
       );
     });
+
+    it("calls trashMessage for each id when messageIds provided (message-level)", async () => {
+      vi.mocked(mockClient.trashMessage).mockResolvedValue(undefined);
+
+      await provider.trash("thread-1", ["msg-1", "msg-2"]);
+
+      expect(mockClient.trashMessage).toHaveBeenCalledTimes(2);
+      expect(mockClient.trashMessage).toHaveBeenCalledWith("msg-1");
+      expect(mockClient.trashMessage).toHaveBeenCalledWith("msg-2");
+      expect(mockClient.modifyThread).not.toHaveBeenCalled();
+    });
   });
 
   describe("permanentDelete", () => {
-    it("calls deleteThread", async () => {
+    it("calls deleteThread when no messageIds (thread-level)", async () => {
       vi.mocked(mockClient.deleteThread).mockResolvedValue(undefined);
 
-      await provider.permanentDelete("thread-1", ["msg-1"]);
+      await provider.permanentDelete("thread-1", []);
 
       expect(mockClient.deleteThread).toHaveBeenCalledWith("thread-1");
+    });
+
+    it("calls deleteMessage for each id when messageIds provided (message-level)", async () => {
+      vi.mocked(mockClient.deleteMessage).mockResolvedValue(undefined);
+
+      await provider.permanentDelete("thread-1", ["msg-1", "msg-2"]);
+
+      expect(mockClient.deleteMessage).toHaveBeenCalledTimes(2);
+      expect(mockClient.deleteMessage).toHaveBeenCalledWith("msg-1");
+      expect(mockClient.deleteMessage).toHaveBeenCalledWith("msg-2");
+      expect(mockClient.deleteThread).not.toHaveBeenCalled();
     });
   });
 

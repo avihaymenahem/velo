@@ -6,7 +6,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { navigateToLabel, navigateToThread, navigateBack, getActiveLabel, getSelectedThreadId } from "@/router/navigate";
-import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread, markThreadRead, deleteDraftThread } from "@/services/emailActions";
+import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread, markThreadRead, deleteDraftThread, deleteSingleMessage } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
 import { getMessagesForThread } from "@/services/db/messages";
 import { parseUnsubscribeUrl } from "@/components/email/MessageItem";
@@ -349,6 +349,30 @@ async function executeAction(actionId: string): Promise<void> {
           await trashThread(activeAccountId, selectedId, []);
         }
       }
+      break;
+    }
+    case "action.deleteMessage": {
+      if (!selectedId || !activeAccountId) break;
+      const deleteMsgLabelCtx = getActiveLabel();
+      const isTrashViewMsg = deleteMsgLabelCtx === "trash";
+      const isDraftsViewMsg = deleteMsgLabelCtx === "drafts";
+
+      if (isDraftsViewMsg) {
+        useThreadStore.getState().removeThread(selectedId);
+        await deleteDraftThread(activeAccountId, selectedId);
+        break;
+      }
+
+      // Determine which message to delete: selected one or fallback to last
+      let messageId = useThreadStore.getState().selectedMessageId;
+      if (!messageId) {
+        const msgs = await getMessagesForThread(activeAccountId, selectedId);
+        const last = msgs[msgs.length - 1];
+        if (!last) break;
+        messageId = last.id;
+      }
+
+      await deleteSingleMessage(activeAccountId, selectedId, messageId, isTrashViewMsg);
       break;
     }
     case "action.star": {

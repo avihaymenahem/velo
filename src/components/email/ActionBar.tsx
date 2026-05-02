@@ -3,12 +3,12 @@ import type { Thread } from "@/stores/threadStore";
 import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
-import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, deleteDraftThread } from "@/services/emailActions";
+import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, deleteDraftThread, deleteSingleMessage } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { SnoozeDialog } from "./SnoozeDialog";
 import { FollowUpDialog } from "./FollowUpDialog";
-import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, FolderInput, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen, ListTodo } from "lucide-react";
+import { Archive, Trash2, Trash, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, FolderInput, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen, ListTodo } from "lucide-react";
 import type { DbMessage } from "@/services/db/messages";
 import { insertFollowUpReminder, getFollowUpForThread, cancelFollowUpForThread } from "@/services/db/followUpReminders";
 import { Button } from "@/components/ui/Button";
@@ -37,6 +37,7 @@ function Separator() {
 export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply", contactSidebarVisible, taskSidebarVisible, onReply, onReplyAll, onForward, onPrint, onExport, onPopOut, onToggleContactSidebar, onToggleTaskSidebar }: ActionBarProps) {
   const updateThread = useThreadStore((s) => s.updateThread);
   const removeThread = useThreadStore((s) => s.removeThread);
+  const selectedMessageId = useThreadStore((s) => s.selectedMessageId);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const activeLabel = useActiveLabel();
   const [showSnooze, setShowSnooze] = useState(false);
@@ -82,6 +83,13 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
     } else {
       await trashThread(activeAccountId, thread.id, msgIds);
     }
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!activeAccountId || !messages || messages.length === 0) return;
+    const isTrashView = activeLabel === "trash";
+    const msgId = selectedMessageId ?? messages[messages.length - 1]!.id;
+    await deleteSingleMessage(activeAccountId, thread.id, msgId, isTrashView);
   };
 
   const handleSnooze = async (until: number) => {

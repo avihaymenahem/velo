@@ -21,6 +21,11 @@ vi.mock("@/stores/accountStore", () => ({
 describe("draftAutoSave", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn().mockReturnValue(null),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    });
     useComposerStore.setState({
       isOpen: true,
       mode: "new",

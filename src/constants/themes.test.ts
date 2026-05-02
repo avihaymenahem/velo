@@ -23,21 +23,21 @@ describe("themes", () => {
     }
   });
 
-  it("DEFAULT_COLOR_THEME is indigo", () => {
-    expect(DEFAULT_COLOR_THEME).toBe("indigo");
+  it("DEFAULT_COLOR_THEME is prussian_blue", () => {
+    expect(DEFAULT_COLOR_THEME).toBe("prussian_blue");
   });
 
   it("getThemeById returns correct theme", () => {
-    const rose = getThemeById("rose");
-    expect(rose.id).toBe("rose");
-    expect(rose.name).toBe("Rose");
+    const twilight = getThemeById("twilight_indigo");
+    expect(twilight.id).toBe("twilight_indigo");
+    expect(twilight.name).toBe("Twilight Indigo");
 
-    const emerald = getThemeById("emerald");
-    expect(emerald.id).toBe("emerald");
+    const gunmetal = getThemeById("gunmetal");
+    expect(gunmetal.id).toBe("gunmetal");
   });
 
-  it("getThemeById falls back to indigo for unknown ID", () => {
+  it("getThemeById falls back to prussian_blue for unknown ID", () => {
     const fallback = getThemeById("nonexistent");
-    expect(fallback.id).toBe("indigo");
+    expect(fallback.id).toBe("prussian_blue");
   });
 });

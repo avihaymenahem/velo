@@ -66,7 +66,12 @@ export function ThreadView({ thread }: ThreadViewProps) {
   const [showTaskExtract, setShowTaskExtract] = useState(false);
   const updateThread = useThreadStore((s) => s.updateThread);
   const [messages, setMessages] = useState<DbMessage[]>([]);
-  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [selectedMessageId, setLocalSelectedMessageId] = useState<string | null>(null);
+  const storeSetSelectedMessageId = useThreadStore((s) => s.setSelectedMessageId);
+  const setSelectedMessageId = useCallback((id: string | null) => {
+    setLocalSelectedMessageId(id);
+    storeSetSelectedMessageId(id);
+  }, [storeSetSelectedMessageId]);
   const [loading, setLoading] = useState(true);
   const markedReadRef = useRef<string | null>(null);
   // null = not yet loaded; defer iframe rendering until setting is known
@@ -304,6 +309,22 @@ export function ThreadView({ thread }: ThreadViewProps) {
     messageId: string;
     accountId: string;
   } | null>(null);
+
+  // Reload message list when a single message is deleted within this thread
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { messageId: string; threadId: string };
+      if (detail.threadId !== thread.id || !activeAccountId) return;
+      getMessagesForThread(activeAccountId, thread.id)
+        .then((msgs) => {
+          setMessages(msgs);
+          setSelectedMessageId(null);
+        })
+        .catch(console.error);
+    };
+    window.addEventListener("velo-message-deleted", handler);
+    return () => window.removeEventListener("velo-message-deleted", handler);
+  }, [thread.id, activeAccountId, setSelectedMessageId]);
 
   // Listen for "View Source" event from context menu
   useEffect(() => {

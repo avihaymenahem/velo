@@ -264,6 +264,28 @@ export class GmailClient {
   }
 
   /**
+   * Move a single message to Trash.
+   */
+  async trashMessage(messageId: string): Promise<void> {
+    await this.request(`/messages/${messageId}/trash`, { method: "POST" });
+  }
+
+  /**
+   * Permanently delete a single message (cannot be undone).
+   */
+  async deleteMessage(messageId: string): Promise<void> {
+    const token = await this.getValidToken();
+    const url = `${GMAIL_API_BASE}/users/me/messages/${messageId}`;
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      throw new Error(`Gmail API error: ${response.status} ${await response.text()}`);
+    }
+  }
+
+  /**
    * Send an email via Gmail API.
    * Accepts a raw RFC 2822 message encoded as base64url.
    */
