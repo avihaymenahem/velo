@@ -249,6 +249,8 @@ pub fn run() {
             // Minimize to tray on close instead of quitting (main window only)
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
+                    // Emit an event to the frontend to trigger draft auto-save
+                    let _ = window.emit("velo-save-draft-on-close", ());
                     let _ = window.hide();
                     api.prevent_close();
                 }
