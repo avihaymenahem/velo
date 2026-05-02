@@ -31,7 +31,7 @@ import { insertScheduledEmail } from "@/services/db/scheduledEmails";
 import { getDefaultSignature } from "@/services/db/signatures";
 import { getAliasesForAccount, mapDbAlias, type SendAsAlias } from "@/services/db/sendAsAliases";
 import { resolveFromAddress } from "@/utils/resolveFromAddress";
-import { startAutoSave, stopAutoSave } from "@/services/composer/draftAutoSave";
+import { startAutoSave, stopAutoSave, startDiscard, waitForSave } from "@/services/composer/draftAutoSave";
 import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
 import { readFileAsBase64 } from "@/utils/fileUtils";
 import { interpolateVariables } from "@/utils/templateVariables";
@@ -352,13 +352,19 @@ export function Composer() {
   }, [effectiveAccountId, activeAccount, closeComposer, getFullHtml]);
 
   const handleDiscard = useCallback(async () => {
-    stopAutoSave();
+    // Signal discard immediately so any in-flight saveDraft() bails before touching IMAP
+    startDiscard();
+    // Wait for the in-flight save to finish (it will abort due to isDiscarding flag)
+    await waitForSave();
+    // Read draftId now — an in-flight create may have set it after we called startDiscard
     const currentDraftId = useComposerStore.getState().draftId;
     const currentThreadId = useComposerStore.getState().threadId;
     if (currentDraftId && effectiveAccountId) {
       try { await deleteDraftAction(effectiveAccountId, currentDraftId, currentThreadId ?? undefined); } catch { /* ignore */ }
     }
     closeComposer();
+    // Call stopAutoSave AFTER closeComposer so isOpen=false → localStorage key is cleared
+    stopAutoSave();
   }, [effectiveAccountId, closeComposer]);
 
   const isFullpage = viewMode === "fullpage";

@@ -231,8 +231,8 @@ export async function imapAppendMessage(
   folder: string,
   rawMessage: string,
   flags?: string
-): Promise<void> {
-  return invoke<void>('imap_append_message', { config, folder, flags: flags ?? null, rawMessage });
+): Promise<number> {
+  return invoke<number>('imap_append_message', { config, folder, flags: flags ?? null, rawMessage });
 }
 
 /**

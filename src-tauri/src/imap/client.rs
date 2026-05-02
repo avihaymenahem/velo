@@ -538,16 +538,30 @@ pub async fn delete_messages(
 }
 
 /// Append a raw message to a folder (for saving sent mail or drafts).
+/// Returns the UID assigned to the new message (using STATUS UIDNEXT before APPEND).
 pub async fn append_message(
     session: &mut ImapSession,
     folder: &str,
     flags: Option<&str>,
     raw_message: &[u8],
-) -> Result<(), String> {
+) -> Result<u32, String> {
+    // Read UIDNEXT before APPEND — this will be the UID of the new message.
+    // Standard pattern for retrieving the appended UID without requiring UIDPLUS.
+    let status = tokio::time::timeout(
+        IMAP_CMD_TIMEOUT,
+        session.status(folder, "(UIDNEXT)"),
+    )
+    .await
+    .map_err(|_| format!("STATUS timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))?
+    .map_err(|e| format!("STATUS failed: {e}"))?;
+    let uid_next = status.uid_next.unwrap_or(0);
+
     tokio::time::timeout(IMAP_FETCH_TIMEOUT, session.append(folder, flags, None, raw_message))
         .await
         .map_err(|_| format!("APPEND timed out after {}s — check your server settings or network connection", IMAP_FETCH_TIMEOUT.as_secs()))?
-        .map_err(|e| format!("APPEND failed: {e}"))
+        .map_err(|e| format!("APPEND failed: {e}"))?;
+
+    Ok(uid_next)
 }
 
 /// Get folder status (UIDVALIDITY, UIDNEXT, MESSAGES, UNSEEN).

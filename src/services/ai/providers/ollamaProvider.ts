@@ -24,15 +24,22 @@ export function createOllamaProvider(serverUrl: string, model: string): AiProvid
 
   return {
     async complete(req: AiCompletionRequest): Promise<string> {
-      const response = await client.chat.completions.create({
+      const params = {
         model,
-        max_tokens: req.maxTokens ?? 1024,
+        stream: false as const,
+        max_tokens: req.maxTokens ?? 4096,
         messages: [
-          { role: "system", content: req.systemPrompt },
-          { role: "user", content: req.userContent },
+          { role: "system" as const, content: req.systemPrompt },
+          { role: "user" as const, content: req.userContent },
         ],
-      });
-      return response.choices[0]?.message?.content ?? "";
+      };
+      // Spread think:false for Ollama thinking models (e.g. Qwen3) — not in OpenAI types
+      const response = await client.chat.completions.create(
+        { ...params, think: false } as typeof params,
+      );
+      const content = response.choices[0]?.message?.content ?? "";
+      // Strip any residual <think> blocks (safety net if the model ignores think:false)
+      return content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
     },
 
     async testConnection(): Promise<boolean> {
