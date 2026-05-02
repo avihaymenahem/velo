@@ -316,6 +316,18 @@ function ThreadMenu({
     }
   };
 
+  const handleDeleteMessage = async () => {
+    const selectedMsgId = useThreadStore.getState().selectedMessageId;
+    let msgId = selectedMsgId;
+    if (!msgId) {
+      const msgs = await getMessagesForThread(activeAccountId, thread.id);
+      const last = msgs[msgs.length - 1];
+      if (!last) return;
+      msgId = last.id;
+    }
+    await deleteSingleMessage(activeAccountId, thread.id, msgId, isTrashView);
+  };
+
   const handleDelete = async () => {
     for (const id of targetIds) {
       if (isTrashView) {
@@ -477,12 +489,22 @@ function ThreadMenu({
     },
     {
       id: "delete",
-      label: isTrashView ? "Delete Permanently" : "Delete",
+      label: isTrashView ? "Delete Permanently" : "Delete Thread",
       icon: Trash2,
       shortcut: "#",
       danger: isTrashView,
       action: handleDelete,
     },
+    ...(!isMulti && !isDraftsView
+      ? [{
+          id: "delete-message",
+          label: isTrashView ? "Delete Message Permanently" : "Delete Message",
+          icon: Trash,
+          shortcut: "d",
+          danger: isTrashView,
+          action: handleDeleteMessage,
+        } as ContextMenuItem]
+      : []),
     {
       id: "toggle-read",
       label: isRead ? "Mark as Unread" : "Mark as Read",

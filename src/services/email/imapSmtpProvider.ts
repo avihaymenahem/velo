@@ -405,28 +405,40 @@ export class ImapSmtpProvider implements EmailProvider {
     }
   }
 
-  async addLabel(
-    _threadId: string,
-    _labelId: string,
-  ): Promise<void> {
-    // IMAP doesn't have native labels — this would require COPY to another folder
-    // or using IMAP keywords (if server supports them).
-    // For now, this is a no-op with a warning.
-    console.warn(
-      "IMAP does not natively support labels. " +
-        "Use moveToFolder() to move messages between folders instead.",
-    );
+  async addLabel(threadId: string, labelId: string): Promise<void> {
+    // Map Gmail-style system label IDs to IMAP folder paths and perform a move.
+    // This is how drag-and-drop "restore from Trash" works: addLabel("INBOX") moves
+    // all thread messages from their current folder (e.g. Trash) to the INBOX.
+    let targetFolder: string | null = null;
+    switch (labelId) {
+      case "INBOX":
+        targetFolder = "INBOX";
+        break;
+      case "SENT":
+        targetFolder = (await findSpecialFolder(this.accountId, "\\Sent")) ?? "Sent";
+        break;
+      case "TRASH":
+        targetFolder = (await findSpecialFolder(this.accountId, "\\Trash")) ?? "Trash";
+        break;
+      case "SPAM":
+        targetFolder = (await findSpecialFolder(this.accountId, "\\Junk")) ?? "Junk";
+        break;
+      case "DRAFT":
+        targetFolder = (await findSpecialFolder(this.accountId, "\\Drafts")) ?? "Drafts";
+        break;
+      default:
+        // IMAP has no concept of custom labels
+        console.warn(`[imap_] addLabel: "${labelId}" — IMAP does not support custom labels`);
+        return;
+    }
+    await this.moveToFolder(threadId, [], targetFolder);
   }
 
-  async removeLabel(
-    _threadId: string,
-    _labelId: string,
-  ): Promise<void> {
-    // IMAP doesn't have native labels.
-    console.warn(
-      "IMAP does not natively support labels. " +
-        "Use moveToFolder() to move messages between folders instead.",
-    );
+  async removeLabel(threadId: string, labelId: string): Promise<void> {
+    // After addLabel() has already moved the messages to the target folder, the
+    // source folder (e.g. Trash) no longer contains them, so no server action is
+    // needed here. The local DB is updated by the emailActions pipeline.
+    console.log(`[imap_] removeLabel: "${labelId}" on thread ${threadId} — handled by prior addLabel move`);
   }
 
   // ---- Send/Draft operations ----

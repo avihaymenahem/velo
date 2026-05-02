@@ -407,8 +407,8 @@ describe("ImapSmtpProvider", () => {
       spy.mockRestore();
     });
 
-    it("removeLabel does not throw (warns instead)", async () => {
-      const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    it("removeLabel does not throw (logs instead)", async () => {
+      const spy = vi.spyOn(console, "log").mockImplementation(() => {});
       await provider.removeLabel("thread-1", "Label_1");
       expect(spy).toHaveBeenCalled();
       spy.mockRestore();
