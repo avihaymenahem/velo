@@ -6,7 +6,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { getActiveLabel } from "@/router/navigate";
 import { useComposerStore } from "@/stores/composerStore";
 import { useLabelStore, type Label } from "@/stores/labelStore";
-import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, addThreadLabel, removeThreadLabel, deleteDraftThread } from "@/services/emailActions";
+import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, addThreadLabel, removeThreadLabel, deleteDraftThread, deleteSingleMessage } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
 import { getMessagesForThread } from "@/services/db/messages";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
@@ -36,6 +36,7 @@ import {
   Zap,
   Code,
   RefreshCw,
+  Trash,
 } from "lucide-react";
 import { triggerSync } from "@/services/gmail/syncManager";
 import { useUIStore } from "@/stores/uiStore";
@@ -698,6 +699,15 @@ function MessageMenu({
     }
   };
 
+  const activeLabel = getActiveLabel();
+  const isTrashView = activeLabel === "trash";
+
+  const handleDeleteMessage = async () => {
+    if (!accountId) return;
+    onClose();
+    await deleteSingleMessage(accountId, threadId, messageId, isTrashView);
+  };
+
   const items: ContextMenuItem[] = [
     {
       id: "reply",
@@ -744,6 +754,15 @@ function MessageMenu({
           },
         ]
       : []),
+    { id: "sep-delete", label: "", separator: true },
+    {
+      id: "delete-message",
+      label: isTrashView ? "Delete Permanently" : "Delete Message",
+      icon: Trash,
+      shortcut: "d",
+      danger: isTrashView,
+      action: handleDeleteMessage,
+    },
   ];
 
   return <ContextMenu items={items} position={position} onClose={onClose} />;

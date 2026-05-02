@@ -240,7 +240,10 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
 
         {/* Core actions group */}
         <Button variant="secondary" iconOnly icon={<Archive size={15} />} onClick={handleArchive} title="Archive (e)" />
-        <Button variant="secondary" iconOnly icon={<Trash2 size={15} />} onClick={handleDelete} title="Delete (#)" />
+        <Button variant="secondary" iconOnly icon={<Trash2 size={15} />} onClick={handleDelete} title="Delete thread (#)" />
+        {messages && messages.length > 0 && (
+          <Button variant="secondary" iconOnly icon={<Trash size={15} />} onClick={handleDeleteMessage} title="Delete message (d)" />
+        )}
         <Button
           variant="secondary"
           iconOnly
