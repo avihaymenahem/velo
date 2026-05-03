@@ -601,10 +601,94 @@ export class ImapSmtpProvider implements EmailProvider {
     });
   }
 
+  /**
+   * Save a draft message to the local SQLite DB with the DRAFT label and IMAP UID.
+   * This ensures resolveGrouped() always finds the current UID when the user deletes
+   * a draft, even before the next delta sync updates the DB from the server.
+   */
+  private async saveDraftLocally(
+    rawBase64Url: string,
+    draftId: string,
+    imapUid: number,
+    imapFolder: string,
+    threadId?: string,
+  ): Promise<{ threadId: string }> {
+    const raw = base64UrlDecode(rawBase64Url);
+    const headers = parseBasicHeaders(raw);
+    const snippet = extractSnippet(raw);
+
+    const from = headers.get("from") ?? "";
+    const to = headers.get("to") ?? "";
+    const cc = headers.get("cc") ?? null;
+    const subject = headers.get("subject") ?? null;
+    const messageIdHeader = headers.get("message-id") ?? null;
+    const inReplyTo = headers.get("in-reply-to") ?? null;
+    const references = headers.get("references") ?? null;
+    const now = Date.now();
+
+    // For draft replies, attach to the existing thread; otherwise use draftId as threadId
+    const effectiveThreadId = threadId ?? draftId;
+
+    // Upsert the thread (creates if new, updates subject/snippet if existing)
+    await upsertThread({
+      id: effectiveThreadId,
+      accountId: this.accountId,
+      subject,
+      snippet,
+      lastMessageAt: now,
+      messageCount: 1,
+      isRead: false,
+      isStarred: false,
+      isImportant: false,
+      hasAttachments: false,
+    });
+
+    // Ensure DRAFT label is present without overwriting other labels (e.g. INBOX for replies)
+    const existingLabels = await getThreadLabelIds(this.accountId, effectiveThreadId);
+    if (!existingLabels.includes("DRAFT")) {
+      await setThreadLabels(this.accountId, effectiveThreadId, [...existingLabels, "DRAFT"]);
+    }
+
+    const fromNameMatch = from.match(/^([^<]*)<[^>]+>/);
+    const fromName = fromNameMatch ? fromNameMatch[1]!.trim() : null;
+    const fromAddress = from.replace(/.*<([^>]+)>.*/, "$1").trim();
+
+    const bodyStart = raw.indexOf("\r\n\r\n");
+    const bodyHtml = bodyStart !== -1 ? raw.slice(bodyStart + 4) : null;
+
+    await upsertMessage({
+      id: draftId,
+      accountId: this.accountId,
+      threadId: effectiveThreadId,
+      fromAddress,
+      fromName,
+      toAddresses: to,
+      ccAddresses: cc,
+      bccAddresses: null,
+      replyTo: null,
+      subject,
+      snippet,
+      date: now,
+      isRead: false,
+      isStarred: false,
+      bodyHtml: bodyHtml ? bodyHtml.slice(0, 50000) : null,
+      bodyText: snippet,
+      rawSize: raw.length,
+      internalDate: now,
+      messageIdHeader,
+      referencesHeader: references,
+      inReplyToHeader: inReplyTo,
+      imapUid,
+      imapFolder,
+    });
+
+    return { threadId: effectiveThreadId };
+  }
+
   async createDraft(
     rawBase64Url: string,
     _threadId?: string,
-  ): Promise<{ draftId: string }> {
+  ): Promise<{ draftId: string; threadId?: string }> {
     const config = await this.getImapConfig();
     const draftsFolder =
       (await findSpecialFolder(this.accountId, "\\Drafts")) ?? "Drafts";
@@ -618,38 +702,53 @@ export class ImapSmtpProvider implements EmailProvider {
 
     // Build a real UID-based ID so deleteDraft can find and remove it from IMAP
     const draftId = `imap-${this.accountId}-${draftsFolder}-${uid}`;
-    return { draftId };
+
+    // Write to local DB immediately so resolveGrouped() can delete by UID before the next sync
+    try {
+      const { threadId } = await this.saveDraftLocally(rawBase64Url, draftId, uid, draftsFolder, _threadId);
+      return { draftId, threadId };
+    } catch (err) {
+      console.warn("[IMAP] Failed to save draft to local DB:", err);
+      return { draftId };
+    }
   }
 
   async updateDraft(
     draftId: string,
     rawBase64Url: string,
     _threadId?: string,
-  ): Promise<{ draftId: string }> {
-    // Pseudo-IDs (imap-draft-...) were generated locally before we had the real IMAP UID.
-    // We cannot delete the old message without a UID, and creating a new one every 3 s
-    // would accumulate zombie drafts on the server. Return the same ID unchanged and let
-    // the next folder sync replace it with a real UID-based ID.
+  ): Promise<{ draftId: string; threadId?: string }> {
     if (draftId.startsWith("imap-draft-")) {
-      // For drafts with pseudo-IDs, we cannot delete the old message without a real UID.
-      // Instead, we create a new draft on the server and discard the old local pseudo-ID.
-      // The sync process will then pick up the new draft with its real UID.
-      const { draftId: newDraftId } = await this.createDraft(
-        rawBase64Url,
-        _threadId,
-      );
-      // The local composer store will be updated with the newDraftId.
-      return { draftId: newDraftId };
+      // Pseudo-ID: no server UID to delete. Create a fresh draft on server + DB.
+      return this.createDraft(rawBase64Url, _threadId);
     }
 
-    // Real UID-based ID — delete old, append new
+    // Real UID-based ID: append new FIRST (so the new UID is in DB before we remove the old one),
+    // then delete the old from server. The old DB record is cleaned up by cleanupOldDraftFromDb
+    // in draftAutoSave.ts after this call returns.
+    const config = await this.getImapConfig();
+    const draftsFolder =
+      (await findSpecialFolder(this.accountId, "\\Drafts")) ?? "Drafts";
+
+    const newUid = await imapAppendMessage(config, draftsFolder, rawBase64Url, "(\\Draft)");
+    const newDraftId = `imap-${this.accountId}-${draftsFolder}-${newUid}`;
+
+    let returnedThreadId = _threadId;
+    try {
+      const { threadId } = await this.saveDraftLocally(rawBase64Url, newDraftId, newUid, draftsFolder, _threadId);
+      returnedThreadId = threadId;
+    } catch (err) {
+      console.warn("[IMAP] Failed to save updated draft to local DB:", err);
+    }
+
+    // Delete old from server (non-fatal if already gone)
     try {
       await this.deleteDraft(draftId);
     } catch {
       // Old draft may already be gone; continue
     }
 
-    return this.createDraft(rawBase64Url, _threadId);
+    return { draftId: newDraftId, threadId: returnedThreadId };
   }
 
   async deleteDraft(draftId: string, _threadId?: string): Promise<void> {

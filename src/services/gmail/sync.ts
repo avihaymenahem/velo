@@ -374,7 +374,11 @@ export async function deltaSync(
             throw err;
           }
 
-          if (!thread.messages || thread.messages.length === 0) return;
+          if (!thread.messages || thread.messages.length === 0) {
+            console.log(`[deltaSync] Thread ${threadId} has no messages on server, removing from local DB`);
+            await deleteThread(accountId, threadId);
+            return;
+          }
 
           const parsedMessages = thread.messages.map(parseGmailMessage);
           await processAndStoreThread(thread, accountId, parsedMessages, client, autoArchiveCategories);

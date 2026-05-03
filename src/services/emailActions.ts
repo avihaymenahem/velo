@@ -240,23 +240,34 @@ async function applyLocalDbUpdate(
           [accountId, action.threadId, action.labelId],
         );
         break;
-      case "deleteDraft":
+      case "deleteDraft": {
         // Clean up local DB: remove thread and its labels/messages
-        if (action.threadId) {
+        let tid = action.threadId;
+        if (!tid) {
+          // If no threadId provided, try to find it from the message ID (draftId)
+          const row = await db.select<{ thread_id: string }[]>(
+            "SELECT thread_id FROM messages WHERE account_id = $1 AND id = $2",
+            [accountId, action.draftId],
+          );
+          if (row[0]) tid = row[0].thread_id;
+        }
+
+        if (tid) {
           await db.execute(
             "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
-            [accountId, action.threadId],
+            [accountId, tid],
           );
           await db.execute(
             "DELETE FROM messages WHERE account_id = $1 AND thread_id = $2",
-            [accountId, action.threadId],
+            [accountId, tid],
           );
           await db.execute(
             "DELETE FROM threads WHERE account_id = $1 AND id = $2",
-            [accountId, action.threadId],
+            [accountId, tid],
           );
         }
         break;
+      }
       default:
       break;
   }

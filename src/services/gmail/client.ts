@@ -340,8 +340,14 @@ export class GmailClient {
   /**
    * List drafts. Returns draft stubs with draft ID and message ID/threadId.
    */
-  async listDrafts(): Promise<{ id: string; message: { id: string; threadId: string } }[]> {
-    const resp = await this.request<{ drafts?: { id: string; message: { id: string; threadId: string } }[] }>("/drafts?maxResults=500");
+  async listDrafts(options: { q?: string; maxResults?: number; pageToken?: string } = {}): Promise<{ id: string; message: { id: string; threadId: string } }[]> {
+    const params = new URLSearchParams();
+    if (options.q) params.append("q", options.q);
+    if (options.maxResults) params.append("maxResults", options.maxResults.toString());
+    else params.append("maxResults", "500");
+    if (options.pageToken) params.append("pageToken", options.pageToken);
+
+    const resp = await this.request<{ drafts?: { id: string; message: { id: string; threadId: string } }[] }>(`/drafts?${params.toString()}`);
     return resp.drafts ?? [];
   }
 }
