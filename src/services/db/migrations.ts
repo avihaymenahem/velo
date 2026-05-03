@@ -914,6 +914,19 @@ export async function runMigrations(): Promise<void> {
     }
   }
 
+  // Repair: if migration 26 is marked applied but deleted_imap_uids table is missing,
+  // force re-run v26 (can happen when HMR deploys code before app restart runs migrations).
+  if (appliedVersions.has(26)) {
+    const tables = await db.select<{ name: string }[]>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='deleted_imap_uids'",
+    );
+    if (tables.length === 0) {
+      console.warn("Migration v26 marked applied but deleted_imap_uids table missing — re-running v26");
+      await db.execute("DELETE FROM _migrations WHERE version = 26");
+      appliedVersions.delete(26);
+    }
+  }
+
   // Run pending migrations
   for (const migration of MIGRATIONS) {
     if (appliedVersions.has(migration.version)) continue;
