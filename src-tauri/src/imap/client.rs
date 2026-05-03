@@ -388,7 +388,7 @@ pub async fn fetch_new_uids(
         .map_err(|_| format!("SELECT {folder} timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))?
         .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
 
-    let query = format!("{}:*", last_uid + 1);
+    let query = format!("{}:* NOT DELETED", last_uid + 1);
     let uids = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&query))
         .await
         .map_err(|_| format!("UID SEARCH timed out after {}s — check your server settings or network connection", IMAP_SEARCH_TIMEOUT.as_secs()))?
@@ -411,10 +411,10 @@ pub async fn search_all_uids(
         .map_err(|_| format!("SELECT {folder} timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))?
         .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
 
-    let uids = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search("ALL"))
+    let uids = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search("NOT DELETED"))
         .await
-        .map_err(|_| format!("UID SEARCH ALL timed out after {}s — check your server settings or network connection", IMAP_SEARCH_TIMEOUT.as_secs()))?
-        .map_err(|e| format!("UID SEARCH ALL failed: {e}"))?;
+        .map_err(|_| format!("UID SEARCH NOT DELETED timed out after {}s — check your server settings or network connection", IMAP_SEARCH_TIMEOUT.as_secs()))?
+        .map_err(|e| format!("UID SEARCH NOT DELETED failed: {e}"))?;
 
     let mut result: Vec<u32> = uids.into_iter().collect();
     result.sort();
@@ -490,7 +490,10 @@ pub async fn move_messages(
                     .expunge()
                     .await
                     .map_err(|e| format!("EXPUNGE failed: {e}"))?;
-                let _: Vec<_> = expunge_stream.collect().await;
+                let results: Vec<_> = expunge_stream.collect().await;
+                for r in results {
+                    r.map_err(|e| format!("EXPUNGE stream error: {e}"))?;
+                }
                 Ok::<_, String>(())
             })
             .await
@@ -502,6 +505,10 @@ pub async fn move_messages(
 }
 
 /// Flag messages as deleted and expunge them.
+///
+/// Uses UID EXPUNGE (RFC 4315) when the server supports UIDPLUS, to expunge only
+/// the targeted UIDs rather than all \Deleted messages in the folder. Falls back
+/// to a plain EXPUNGE if UID EXPUNGE fails.
 pub async fn delete_messages(
     session: &mut ImapSession,
     folder: &str,
@@ -523,45 +530,120 @@ pub async fn delete_messages(
     .await
     .map_err(|_| format!("UID STORE +Deleted timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))??;
 
-    tokio::time::timeout(IMAP_CMD_TIMEOUT, async {
+    // Prefer UID EXPUNGE (RFC 4315 UIDPLUS) to expunge only the targeted messages.
+    // Fall back to plain EXPUNGE if the server does not support it.
+    let uid_expunge_result = tokio::time::timeout(IMAP_CMD_TIMEOUT, async {
         let expunge_stream = session
-            .expunge()
+            .uid_expunge(uid_set)
             .await
-            .map_err(|e| format!("EXPUNGE failed: {e}"))?;
-        let _: Vec<_> = expunge_stream.collect().await;
+            .map_err(|e| format!("UID EXPUNGE failed: {e}"))?;
+        let results: Vec<_> = expunge_stream.collect().await;
+        for r in results {
+            r.map_err(|e| format!("UID EXPUNGE stream error: {e}"))?;
+        }
         Ok::<_, String>(())
     })
     .await
-    .map_err(|_| format!("EXPUNGE timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))??;
+    .map_err(|_| format!("UID EXPUNGE timed out after {}s", IMAP_CMD_TIMEOUT.as_secs()))
+    .and_then(|r| r);
+
+    if uid_expunge_result.is_err() {
+        // Fallback: plain EXPUNGE (expunges all \Deleted in the folder)
+        tokio::time::timeout(IMAP_CMD_TIMEOUT, async {
+            let expunge_stream = session
+                .expunge()
+                .await
+                .map_err(|e| format!("EXPUNGE failed: {e}"))?;
+            let results: Vec<_> = expunge_stream.collect().await;
+            for r in results {
+                r.map_err(|e| format!("EXPUNGE stream error: {e}"))?;
+            }
+            Ok::<_, String>(())
+        })
+        .await
+        .map_err(|_| format!("EXPUNGE timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))??;
+    }
 
     Ok(())
 }
 
 /// Append a raw message to a folder (for saving sent mail or drafts).
-/// Returns the UID assigned to the new message (using STATUS UIDNEXT before APPEND).
+/// Returns the UID assigned to the new message.
+///
+/// Reads UIDNEXT before APPEND, then verifies with a post-APPEND STATUS check.
+/// If another message was appended concurrently (UIDNEXT jumped by more than 1),
+/// falls back to searching the new UID range to find the appended message.
 pub async fn append_message(
     session: &mut ImapSession,
     folder: &str,
     flags: Option<&str>,
     raw_message: &[u8],
 ) -> Result<u32, String> {
-    // Read UIDNEXT before APPEND — this will be the UID of the new message.
-    // Standard pattern for retrieving the appended UID without requiring UIDPLUS.
-    let status = tokio::time::timeout(
+    // Read UIDNEXT before APPEND.
+    let status_before = tokio::time::timeout(
         IMAP_CMD_TIMEOUT,
         session.status(folder, "(UIDNEXT)"),
     )
     .await
     .map_err(|_| format!("STATUS timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))?
     .map_err(|e| format!("STATUS failed: {e}"))?;
-    let uid_next = status.uid_next.unwrap_or(0);
+    let uid_next_before = status_before.uid_next.unwrap_or(0);
 
     tokio::time::timeout(IMAP_FETCH_TIMEOUT, session.append(folder, flags, None, raw_message))
         .await
         .map_err(|_| format!("APPEND timed out after {}s — check your server settings or network connection", IMAP_FETCH_TIMEOUT.as_secs()))?
         .map_err(|e| format!("APPEND failed: {e}"))?;
 
-    Ok(uid_next)
+    // Verify with a post-APPEND STATUS to detect concurrent appends.
+    let status_after = tokio::time::timeout(
+        IMAP_CMD_TIMEOUT,
+        session.status(folder, "(UIDNEXT)"),
+    )
+    .await
+    .map_err(|_| format!("STATUS (post-append) timed out after {}s", IMAP_CMD_TIMEOUT.as_secs()))?
+    .map_err(|e| format!("STATUS (post-append) failed: {e}"))?;
+    let uid_next_after = status_after.uid_next.unwrap_or(0);
+
+    if uid_next_before == 0 || uid_next_after == 0 {
+        // Server didn't report UIDNEXT; return best-effort value.
+        return Ok(uid_next_before);
+    }
+
+    if uid_next_after == uid_next_before + 1 {
+        // Happy path: exactly one message was appended, UID = uid_next_before.
+        return Ok(uid_next_before);
+    }
+
+    if uid_next_after > uid_next_before + 1 {
+        // Concurrent appends occurred. Search the new UID range to find messages
+        // appended since uid_next_before and return the highest one (ours is last).
+        let search_query = format!("{}:{} NOT DELETED", uid_next_before, uid_next_after - 1);
+        let mailbox = tokio::time::timeout(IMAP_CMD_TIMEOUT, session.select(folder))
+            .await
+            .map_err(|_| format!("SELECT {folder} timed out after {}s", IMAP_CMD_TIMEOUT.as_secs()))?
+            .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
+        let _ = mailbox; // only needed to enter the folder
+        match tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&search_query)).await {
+            Ok(Ok(uids)) => {
+                if let Some(&highest) = uids.iter().max() {
+                    log::warn!(
+                        "append_message: concurrent append detected in {folder} \
+                         (uid_next {} → {}), returning highest new UID {}",
+                        uid_next_before, uid_next_after, highest
+                    );
+                    return Ok(highest);
+                }
+            }
+            _ => {
+                log::warn!(
+                    "append_message: post-append UID search failed for {folder}, \
+                     falling back to uid_next_before={uid_next_before}"
+                );
+            }
+        }
+    }
+
+    Ok(uid_next_before)
 }
 
 /// Get folder status (UIDVALIDITY, UIDNEXT, MESSAGES, UNSEEN).
@@ -739,8 +821,8 @@ pub async fn delta_check_folders(
             continue;
         }
 
-        // UID SEARCH for messages newer than last_uid
-        let query = format!("{}:*", req.last_uid + 1);
+        // UID SEARCH for messages newer than last_uid, excluding \Deleted flagged messages.
+        let query = format!("{}:* NOT DELETED", req.last_uid + 1);
         let range_uids = match tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&query)).await {
             Ok(Ok(uids)) => {
                 let mut result: Vec<u32> = uids.into_iter().filter(|&u| u > req.last_uid).collect();
@@ -770,7 +852,7 @@ pub async fn delta_check_folders(
                     "delta_check: UID range search empty for {}, trying SINCE {} fallback",
                     req.folder, since_date
                 );
-                let since_query = format!("SINCE {since_date}");
+                let since_query = format!("SINCE {since_date} NOT DELETED");
                 match tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&since_query)).await {
                     Ok(Ok(uids)) => {
                         let mut result: Vec<u32> = uids.into_iter().filter(|&u| u > req.last_uid).collect();
@@ -833,10 +915,12 @@ pub async fn search_folder(
         highest_modseq: mailbox.highest_modseq,
     };
 
-    // UID SEARCH with optional SINCE date filter (RFC 3501 §6.4.4)
+    // UID SEARCH with optional SINCE date filter (RFC 3501 §6.4.4).
+    // NOT DELETED excludes messages marked for deletion but not yet expunged,
+    // preventing re-import of zombie messages on the next sync.
     let search_query = match &since_date {
-        Some(date) => format!("SINCE {date}"),
-        None => "ALL".to_string(),
+        Some(date) => format!("SINCE {date} NOT DELETED"),
+        None => "NOT DELETED".to_string(),
     };
     let uids_raw = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&search_query))
         .await
@@ -886,10 +970,11 @@ pub async fn sync_folder(
         highest_modseq: mailbox.highest_modseq,
     };
 
-    // UID SEARCH with optional SINCE date filter (RFC 3501 §6.4.4)
+    // UID SEARCH with optional SINCE date filter (RFC 3501 §6.4.4).
+    // NOT DELETED excludes messages marked for deletion but not yet expunged.
     let search_query = match &since_date {
-        Some(date) => format!("SINCE {date}"),
-        None => "ALL".to_string(),
+        Some(date) => format!("SINCE {date} NOT DELETED"),
+        None => "NOT DELETED".to_string(),
     };
     let uids_raw = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&search_query))
         .await

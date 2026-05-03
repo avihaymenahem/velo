@@ -6,6 +6,7 @@ import { getThreadCountForAccount, deleteAllThreadsForAccount } from "../db/thre
 import { deleteAllMessagesForAccount } from "../db/messages";
 import { imapInitialSync, imapDeltaSync } from "../imap/imapSync";
 import { clearAllFolderSyncStates } from "../db/folderSyncState";
+import { pruneDeletedImapUids } from "../db/deletedImapUids";
 import { ensureFreshToken } from "../oauth/oauthTokenManager";
 import { hasCalendarSupport, getCalendarProvider } from "../calendar/providerFactory";
 import { getVisibleCalendars, upsertCalendar, updateCalendarSyncToken } from "../db/calendars";
@@ -98,7 +99,9 @@ async function syncImapAccount(accountId: string): Promise<void> {
   const syncDays = parseInt(syncPeriodStr ?? "365", 10) || 365;
 
   if (account.history_id) {
-    // Delta sync — IMAP uses folder-level UID tracking
+    // Delta sync — IMAP uses folder-level UID tracking.
+    // Prune stale tombstones periodically (runs fast when table is small).
+    pruneDeletedImapUids().catch(() => {});
     const result = await imapDeltaSync(accountId, syncDays);
 
     // Recovery: if delta sync found nothing new but the DB has no threads,

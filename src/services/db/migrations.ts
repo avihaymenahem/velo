@@ -796,6 +796,20 @@ const MIGRATIONS = [
        CREATE INDEX IF NOT EXISTS idx_signatures_group ON signatures(group_id);
      `,
    },
+   {
+     version: 26,
+     description: "Add tombstone table for deleted IMAP UIDs to prevent zombie re-import",
+     sql: `
+       CREATE TABLE IF NOT EXISTS deleted_imap_uids (
+         account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+         folder_path TEXT NOT NULL,
+         uid INTEGER NOT NULL,
+         deleted_at INTEGER NOT NULL DEFAULT (unixepoch()),
+         PRIMARY KEY (account_id, folder_path, uid)
+       );
+       CREATE INDEX IF NOT EXISTS idx_deleted_imap_uids_account ON deleted_imap_uids(account_id, folder_path);
+     `,
+   },
  ];
 
 /**

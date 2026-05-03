@@ -25,6 +25,7 @@ import {
   upsertFolderSyncState,
   getAllFolderSyncStates,
 } from "../db/folderSyncState";
+import { getDeletedImapUidsForFolder } from "../db/deletedImapUids";
 import {
   buildThreads,
   type ThreadableMessage,
@@ -915,7 +916,9 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
         searchResult.uids,
       );
 
+      const tombstone = await getDeletedImapUidsForFolder(accountId, folder.raw_path);
       for (const msg of messages) {
+        if (tombstone.has(msg.uid)) continue;
         const { parsed, threadable } = imapMessageToParsedMessage(
           msg,
           accountId,
@@ -1031,7 +1034,9 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
             searchResult.uids,
           );
 
+          const tombstone = await getDeletedImapUidsForFolder(accountId, folder.raw_path);
           for (const msg of messages) {
+            if (tombstone.has(msg.uid)) continue;
             const { parsed, threadable } = imapMessageToParsedMessage(
               msg,
               accountId,
@@ -1081,7 +1086,9 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
           uidsToFetch,
         );
 
+        const tombstone = await getDeletedImapUidsForFolder(accountId, folder.raw_path);
         for (const msg of messages) {
+          if (tombstone.has(msg.uid)) continue;
           const { parsed, threadable } = imapMessageToParsedMessage(
             msg,
             accountId,
