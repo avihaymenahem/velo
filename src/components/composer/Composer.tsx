@@ -544,8 +544,11 @@ export function Composer() {
 
       {/* Top Header Title (Centered next to macOS traffic lights) */}
       {isFullpage && (
-        <div className="absolute top-0 left-0 right-0 h-10 flex items-center justify-center pointer-events-none z-10">
-          <span className="text-[12px] font-semibold text-accent truncate max-w-[50%]">
+        <div
+          data-tauri-drag-region
+          className="absolute top-0 left-0 right-0 h-10 flex items-center justify-center z-10 cursor-default"
+        >
+          <span className="text-[12px] font-semibold text-accent truncate max-w-[50%] pointer-events-none">
             {subject.trim() || modeLabel}
           </span>
         </div>

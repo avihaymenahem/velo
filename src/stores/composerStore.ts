@@ -148,7 +148,7 @@ export const useComposerStore = create<ComposerState>((set) => ({
             new WebviewWindow(windowLabel, {
               url: `index.html?${params.toString()}`,
               title: "", // Hide title since we have it in the UI/Footer
-              width: 700,
+              width: 980,
               height: 650,
               center: true,
               // @ts-ignore - titleBarStyle is valid for macOS in Tauri 2
