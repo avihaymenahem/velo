@@ -344,6 +344,43 @@ export function EmailList({
     }
   };
 
+  const handleBulkMarkAllTrashRead = async () => {
+    if (!activeAccountId || activeLabel !== "trash") return;
+    try {
+      const allTrashThreadIds = await getThreadIdsForLabel(
+        activeAccountId,
+        "TRASH",
+      );
+      if (allTrashThreadIds.length === 0) return;
+      await Promise.all(
+        allTrashThreadIds.map((id) =>
+          markThreadRead(activeAccountId, id, [], true),
+        ),
+      );
+    } catch (err) {
+      console.error("Bulk mark all trash as read failed:", err);
+    }
+  };
+
+  const handleBulkEmptyTrash = async () => {
+    if (!activeAccountId || activeLabel !== "trash") return;
+    try {
+      const allTrashThreadIds = await getThreadIdsForLabel(
+        activeAccountId,
+        "TRASH",
+      );
+      if (allTrashThreadIds.length === 0) return;
+      removeThreads(allTrashThreadIds);
+      await Promise.all(
+        allTrashThreadIds.map((id) =>
+          permanentDeleteThread(activeAccountId, id, []),
+        ),
+      );
+    } catch (err) {
+      console.error("Bulk empty trash failed:", err);
+    }
+  };
+
   const searchThreadIds = useThreadStore((s) => s.searchThreadIds);
   const searchQuery = useThreadStore((s) => s.searchQuery);
 
@@ -750,6 +787,24 @@ export function EmailList({
               <button
                 onClick={handleBulkMoveAllSpamToTrash}
                 title="Move all spam to trash"
+                className="p-1.5 text-text-secondary hover:text-error hover:bg-bg-hover rounded transition-colors"
+              >
+                <Trash2 size={14} />
+              </button>
+            </>
+          )}
+          {activeLabel === "trash" && (
+            <>
+              <button
+                onClick={handleBulkMarkAllTrashRead}
+                title="Mark all trash as read"
+                className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
+              >
+                <MailOpen size={14} />
+              </button>
+              <button
+                onClick={handleBulkEmptyTrash}
+                title="Empty trash"
                 className="p-1.5 text-text-secondary hover:text-error hover:bg-bg-hover rounded transition-colors"
               >
                 <Trash2 size={14} />

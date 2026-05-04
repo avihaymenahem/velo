@@ -112,19 +112,19 @@ function applyOptimisticUpdate(action: EmailAction): void {
     case "star":
       store.updateThread(action.threadId, { isStarred: action.starred });
       break;
-     case "addLabel":
-      case "removeLabel":
-      case "sendMessage":
-      case "createDraft":
-      case "updateDraft":
-        // No universal optimistic update for these
-        break;
-      case "deleteDraft":
-        // Remove thread from local store if threadId is available
-        if (action.threadId) {
-          store.removeThread(action.threadId);
-        }
-        break;
+    case "addLabel":
+    case "removeLabel":
+    case "sendMessage":
+    case "createDraft":
+    case "updateDraft":
+      // No universal optimistic update for these
+      break;
+    case "deleteDraft":
+      // Remove thread from local store if threadId is available
+      if (action.threadId) {
+        store.removeThread(action.threadId);
+      }
+      break;
   }
 }
 
@@ -193,7 +193,7 @@ async function applyLocalDbUpdate(
       break;
     case "trash":
       await db.execute(
-        "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id IN ('INBOX', 'DRAFT')",
+        "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id IN ('INBOX', 'DRAFT', 'SPAM')",
         [accountId, action.threadId],
       );
       await db.execute(
@@ -210,7 +210,7 @@ async function applyLocalDbUpdate(
     case "spam":
       if (action.isSpam) {
         await db.execute(
-          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'INBOX'",
+          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id IN ('INBOX', 'TRASH')",
           [accountId, action.threadId],
         );
         await db.execute(
@@ -228,47 +228,47 @@ async function applyLocalDbUpdate(
         );
       }
       break;
-     case "addLabel":
-        await db.execute(
-          "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, $3)",
-          [accountId, action.threadId, action.labelId],
+    case "addLabel":
+      await db.execute(
+        "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, $3)",
+        [accountId, action.threadId, action.labelId],
+      );
+      break;
+    case "removeLabel":
+      await db.execute(
+        "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = $3",
+        [accountId, action.threadId, action.labelId],
+      );
+      break;
+    case "deleteDraft": {
+      // Clean up local DB: remove thread and its labels/messages
+      let tid = action.threadId;
+      if (!tid) {
+        // If no threadId provided, try to find it from the message ID (draftId)
+        const row = await db.select<{ thread_id: string }[]>(
+          "SELECT thread_id FROM messages WHERE account_id = $1 AND id = $2",
+          [accountId, action.draftId],
         );
-        break;
-      case "removeLabel":
-        await db.execute(
-          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = $3",
-          [accountId, action.threadId, action.labelId],
-        );
-        break;
-      case "deleteDraft": {
-        // Clean up local DB: remove thread and its labels/messages
-        let tid = action.threadId;
-        if (!tid) {
-          // If no threadId provided, try to find it from the message ID (draftId)
-          const row = await db.select<{ thread_id: string }[]>(
-            "SELECT thread_id FROM messages WHERE account_id = $1 AND id = $2",
-            [accountId, action.draftId],
-          );
-          if (row[0]) tid = row[0].thread_id;
-        }
-
-        if (tid) {
-          await db.execute(
-            "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
-            [accountId, tid],
-          );
-          await db.execute(
-            "DELETE FROM messages WHERE account_id = $1 AND thread_id = $2",
-            [accountId, tid],
-          );
-          await db.execute(
-            "DELETE FROM threads WHERE account_id = $1 AND id = $2",
-            [accountId, tid],
-          );
-        }
-        break;
+        if (row[0]) tid = row[0].thread_id;
       }
-      default:
+
+      if (tid) {
+        await db.execute(
+          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
+          [accountId, tid],
+        );
+        await db.execute(
+          "DELETE FROM messages WHERE account_id = $1 AND thread_id = $2",
+          [accountId, tid],
+        );
+        await db.execute(
+          "DELETE FROM threads WHERE account_id = $1 AND id = $2",
+          [accountId, tid],
+        );
+      }
+      break;
+    }
+    default:
       break;
   }
 }
@@ -302,23 +302,11 @@ async function executeViaProvider(
     case "permanentDelete":
       return provider.permanentDelete(action.threadId, action.messageIds);
     case "markRead":
-      return provider.markRead(
-        action.threadId,
-        action.messageIds,
-        action.read,
-      );
+      return provider.markRead(action.threadId, action.messageIds, action.read);
     case "star":
-      return provider.star(
-        action.threadId,
-        action.messageIds,
-        action.starred,
-      );
+      return provider.star(action.threadId, action.messageIds, action.starred);
     case "spam":
-      return provider.spam(
-        action.threadId,
-        action.messageIds,
-        action.isSpam,
-      );
+      return provider.spam(action.threadId, action.messageIds, action.isSpam);
     case "moveToFolder":
       return provider.moveToFolder(
         action.threadId,
@@ -578,7 +566,11 @@ export function deleteDraft(
   draftId: string,
   threadId?: string,
 ): Promise<ActionResult> {
-  return executeEmailAction(accountId, { type: "deleteDraft", draftId, threadId });
+  return executeEmailAction(accountId, {
+    type: "deleteDraft",
+    draftId,
+    threadId,
+  });
 }
 
 /**
@@ -596,10 +588,10 @@ export async function deleteSingleMessage(
   const db = await getDb();
 
   // 1. Local DB: remove the message
-  await db.execute(
-    "DELETE FROM messages WHERE account_id = $1 AND id = $2",
-    [accountId, messageId],
-  );
+  await db.execute("DELETE FROM messages WHERE account_id = $1 AND id = $2", [
+    accountId,
+    messageId,
+  ]);
 
   // 2. Check remaining messages in thread
   const remaining = await getMessagesForThread(accountId, threadId);
@@ -610,15 +602,19 @@ export async function deleteSingleMessage(
       "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
       [accountId, threadId],
     );
-    await db.execute(
-      "DELETE FROM threads WHERE account_id = $1 AND id = $2",
-      [accountId, threadId],
-    );
+    await db.execute("DELETE FROM threads WHERE account_id = $1 AND id = $2", [
+      accountId,
+      threadId,
+    ]);
     const nextId = getNextThreadId(threadId);
     useThreadStore.getState().removeThread(threadId);
     if (nextId) navigateToThread(nextId);
   } else {
-    window.dispatchEvent(new CustomEvent("velo-message-deleted", { detail: { messageId, threadId } }));
+    window.dispatchEvent(
+      new CustomEvent("velo-message-deleted", {
+        detail: { messageId, threadId },
+      }),
+    );
   }
 
   // 4. If offline, queue
@@ -674,7 +670,8 @@ export async function deleteDraftThread(
 
   if (account.provider === "gmail_api") {
     const { getGmailClient } = await import("@/services/gmail/tokenManager");
-    const { deleteDraftsForThread } = await import("@/services/gmail/draftDeletion");
+    const { deleteDraftsForThread } =
+      await import("@/services/gmail/draftDeletion");
     const client = await getGmailClient(accountId);
     await deleteDraftsForThread(client, accountId, threadId);
   } else {

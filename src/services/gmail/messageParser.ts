@@ -1,5 +1,6 @@
 import type { GmailMessage, GmailMessagePart, GmailHeader } from "./client";
 import { parseAuthenticationResults } from "./authParser";
+import { decodeHtml } from "@/utils/sanitize";
 
 export interface ParsedAttachment {
   filename: string;
@@ -56,7 +57,7 @@ export function parseGmailMessage(msg: GmailMessage): ParsedMessage {
     bccAddresses: getHeader(headers, "Bcc"),
     replyTo: getHeader(headers, "Reply-To"),
     subject: getHeader(headers, "Subject"),
-    snippet: msg.snippet,
+    snippet: decodeHtml(msg.snippet),
     date: parseInt(msg.internalDate, 10),
     isRead: !msg.labelIds.includes("UNREAD"),
     isStarred: msg.labelIds.includes("STARRED"),
@@ -98,10 +99,7 @@ function parseEmailAddress(raw: string | null): {
   return { name: null, address: raw.trim() };
 }
 
-function extractBody(
-  part: GmailMessagePart,
-  mimeType: string,
-): string | null {
+function extractBody(part: GmailMessagePart, mimeType: string): string | null {
   if (part.mimeType === mimeType && part.body.data) {
     return part.body.data;
   }
@@ -122,7 +120,10 @@ function extractAttachments(part: GmailMessagePart): ParsedAttachment[] {
   return results;
 }
 
-function collectAttachments(part: GmailMessagePart, results: ParsedAttachment[]): void {
+function collectAttachments(
+  part: GmailMessagePart,
+  results: ParsedAttachment[],
+): void {
   if (part.body.attachmentId) {
     const contentIdHeader = part.headers?.find(
       (h) => h.name.toLowerCase() === "content-id",
@@ -132,12 +133,16 @@ function collectAttachments(part: GmailMessagePart, results: ParsedAttachment[])
     );
     const hasFilename = part.filename && part.filename.length > 0;
     const hasCid = !!contentIdHeader?.value;
-    const isInline = contentDisposition?.value?.toLowerCase().startsWith("inline") ?? false;
+    const isInline =
+      contentDisposition?.value?.toLowerCase().startsWith("inline") ?? false;
 
     // Collect parts with a filename (regular attachments) or a Content-ID (CID inline images)
     if (hasFilename || hasCid) {
       results.push({
-        filename: part.filename || contentIdHeader?.value?.replace(/[<>]/g, "") || "inline",
+        filename:
+          part.filename ||
+          contentIdHeader?.value?.replace(/[<>]/g, "") ||
+          "inline",
         mimeType: part.mimeType,
         size: part.body.size,
         gmailAttachmentId: part.body.attachmentId,

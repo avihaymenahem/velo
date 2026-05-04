@@ -5,6 +5,7 @@ import { useThreadStore } from "@/stores/threadStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { formatRelativeDate } from "@/utils/date";
+import { decodeHtml } from "@/utils/sanitize";
 import { Paperclip, Star, Check, Pin, BellRing, VolumeX } from "lucide-react";
 import type { DragData } from "@/components/dnd/DndProvider";
 
@@ -133,7 +134,7 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
           {/* Snippet + indicators */}
           <div className={`flex items-center gap-1.5 mt-0.5 ${emailDensity === "compact" ? "hidden" : ""}`}>
             <span className="text-xs text-text-tertiary truncate flex-1">
-              {thread.snippet}
+              {decodeHtml(thread.snippet ?? "")}
             </span>
             {showCategoryBadge && category && category !== "Primary" && CATEGORY_COLORS[category] && (
               <span className={`shrink-0 text-[0.625rem] px-1.5 rounded-full leading-normal ${CATEGORY_COLORS[category]}`}>

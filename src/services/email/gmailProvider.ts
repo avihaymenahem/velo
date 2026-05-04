@@ -42,9 +42,7 @@ export class GmailApiProvider implements EmailProvider {
       path: label.name,
       type: label.type === "system" ? "system" : "user",
       specialUse:
-        label.type === "system"
-          ? (GMAIL_SPECIAL_USE[label.id] ?? null)
-          : null,
+        label.type === "system" ? (GMAIL_SPECIAL_USE[label.id] ?? null) : null,
       delimiter: "/",
       messageCount: label.messagesTotal ?? 0,
       unreadCount: label.messagesUnread ?? 0,
@@ -139,7 +137,10 @@ export class GmailApiProvider implements EmailProvider {
 
   async fetchRawMessage(messageId: string): Promise<string> {
     // Gmail API with format=raw returns a { raw: string } field (base64url-encoded RFC822)
-    const resp = await this.client.getMessage(messageId, "raw") as unknown as { raw: string };
+    const resp = (await this.client.getMessage(
+      messageId,
+      "raw",
+    )) as unknown as { raw: string };
     const base64 = resp.raw.replace(/-/g, "+").replace(/_/g, "/");
     return atob(base64);
   }
@@ -152,14 +153,15 @@ export class GmailApiProvider implements EmailProvider {
     if (messageIds.length > 0) {
       for (const id of messageIds) await this.client.trashMessage(id);
     } else {
-      await this.client.modifyThread(threadId, ["TRASH"], ["INBOX", "DRAFT"]);
+      await this.client.modifyThread(
+        threadId,
+        ["TRASH"],
+        ["INBOX", "DRAFT", "SPAM"],
+      );
     }
   }
 
-  async permanentDelete(
-    threadId: string,
-    messageIds: string[],
-  ): Promise<void> {
+  async permanentDelete(threadId: string, messageIds: string[]): Promise<void> {
     if (messageIds.length > 0) {
       for (const id of messageIds) await this.client.deleteMessage(id);
     } else {
@@ -199,7 +201,7 @@ export class GmailApiProvider implements EmailProvider {
     await this.client.modifyThread(
       threadId,
       isSpam ? ["SPAM"] : ["INBOX"],
-      isSpam ? ["INBOX"] : ["SPAM"],
+      isSpam ? ["INBOX", "TRASH"] : ["SPAM"],
     );
   }
 
@@ -240,11 +242,7 @@ export class GmailApiProvider implements EmailProvider {
     rawBase64Url: string,
     threadId?: string,
   ): Promise<{ draftId: string; threadId?: string }> {
-    const resp = await this.client.updateDraft(
-      draftId,
-      rawBase64Url,
-      threadId,
-    );
+    const resp = await this.client.updateDraft(draftId, rawBase64Url, threadId);
     return { draftId: resp.id, threadId: resp.message.threadId };
   }
 

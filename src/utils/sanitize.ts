@@ -13,10 +13,36 @@ export function sanitizeHtml(html: string): string {
     ALLOW_UNKNOWN_PROTOCOLS: false,
     FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form"],
     ALLOWED_ATTR: [
-      "href", "src", "alt", "title", "width", "height", "class", "style",
-      "target", "rel", "colspan", "rowspan", "cellpadding", "cellspacing",
-      "border", "align", "valign", "bgcolor", "color", "dir", "lang",
+      "href",
+      "src",
+      "alt",
+      "title",
+      "width",
+      "height",
+      "class",
+      "style",
+      "target",
+      "rel",
+      "colspan",
+      "rowspan",
+      "cellpadding",
+      "cellspacing",
+      "border",
+      "align",
+      "valign",
+      "bgcolor",
+      "color",
+      "dir",
+      "lang",
       "data-blocked-src",
     ],
   });
+}
+
+export function decodeHtml(str: string): string {
+  if (!str) return "";
+  if (typeof document === "undefined") return str;
+  const decoder = document.createElement("div");
+  decoder.innerHTML = str;
+  return decoder.textContent || decoder.innerText || str;
 }

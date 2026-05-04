@@ -1,3 +1,4 @@
+import { decodeHtml } from "@/utils/sanitize";
 import type { EmailProvider, EmailFolder, SyncResult } from "./types";
 import type { ParsedMessage } from "../gmail/messageParser";
 import { buildImapConfig, buildSmtpConfig } from "../imap/imapConfigBuilder";
@@ -98,12 +99,14 @@ function extractSnippet(raw: string, maxLen = 200): string {
   }
 
   // Strip HTML tags if present, trim, and truncate
-  return body
+  const stripped = body
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLen);
+
+  return decodeHtml(stripped);
 }
 
 /**
