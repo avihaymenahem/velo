@@ -3,6 +3,12 @@ src-tauri/target/
 dist/
 .vite/
 
+# Tauri auto-generated schemas (~1MB, never useful as context)
+src-tauri/gen/
+
+# Landing page (separate project, unrelated to app development)
+landing/
+
 # Dependencies
 node_modules/
 
