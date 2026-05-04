@@ -548,20 +548,8 @@ export default function App() {
   // Apply color theme CSS custom properties to <html>
   useEffect(() => {
     const root = document.documentElement;
-    const props = [
-      "--color-accent",
-      "--color-accent-hover",
-      "--color-accent-light",
-      "--color-bg-selected",
-      "--color-sidebar-active",
-    ];
 
     const apply = () => {
-      if (colorTheme === "night_bordeaux") {
-        // Default theme — remove inline overrides, let CSS handle it
-        for (const p of props) root.style.removeProperty(p);
-        return;
-      }
       const themeData = getThemeById(colorTheme);
       const isDark =
         theme === "dark" ||

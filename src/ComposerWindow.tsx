@@ -193,19 +193,8 @@ export default function ComposerWindow() {
   const colorTheme = useUIStore((s) => s.colorTheme);
   useEffect(() => {
     const root = document.documentElement;
-    const props = [
-      "--color-accent",
-      "--color-accent-hover",
-      "--color-accent-light",
-      "--color-bg-selected",
-      "--color-sidebar-active",
-    ];
 
     const apply = () => {
-      if (colorTheme === "night_bordeaux") {
-        for (const p of props) root.style.removeProperty(p);
-        return;
-      }
       const themeData = getThemeById(colorTheme);
       const isDark =
         theme === "dark" ||
