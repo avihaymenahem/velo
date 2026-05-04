@@ -1,0 +1,32 @@
+# Build artifacts
+src-tauri/target/
+dist/
+.vite/
+
+# Dependencies
+node_modules/
+
+# Test files (includi esplicitamente con @file quando necessario)
+**/*.test.ts
+**/*.test.tsx
+src/test/
+
+# Lock files (grandi e raramente utili come contesto)
+package-lock.json
+Cargo.lock
+
+# Assets binari
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.ico
+**/*.icns
+src-tauri/icons/
+src/assets/
+
+# Log e cache
+*.log
+.DS_Store
+
+# Coverage e report
+coverage/
