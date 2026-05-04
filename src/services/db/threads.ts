@@ -54,6 +54,21 @@ export async function getThreadsForAccount(
   );
 }
 
+export async function getThreadIdsForLabel(
+  accountId: string,
+  labelId: string,
+): Promise<string[]> {
+  const db = await getDb();
+  const rows = await db.select<{ id: string }[]>(
+    `SELECT t.id FROM threads t
+     INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
+     WHERE t.account_id = $1 AND tl.label_id = $2
+     ORDER BY t.last_message_at DESC`,
+    [accountId, labelId],
+  );
+  return rows.map((r) => r.id);
+}
+
 export async function getThreadsForCategory(
   accountId: string,
   category: string,
@@ -230,7 +245,9 @@ export async function getThreadById(
   return rows[0];
 }
 
-export async function getThreadCountForAccount(accountId: string): Promise<number> {
+export async function getThreadCountForAccount(
+  accountId: string,
+): Promise<number> {
   const db = await getDb();
   const rows = await db.select<{ count: number }[]>(
     "SELECT COUNT(*) as count FROM threads WHERE account_id = $1",
@@ -239,7 +256,9 @@ export async function getThreadCountForAccount(accountId: string): Promise<numbe
   return rows[0]?.count ?? 0;
 }
 
-export async function getUnreadCountsByLabel(accountId: string): Promise<Record<string, number>> {
+export async function getUnreadCountsByLabel(
+  accountId: string,
+): Promise<Record<string, number>> {
   const db = await getDb();
   const rows = await db.select<{ label_id: string; count: number }[]>(
     `SELECT tl.label_id, COUNT(*) as count
@@ -256,7 +275,9 @@ export async function getUnreadCountsByLabel(accountId: string): Promise<Record<
   return result;
 }
 
-export async function getUnreadCountsByCategory(accountId: string): Promise<Record<string, number>> {
+export async function getUnreadCountsByCategory(
+  accountId: string,
+): Promise<Record<string, number>> {
   const db = await getDb();
   const rows = await db.select<{ category: string | null; count: number }[]>(
     `SELECT tc.category, COUNT(*) as count
@@ -277,7 +298,7 @@ export async function getUnreadCountsByCategory(accountId: string): Promise<Reco
 
 export async function getUnreadInboxCount(accountId?: string): Promise<number> {
   const db = await getDb();
-  const sql = accountId 
+  const sql = accountId
     ? `SELECT COUNT(*) as count FROM threads t
        INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
        WHERE tl.account_id = $1 AND tl.label_id = 'INBOX' AND t.is_read = 0`
@@ -317,10 +338,10 @@ export async function deleteThread(
       [accountId, threadId],
     );
     // Finally delete the thread itself
-    await db.execute(
-      "DELETE FROM threads WHERE account_id = $1 AND id = $2",
-      [accountId, threadId],
-    );
+    await db.execute("DELETE FROM threads WHERE account_id = $1 AND id = $2", [
+      accountId,
+      threadId,
+    ]);
   });
 }
 
@@ -328,10 +349,7 @@ export async function deleteAllThreadsForAccount(
   accountId: string,
 ): Promise<void> {
   await withTransaction(async (db) => {
-    await db.execute(
-      "DELETE FROM threads WHERE account_id = $1",
-      [accountId],
-    );
+    await db.execute("DELETE FROM threads WHERE account_id = $1", [accountId]);
   });
 }
 
