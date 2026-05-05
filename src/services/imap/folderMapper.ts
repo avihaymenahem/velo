@@ -175,6 +175,15 @@ export function getSyncableFolders(folders: ImapFolder[]): ImapFolder[] {
     if (lowerPath === "[gmail]" || lowerPath === "[google mail]") return false;
     // Skip Nostromo-style virtual folders
     if (lowerPath.startsWith("[nostromo]")) return false;
+    // Skip virtual aggregate folders (\\All special-use): they contain every message
+    // from every other folder and would duplicate the entire mailbox.
+    if (f.special_use === "\\All") return false;
+    // Also skip by well-known name for servers that don't report special-use attributes
+    const lowerName = f.name.toLowerCase();
+    if (
+      FOLDER_NAME_MAP[lowerPath] === "\\All" ||
+      FOLDER_NAME_MAP[lowerName] === "\\All"
+    ) return false;
     return true;
   });
 }

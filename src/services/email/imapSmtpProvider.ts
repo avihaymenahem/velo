@@ -749,11 +749,19 @@ export class ImapSmtpProvider implements EmailProvider {
       console.warn("[IMAP] Failed to save updated draft to local DB:", err);
     }
 
-    // Delete old from server (non-fatal if already gone)
+    // Delete old from server (non-fatal if already gone).
+    // Always record a tombstone so the old UID is never re-imported even if the
+    // EXPUNGE command fails mid-way (e.g. network drop after +FLAGS \Deleted).
+    const { folder: oldFolder, uid: oldUid } = this.parseImapMessageId(draftId);
     try {
       await this.deleteDraft(draftId);
     } catch {
-      // Old draft may already be gone; continue
+      // Old draft may already be gone or EXPUNGE failed. Record tombstone as fallback
+      // so the UID is not re-imported on the next delta sync.
+      if (oldUid !== null && oldFolder) {
+        const { recordDeletedImapUid } = await import("@/services/db/deletedImapUids");
+        await recordDeletedImapUid(this.accountId, oldFolder, oldUid).catch(() => {});
+      }
     }
 
     return { draftId: newDraftId, threadId: returnedThreadId };

@@ -48,3 +48,14 @@ export async function pruneDeletedImapUids(): Promise<void> {
     [cutoff],
   );
 }
+
+export async function clearDeletedImapUidsForFolder(
+  accountId: string,
+  folderPath: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `DELETE FROM deleted_imap_uids WHERE account_id = $1 AND folder_path = $2`,
+    [accountId, folderPath],
+  );
+}

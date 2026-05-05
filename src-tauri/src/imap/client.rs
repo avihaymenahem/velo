@@ -301,6 +301,13 @@ pub async fn fetch_messages(
 
         // Parse flags
         let flags: Vec<_> = fetch.flags().collect();
+
+        // Skip messages marked \Deleted but not yet expunged (ghost drafts / tombstones)
+        if flags.iter().any(|f| matches!(f, Flag::Deleted)) {
+            log::debug!("IMAP FETCH {folder}: skipping UID {uid} — has \\Deleted flag");
+            continue;
+        }
+
         let is_read = flags.iter().any(|f| matches!(f, Flag::Seen));
         let is_starred = flags.iter().any(|f| matches!(f, Flag::Flagged));
         let is_draft = flags.iter().any(|f| matches!(f, Flag::Draft));
@@ -369,6 +376,11 @@ pub async fn fetch_message_body(
 
     let raw_size = raw.len() as u32;
     let flags: Vec<_> = fetch.flags().collect();
+
+    if flags.iter().any(|f| matches!(f, Flag::Deleted)) {
+        return Err(format!("Message UID {uid} in {folder} has \\Deleted flag — skipped"));
+    }
+
     let is_read = flags.iter().any(|f| matches!(f, Flag::Seen));
     let is_starred = flags.iter().any(|f| matches!(f, Flag::Flagged));
     let is_draft = flags.iter().any(|f| matches!(f, Flag::Draft));
@@ -1035,6 +1047,13 @@ pub async fn sync_folder(
                     };
                     let raw_size = raw.len() as u32;
                     let flags: Vec<_> = f.flags().collect();
+
+                    // Skip messages marked \Deleted but not yet expunged
+                    if flags.iter().any(|fl| matches!(fl, Flag::Deleted)) {
+                        log::debug!("IMAP sync_folder {folder}: skipping UID {uid} — has \\Deleted flag");
+                        continue;
+                    }
+
                     let is_read = flags.iter().any(|fl| matches!(fl, Flag::Seen));
                     let is_starred = flags.iter().any(|fl| matches!(fl, Flag::Flagged));
                     let is_draft = flags.iter().any(|fl| matches!(fl, Flag::Draft));

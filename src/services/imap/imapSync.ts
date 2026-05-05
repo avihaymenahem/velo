@@ -5,6 +5,7 @@ import {
   imapFetchMessages,
   imapFetchNewUids,
   imapSearchFolder,
+  imapSearchAllUids,
   imapDeltaCheck,
 } from "./tauriCommands";
 import { buildImapConfig } from "./imapConfigBuilder";
@@ -16,16 +17,16 @@ import {
 } from "./folderMapper";
 import type { ParsedMessage, ParsedAttachment } from "../gmail/messageParser";
 import type { SyncResult } from "../email/types";
-import { upsertMessage, updateMessageThreadIds } from "../db/messages";
+import { upsertMessage, updateMessageThreadIds, deleteMessagesForFolder, getStoredImapUidsForFolder, purgeImapDuplicates } from "../db/messages";
 import { upsertThread, setThreadLabels, deleteThread } from "../db/threads";
 import { upsertAttachment } from "../db/attachments";
 import { getAccount, updateAccountSyncState } from "../db/accounts";
-import { withTransaction } from "../db/connection";
+import { withTransaction, getDb } from "../db/connection";
 import {
   upsertFolderSyncState,
   getAllFolderSyncStates,
 } from "../db/folderSyncState";
-import { getDeletedImapUidsForFolder } from "../db/deletedImapUids";
+import { clearDeletedImapUidsForFolder, getDeletedImapUidsForFolder } from "../db/deletedImapUids";
 import {
   buildThreads,
   type ThreadableMessage,
@@ -197,6 +198,59 @@ export function imapMessageToParsedMessage(
   };
 
   return { parsed, threadable };
+}
+
+// ---------------------------------------------------------------------------
+// Deletion reconciliation
+// ---------------------------------------------------------------------------
+
+/**
+ * Compare locally stored UIDs for a folder with what the server currently has.
+ * Any locally stored UID that no longer exists on the server was deleted externally
+ * (e.g. autosaved drafts purged by another client). Remove those records from DB.
+ */
+async function reconcileDeletedMessages(
+  config: ImapConfig,
+  accountId: string,
+  folderPath: string,
+): Promise<void> {
+  const stored = await getStoredImapUidsForFolder(accountId, folderPath);
+  if (stored.length === 0) return;
+
+  let serverUids: number[];
+  try {
+    serverUids = await imapSearchAllUids(config, folderPath);
+  } catch {
+    return; // non-fatal: skip reconciliation for this folder
+  }
+
+  const serverSet = new Set(serverUids);
+  const orphans = stored.filter((row) => !serverSet.has(row.uid));
+  if (orphans.length === 0) return;
+
+  console.log(`[imapSync] Reconciliation: removing ${orphans.length} locally stored message(s) deleted externally in ${folderPath}`);
+
+  const db = await getDb();
+
+  for (const { id } of orphans) {
+    const rows = await db.select<{ thread_id: string }[]>(
+      "SELECT thread_id FROM messages WHERE id = $1 AND account_id = $2",
+      [id, accountId],
+    );
+    if (rows.length === 0) continue;
+    const threadId = rows[0]!.thread_id;
+
+    await db.execute("DELETE FROM messages WHERE id = $1 AND account_id = $2", [id, accountId]);
+
+    const remaining = await db.select<{ c: number }[]>(
+      "SELECT COUNT(*) as c FROM messages WHERE thread_id = $1 AND account_id = $2",
+      [threadId, accountId],
+    );
+    if ((remaining[0]?.c ?? 1) === 0) {
+      await db.execute("DELETE FROM thread_labels WHERE thread_id = $1 AND account_id = $2", [threadId, accountId]);
+      await db.execute("DELETE FROM threads WHERE id = $1 AND account_id = $2", [threadId, accountId]);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -879,9 +933,18 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
 
   const syncStateMap = new Map(syncStates.map((s) => [s.folder_path, s]));
 
+  // One-time cleanup of duplicates accumulated from previous syncs (e.g. from virtual
+  // "All Mail" folders or draft autosave copies). Runs fast when there are no dupes.
+  purgeImapDuplicates(accountId).then((n) => {
+    if (n > 0) console.log(`[imapSync] Purged ${n} duplicate message(s) for account ${accountId}`);
+  }).catch(() => {});
+
   const allParsed = new Map<string, ParsedMessage>();
   const allThreadable: ThreadableMessage[] = [];
   const allImapMsgs = new Map<string, ImapMessage>();
+  // Tracks RFC Message-ID → set of labelIds seen so far, to deduplicate cross-folder copies
+  // of the same message (same logic as initial sync lines 614-623).
+  const seenRfcIds = new Map<string, Set<string>>();
 
   // Separate folders into new (no saved state) vs existing (have saved state)
   const newFolders = syncableFolders.filter((f) => !syncStateMap.has(f.raw_path));
@@ -919,6 +982,13 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
       const tombstone = await getDeletedImapUidsForFolder(accountId, folder.raw_path);
       for (const msg of messages) {
         if (tombstone.has(msg.uid)) continue;
+        const rfcId = msg.message_id;
+        if (rfcId) {
+          const seen = seenRfcIds.get(rfcId);
+          if (seen?.has(folderMapping.labelId)) continue;
+          if (!seen) seenRfcIds.set(rfcId, new Set([folderMapping.labelId]));
+          else seen.add(folderMapping.labelId);
+        }
         const { parsed, threadable } = imapMessageToParsedMessage(
           msg,
           accountId,
@@ -1018,12 +1088,20 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
 
       try {
         if (deltaResult.uidvalidity_changed) {
-          // UIDVALIDITY changed — full resync of this folder
+          // UIDVALIDITY changed — UIDs have been reassigned on the server.
+          // Delete stale local messages for this folder before re-syncing,
+          // otherwise old imap-acct-folder-oldUID records would persist alongside
+          // the new ones, creating visible duplicates in thread view.
           console.warn(
             `UIDVALIDITY changed for folder ${folder.path} ` +
               `(was ${savedState.uidvalidity}, now ${deltaResult.uidvalidity}). ` +
-              `Doing full resync of this folder.`,
+              `Purging stale messages and doing full resync of this folder.`,
           );
+          await deleteMessagesForFolder(accountId, folder.raw_path);
+          // UIDs have been fully reassigned — old tombstones are stale and must be
+          // cleared, otherwise they could block legitimate new messages that happen
+          // to reuse the same UID numbers.
+          await clearDeletedImapUidsForFolder(accountId, folder.raw_path).catch(() => {});
           const sinceDate = computeSinceDate(daysBack);
           const searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
           if (searchResult.uids.length === 0) continue;
@@ -1037,6 +1115,13 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
           const tombstone = await getDeletedImapUidsForFolder(accountId, folder.raw_path);
           for (const msg of messages) {
             if (tombstone.has(msg.uid)) continue;
+            const rfcId = msg.message_id;
+            if (rfcId) {
+              const seen = seenRfcIds.get(rfcId);
+              if (seen?.has(folderMapping.labelId)) continue;
+              if (!seen) seenRfcIds.set(rfcId, new Set([folderMapping.labelId]));
+              else seen.add(folderMapping.labelId);
+            }
             const { parsed, threadable } = imapMessageToParsedMessage(
               msg,
               accountId,
@@ -1071,7 +1156,7 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
               console.log(
                 `[imapSync] Delta fallback SINCE ${sinceFallback} found ${searchResult.uids.length} UIDs in ${folder.path}`,
               );
-              uidsToFetch = searchResult.uids;
+              uidsToFetch = searchResult.uids.filter((uid) => uid > savedState.last_uid);
             }
           } catch (sinceErr) {
             console.warn(`[imapSync] Delta fallback SINCE search failed for ${folder.path}:`, sinceErr);
@@ -1089,6 +1174,13 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
         const tombstone = await getDeletedImapUidsForFolder(accountId, folder.raw_path);
         for (const msg of messages) {
           if (tombstone.has(msg.uid)) continue;
+          const rfcId = msg.message_id;
+          if (rfcId) {
+            const seen = seenRfcIds.get(rfcId);
+            if (seen?.has(folderMapping.labelId)) continue;
+            if (!seen) seenRfcIds.set(rfcId, new Set([folderMapping.labelId]));
+            else seen.add(folderMapping.labelId);
+          }
           const { parsed, threadable } = imapMessageToParsedMessage(
             msg,
             accountId,
@@ -1107,6 +1199,9 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
           modseq: null,
           last_sync_at: Math.floor(Date.now() / 1000),
         });
+
+        // Detect messages deleted externally (e.g. draft autosaves purged by another client)
+        await reconcileDeletedMessages(config, accountId, folder.raw_path);
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err ?? "Unknown error");
         console.error(`Delta sync failed for folder ${folder.path}:`, err);

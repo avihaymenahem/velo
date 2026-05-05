@@ -145,6 +145,28 @@ export async function updateMessageThreadIds(
   }
 }
 
+export async function deleteMessagesForFolder(
+  accountId: string,
+  imapFolder: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "DELETE FROM messages WHERE account_id = $1 AND imap_folder = $2",
+    [accountId, imapFolder],
+  );
+}
+
+export async function getStoredImapUidsForFolder(
+  accountId: string,
+  imapFolder: string,
+): Promise<{ id: string; uid: number }[]> {
+  const db = await getDb();
+  return db.select<{ id: string; uid: number }[]>(
+    "SELECT id, imap_uid as uid FROM messages WHERE account_id = $1 AND imap_folder = $2 AND imap_uid IS NOT NULL",
+    [accountId, imapFolder],
+  );
+}
+
 export async function deleteAllMessagesForAccount(
   accountId: string,
 ): Promise<void> {
@@ -153,6 +175,53 @@ export async function deleteAllMessagesForAccount(
     "DELETE FROM messages WHERE account_id = $1",
     [accountId],
   );
+}
+
+/**
+ * Remove duplicate messages caused by the same RFC Message-ID being synced from
+ * multiple IMAP folders (e.g. INBOX + a virtual "All Mail" folder that was previously
+ * not excluded). For each (account_id, message_id_header, imap_folder) group that has
+ * more than one record, keep the lowest imap_uid and delete the rest. Also cleans up
+ * orphaned threads after deletion.
+ */
+export async function purgeImapDuplicates(accountId: string): Promise<number> {
+  const db = await getDb();
+
+  // Find duplicate groups: same account + RFC Message-ID + folder, more than one record
+  const dupes = await db.select<{ message_id_header: string; imap_folder: string; keep_uid: number }[]>(
+    `SELECT message_id_header, imap_folder, MIN(imap_uid) as keep_uid
+     FROM messages
+     WHERE account_id = $1
+       AND message_id_header IS NOT NULL
+       AND imap_folder IS NOT NULL
+       AND imap_uid IS NOT NULL
+     GROUP BY message_id_header, imap_folder
+     HAVING COUNT(*) > 1`,
+    [accountId],
+  );
+
+  let deleted = 0;
+  for (const { message_id_header, imap_folder, keep_uid } of dupes) {
+    const victims = await db.select<{ id: string; thread_id: string }[]>(
+      `SELECT id, thread_id FROM messages
+       WHERE account_id = $1 AND message_id_header = $2 AND imap_folder = $3 AND imap_uid != $4`,
+      [accountId, message_id_header, imap_folder, keep_uid],
+    );
+    for (const { id, thread_id } of victims) {
+      await db.execute("DELETE FROM messages WHERE id = $1 AND account_id = $2", [id, accountId]);
+      deleted++;
+      const remaining = await db.select<{ c: number }[]>(
+        "SELECT COUNT(*) as c FROM messages WHERE thread_id = $1 AND account_id = $2",
+        [thread_id, accountId],
+      );
+      if ((remaining[0]?.c ?? 1) === 0) {
+        await db.execute("DELETE FROM thread_labels WHERE thread_id = $1 AND account_id = $2", [thread_id, accountId]);
+        await db.execute("DELETE FROM threads WHERE id = $1 AND account_id = $2", [thread_id, accountId]);
+      }
+    }
+  }
+
+  return deleted;
 }
 
 /**
