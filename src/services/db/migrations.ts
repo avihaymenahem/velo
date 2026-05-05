@@ -810,6 +810,20 @@ const MIGRATIONS = [
        CREATE INDEX IF NOT EXISTS idx_deleted_imap_uids_account ON deleted_imap_uids(account_id, folder_path);
      `,
    },
+   {
+     version: 27,
+     description: "Remove spurious DRAFT labels from IMAP INBOX threads caused by incorrect \\Draft flag handling",
+     sql: `
+       DELETE FROM thread_labels
+       WHERE label_id = 'DRAFT'
+         AND EXISTS (
+           SELECT 1 FROM thread_labels tl2
+           WHERE tl2.account_id = thread_labels.account_id
+             AND tl2.thread_id = thread_labels.thread_id
+             AND tl2.label_id = 'INBOX'
+         );
+     `,
+   },
  ];
 
 /**

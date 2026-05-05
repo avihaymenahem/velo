@@ -93,6 +93,15 @@ export function mapFolderToLabel(folder: ImapFolder): FolderLabelMapping {
 }
 
 /**
+ * System folders where the folder label itself is authoritative for categorization.
+ * The \Draft flag must be ignored in these folders to prevent messages from
+ * incorrectly appearing in both the source folder and Drafts.
+ */
+const CATEGORY_FOLDERS = new Set([
+  "INBOX", "SENT", "DRAFT", "TRASH", "SPAM", "STARRED", "archive",
+]);
+
+/**
  * Get the label IDs that a message in a given folder should have.
  * For example, a message in INBOX that is flagged (starred) would get
  * ["INBOX", "STARRED"].
@@ -113,7 +122,11 @@ export function getLabelsForMessage(
     labels.push("STARRED");
   }
 
-  if (isDraft) {
+  // Only apply the \Draft flag when the folder itself does not already provide
+  // categorization (e.g. servers that store everything in All Mail and use flags).
+  // For specific system folders like INBOX/SENT/TRASH the folder is authoritative:
+  // the \Draft flag may be stale or set incorrectly by the server.
+  if (isDraft && !CATEGORY_FOLDERS.has(folderMapping.labelId)) {
     labels.push("DRAFT");
   }
 

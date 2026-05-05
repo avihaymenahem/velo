@@ -265,6 +265,11 @@ export async function getUnreadCountsByLabel(
      FROM threads t
      INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
      WHERE t.account_id = $1 AND t.is_read = 0
+       AND NOT EXISTS (
+         SELECT 1 FROM thread_labels tl_ex
+         WHERE tl_ex.account_id = t.account_id AND tl_ex.thread_id = t.id
+           AND tl_ex.label_id IN ('DRAFT', 'TRASH')
+       )
      GROUP BY tl.label_id`,
     [accountId],
   );
@@ -301,10 +306,20 @@ export async function getUnreadInboxCount(accountId?: string): Promise<number> {
   const sql = accountId
     ? `SELECT COUNT(*) as count FROM threads t
        INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
-       WHERE tl.account_id = $1 AND tl.label_id = 'INBOX' AND t.is_read = 0`
+       WHERE tl.account_id = $1 AND tl.label_id = 'INBOX' AND t.is_read = 0
+         AND NOT EXISTS (
+           SELECT 1 FROM thread_labels tl_ex
+           WHERE tl_ex.account_id = t.account_id AND tl_ex.thread_id = t.id
+             AND tl_ex.label_id IN ('DRAFT', 'TRASH')
+         )`
     : `SELECT COUNT(*) as count FROM threads t
        INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
-       WHERE tl.label_id = 'INBOX' AND t.is_read = 0`;
+       WHERE tl.label_id = 'INBOX' AND t.is_read = 0
+         AND NOT EXISTS (
+           SELECT 1 FROM thread_labels tl_ex
+           WHERE tl_ex.account_id = t.account_id AND tl_ex.thread_id = t.id
+             AND tl_ex.label_id IN ('DRAFT', 'TRASH')
+         )`;
   const params = accountId ? [accountId] : [];
   const rows = await db.select<{ count: number }[]>(sql, params);
   return rows[0]?.count ?? 0;

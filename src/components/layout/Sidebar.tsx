@@ -376,19 +376,9 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           const Icon = item.icon;
           const isInbox = item.id === "inbox";
           
-          // Map sidebar IDs to DB label IDs for unread counts
-          const labelIdMap: Record<string, string> = {
-            inbox: "INBOX",
-            sent: "SENT",
-            drafts: "DRAFT",
-            trash: "TRASH",
-            spam: "SPAM",
-            starred: "STARRED",
-            snoozed: "SNOOZED",
-            all: "UNREAD",
-          };
-          const dbLabelId = labelIdMap[item.id] || item.id.toUpperCase();
-          const unreadCount = unreadCounts[dbLabelId] || 0;
+          // Only show unread badge on Inbox — other folders (Trash, Spam, All Mail, etc.)
+          // either don't have meaningful unread semantics or would double-count.
+          const unreadCount = item.id === "inbox" ? (unreadCounts["INBOX"] ?? 0) : 0;
 
           return (
             <div key={item.id}>

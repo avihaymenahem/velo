@@ -103,10 +103,28 @@ describe("getLabelsForMessage", () => {
     expect(labels).toEqual(["INBOX", "STARRED"]);
   });
 
-  it("includes DRAFT for draft messages", () => {
+  it("includes DRAFT for draft messages in the Drafts folder", () => {
+    // When the folder is already DRAFT, the flag adds no extra label (folder is authoritative)
     const mapping = { labelId: "DRAFT", labelName: "Drafts", type: "system" };
     const labels = getLabelsForMessage(mapping, true, false, true);
-    expect(labels).toEqual(["DRAFT", "DRAFT"]);
+    expect(labels).toEqual(["DRAFT"]);
+  });
+
+  it("does not add DRAFT label for messages in INBOX even if \\Draft flag is set", () => {
+    // Some IMAP servers set \Draft on forwarded messages or templates in INBOX.
+    // The folder is authoritative — INBOX messages must not appear in Drafts.
+    const mapping = { labelId: "INBOX", labelName: "Inbox", type: "system" };
+    const labels = getLabelsForMessage(mapping, false, false, true);
+    expect(labels).toContain("INBOX");
+    expect(labels).not.toContain("DRAFT");
+  });
+
+  it("adds DRAFT label for draft messages in All Mail folder", () => {
+    // Servers that store everything in All Mail rely on flags for categorization
+    const mapping = { labelId: "all-mail", labelName: "All Mail", type: "system" };
+    const labels = getLabelsForMessage(mapping, true, false, true);
+    expect(labels).toContain("all-mail");
+    expect(labels).toContain("DRAFT");
   });
 
   it("includes all applicable labels", () => {
