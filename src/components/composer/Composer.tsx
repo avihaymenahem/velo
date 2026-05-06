@@ -613,24 +613,10 @@ const getFullHtml = useCallback(() => {
         aiAssistOpen={aiSidebarOpen}
       />
 
-      {/* Scrollable area */}
+      {/* Scrollable area — only the editor scrolls */}
       <div className="flex-1 flex flex-row overflow-hidden min-h-0">
-        <div className="flex-1 overflow-y-auto min-w-0 flex flex-col">
-          <div className="flex-1">
-            <EditorContent editor={editor} />
-          </div>
-          {signatureHtml && (
-            <div
-              className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary shrink-0"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }}
-            />
-          )}
-          {quotedHtml && (
-            <div
-              className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary prose prose-sm max-w-none shrink-0"
-              dangerouslySetInnerHTML={{ __html: quotedHtml }}
-            />
-          )}
+        <div className="flex-1 overflow-y-auto min-w-0">
+          <EditorContent editor={editor} />
         </div>
         {aiSidebarOpen && (
           <div className="w-96 shrink-0 border-l border-border-secondary bg-bg-secondary overflow-hidden">
@@ -641,6 +627,22 @@ const getFullHtml = useCallback(() => {
           </div>
         )}
       </div>
+
+      {/* Signature — always visible, never scrolled away */}
+      {signatureHtml && (
+        <div
+          className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary shrink-0"
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }}
+        />
+      )}
+
+      {/* Quote — always visible between signature and attachments */}
+      {quotedHtml && (
+        <div
+          className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary prose prose-sm max-w-none shrink-0 max-h-48 overflow-y-auto"
+          dangerouslySetInnerHTML={{ __html: quotedHtml }}
+        />
+      )}
 
       <div className="border-t border-border-secondary shrink-0">
         <AttachmentPicker />

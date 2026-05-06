@@ -9,8 +9,10 @@ let currentAccountId: string | null = null;
 let isDiscarding = false;
 let isSaveInFlight = false;
 let savePromise: Promise<void> | null = null;
+let openTime: number = 0;
 
 const DEBOUNCE_MS = 3000;
+const OPEN_COOLDOWN_MS = 2000; // Don't save in first 2s after opening (user hasn't interacted)
 
 function getPersistenceKey(accountId: string): string {
   const state = useComposerStore.getState();
@@ -59,6 +61,10 @@ async function cleanupOldDraftFromDb(accountId: string, oldDraftId: string): Pro
 async function saveDraft(): Promise<void> {
   // Skip if discarding or another save is already running (prevents duplicate creates)
   if (isDiscarding || isSaveInFlight) return;
+  
+  // Don't save in the first few seconds after opening - user hasn't interacted yet
+  if (openTime && Date.now() - openTime < OPEN_COOLDOWN_MS) return;
+  
   isSaveInFlight = true;
 
   const state = useComposerStore.getState();
@@ -72,18 +78,25 @@ async function saveDraft(): Promise<void> {
     const account = accounts.find((a) => a.id === accountId);
     if (!account) return;
 
-    // Don't save empty drafts
-    if (!state.bodyHtml && !state.subject && state.to.length === 0) return;
+    // Don't save empty drafts (user hasn't typed anything)
+    // In reply/forward, to/subject/quotedHtml are pre-filled, so we only check bodyHtml
+    if (!state.bodyHtml) return;
 
     if (isDiscarding) return;
 
     state.setIsSaving(true);
 
+    // Build full HTML including quoted content (same logic as getFullHtml in Composer.tsx)
+    let htmlBody = state.bodyHtml;
+    if (state.quotedHtml) {
+      htmlBody = `${htmlBody}${state.quotedHtml}`;
+    }
+
     const raw = buildRawEmail({
       from: account.email,
       to: state.to.length > 0 ? state.to : [""],
       subject: state.subject,
-      htmlBody: state.bodyHtml,
+      htmlBody,
       threadId: state.threadId ?? undefined,
       attachments: state.attachments.length > 0
         ? state.attachments.map((a) => ({
@@ -235,6 +248,7 @@ export function startAutoSave(accountId: string): void {
   isSaveInFlight = false;
   stopAutoSave();
   currentAccountId = accountId;
+  openTime = Date.now();
 
   // Subscribe to store changes — trigger debounced save on any field change
   unsubscribe = useComposerStore.subscribe(
@@ -253,6 +267,15 @@ export function startAutoSave(accountId: string): void {
       }
     },
   );
+
+  // If the composer opens with pre-filled body (e.g. expand from inline reply),
+  // the subscription above misses the "" → content transition that already
+  // happened before startAutoSave was called. Schedule an immediate save.
+  const initialState = useComposerStore.getState();
+  if (initialState.isOpen && initialState.bodyHtml) {
+    openTime = 0; // bypass the open-cooldown: user already typed in the inline editor
+    scheduleSave();
+  }
 }
 
 /**

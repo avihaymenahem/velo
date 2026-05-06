@@ -1151,19 +1151,31 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
           const sinceFallback = formatImapDate(new Date((savedState.last_sync_at - 86_400) * 1000));
           try {
             const searchResult = await imapSearchFolder(config, folder.raw_path, sinceFallback);
-            // Fetch all UIDs from SINCE — upsert handles duplicates gracefully
+            // Pass all UIDs from SINCE — upsert handles duplicates gracefully
             if (searchResult.uids.length > 0) {
               console.log(
                 `[imapSync] Delta fallback SINCE ${sinceFallback} found ${searchResult.uids.length} UIDs in ${folder.path}`,
               );
-              uidsToFetch = searchResult.uids.filter((uid) => uid > savedState.last_uid);
+              uidsToFetch = searchResult.uids;
             }
           } catch (sinceErr) {
             console.warn(`[imapSync] Delta fallback SINCE search failed for ${folder.path}:`, sinceErr);
           }
         }
 
-        if (uidsToFetch.length === 0) continue;
+        if (uidsToFetch.length === 0) {
+          // No new messages but still refresh last_sync_at so the SINCE fallback
+          // date doesn't drift further into the past on subsequent syncs.
+          await upsertFolderSyncState({
+            account_id: accountId,
+            folder_path: folder.raw_path,
+            uidvalidity: deltaResult.uidvalidity,
+            last_uid: savedState.last_uid,
+            modseq: null,
+            last_sync_at: Math.floor(Date.now() / 1000),
+          });
+          continue;
+        }
 
         const { messages, lastUid, uidvalidity } = await fetchMessagesInBatches(
           config,
