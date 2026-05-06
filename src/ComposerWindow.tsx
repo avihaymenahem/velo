@@ -70,28 +70,27 @@ export default function ComposerWindow() {
         // Initialize Gmail clients
         await initializeClients();
 
-        // Parse composer state from URL params (primary source — always reliable)
-        const windowLabel = params.get("windowLabel");
-        const mode = (params.get("mode") as ComposerMode) ?? "new";
-        const to = params.get("to")?.split(",").filter(Boolean) ?? [];
-        const cc = params.get("cc")?.split(",").filter(Boolean) ?? [];
-        const bcc = params.get("bcc")?.split(",").filter(Boolean) ?? [];
-        const subject = params.get("subject") ?? "";
-        const threadId = params.get("threadId") ?? null;
-        const inReplyToMessageId = params.get("inReplyToMessageId") ?? null;
-        const draftId = params.get("draftId") ?? null;
-        const fromEmail = params.get("fromEmail");
-        const accountId = params.get("accountId");
+// Parse composer state from URL params (primary source — always reliable)
+         const windowLabel = params.get("windowLabel");
+         const mode = (params.get("mode") as ComposerMode) ?? "new";
+         const to = params.get("to")?.split(",").filter(Boolean) ?? [];
+         const cc = params.get("cc")?.split(",").filter(Boolean) ?? [];
+         const bcc = params.get("bcc")?.split(",").filter(Boolean) ?? [];
+         const subject = params.get("subject") ?? "";
+         const threadId = params.get("threadId") ?? null;
+         const inReplyToMessageId = params.get("inReplyToMessageId") ?? null;
+         const draftId = params.get("draftId") ?? null;
+         const fromEmail = params.get("fromEmail");
+         const accountId = params.get("accountId");
 
-        // quotedHtml is stored in localStorage (too large for URL params)
-        let quotedHtml = "";
-        if (windowLabel) {
-          const stored = localStorage.getItem(`composer_quoted_${windowLabel}`);
-          if (stored) {
-            quotedHtml = stored;
-            localStorage.removeItem(`composer_quoted_${windowLabel}`);
-          }
-        }
+         // quotedHtml from URL params (base64 encoded)
+         let quotedHtml = "";
+         const quotedHtmlEncoded = params.get("quotedHtml");
+         if (quotedHtmlEncoded) {
+           try {
+             quotedHtml = decodeURIComponent(escape(atob(quotedHtmlEncoded)));
+           } catch { /* ignore decoding errors */ }
+         }
 
         // Legacy: support old localStorage format (opts object) for backwards compat
         let bodyHtml = "";

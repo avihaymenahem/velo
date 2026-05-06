@@ -235,6 +235,10 @@ export function getSelectedThreadId(): string | null {
     if (params["threadId"]) {
       return params["threadId"];
     }
+    // Fallback for ThreadWindow which uses "thread" param
+    if (params["thread"]) {
+      return params["thread"];
+    }
   }
   return null;
 }

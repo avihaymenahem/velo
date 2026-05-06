@@ -607,42 +607,43 @@ const getFullHtml = useCallback(() => {
         </div>
       </div>
 
-      <EditorToolbar
-        editor={editor}
-        onToggleAiAssist={toggleAiSidebar}
-        aiAssistOpen={aiSidebarOpen}
-      />
+<EditorToolbar
+         editor={editor}
+         onToggleAiAssist={toggleAiSidebar}
+         aiAssistOpen={aiSidebarOpen}
+         className="shrink-0"
+       />
 
-      {/* Scrollable area — only the editor scrolls */}
-      <div className="flex-1 flex flex-row overflow-hidden min-h-0">
-        <div className="flex-1 overflow-y-auto min-w-0">
-          <EditorContent editor={editor} />
-        </div>
-        {aiSidebarOpen && (
-          <div className="w-96 shrink-0 border-l border-border-secondary bg-bg-secondary overflow-hidden">
-            <AiAssistPanel
-              editor={editor}
-              isReplyMode={mode === "reply" || mode === "replyAll"}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Signature — always visible, never scrolled away */}
-      {signatureHtml && (
-        <div
-          className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary shrink-0"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }}
-        />
-      )}
-
-      {/* Quote — always visible between signature and attachments */}
-      {quotedHtml && (
-        <div
-          className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary prose prose-sm max-w-none shrink-0 max-h-48 overflow-y-auto"
-          dangerouslySetInnerHTML={{ __html: quotedHtml }}
-        />
-      )}
+{/* Scrollable area — editor, signature, and quote */}
+       <div className="flex-1 flex flex-row overflow-hidden min-h-0">
+         <div className="flex-1 overflow-y-auto min-w-0 flex flex-col">
+           <EditorContent editor={editor} />
+{signatureHtml ? (
+              <div className="px-4 py-2 border-t border-l-2 border-l-success border-border-secondary text-xs text-text-tertiary bg-bg-secondary min-h-[40px]">
+                <div className="text-[10px] font-semibold text-text-tertiary uppercase mb-1">Signature</div>
+                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }} />
+              </div>
+            ) : (
+              <div className="px-4 py-2 text-[10px] text-text-tertiary italic">No signature</div>
+            )}
+{quotedHtml ? (
+              <div className="px-4 py-2 border-t border-l-2 border-l-accent border-border-secondary text-xs text-text-tertiary bg-bg-tertiary min-h-[60px]">
+                <div className="text-[10px] font-semibold text-text-tertiary uppercase mb-1">Quoted message</div>
+                <div dangerouslySetInnerHTML={{ __html: quotedHtml }} />
+              </div>
+            ) : (
+              <div className="px-4 py-2 text-[10px] text-text-tertiary italic">No quote available</div>
+            )}
+         </div>
+         {aiSidebarOpen && (
+           <div className="w-96 shrink-0 border-l border-border-secondary bg-bg-secondary overflow-hidden">
+             <AiAssistPanel
+               editor={editor}
+               isReplyMode={mode === "reply" || mode === "replyAll"}
+             />
+           </div>
+         )}
+       </div>
 
       <div className="border-t border-border-secondary shrink-0">
         <AttachmentPicker />

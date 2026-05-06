@@ -8,6 +8,7 @@ interface EditorToolbarProps {
   editor: Editor | null;
   onToggleAiAssist?: () => void;
   aiAssistOpen?: boolean;
+  className?: string;
 }
 
 const FONT_SIZES = [
@@ -39,7 +40,7 @@ const COLORS = [
   "#4338CA", "#7C3AED", "#9333EA", "#A21CAF", "#BE185D", "#E11D48", "#FB7185", "#FECDD3",
 ];
 
-export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, className }: EditorToolbarProps) {
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showColors, setShowColors] = useState(false);
@@ -89,7 +90,7 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
   );
 
   return (
-    <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-border-secondary bg-bg-secondary flex-wrap">
+    <div className={`flex items-center gap-0.5 px-3 py-1.5 border-b border-border-secondary bg-bg-secondary flex-wrap ${className ?? ""}`}>
       {btn("B", editor.isActive("bold"), () => editor.chain().focus().toggleBold().run(), "Bold (Ctrl+B)")}
       {btn("I", editor.isActive("italic"), () => editor.chain().focus().toggleItalic().run(), "Italic (Ctrl+I)")}
       {btn("U", editor.isActive("underline"), () => editor.chain().focus().toggleUnderline().run(), "Underline (Ctrl+U)")}

@@ -232,10 +232,15 @@ async function executeAction(actionId: string): Promise<void> {
       selectedId = firstThread.id;
     }
   }
-  const currentIdx = threads.findIndex((t) => t.id === selectedId);
-  const activeAccountId = useAccountStore.getState().activeAccountId;
+const currentIdx = threads.findIndex((t) => t.id === selectedId);
+   let activeAccountId = useAccountStore.getState().activeAccountId;
+   if (!activeAccountId) {
+     // Fallback: try to get from URL params (for ThreadWindow)
+     const params = new URLSearchParams(window.location.search);
+     activeAccountId = params.get("account");
+   }
 
-  switch (actionId) {
+   switch (actionId) {
     case "nav.next": {
       const nextIdx = Math.min(currentIdx + 1, threads.length - 1);
       if (threads[nextIdx]) {
@@ -314,11 +319,11 @@ async function executeAction(actionId: string): Promise<void> {
     case "action.compose":
       useComposerStore.getState().openComposer();
       break;
-    case "action.reply": {
-      if (selectedId && activeAccountId) {
-        const messages = await getMessagesForThread(activeAccountId, selectedId);
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage) {
+case "action.reply": {
+       if (selectedId && activeAccountId) {
+         const messages = await getMessagesForThread(activeAccountId, selectedId);
+         const lastMessage = messages[messages.length - 1];
+         if (lastMessage) {
           const replyMode = useUIStore.getState().defaultReplyMode;
           const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
           if (replyMode === "replyAll") {
