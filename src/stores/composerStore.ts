@@ -135,43 +135,49 @@ openComposer: (opts) => {
         aiSidebarOpen: false,
       });
 } else { // main window — open a dedicated composer window
-       import("@tauri-apps/api/webviewWindow").then(({ WebviewWindow }) => {
-         const windowLabel = `compose-${Date.now()}`;
+      Promise.all([
+        import("@tauri-apps/api/webviewWindow"),
+        import("../services/db/settings"),
+      ]).then(async ([{ WebviewWindow }, { setSetting }]) => {
+        const windowLabel = `compose-${Date.now()}`;
 
-         // Pass all small fields in the URL so they survive even if localStorage
-         // is not shared between webview windows (happens on some Tauri/OS configs)
-         const params = new URLSearchParams();
-         params.set("compose", "true");
-         params.set("windowLabel", windowLabel);
-         if (opts?.mode) params.set("mode", opts.mode);
-         if (opts?.subject) params.set("subject", opts.subject);
-         if (opts?.to?.length) params.set("to", opts.to.join(","));
-         if (opts?.cc?.length) params.set("cc", opts.cc.join(","));
-         if (opts?.bcc?.length) params.set("bcc", opts.bcc.join(","));
-         if (opts?.threadId) params.set("threadId", opts.threadId);
-         if (opts?.inReplyToMessageId) params.set("inReplyToMessageId", opts.inReplyToMessageId);
-         if (opts?.draftId) params.set("draftId", opts.draftId);
-         // quotedHtml stored in localStorage for cross-window communication
+        // Pass small fields via URL (localStorage is NOT shared across Tauri webview windows)
+        const params = new URLSearchParams();
+        params.set("compose", "true");
+        params.set("windowLabel", windowLabel);
+        if (opts?.mode) params.set("mode", opts.mode);
+        if (opts?.subject) params.set("subject", opts.subject);
+        if (opts?.to?.length) params.set("to", opts.to.join(","));
+        if (opts?.cc?.length) params.set("cc", opts.cc.join(","));
+        if (opts?.bcc?.length) params.set("bcc", opts.bcc.join(","));
+        if (opts?.threadId) params.set("threadId", opts.threadId);
+        if (opts?.inReplyToMessageId) params.set("inReplyToMessageId", opts.inReplyToMessageId);
+        if (opts?.draftId) params.set("draftId", opts.draftId);
 
-         WebviewWindow.getByLabel(windowLabel).then(existing => {
-          if (existing) {
-            existing.setFocus();
-          } else {
-            new WebviewWindow(windowLabel, {
-              url: `index.html?${params.toString()}`,
-              title: "", // Hide title since we have it in the UI/Footer
-              width: 980,
-              height: 650,
-              center: true,
-              // @ts-ignore - titleBarStyle is valid for macOS in Tauri 2
-              titleBarStyle: "Overlay",
-            });
-          }
-        }).catch(err => {
-          console.error("Failed to pop out composer:", err);
-        });
+        // quotedHtml is too large for URLs — write to SQLite (shared across all windows)
+        if (opts?.quotedHtml || opts?.bodyHtml) {
+          await setSetting(
+            `__composer_payload_${windowLabel}`,
+            JSON.stringify({ quotedHtml: opts?.quotedHtml ?? "", bodyHtml: opts?.bodyHtml ?? "" }),
+          );
+        }
+
+        const existing = await WebviewWindow.getByLabel(windowLabel).catch(() => null);
+        if (existing) {
+          existing.setFocus();
+        } else {
+          new WebviewWindow(windowLabel, {
+            url: `index.html?${params.toString()}`,
+            title: "",
+            width: 980,
+            height: 650,
+            center: true,
+            // @ts-ignore - titleBarStyle is valid for macOS in Tauri 2
+            titleBarStyle: "Overlay",
+          });
+        }
       }).catch(err => {
-        console.error("Failed to load WebviewWindow", err);
+        console.error("Failed to pop out composer:", err);
       });
     }
   },

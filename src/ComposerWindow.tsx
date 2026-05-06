@@ -7,7 +7,7 @@ import { useComposerStore } from "./stores/composerStore";
 import { useUIStore } from "./stores/uiStore";
 // import { runMigrations } from "./services/db/migrations";
 import { getAllAccounts } from "./services/db/accounts";
-import { getSetting } from "./services/db/settings";
+import { getSetting, deleteSetting } from "./services/db/settings";
 import { initializeClients } from "./services/gmail/tokenManager";
 import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
@@ -83,28 +83,21 @@ export default function ComposerWindow() {
          const fromEmail = params.get("fromEmail");
          const accountId = params.get("accountId");
 
-         // quotedHtml from URL params (base64 encoded)
+         // quotedHtml is passed via SQLite (too large for URL, localStorage not shared across windows)
          let quotedHtml = "";
-         const quotedHtmlEncoded = params.get("quotedHtml");
-         if (quotedHtmlEncoded) {
-           try {
-             quotedHtml = decodeURIComponent(escape(atob(quotedHtmlEncoded)));
-           } catch { /* ignore decoding errors */ }
+         let bodyHtml = "";
+         if (windowLabel) {
+           const payloadKey = `__composer_payload_${windowLabel}`;
+           const raw = await getSetting(payloadKey);
+           if (raw) {
+             try {
+               const payload = JSON.parse(raw);
+               if (payload.quotedHtml) quotedHtml = payload.quotedHtml;
+               if (payload.bodyHtml) bodyHtml = payload.bodyHtml;
+             } catch { /* ignore */ }
+             await deleteSetting(payloadKey);
+           }
          }
-
-        // Legacy: support old localStorage format (opts object) for backwards compat
-        let bodyHtml = "";
-        if (windowLabel) {
-          const raw = localStorage.getItem(`composer_opts_${windowLabel}`);
-          if (raw) {
-            try {
-              const legacy = JSON.parse(raw);
-              if (!quotedHtml && legacy.quotedHtml) quotedHtml = legacy.quotedHtml;
-              if (legacy.bodyHtml) bodyHtml = legacy.bodyHtml;
-            } catch { /* ignore */ }
-            localStorage.removeItem(`composer_opts_${windowLabel}`);
-          }
-        }
 
         if (fromEmail) {
           useComposerStore.getState().setFromEmail(fromEmail);
