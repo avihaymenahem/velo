@@ -28,6 +28,46 @@ function dedup(attachments: DbAttachment[]): DbAttachment[] {
   });
 }
 
+/** Get file extension from mime type */
+function getExtensionFromMimeType(mimeType?: string): string {
+  if (!mimeType) return "";
+  const mimeToExt: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/png": "png",
+    "image/gif": "gif",
+    "image/webp": "webp",
+    "image/svg+xml": "svg",
+    "image/bmp": "bmp",
+    "image/tiff": "tiff",
+    "application/pdf": "pdf",
+    "text/plain": "txt",
+    "text/html": "html",
+    "text/csv": "csv",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.ms-powerpoint": "ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+    "application/zip": "zip",
+    "application/x-rar-compressed": "rar",
+    "application/x-7z-compressed": "7z",
+    "application/x-tar": "tar",
+    "application/gzip": "gz",
+    "video/mp4": "mp4",
+    "video/quicktime": "mov",
+    "video/x-msvideo": "avi",
+    "video/webm": "webm",
+    "audio/mpeg": "mp3",
+    "audio/wav": "wav",
+    "audio/ogg": "ogg",
+    "application/json": "json",
+    "application/xml": "xml",
+  };
+  return mimeToExt[mimeType.toLowerCase()] || "";
+}
+
 interface AttachmentListProps {
   accountId: string;
   messageId: string;
@@ -165,14 +205,24 @@ export function AttachmentPreview({
     }
   }, [isPreviewable, blobUrl, loading, error, handlePreviewLoad]);
 
-  const handleDownload = async () => {
+      const handleDownload = async () => {
     if (!attachment.gmail_attachment_id || saving) return;
 
     setSaving(true);
     try {
+      // Determine file extension from filename or mime type
+      const filename = attachment.filename ?? "attachment";
+      const extension = filename.includes(".") 
+        ? filename.split(".").pop()
+        : getExtensionFromMimeType(attachment.mime_type);
+      const defaultFilename = filename.replace(/\.[^.]+$/, "") + (extension ? `.${extension}` : "");
+      
       const filePath = await save({
-        defaultPath: attachment.filename ?? "attachment",
-        filters: [{ name: "All Files", extensions: ["*"] }],
+        defaultPath: defaultFilename,
+        filters: [{ 
+          name: "All Files", 
+          extensions: extension ? [extension] : ["*"] 
+        }],
       });
 
       if (!filePath) {
