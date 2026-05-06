@@ -183,69 +183,7 @@ export default function ThreadWindow() {
     }
 }, [colorTheme, theme]);
 
-   // Reply shortcut handler for ThreadWindow
-   useEffect(() => {
-     console.log('ThreadWindow effect mounted');
-     let windowFocused = true;
-     const handleFocus = () => { windowFocused = true; };
-     const handleBlur = () => { windowFocused = false; };
-     window.addEventListener('focus', handleFocus);
-     window.addEventListener('blur', handleBlur);
-     
-     const handleKeyDown = (e: KeyboardEvent) => {
-       console.log('ThreadWindow keydown:', e.key, 'focused:', windowFocused);
-       if ((e.key === "r" || e.key === "R") && windowFocused) {
-         const target = e.target as HTMLElement;
-         const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
-         if (!isInput && thread) {
-           e.preventDefault();
-           e.stopPropagation();
-           import("./services/db/messages").then(({ getMessagesForThread }) => {
-             const params = new URLSearchParams(window.location.search);
-             const accountId = params.get("account");
-             if (accountId && thread.id) {
-               getMessagesForThread(accountId, thread.id).then((messages) => {
-                 const lastMessage = messages[messages.length - 1];
-                 if (lastMessage) {
-                   // Build quote inline (same logic as useKeyboardShortcuts)
-                   const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                   const sanitizeHtml = (s: string) => s; // simplified
-                   const buildQuote = (msgs: typeof messages) => {
-                     if (msgs.length === 0) return "";
-                     return "<br><br>" + [...msgs].reverse().map(msg => {
-                       const date = new Date(msg.date).toLocaleString();
-                       const from = msg.from_name
-                         ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
-                         : escapeHtml(msg.from_address ?? "Unknown");
-                       const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-                       return `<div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666;margin-bottom:8px">On ${date}, ${from} wrote:<br>${body}</div>`;
-                     }).join("");
-                   };
-                   const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
-                   useComposerStore.getState().openComposer({
-                     mode: "reply",
-                     to: replyTo ? [replyTo] : [],
-                     subject: `Re: ${lastMessage.subject ?? ""}`,
-                     quotedHtml: buildQuote(messages),
-                     threadId: lastMessage.thread_id,
-                     inReplyToMessageId: lastMessage.id,
-                   });
-                 }
-               });
-             }
-           });
-         }
-       }
-};
-      document.addEventListener("keydown", handleKeyDown, { capture: true });
-      return () => {
-        window.removeEventListener('focus', handleFocus);
-        window.removeEventListener('blur', handleBlur);
-        document.removeEventListener("keydown", handleKeyDown, { capture: true });
-      };
-   }, [thread]);
-
-   if (loading) {
+    if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg-primary text-text-secondary">
         <span className="text-sm">Loading thread...</span>
