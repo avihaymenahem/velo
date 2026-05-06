@@ -26,7 +26,60 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
   const [expanded, setExpanded] = useState(isLast);
   const [attachments, setAttachments] = useState<DbAttachment[]>([]);
   const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
+  const [cidMap, setCidMap] = useState<Map<string, string>>(new Map());
   const attachmentsLoadedRef = useRef(false);
+  const blobUrlsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    return () => {
+      for (const url of blobUrlsRef.current) URL.revokeObjectURL(url);
+    };
+  }, []);
+
+  const resolveCidImages = async (atts: DbAttachment[]) => {
+    const html = message.body_html;
+    if (!html || !/\bcid:/i.test(html)) return;
+
+    const cidAtts = atts.filter((a) => a.content_id && a.gmail_attachment_id);
+    if (cidAtts.length === 0) return;
+
+    try {
+      const { getEmailProvider } = await import("@/services/email/providerFactory");
+      const provider = await getEmailProvider(message.account_id);
+
+      const newMap = new Map<string, string>();
+      const newBlobUrls: string[] = [];
+
+      for (const att of cidAtts) {
+        if (!att.content_id || !att.gmail_attachment_id) continue;
+        if (!new RegExp(`cid:${escapeCid(att.content_id)}`, "i").test(html)) continue;
+
+        try {
+          const { data } = await provider.fetchAttachment(message.id, att.gmail_attachment_id);
+          const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const blob = new Blob([bytes.buffer as ArrayBuffer], {
+            type: att.mime_type ?? "application/octet-stream",
+          });
+          const blobUrl = URL.createObjectURL(blob);
+          newBlobUrls.push(blobUrl);
+          newMap.set(att.content_id, blobUrl);
+        } catch {
+          // Skip unresolvable attachment
+        }
+      }
+
+      if (newMap.size > 0) {
+        for (const url of blobUrlsRef.current) URL.revokeObjectURL(url);
+        blobUrlsRef.current = newBlobUrls;
+        setCidMap(newMap);
+      }
+    } catch {
+      // Silently fall back to original HTML
+    }
+  };
 
   const loadAttachments = async () => {
     if (attachmentsLoadedRef.current) return;
@@ -34,6 +87,7 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
     try {
       const atts = await getAttachmentsForMessage(message.account_id, message.id);
       setAttachments(atts);
+      resolveCidImages(atts);
     } catch {
       // Non-critical — just show no attachments
     }
@@ -147,6 +201,7 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
               senderAddress={message.from_address}
               accountId={message.account_id}
               senderAllowlisted={senderAllowlisted}
+              cidMap={cidMap}
             />
           ) : (
             <div className="py-8 text-center text-text-tertiary text-sm">Loading...</div>
@@ -171,6 +226,10 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
     </div>
   );
 }));
+
+function escapeCid(cid: string): string {
+  return cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export function parseUnsubscribeUrl(header: string): string | null {
   // Prefer https URL over mailto

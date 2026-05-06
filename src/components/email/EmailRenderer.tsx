@@ -13,6 +13,7 @@ interface EmailRendererProps {
   senderAddress?: string | null;
   accountId?: string | null;
   senderAllowlisted?: boolean;
+  cidMap?: Map<string, string>;
 }
 
 export function EmailRenderer({
@@ -22,6 +23,7 @@ export function EmailRenderer({
   senderAddress,
   accountId,
   senderAllowlisted = false,
+  cidMap,
 }: EmailRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
@@ -45,12 +47,18 @@ export function EmailRenderer({
     let body = sanitizedBody
       ?? `<pre style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(text ?? "")}</pre>`;
 
+    if (cidMap && cidMap.size > 0 && sanitizedBody) {
+      for (const [cid, blobUrl] of cidMap.entries()) {
+        body = body.replace(new RegExp(`cid:${escapeCidRegex(cid)}`, "gi"), blobUrl);
+      }
+    }
+
     if (shouldBlock && sanitizedBody) {
       body = stripRemoteImages(body);
     }
 
     return body;
-  }, [sanitizedBody, text, shouldBlock]);
+  }, [sanitizedBody, text, shouldBlock, cidMap]);
 
   const blocked = useMemo(() => {
     if (!shouldBlock || !sanitizedBody) return false;
@@ -179,4 +187,8 @@ export function EmailRenderer({
       />
     </div>
   );
+}
+
+function escapeCidRegex(cid: string): string {
+  return cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
