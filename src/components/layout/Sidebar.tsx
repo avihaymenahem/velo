@@ -4,7 +4,6 @@ import { AccountSwitcher } from "../accounts/AccountSwitcher";
 import { LabelForm } from "../labels/LabelForm";
 import { InputDialog } from "../ui/InputDialog";
 import { useUIStore } from "@/stores/uiStore";
-import { useComposerStore } from "@/stores/composerStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLabelStore, type Label } from "@/stores/labelStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
@@ -49,21 +48,22 @@ interface SidebarProps {
   onAddAccount: () => void;
 }
 
-export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "inbox", label: "Inbox", icon: Inbox },
-  { id: "starred", label: "Starred", icon: Star },
-  { id: "snoozed", label: "Snoozed", icon: Clock },
-  { id: "sent", label: "Sent", icon: Send },
-  { id: "drafts", label: "Drafts", icon: FileEdit },
-  { id: "trash", label: "Trash", icon: Trash2 },
-  { id: "spam", label: "Spam", icon: Ban },
-  { id: "all", label: "All Mail", icon: Mail },
-  { id: "tasks", label: "Tasks", icon: CheckSquare },
-  { id: "calendar", label: "Calendar", icon: Calendar },
-  { id: "attachments", label: "Attachments", icon: Paperclip },
-  { id: "smart-folders", label: "Smart Folders", icon: FolderSearch },
-  { id: "labels", label: "Labels", icon: Tag },
-];
+export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] =
+  [
+    { id: "inbox", label: "Inbox", icon: Inbox },
+    { id: "starred", label: "Starred", icon: Star },
+    { id: "snoozed", label: "Snoozed", icon: Clock },
+    { id: "sent", label: "Sent", icon: Send },
+    { id: "drafts", label: "Drafts", icon: FileEdit },
+    { id: "trash", label: "Trash", icon: Trash2 },
+    { id: "spam", label: "Spam", icon: Ban },
+    { id: "all", label: "All Mail", icon: Mail },
+    { id: "tasks", label: "Tasks", icon: CheckSquare },
+    { id: "calendar", label: "Calendar", icon: Calendar },
+    { id: "attachments", label: "Attachments", icon: Paperclip },
+    { id: "smart-folders", label: "Smart Folders", icon: FolderSearch },
+    { id: "labels", label: "Labels", icon: Tag },
+  ];
 
 const CATEGORY_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "Primary", label: "Primary", icon: Inbox },
@@ -152,16 +152,16 @@ function DroppableLabelItem({
       {collapsed ? (
         <span
           className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-semibold shrink-0"
-          style={label.colorBg
-            ? { backgroundColor: label.colorBg, color: label.colorFg ?? "#ffffff" }
-            : undefined
+          style={
+            label.colorBg
+              ? {
+                  backgroundColor: label.colorBg,
+                  color: label.colorFg ?? "#ffffff",
+                }
+              : undefined
           }
         >
-          {label.colorBg ? (
-            initial
-          ) : (
-            <Tag size={14} />
-          )}
+          {label.colorBg ? initial : <Tag size={14} />}
         </span>
       ) : (
         <>
@@ -182,8 +182,17 @@ function DroppableLabelItem({
           <span
             role="button"
             tabIndex={0}
-            onClick={(e) => { e.stopPropagation(); onEditClick(); }}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onEditClick(); } }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditClick();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                onEditClick();
+              }
+            }}
             className="opacity-0 group-hover:opacity-100 p-0.5 text-sidebar-text/40 hover:text-sidebar-text transition-opacity shrink-0"
             title="Edit label"
           >
@@ -220,7 +229,6 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const inboxViewMode = useUIStore((s) => s.inboxViewMode);
   const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
   const activeCategory = useActiveCategory();
-  const openComposer = useComposerStore((s) => s.openComposer);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const labels = useLabelStore((s) => s.labels);
   const loadLabels = useLabelStore((s) => s.loadLabels);
@@ -231,14 +239,20 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const smartFolders = useSmartFolderStore((s) => s.folders);
   const smartFolderCounts = useSmartFolderStore((s) => s.unreadCounts);
   const loadSmartFolders = useSmartFolderStore((s) => s.loadFolders);
-  const refreshSmartFolderCounts = useSmartFolderStore((s) => s.refreshUnreadCounts);
+  const refreshSmartFolderCounts = useSmartFolderStore(
+    (s) => s.refreshUnreadCounts,
+  );
   const createSmartFolder = useSmartFolderStore((s) => s.createFolder);
   const SECTION_IDS = new Set(["smart-folders", "labels"]);
 
   const { visibleNavItems, showSmartFolders, showLabels } = useMemo(() => {
     if (!sidebarNavConfig) {
       const navOnly = ALL_NAV_ITEMS.filter((i) => !SECTION_IDS.has(i.id));
-      return { visibleNavItems: navOnly, showSmartFolders: true, showLabels: true };
+      return {
+        visibleNavItems: navOnly,
+        showSmartFolders: true,
+        showLabels: true,
+      };
     }
     const itemMap = new Map(ALL_NAV_ITEMS.map((item) => [item.id, item]));
     const result: typeof ALL_NAV_ITEMS = [];
@@ -247,8 +261,14 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     let labelsVisible = true;
     for (const entry of sidebarNavConfig) {
       seen.add(entry.id);
-      if (entry.id === "smart-folders") { smartFoldersVisible = entry.visible; continue; }
-      if (entry.id === "labels") { labelsVisible = entry.visible; continue; }
+      if (entry.id === "smart-folders") {
+        smartFoldersVisible = entry.visible;
+        continue;
+      }
+      if (entry.id === "labels") {
+        labelsVisible = entry.visible;
+        continue;
+      }
       if (entry.visible && itemMap.has(entry.id)) {
         result.push(itemMap.get(entry.id)!);
       }
@@ -257,7 +277,11 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     for (const item of ALL_NAV_ITEMS) {
       if (!seen.has(item.id) && !SECTION_IDS.has(item.id)) result.push(item);
     }
-    return { visibleNavItems: result, showSmartFolders: smartFoldersVisible, showLabels: labelsVisible };
+    return {
+      visibleNavItems: result,
+      showSmartFolders: smartFoldersVisible,
+      showLabels: labelsVisible,
+    };
   }, [sidebarNavConfig]);
 
   const [labelsExpanded, setLabelsExpanded] = useState(false);
@@ -269,10 +293,13 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const openMenu = useContextMenuStore((s) => s.openMenu);
   const isSyncingFolder = useUIStore((s) => s.isSyncingFolder);
 
-  const handleNavContextMenu = useCallback((e: React.MouseEvent, navId: string) => {
-    e.preventDefault();
-    openMenu("sidebarNav", { x: e.clientX, y: e.clientY }, { navId });
-  }, [openMenu]);
+  const handleNavContextMenu = useCallback(
+    (e: React.MouseEvent, navId: string) => {
+      e.preventDefault();
+      openMenu("sidebarNav", { x: e.clientX, y: e.clientY }, { navId });
+    },
+    [openMenu],
+  );
 
   // Load labels when active account changes
   useEffect(() => {
@@ -311,15 +338,18 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     };
   }, [activeAccountId, loadLabels, refreshSmartFolderCounts]);
 
-  const handleDeleteLabel = useCallback(async (labelId: string) => {
-    if (!activeAccountId) return;
-    try {
-      await deleteLabel(activeAccountId, labelId);
-      if (editingLabelId === labelId) setEditingLabelId(null);
-    } catch {
-      // Silently fail in sidebar — user can use Settings for detailed errors
-    }
-  }, [activeAccountId, deleteLabel, editingLabelId]);
+  const handleDeleteLabel = useCallback(
+    async (labelId: string) => {
+      if (!activeAccountId) return;
+      try {
+        await deleteLabel(activeAccountId, labelId);
+        if (editingLabelId === labelId) setEditingLabelId(null);
+      } catch {
+        // Silently fail in sidebar — user can use Settings for detailed errors
+      }
+    },
+    [activeAccountId, deleteLabel, editingLabelId],
+  );
 
   const handleFormDone = useCallback(() => {
     setEditingLabelId(null);
@@ -331,14 +361,21 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     setEditingLabelId(labelId);
   }, []);
 
-  const handleLabelContextMenu = useCallback((e: React.MouseEvent, labelId: string) => {
-    e.preventDefault();
-    openMenu("sidebarLabel", { x: e.clientX, y: e.clientY }, {
-      labelId,
-      onEdit: () => handleEditLabel(labelId),
-      onDelete: () => handleDeleteLabel(labelId),
-    });
-  }, [openMenu, handleEditLabel, handleDeleteLabel]);
+  const handleLabelContextMenu = useCallback(
+    (e: React.MouseEvent, labelId: string) => {
+      e.preventDefault();
+      openMenu(
+        "sidebarLabel",
+        { x: e.clientX, y: e.clientY },
+        {
+          labelId,
+          onEdit: () => handleEditLabel(labelId),
+          onDelete: () => handleDeleteLabel(labelId),
+        },
+      );
+    },
+    [openMenu, handleEditLabel, handleDeleteLabel],
+  );
 
   const handleAddLabel = useCallback(() => {
     setEditingLabelId(null);
@@ -351,7 +388,9 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     setShowSmartFolderModal(true);
   }, []);
 
-  const editingLabel = editingLabelId ? labels.find((l: Label) => l.id === editingLabelId) ?? null : null;
+  const editingLabel = editingLabelId
+    ? (labels.find((l: Label) => l.id === editingLabelId) ?? null)
+    : null;
 
   return (
     <aside
@@ -361,30 +400,27 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     >
       <AccountSwitcher collapsed={collapsed} onAddAccount={onAddAccount} />
 
-      {/* Compose button */}
-      <div className="px-3 py-2">
-        <button
-          onClick={() => openComposer()}
-          className="w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent-hover text-white rounded-lg py-2 text-sm font-medium interactive-btn"
-        >
-          {collapsed ? <Plus size={16} /> : "Compose"}
-        </button>
-      </div>
-
       <nav className="flex-1 overflow-y-auto py-2">
         {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isInbox = item.id === "inbox";
-          
+
           // Only show unread badge on Inbox — other folders (Trash, Spam, All Mail, etc.)
           // either don't have meaningful unread semantics or would double-count.
-          const unreadCount = item.id === "inbox" ? (unreadCounts["INBOX"] ?? 0) : 0;
+          const unreadCount =
+            item.id === "inbox" ? (unreadCounts["INBOX"] ?? 0) : 0;
 
           return (
             <div key={item.id}>
               <DroppableNavItem
                 id={item.id}
-                isActive={isInbox ? (activeLabel === "inbox" && (inboxViewMode === "unified" || activeCategory === "Primary")) : activeLabel === item.id}
+                isActive={
+                  isInbox
+                    ? activeLabel === "inbox" &&
+                      (inboxViewMode === "unified" ||
+                        activeCategory === "Primary")
+                    : activeLabel === item.id
+                }
                 collapsed={collapsed}
                 onClick={() => {
                   if (isInbox && inboxViewMode === "split") {
@@ -399,18 +435,23 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                 {() => (
                   <>
                     {isSyncingFolder === item.id ? (
-                      <Loader2 size={18} className="shrink-0 animate-spin text-accent" />
+                      <Loader2
+                        size={18}
+                        className="shrink-0 animate-spin text-accent"
+                      />
                     ) : (
                       <Icon size={18} className="shrink-0" />
                     )}
                     {!collapsed && (
                       <span className="flex-1 truncate">{item.label}</span>
                     )}
-                    {item.id === "tasks" && taskIncompleteCount > 0 && !collapsed && (
-                      <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
-                        {taskIncompleteCount}
-                      </span>
-                    )}
+                    {item.id === "tasks" &&
+                      taskIncompleteCount > 0 &&
+                      !collapsed && (
+                        <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
+                          {taskIncompleteCount}
+                        </span>
+                      )}
                     {unreadCount > 0 && !collapsed && item.id !== "tasks" && (
                       <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
                         {unreadCount}
@@ -422,16 +463,24 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                         tabIndex={0}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setInboxViewMode(inboxViewMode === "split" ? "unified" : "split");
+                          setInboxViewMode(
+                            inboxViewMode === "split" ? "unified" : "split",
+                          );
                         }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
                             e.stopPropagation();
-                            setInboxViewMode(inboxViewMode === "split" ? "unified" : "split");
+                            setInboxViewMode(
+                              inboxViewMode === "split" ? "unified" : "split",
+                            );
                           }
                         }}
-                        title={inboxViewMode === "split" ? "Switch to unified inbox" : "Switch to split inbox"}
+                        title={
+                          inboxViewMode === "split"
+                            ? "Switch to unified inbox"
+                            : "Switch to split inbox"
+                        }
                         className={`p-1 rounded transition-colors ${
                           inboxViewMode === "split"
                             ? "text-accent hover:bg-accent/10"
@@ -449,7 +498,8 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                 <div>
                   {CATEGORY_ITEMS.map((cat) => {
                     const CatIcon = cat.icon;
-                    const isCatActive = activeLabel === "inbox" && activeCategory === cat.id;
+                    const isCatActive =
+                      activeLabel === "inbox" && activeCategory === cat.id;
                     return (
                       <button
                         key={cat.id}
@@ -562,19 +612,23 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                   onEditClick={() => handleEditLabel(label.id)}
                   unreadCount={unreadCounts[label.id]}
                 />
-                {editingLabelId === label.id && activeAccountId && !collapsed && (
-                  <LabelForm
-                    accountId={activeAccountId}
-                    label={editingLabel}
-                    onDone={handleFormDone}
-                    variant="sidebar"
-                  />
-                )}
+                {editingLabelId === label.id &&
+                  activeAccountId &&
+                  !collapsed && (
+                    <LabelForm
+                      accountId={activeAccountId}
+                      label={editingLabel}
+                      onDone={handleFormDone}
+                      variant="sidebar"
+                    />
+                  )}
               </div>
             ))}
             {/* Collapsible labels with accordion animation */}
             {labels.length > LABELS_COLLAPSED_COUNT && (
-              <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${labelsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+              <div
+                className={`grid transition-[grid-template-rows] duration-300 ease-out ${labelsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+              >
                 <div className="overflow-hidden">
                   {labels.slice(LABELS_COLLAPSED_COUNT).map((label: Label) => (
                     <div key={label.id}>
@@ -583,18 +637,22 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                         isActive={activeLabel === label.id}
                         collapsed={collapsed}
                         onClick={() => navigateToLabel(label.id)}
-                        onContextMenu={(e) => handleLabelContextMenu(e, label.id)}
+                        onContextMenu={(e) =>
+                          handleLabelContextMenu(e, label.id)
+                        }
                         onEditClick={() => handleEditLabel(label.id)}
                         unreadCount={unreadCounts[label.id]}
                       />
-                      {editingLabelId === label.id && activeAccountId && !collapsed && (
-                        <LabelForm
-                          accountId={activeAccountId}
-                          label={editingLabel}
-                          onDone={handleFormDone}
-                          variant="sidebar"
-                        />
-                      )}
+                      {editingLabelId === label.id &&
+                        activeAccountId &&
+                        !collapsed && (
+                          <LabelForm
+                            accountId={activeAccountId}
+                            label={editingLabel}
+                            onDone={handleFormDone}
+                            variant="sidebar"
+                          />
+                        )}
                     </div>
                   ))}
                 </div>
@@ -631,11 +689,15 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       </nav>
 
       {/* Bottom bar: Settings + collapse toggle */}
-      <div className={`py-2 border-t border-border-primary flex ${collapsed ? "flex-col items-center gap-1 px-2" : "items-center gap-1 px-3"}`}>
+      <div
+        className={`py-2 border-t border-border-primary flex ${collapsed ? "flex-col items-center gap-1 px-2" : "items-center gap-1 px-3"}`}
+      >
         <button
           onClick={() => navigateToLabel("settings")}
           className={`flex items-center text-sm rounded-md transition-colors ${
-            collapsed ? "p-2 justify-center" : "gap-3 flex-1 px-3 py-2 text-left"
+            collapsed
+              ? "p-2 justify-center"
+              : "gap-3 flex-1 px-3 py-2 text-left"
           } ${
             activeLabel === "settings"
               ? "bg-accent/10 text-accent font-medium"
@@ -664,7 +726,11 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           className="p-2 text-sidebar-text/60 hover:text-sidebar-text hover:bg-sidebar-hover rounded-md transition-colors"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          {collapsed ? (
+            <PanelLeftOpen size={16} />
+          ) : (
+            <PanelLeftClose size={16} />
+          )}
         </button>
       </div>
 
@@ -681,7 +747,11 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
         title="New Smart Folder"
         fields={[
           { key: "name", label: "Name", placeholder: "e.g. Unread from boss" },
-          { key: "query", label: "Search query", placeholder: "e.g. is:unread from:boss" },
+          {
+            key: "query",
+            label: "Search query",
+            placeholder: "e.g. is:unread from:boss",
+          },
         ]}
       />
 
@@ -699,11 +769,14 @@ function PendingOpsIndicator({ collapsed }: { collapsed: boolean }) {
     <div className="px-3 py-2 border-t border-border-primary">
       {collapsed ? (
         <div className="flex justify-center">
-          <span className="bg-accent/20 text-accent text-xs font-medium px-1.5 py-0.5 rounded-full">{pendingOpsCount}</span>
+          <span className="bg-accent/20 text-accent text-xs font-medium px-1.5 py-0.5 rounded-full">
+            {pendingOpsCount}
+          </span>
         </div>
       ) : (
         <div className="text-xs text-text-secondary">
-          {pendingOpsCount} pending {pendingOpsCount === 1 ? "change" : "changes"}
+          {pendingOpsCount} pending{" "}
+          {pendingOpsCount === 1 ? "change" : "changes"}
         </div>
       )}
     </div>
