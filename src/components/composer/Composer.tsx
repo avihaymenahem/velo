@@ -328,7 +328,7 @@ export function Composer() {
     [addAttachment],
   );
 
-  const getFullHtml = useCallback(() => {
+const getFullHtml = useCallback(() => {
     const editorHtml = editor?.getHTML() ?? "";
     const quotedHtml = useComposerStore.getState().quotedHtml;
     let html = editorHtml;

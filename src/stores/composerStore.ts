@@ -74,7 +74,7 @@ export interface ComposerState {
   toggleAiSidebar: () => void;
 }
 
-export const useComposerStore = create<ComposerState>((set) => ({
+export const useComposerStore = create<ComposerState>()((set) => ({
   isOpen: false,
   mode: "new",
   to: [],
@@ -96,13 +96,18 @@ export const useComposerStore = create<ComposerState>((set) => ({
   isSaving: false,
   signatureHtml: "",
   signatureId: null,
+  quotedHtml: "",
   aiSidebarOpen: false,
 
   openComposer: (opts) => {
     const isTest = import.meta.env.MODE === 'test';
-    const isComposerWindow = new URLSearchParams(window.location.search).has("compose") || isTest;
+    const urlParams = new URLSearchParams(window.location.search);
+    const isFullComposerWindow = urlParams.has("compose");
+    const isThreadWindow = urlParams.has("thread");
+    // Thread pop-out windows embed <Composer /> inline — treat them as in-window contexts
+    const isInlineContext = isFullComposerWindow || isThreadWindow || isTest;
 
-    if (isComposerWindow) {
+    if (isInlineContext) {
       set({
         isOpen: true,
         mode: opts?.mode ?? "new",
@@ -118,7 +123,8 @@ export const useComposerStore = create<ComposerState>((set) => ({
         draftId: opts?.draftId ?? null,
         undoSendTimer: null,
         undoSendVisible: false,
-        viewMode: isComposerWindow && !isTest ? "fullpage" : "modal",
+        // Thread window uses modal (no drag region / pt-7), compose window uses fullpage
+        viewMode: isFullComposerWindow && !isTest ? "fullpage" : "modal",
         fromEmail: null,
         composerAccountId: null,
         attachments: [],
@@ -128,18 +134,28 @@ export const useComposerStore = create<ComposerState>((set) => ({
         signatureId: null,
         aiSidebarOpen: false,
       });
-    } else {
+    } else { // main window — open a dedicated composer window
       import("@tauri-apps/api/webviewWindow").then(({ WebviewWindow }) => {
         const windowLabel = `compose-${Date.now()}`;
-        
-        // Save opts to localStorage to avoid URL length limits with large emails
-        if (opts) {
-          localStorage.setItem(`composer_opts_${windowLabel}`, JSON.stringify(opts));
+
+        // quotedHtml can be very large — keep it in localStorage only
+        if (opts?.quotedHtml) {
+          localStorage.setItem(`composer_quoted_${windowLabel}`, opts.quotedHtml);
         }
 
+        // Pass all small fields in the URL so they survive even if localStorage
+        // is not shared between webview windows (happens on some Tauri/OS configs)
         const params = new URLSearchParams();
         params.set("compose", "true");
         params.set("windowLabel", windowLabel);
+        if (opts?.mode) params.set("mode", opts.mode);
+        if (opts?.subject) params.set("subject", opts.subject);
+        if (opts?.to?.length) params.set("to", opts.to.join(","));
+        if (opts?.cc?.length) params.set("cc", opts.cc.join(","));
+        if (opts?.bcc?.length) params.set("bcc", opts.bcc.join(","));
+        if (opts?.threadId) params.set("threadId", opts.threadId);
+        if (opts?.inReplyToMessageId) params.set("inReplyToMessageId", opts.inReplyToMessageId);
+        if (opts?.draftId) params.set("draftId", opts.draftId);
 
         WebviewWindow.getByLabel(windowLabel).then(existing => {
           if (existing) {

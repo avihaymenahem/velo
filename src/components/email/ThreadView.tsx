@@ -48,6 +48,8 @@ async function handlePopOut(thread: Thread) {
       height: 700,
       center: true,
       dragDropEnabled: false,
+      // @ts-ignore - titleBarStyle is valid for macOS in Tauri 2
+      titleBarStyle: "Overlay",
     });
 
     win.once("tauri://error", (e) => {
@@ -141,29 +143,34 @@ export function ThreadView({ thread }: ThreadViewProps) {
   const accounts = useAccountStore((s) => s.accounts);
   const activeAccount = accounts.find((a) => a.id === activeAccountId);
 
+// Get selected message - either explicitly selected or last message as fallback
+  const selectedMessage = messages.find(m => m.id === selectedMessageId) || lastMessage;
+
   const handleReply = useCallback(() => {
-    if (!lastMessage) return;
-    const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
+    if (!selectedMessage) return;
+    const replyTo = selectedMessage.reply_to ?? selectedMessage.from_address;
+    const msgIndex = messages.findIndex(m => m.id === selectedMessage.id);
+    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
     openComposer({
       mode: "reply",
       to: replyTo ? [replyTo] : [],
-      subject: `Re: ${lastMessage.subject ?? ""}`,
-      quotedHtml: buildQuote(lastMessage),
-      threadId: lastMessage.thread_id,
-      inReplyToMessageId: lastMessage.id,
+      subject: `Re: ${selectedMessage.subject ?? ""}`,
+      quotedHtml: buildThreadQuote(quotedMessages),
+      threadId: selectedMessage.thread_id,
+      inReplyToMessageId: selectedMessage.id,
     });
-  }, [lastMessage, openComposer]);
+  }, [selectedMessage, messages, openComposer]);
 
   const handleReplyAll = useCallback(() => {
-    if (!lastMessage || !activeAccount) return;
-    const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
+    if (!selectedMessage || !activeAccount) return;
+    const replyTo = selectedMessage.reply_to ?? selectedMessage.from_address;
     const allRecipients = new Set<string>();
     if (replyTo) allRecipients.add(replyTo);
 
     const myEmails = new Set(accounts.map((a) => normalizeEmail(a.email)));
 
-    if (lastMessage.to_addresses) {
-      lastMessage.to_addresses.split(",").forEach((a) => {
+    if (selectedMessage.to_addresses) {
+      selectedMessage.to_addresses.split(",").forEach((a) => {
         const trimmed = a.trim();
         if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
           allRecipients.add(trimmed);
@@ -178,10 +185,10 @@ export function ThreadView({ thread }: ThreadViewProps) {
     // Also delete normalized version just in case (though Set is case-sensitive, so we should be careful)
     // Wait, allRecipients stores the original strings.
     // Let's do it better.
-    
+
     const ccList: string[] = [];
-    if (lastMessage.cc_addresses) {
-      lastMessage.cc_addresses.split(",").forEach((a) => {
+    if (selectedMessage.cc_addresses) {
+      selectedMessage.cc_addresses.split(",").forEach((a) => {
         const trimmed = a.trim();
         if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
           ccList.push(trimmed);
@@ -189,28 +196,33 @@ export function ThreadView({ thread }: ThreadViewProps) {
       });
     }
 
+    const msgIndex = messages.findIndex(m => m.id === selectedMessage.id);
+    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
+
     openComposer({
       mode: "replyAll",
       to: Array.from(allRecipients).filter(r => !myEmails.has(normalizeEmail(r))),
       cc: ccList,
-      subject: `Re: ${lastMessage.subject ?? ""}`,
-      quotedHtml: buildQuote(lastMessage),
-      threadId: lastMessage.thread_id,
-      inReplyToMessageId: lastMessage.id,
+      subject: `Re: ${selectedMessage.subject ?? ""}`,
+      quotedHtml: buildThreadQuote(quotedMessages),
+      threadId: selectedMessage.thread_id,
+      inReplyToMessageId: selectedMessage.id,
     });
-  }, [lastMessage, openComposer, activeAccount]);
+  }, [selectedMessage, messages, openComposer, activeAccount, accounts]);
 
-  const handleForward = useCallback(() => {
-    if (!lastMessage) return;
+const handleForward = useCallback(() => {
+    if (!selectedMessage) return;
+    const msgIndex = messages.findIndex(m => m.id === selectedMessage.id);
+    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
     openComposer({
       mode: "forward",
       to: [],
-      subject: `Fwd: ${lastMessage.subject ?? ""}`,
-      quotedHtml: buildForwardQuote(lastMessage),
-      threadId: lastMessage.thread_id,
-      inReplyToMessageId: lastMessage.id,
+      subject: `Fwd: ${selectedMessage.subject ?? ""}`,
+      quotedHtml: buildThreadForwardQuote(quotedMessages),
+      threadId: selectedMessage.thread_id,
+      inReplyToMessageId: selectedMessage.id,
     });
-  }, [lastMessage, openComposer]);
+  }, [selectedMessage, messages, openComposer]);
 
   const handlePrint = useCallback(() => {
     if (messages.length === 0) return;
@@ -422,9 +434,7 @@ export function ThreadView({ thread }: ThreadViewProps) {
 
   // Detect no-reply senders — disable reply buttons but still allow forward
   const noReply = isNoReplyAddress(lastMessage?.reply_to ?? lastMessage?.from_address);
-  
-  // Get the primary sender for the contact sidebar
-  const selectedMessage = messages.find(m => m.id === selectedMessageId) || lastMessage;
+
   const primarySender = selectedMessage?.from_address ?? null;
   const primarySenderName = selectedMessage?.from_name ?? null;
 
@@ -567,17 +577,24 @@ export function ThreadView({ thread }: ThreadViewProps) {
   );
 }
 
-function buildQuote(msg: DbMessage): string {
-  const date = new Date(msg.date).toLocaleString();
-  const from = msg.from_name
-    ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
-    : escapeHtml(msg.from_address ?? "Unknown");
-  const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-  return `<br><br><div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666">On ${date}, ${from} wrote:<br>${body}</div>`;
+function buildThreadQuote(msgs: DbMessage[]): string {
+  if (msgs.length === 0) return "";
+  return "<br><br>" + [...msgs].reverse().map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    const from = msg.from_name
+      ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
+      : escapeHtml(msg.from_address ?? "Unknown");
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `<div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666;margin-bottom:8px">On ${date}, ${from} wrote:<br>${body}</div>`;
+  }).join("");
 }
 
-function buildForwardQuote(msg: DbMessage): string {
-  const date = new Date(msg.date).toLocaleString();
-  const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-  return `<br><br>---------- Forwarded message ---------<br>From: ${escapeHtml(msg.from_name ?? "")} &lt;${escapeHtml(msg.from_address ?? "")}&gt;<br>Date: ${date}<br>Subject: ${escapeHtml(msg.subject ?? "")}<br>To: ${escapeHtml(msg.to_addresses ?? "")}<br><br>${body}`;
+function buildThreadForwardQuote(msgs: DbMessage[]): string {
+  if (msgs.length === 0) return "";
+  const parts = msgs.map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `From: ${escapeHtml(msg.from_name ?? "")} &lt;${escapeHtml(msg.from_address ?? "")}&gt;<br>Date: ${date}<br>Subject: ${escapeHtml(msg.subject ?? "")}<br>To: ${escapeHtml(msg.to_addresses ?? "")}<br><br>${body}`;
+  });
+  return `<br><br>---------- Forwarded message ---------<br><br>${parts.join("<br><br>---------- Previous message ---------<br><br>")}`;
 }

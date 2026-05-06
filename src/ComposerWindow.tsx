@@ -70,64 +70,51 @@ export default function ComposerWindow() {
         // Initialize Gmail clients
         await initializeClients();
 
-        // Parse composer state
-        let opts: any = {};
-
+        // Parse composer state from URL params (primary source — always reliable)
         const windowLabel = params.get("windowLabel");
+        const mode = (params.get("mode") as ComposerMode) ?? "new";
+        const to = params.get("to")?.split(",").filter(Boolean) ?? [];
+        const cc = params.get("cc")?.split(",").filter(Boolean) ?? [];
+        const bcc = params.get("bcc")?.split(",").filter(Boolean) ?? [];
+        const subject = params.get("subject") ?? "";
+        const threadId = params.get("threadId") ?? null;
+        const inReplyToMessageId = params.get("inReplyToMessageId") ?? null;
+        const draftId = params.get("draftId") ?? null;
+        const fromEmail = params.get("fromEmail");
+        const accountId = params.get("accountId");
+
+        // quotedHtml is stored in localStorage (too large for URL params)
+        let quotedHtml = "";
+        if (windowLabel) {
+          const stored = localStorage.getItem(`composer_quoted_${windowLabel}`);
+          if (stored) {
+            quotedHtml = stored;
+            localStorage.removeItem(`composer_quoted_${windowLabel}`);
+          }
+        }
+
+        // Legacy: support old localStorage format (opts object) for backwards compat
+        let bodyHtml = "";
         if (windowLabel) {
           const raw = localStorage.getItem(`composer_opts_${windowLabel}`);
           if (raw) {
             try {
-              opts = JSON.parse(raw);
-            } catch (e) {
-              console.error("Failed to parse composer opts", e);
-            }
+              const legacy = JSON.parse(raw);
+              if (!quotedHtml && legacy.quotedHtml) quotedHtml = legacy.quotedHtml;
+              if (legacy.bodyHtml) bodyHtml = legacy.bodyHtml;
+            } catch { /* ignore */ }
             localStorage.removeItem(`composer_opts_${windowLabel}`);
           }
         }
 
-        // Fallback to URL params if localStorage was empty (e.g. legacy deep links)
-        if (!opts || Object.keys(opts).length === 0) {
-          const mode = (params.get("mode") as ComposerMode) ?? "new";
-          const to = params.get("to")?.split(",").filter(Boolean) ?? [];
-          const cc = params.get("cc")?.split(",").filter(Boolean) ?? [];
-          const bcc = params.get("bcc")?.split(",").filter(Boolean) ?? [];
-          const subject = params.get("subject") ?? "";
-          const threadId = params.get("threadId") ?? null;
-          const inReplyToMessageId = params.get("inReplyToMessageId") ?? null;
-          const draftId = params.get("draftId") ?? null;
-          const fromEmail = params.get("fromEmail");
-          const accountId = params.get("accountId");
-
-          let bodyHtml = "";
-          const bodyParam = params.get("body");
-          if (bodyParam) {
-            try {
-              bodyHtml = decodeURIComponent(escape(atob(bodyParam)));
-            } catch {
-              bodyHtml = "";
-            }
-          }
-
-          opts = {
-            mode,
-            to,
-            cc,
-            bcc,
-            subject,
-            bodyHtml,
-            threadId,
-            inReplyToMessageId,
-            draftId,
-          };
-
-          if (fromEmail) {
-            useComposerStore.getState().setFromEmail(fromEmail);
-          }
-          if (accountId) {
-            useComposerStore.getState().setComposerAccountId(accountId);
-          }
+        if (fromEmail) {
+          useComposerStore.getState().setFromEmail(fromEmail);
         }
+        if (accountId) {
+          useComposerStore.getState().setComposerAccountId(accountId);
+        }
+
+        const opts = { mode, to, cc, bcc, subject, bodyHtml, quotedHtml, threadId, inReplyToMessageId, draftId };
 
         // Open composer with parsed state
         useComposerStore.getState().openComposer(opts);

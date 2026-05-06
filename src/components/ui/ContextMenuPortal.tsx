@@ -42,18 +42,30 @@ import { triggerSync } from "@/services/gmail/syncManager";
 import { useUIStore } from "@/stores/uiStore";
 import { setThreadCategory, ALL_CATEGORIES } from "@/services/db/threadCategories";
 import { normalizeEmail } from "@/utils/emailUtils";
+import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 
-function buildQuote(msg: { from_name: string | null; from_address: string | null; date: string | number; body_html: string | null; body_text: string | null }): string {
-  const date = new Date(msg.date).toLocaleString();
-  const from = msg.from_name
-    ? `${msg.from_name} &lt;${msg.from_address}&gt;`
-    : (msg.from_address ?? "Unknown");
-  return `<br><br><div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666">On ${date}, ${from} wrote:<br>${msg.body_html ?? msg.body_text ?? ""}</div>`;
+type QuotedMsg = { from_name: string | null; from_address: string | null; date: string | number; subject?: string | null; to_addresses?: string | null; body_html: string | null; body_text: string | null };
+
+function buildQuote(msgs: QuotedMsg[]): string {
+  if (msgs.length === 0) return "";
+  return "<br><br>" + [...msgs].reverse().map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    const from = msg.from_name
+      ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
+      : escapeHtml(msg.from_address ?? "Unknown");
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `<div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666;margin-bottom:8px">On ${date}, ${from} wrote:<br>${body}</div>`;
+  }).join("");
 }
 
-function buildForwardQuote(msg: { from_name: string | null; from_address: string | null; date: string | number; subject: string | null; to_addresses: string | null; body_html: string | null; body_text: string | null }): string {
-  const date = new Date(msg.date).toLocaleString();
-  return `<br><br>---------- Forwarded message ---------<br>From: ${msg.from_name ?? ""} &lt;${msg.from_address ?? ""}&gt;<br>Date: ${date}<br>Subject: ${msg.subject ?? ""}<br>To: ${msg.to_addresses ?? ""}<br><br>${msg.body_html ?? msg.body_text ?? ""}`;
+function buildForwardQuote(msgs: QuotedMsg[]): string {
+  if (msgs.length === 0) return "";
+  const parts = msgs.map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `From: ${escapeHtml(msg.from_name ?? "")} &lt;${escapeHtml(msg.from_address ?? "")}&gt;<br>Date: ${date}<br>Subject: ${escapeHtml(msg.subject ?? "")}<br>To: ${escapeHtml(msg.to_addresses ?? "")}<br><br>${body}`;
+  });
+  return `<br><br>---------- Forwarded message ---------<br><br>${parts.join("<br><br>---------- Previous message ---------<br><br>")}`;
 }
 
 export function ContextMenuPortal() {
@@ -250,7 +262,7 @@ function ThreadMenu({
       mode: "reply",
       to: replyTo ? [replyTo] : [],
       subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
+      quotedHtml: buildQuote(messages),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
@@ -290,7 +302,7 @@ function ThreadMenu({
       to: Array.from(allRecipients).filter(r => !myEmails.has(normalizeEmail(r))),
       cc: ccList,
       subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
+      quotedHtml: buildQuote(messages),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
@@ -304,7 +316,7 @@ function ThreadMenu({
       mode: "forward",
       to: [],
       subject: `Fwd: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildForwardQuote(lastMessage),
+      quotedHtml: buildForwardQuote(messages),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
@@ -402,6 +414,8 @@ function ThreadMenu({
         height: 700,
         center: true,
         dragDropEnabled: false,
+        // @ts-ignore - titleBarStyle is valid for macOS in Tauri 2
+        titleBarStyle: "Overlay",
       });
       win.once("tauri://error", (e) => {
         console.error("Failed to create pop-out window:", e);
@@ -632,19 +646,27 @@ function MessageMenu({
 
   const msg = { from_name: fromName, from_address: fromAddress, date, body_html: bodyHtml, body_text: bodyText, subject, to_addresses: toAddresses };
 
-  const handleReply = () => {
+  const handleReply = async () => {
     const replyAddr = replyTo ?? fromAddress;
+    let msgs: QuotedMsg[] = [msg];
+    if (accountId) {
+      try {
+        const fetched = await getMessagesForThread(accountId, threadId);
+        const idx = fetched.findIndex(m => m.id === messageId);
+        msgs = idx >= 0 ? fetched.slice(0, idx + 1) : fetched;
+      } catch { /* fall back to single message */ }
+    }
     openComposer({
       mode: "reply",
       to: replyAddr ? [replyAddr] : [],
       subject: `Re: ${subject ?? ""}`,
-      bodyHtml: buildQuote(msg),
+      quotedHtml: buildQuote(msgs),
       threadId,
       inReplyToMessageId: messageId,
     });
   };
 
-  const handleReplyAll = () => {
+  const handleReplyAll = async () => {
     const replyAddr = replyTo ?? fromAddress;
     const allRecipients = new Set<string>();
     if (replyAddr) allRecipients.add(replyAddr);
@@ -668,23 +690,39 @@ function MessageMenu({
         }
       });
     }
+    let msgs: QuotedMsg[] = [msg];
+    if (accountId) {
+      try {
+        const fetched = await getMessagesForThread(accountId, threadId);
+        const idx = fetched.findIndex(m => m.id === messageId);
+        msgs = idx >= 0 ? fetched.slice(0, idx + 1) : fetched;
+      } catch { /* fall back to single message */ }
+    }
     openComposer({
       mode: "replyAll",
       to: Array.from(allRecipients).filter(r => !myEmails.has(normalizeEmail(r))),
       cc: ccList,
       subject: `Re: ${subject ?? ""}`,
-      bodyHtml: buildQuote(msg),
+      quotedHtml: buildQuote(msgs),
       threadId,
       inReplyToMessageId: messageId,
     });
   };
 
-  const handleForward = () => {
+  const handleForward = async () => {
+    let msgs: QuotedMsg[] = [msg];
+    if (accountId) {
+      try {
+        const fetched = await getMessagesForThread(accountId, threadId);
+        const idx = fetched.findIndex(m => m.id === messageId);
+        msgs = idx >= 0 ? fetched.slice(0, idx + 1) : fetched;
+      } catch { /* fall back to single message */ }
+    }
     openComposer({
       mode: "forward",
       to: [],
       subject: `Fwd: ${subject ?? ""}`,
-      bodyHtml: buildForwardQuote(msg),
+      quotedHtml: buildForwardQuote(msgs),
       threadId,
       inReplyToMessageId: messageId,
     });

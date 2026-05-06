@@ -8,10 +8,33 @@ import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { navigateToLabel, navigateToThread, navigateBack, getActiveLabel, getSelectedThreadId } from "@/router/navigate";
 import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread, markThreadRead, deleteDraftThread, deleteSingleMessage } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
-import { getMessagesForThread } from "@/services/db/messages";
+import { getMessagesForThread, type DbMessage } from "@/services/db/messages";
+import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { parseUnsubscribeUrl } from "@/components/email/MessageItem";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { triggerSync } from "@/services/gmail/syncManager";
+
+function buildReplyQuote(msgs: DbMessage[]): string {
+  if (msgs.length === 0) return "";
+  return "<br><br>" + [...msgs].reverse().map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    const from = msg.from_name
+      ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
+      : escapeHtml(msg.from_address ?? "Unknown");
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `<div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666;margin-bottom:8px">On ${date}, ${from} wrote:<br>${body}</div>`;
+  }).join("");
+}
+
+function buildForwardQuote(msgs: DbMessage[]): string {
+  if (msgs.length === 0) return "";
+  const parts = msgs.map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `From: ${escapeHtml(msg.from_name ?? "")} &lt;${escapeHtml(msg.from_address ?? "")}&gt;<br>Date: ${date}<br>Subject: ${escapeHtml(msg.subject ?? "")}<br>To: ${escapeHtml(msg.to_addresses ?? "")}<br><br>${body}`;
+  });
+  return `<br><br>---------- Forwarded message ---------<br><br>${parts.join("<br><br>---------- Previous message ---------<br><br>")}`;
+}
 
 /**
  * Parse a key binding string and check if it matches a keyboard event.
@@ -292,20 +315,50 @@ async function executeAction(actionId: string): Promise<void> {
       useComposerStore.getState().openComposer();
       break;
     case "action.reply": {
-      if (selectedId) {
-        const replyMode = useUIStore.getState().defaultReplyMode;
-        window.dispatchEvent(new CustomEvent("velo-inline-reply", { detail: { mode: replyMode } }));
+      if (selectedId && activeAccountId) {
+        const messages = await getMessagesForThread(activeAccountId, selectedId);
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage) {
+          const replyMode = useUIStore.getState().defaultReplyMode;
+          const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
+          if (replyMode === "replyAll") {
+            const myEmails = new Set(useAccountStore.getState().accounts.map(a => a.email.toLowerCase()));
+            const allRecipients = new Set<string>();
+            if (replyTo) allRecipients.add(replyTo);
+            lastMessage.to_addresses?.split(",").forEach(a => { const t = a.trim(); if (t && !myEmails.has(t.toLowerCase())) allRecipients.add(t); });
+            const ccList: string[] = [];
+            lastMessage.cc_addresses?.split(",").forEach(a => { const t = a.trim(); if (t && !myEmails.has(t.toLowerCase())) ccList.push(t); });
+            useComposerStore.getState().openComposer({ mode: "replyAll", to: [...allRecipients].filter(r => !myEmails.has(r.toLowerCase())), cc: ccList, subject: `Re: ${lastMessage.subject ?? ""}`, quotedHtml: buildReplyQuote(messages), threadId: lastMessage.thread_id, inReplyToMessageId: lastMessage.id });
+          } else {
+            useComposerStore.getState().openComposer({ mode: "reply", to: replyTo ? [replyTo] : [], subject: `Re: ${lastMessage.subject ?? ""}`, quotedHtml: buildReplyQuote(messages), threadId: lastMessage.thread_id, inReplyToMessageId: lastMessage.id });
+          }
+        }
       }
       break;
     }
     case "action.replyAll":
-      if (selectedId) {
-        window.dispatchEvent(new CustomEvent("velo-inline-reply", { detail: { mode: "replyAll" } }));
+      if (selectedId && activeAccountId) {
+        const messages = await getMessagesForThread(activeAccountId, selectedId);
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage) {
+          const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
+          const myEmails = new Set(useAccountStore.getState().accounts.map(a => a.email.toLowerCase()));
+          const allRecipients = new Set<string>();
+          if (replyTo) allRecipients.add(replyTo);
+          lastMessage.to_addresses?.split(",").forEach(a => { const t = a.trim(); if (t && !myEmails.has(t.toLowerCase())) allRecipients.add(t); });
+          const ccList: string[] = [];
+          lastMessage.cc_addresses?.split(",").forEach(a => { const t = a.trim(); if (t && !myEmails.has(t.toLowerCase())) ccList.push(t); });
+          useComposerStore.getState().openComposer({ mode: "replyAll", to: [...allRecipients].filter(r => !myEmails.has(r.toLowerCase())), cc: ccList, subject: `Re: ${lastMessage.subject ?? ""}`, quotedHtml: buildReplyQuote(messages), threadId: lastMessage.thread_id, inReplyToMessageId: lastMessage.id });
+        }
       }
       break;
     case "action.forward":
-      if (selectedId) {
-        window.dispatchEvent(new CustomEvent("velo-inline-reply", { detail: { mode: "forward" } }));
+      if (selectedId && activeAccountId) {
+        const messages = await getMessagesForThread(activeAccountId, selectedId);
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage) {
+          useComposerStore.getState().openComposer({ mode: "forward", to: [], subject: `Fwd: ${lastMessage.subject ?? ""}`, quotedHtml: buildForwardQuote(messages), threadId: lastMessage.thread_id, inReplyToMessageId: lastMessage.id });
+        }
       }
       break;
     case "action.archive": {

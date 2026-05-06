@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { ThreadView } from "./components/email/ThreadView";
 import { Composer } from "./components/composer/Composer";
 import { UndoSendToast } from "./components/composer/UndoSendToast";
+import { TitleBar } from "./components/layout/TitleBar";
+import { useComposerStore } from "./stores/composerStore";
 import { useAccountStore } from "./stores/accountStore";
 import { useUIStore } from "./stores/uiStore";
 import { runMigrations } from "./services/db/migrations";
@@ -16,6 +18,7 @@ import type { Thread } from "./stores/threadStore";
 export default function ThreadWindow() {
   const { setTheme, setFontScale, setColorTheme } = useUIStore();
   const { setAccounts } = useAccountStore();
+  const composerOpen = useComposerStore((s) => s.isOpen);
   const [thread, setThread] = useState<Thread | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -198,8 +201,9 @@ export default function ThreadWindow() {
 
   return (
     <div className="flex flex-col h-screen bg-bg-primary text-text-primary">
+      <TitleBar />
       <ThreadView thread={thread} />
-      <Composer />
+      {composerOpen && <Composer />}
       <UndoSendToast />
     </div>
   );

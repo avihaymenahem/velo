@@ -214,7 +214,7 @@ export function AttachmentPreview({
       const filename = attachment.filename ?? "attachment";
       const extension = filename.includes(".") 
         ? filename.split(".").pop()
-        : getExtensionFromMimeType(attachment.mime_type);
+        : getExtensionFromMimeType(attachment.mime_type ?? undefined);
       const defaultFilename = filename.replace(/\.[^.]+$/, "") + (extension ? `.${extension}` : "");
       
       const filePath = await save({
