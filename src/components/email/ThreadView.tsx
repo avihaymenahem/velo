@@ -224,19 +224,12 @@ const handleForward = useCallback(() => {
     });
   }, [selectedMessage, messages, openComposer]);
 
-  const handlePrint = useCallback(() => {
-    if (messages.length === 0) return;
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.left = "-9999px";
-    iframe.style.top = "-9999px";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
-    if (!doc) { document.body.removeChild(iframe); return; }
-
+const handlePrint = useCallback(() => {
+    if (messages.length === 0) {
+      console.warn("No messages to print");
+      return;
+    }
+    
     const messagesHtml = messages.map((msg) => {
       const date = new Date(msg.date).toLocaleString();
       const from = msg.from_name
@@ -245,7 +238,7 @@ const handleForward = useCallback(() => {
       const to = escapeHtml(msg.to_addresses ?? "");
       const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
       return `
-        <div style="margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e5e5e5">
+        <div class="velo-print-message" style="margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e5e5e5">
           <div style="margin-bottom:8px;color:#666;font-size:12px">
             <strong>From:</strong> ${from}<br/>
             <strong>To:</strong> ${to}<br/>
@@ -256,16 +249,54 @@ const handleForward = useCallback(() => {
     }).join("");
 
     const safeSubject = escapeHtml(thread.subject ?? "");
-    doc.open();
-    doc.write(`<!DOCTYPE html><html><head><title>${safeSubject || "Email"}</title>
-      <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:800px;margin:20px auto;color:#333;font-size:14px}
-      h1{font-size:18px;margin-bottom:8px}img{max-width:100%}</style></head>
-      <body><h1>${safeSubject || "(No subject)"}</h1>${messagesHtml}</body></html>`);
-    doc.close();
+    
+    // Create hidden print-only content
+    const printDiv = document.createElement("div");
+    printDiv.id = "velo-print-content";
+    printDiv.style.display = "none";
+    printDiv.innerHTML = `
+      <h1 style="font-size:18px;margin-bottom:8px">${safeSubject || "(No subject)"}</h1>
+      ${messagesHtml}
+    `;
+    document.body.appendChild(printDiv);
 
-    iframe.contentWindow?.focus();
-    iframe.contentWindow?.print();
-    setTimeout(() => document.body.removeChild(iframe), 1000);
+    // Add print styles
+    const style = document.createElement("style");
+    style.id = "velo-print-styles";
+    style.textContent = `
+      @media print {
+        body * { visibility: hidden !important; }
+        #velo-print-content, #velo-print-content * { visibility: visible !important; }
+        #velo-print-content { 
+          display: block !important;
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          padding: 20px !important;
+        }
+        .velo-print-message img { max-width: 100% !important; }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Trigger print
+    setTimeout(() => {
+      try {
+        window.print();
+      } catch (err) {
+        console.error("Print failed:", err);
+      }
+    }, 100);
+
+    // Clean up after print
+    setTimeout(() => {
+      const printContent = document.getElementById("velo-print-content");
+      const printStyles = document.getElementById("velo-print-styles");
+      if (printContent) printContent.remove();
+      if (printStyles) printStyles.remove();
+      console.log("Print dialog opened for", messages.length, "messages");
+    }, 1000);
   }, [messages, thread.subject]);
 
   // Message-level keyboard navigation (ArrowUp / ArrowDown)

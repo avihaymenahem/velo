@@ -82,6 +82,7 @@
     "process:allow-restart",
     "os:default",
     "log:default",
-    "log:allow-log"
+    "log:allow-log",
+    "core:webview:allow-print"
   ]
 }
