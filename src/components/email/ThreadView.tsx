@@ -233,8 +233,6 @@ const handlePrint = useCallback(async () => {
 
     const messageToPrint = selectedMessage || lastMessage;
     if (!messageToPrint) return;
-    const msgIndex = messages.findIndex(m => m.id === messageToPrint.id);
-    const quotedMessages = msgIndex > 0 ? messages.slice(0, msgIndex) : [];
 
     const date = new Date(messageToPrint.date).toLocaleString();
     const from = messageToPrint.from_name
@@ -243,17 +241,6 @@ const handlePrint = useCallback(async () => {
     const to = escapeHtml(messageToPrint.to_addresses ?? "");
     const cc = messageToPrint.cc_addresses ? escapeHtml(messageToPrint.cc_addresses) : "";
     const body = messageToPrint.body_html ? sanitizeHtml(messageToPrint.body_html) : escapeHtml(messageToPrint.body_text ?? "");
-
-    const quoteHtml = quotedMessages.length > 0
-      ? [...quotedMessages].reverse().map((msg) => {
-          const msgDate = new Date(msg.date).toLocaleString();
-          const msgFrom = msg.from_name
-            ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
-            : escapeHtml(msg.from_address ?? "Unknown");
-          const msgBody = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-          return `<div style="border-left:2px solid #ccc;padding-left:12px;margin:16px 0;color:#666"><div style="font-size:12px;color:#888;margin-bottom:4px">On ${msgDate}, ${msgFrom} wrote:</div>${msgBody}</div>`;
-        }).join("")
-      : "";
 
     let signatureHtml = "";
     try {
@@ -269,7 +256,7 @@ const handlePrint = useCallback(async () => {
         <strong>To:</strong> ${to}${cc ? `<br/><strong>Cc:</strong> ${cc}` : ''}<br/>
         <strong>Date:</strong> ${date}
       </div>
-      <div style="font-size:14px;line-height:1.6">${body}${quoteHtml}${signatureHtml ? `<div style="margin-top:24px;border-top:1px solid #ddd;padding-top:12px">${signatureHtml}</div>` : ''}</div>
+      <div style="font-size:14px;line-height:1.6">${body}${signatureHtml ? `<div style="margin-top:24px;border-top:1px solid #ddd;padding-top:12px">${signatureHtml}</div>` : ''}</div>
     `;
 
     const dateObj = new Date(messageToPrint.date);
@@ -310,7 +297,7 @@ const handlePrint = useCallback(async () => {
           margin: 0 !important;
           /* Imposta i margini esatti internamente */
           padding-top: 5mm !important;
-          padding-bottom: 50mm !important;
+          padding-bottom: 15mm !important;
           padding-left: 15mm !important;
           padding-right: 15mm !important;
           box-sizing: border-box !important;
@@ -323,7 +310,7 @@ const handlePrint = useCallback(async () => {
           background-image: none !important;
           overflow: visible !important;
           height: auto !important;
-          min-height: 100% !important;
+          min-height: auto !important;
           position: static !important;
           margin: 0 !important;
           padding: 0 !important;
