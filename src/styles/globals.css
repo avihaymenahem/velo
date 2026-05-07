@@ -747,7 +747,7 @@ body {
 
     /* Page margins */
     @page {
-        margin: 0.1in 0.5in 0.5in 0.5in !important;
+        margin: 0in 0.5in 2in 0.5in !important; /* Top Right Bottom Left */
     }
 
     /* Hide UI Chrome */

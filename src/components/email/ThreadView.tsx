@@ -287,6 +287,10 @@ const handlePrint = useCallback(async () => {
     const style = document.createElement("style");
     style.id = "velo-print-styles";
     style.textContent = `
+      @page {
+        margin: 0 !important; /* Disabilita i margini del sistema operativo */
+      }
+
       @media print {
         body > *:not(#velo-print-content) {
           display: none !important;
@@ -296,7 +300,12 @@ const handlePrint = useCallback(async () => {
           display: block !important;
           width: 100% !important;
           margin: 0 !important;
-          padding: 0 !important;
+          /* Imposta i margini esatti internamente */
+          padding-top: 5mm !important;
+          padding-bottom: 50mm !important;
+          padding-left: 15mm !important;
+          padding-right: 15mm !important;
+          box-sizing: border-box !important;
           background: white !important;
           color: black !important;
         }
@@ -341,7 +350,8 @@ const handlePrint = useCallback(async () => {
     };
 
     window.addEventListener("afterprint", cleanup);
-    setTimeout(cleanup, 5000);
+    // Increased to 5 minutes so it doesn't destroy the DOM before "Save as PDF" completes
+    setTimeout(cleanup, 300000);
   }, [messages, thread.subject, selectedMessage, lastMessage, activeAccountId]);
 
   // Message-level keyboard navigation (ArrowUp / ArrowDown)
