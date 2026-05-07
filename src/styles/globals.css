@@ -745,10 +745,7 @@ body {
         margin: 0 !important;
     }
 
-    /* Page margins */
-    @page {
-        margin: 0.5in !important;
-    }
+
 
     /* Hide UI Chrome */
     nav,

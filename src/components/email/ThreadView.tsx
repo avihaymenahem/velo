@@ -283,7 +283,7 @@ const handlePrint = useCallback(async () => {
     style.id = "velo-print-styles";
     style.textContent = `
       @page {
-        margin: 0 !important; /* Disabilita i margini del sistema operativo */
+        margin: 10mm 15mm 15mm 15mm !important; /* Applica i margini a TUTTE le pagine (Top Right Bottom Left) */
       }
 
       @media print {
@@ -295,11 +295,7 @@ const handlePrint = useCallback(async () => {
           display: block !important;
           width: 100% !important;
           margin: 0 !important;
-          /* Imposta i margini esatti internamente */
-          padding-top: 5mm !important;
-          padding-bottom: 15mm !important;
-          padding-left: 15mm !important;
-          padding-right: 15mm !important;
+          padding: 0 !important; /* Rimuoviamo il padding che si applicava solo all'inizio e fine del blocco */
           box-sizing: border-box !important;
           background: white !important;
           color: black !important;
