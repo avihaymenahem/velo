@@ -224,7 +224,7 @@ const handleForward = useCallback(() => {
     });
   }, [selectedMessage, messages, openComposer]);
 
-const handlePrint = useCallback(() => {
+  const handlePrint = useCallback(() => {
     if (messages.length === 0) {
       console.warn("No messages to print");
       return;
@@ -238,13 +238,13 @@ const handlePrint = useCallback(() => {
       const to = escapeHtml(msg.to_addresses ?? "");
       const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
       return `
-        <div class="velo-print-message" style="margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e5e5e5">
+        <div class="velo-print-message" style="margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #eee">
           <div style="margin-bottom:8px;color:#666;font-size:12px">
             <strong>From:</strong> ${from}<br/>
             <strong>To:</strong> ${to}<br/>
             <strong>Date:</strong> ${date}
           </div>
-          <div>${body}</div>
+          <div style="font-size:14px;line-height:1.6">${body}</div>
         </div>`;
     }).join("");
 
@@ -253,9 +253,8 @@ const handlePrint = useCallback(() => {
     // Create hidden print-only content
     const printDiv = document.createElement("div");
     printDiv.id = "velo-print-content";
-    printDiv.style.display = "none";
     printDiv.innerHTML = `
-      <h1 style="font-size:18px;margin-bottom:8px">${safeSubject || "(No subject)"}</h1>
+      <h1 style="font-size:20px;margin-bottom:16px;border-bottom:2px solid #333;padding-bottom:8px">${safeSubject || "(No subject)"}</h1>
       ${messagesHtml}
     `;
     document.body.appendChild(printDiv);
@@ -265,38 +264,59 @@ const handlePrint = useCallback(() => {
     style.id = "velo-print-styles";
     style.textContent = `
       @media print {
-        body * { visibility: hidden !important; }
-        #velo-print-content, #velo-print-content * { visibility: visible !important; }
-        #velo-print-content { 
-          display: block !important;
-          position: absolute !important;
-          left: 0 !important;
-          top: 0 !important;
-          width: 100% !important;
-          padding: 20px !important;
+        /* Hide everything by default */
+        body > *:not(#velo-print-content) {
+          display: none !important;
         }
-        .velo-print-message img { max-width: 100% !important; }
+        
+        #velo-print-content {
+          display: block !important;
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: white !important;
+          color: black !important;
+        }
+
+        /* Reset body background for print */
+        body {
+          background: white !important;
+          background-image: none !important;
+          overflow: visible !important;
+        }
+
+        .velo-print-message img { max-width: 100% !important; height: auto !important; }
+      }
+      
+      /* Hide on screen */
+      @media screen {
+        #velo-print-content { display: none !important; }
       }
     `;
     document.head.appendChild(style);
 
     // Trigger print
+    // Small delay to ensure the DOM and styles are processed
     setTimeout(() => {
       try {
         window.print();
       } catch (err) {
         console.error("Print failed:", err);
       }
-    }, 100);
+    }, 250);
 
-    // Clean up after print
-    setTimeout(() => {
+    // Clean up after print (using a longer timeout as some browsers are slow)
+    // We also use 'afterprint' event if available
+    const cleanup = () => {
       const printContent = document.getElementById("velo-print-content");
       const printStyles = document.getElementById("velo-print-styles");
       if (printContent) printContent.remove();
       if (printStyles) printStyles.remove();
-      console.log("Print dialog opened for", messages.length, "messages");
-    }, 1000);
+      window.removeEventListener("afterprint", cleanup);
+    };
+
+    window.addEventListener("afterprint", cleanup);
+    setTimeout(cleanup, 5000);
   }, [messages, thread.subject]);
 
   // Message-level keyboard navigation (ArrowUp / ArrowDown)

@@ -723,3 +723,87 @@ body {
     max-width: 100%;
     height: auto;
 }
+
+/* ============================================
+ * Print System
+ * ============================================ */
+
+@media print {
+    /* Reset body and layout */
+    html,
+    body,
+    #root {
+        height: auto !important;
+        overflow: visible !important;
+        background: white !important;
+        color: black !important;
+    }
+
+    body {
+        background-image: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Hide UI Chrome */
+    nav,
+    aside,
+    header,
+    footer,
+    .title-bar,
+    .action-bar,
+    .sidebar,
+    .composer,
+    .undo-send-toast,
+    .thread-list,
+    .folder-list,
+    .context-menu,
+    .modal-backdrop,
+    button,
+    .interactive-btn,
+    .animated-bg,
+    .no-print {
+        display: none !important;
+    }
+
+    /* Thread View Specifics */
+    .thread-view-container {
+        height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+        position: static !important;
+    }
+
+    .flex-1.overflow-y-auto {
+        height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+
+    /* Message Item Adjustments */
+    .message-item {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border-bottom: 1px solid #eee !important;
+        margin-bottom: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+
+    /* Links and text */
+    a {
+        text-decoration: underline !important;
+        color: #000 !important;
+    }
+
+    /* Force background colors for some elements if needed */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Hide smart suggestions and inline reply in print */
+    .smart-reply-suggestions,
+    .inline-reply {
+        display: none !important;
+    }
+}

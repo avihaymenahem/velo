@@ -27,7 +27,7 @@ export function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="flex items-center justify-between h-9 bg-sidebar-bg border-b border-border-primary select-none shrink-0"
+      className="title-bar flex items-center justify-between h-9 bg-sidebar-bg border-b border-border-primary select-none shrink-0"
     >
       {/* App title — left side (extra padding on macOS for traffic light buttons) */}
       <div data-tauri-drag-region className={`flex items-center gap-2 ${isMac ? "pl-20" : "pl-4"}`}>

@@ -205,7 +205,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
 
   return (
     <>
-      <div className="flex items-center gap-1 px-3 py-3 border-b border-border-secondary bg-bg-secondary">
+      <div className="action-bar flex items-center gap-1 px-3 py-3 border-b border-border-secondary bg-bg-secondary">
         {/* Reply / Forward group */}
         {hasLastMessage && (
           <>
