@@ -272,6 +272,14 @@ const handlePrint = useCallback(async () => {
       <div style="font-size:14px;line-height:1.6">${body}${quoteHtml}${signatureHtml ? `<div style="margin-top:24px;border-top:1px solid #ddd;padding-top:12px">${signatureHtml}</div>` : ''}</div>
     `;
 
+    const dateObj = new Date(messageToPrint.date);
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const dd = String(dateObj.getDate()).padStart(2, "0");
+    const sender = messageToPrint.from_name || messageToPrint.from_address || "Unknown";
+    const subjectTitle = messageToPrint.subject || thread.subject || "No Subject";
+    const printTitle = `${yyyy}.${mm}.${dd} - ${sender} - ${subjectTitle}`;
+
     const safeSubject = escapeHtml(thread.subject ?? "");
 
     const printDiv = document.createElement("div");
@@ -333,6 +341,9 @@ const handlePrint = useCallback(async () => {
     `;
     document.head.appendChild(style);
 
+    const oldTitle = document.title;
+    document.title = printTitle;
+
     setTimeout(() => {
       try {
         window.print();
@@ -346,6 +357,7 @@ const handlePrint = useCallback(async () => {
       const printStyles = document.getElementById("velo-print-styles");
       if (printContent) printContent.remove();
       if (printStyles) printStyles.remove();
+      document.title = oldTitle;
       window.removeEventListener("afterprint", cleanup);
     };
 
