@@ -14,6 +14,7 @@ import { normalizeEmail } from "@/utils/emailUtils";
 import { VolumeX } from "lucide-react";
 import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { isNoReplyAddress } from "@/utils/noReply";
+import { getDefaultSignature } from "@/services/db/signatures";
 import { ThreadSummary } from "./ThreadSummary";
 import { SmartReplySuggestions } from "./SmartReplySuggestions";
 import { InlineReply } from "./InlineReply";
@@ -224,51 +225,73 @@ const handleForward = useCallback(() => {
     });
   }, [selectedMessage, messages, openComposer]);
 
-  const handlePrint = useCallback(() => {
+const handlePrint = useCallback(async () => {
     if (messages.length === 0) {
       console.warn("No messages to print");
       return;
     }
-    
-    const messagesHtml = messages.map((msg) => {
-      const date = new Date(msg.date).toLocaleString();
-      const from = msg.from_name
-        ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
-        : escapeHtml(msg.from_address ?? "Unknown");
-      const to = escapeHtml(msg.to_addresses ?? "");
-      const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-      return `
-        <div class="velo-print-message" style="margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #eee">
-          <div style="margin-bottom:8px;color:#666;font-size:12px">
-            <strong>From:</strong> ${from}<br/>
-            <strong>To:</strong> ${to}<br/>
-            <strong>Date:</strong> ${date}
-          </div>
-          <div style="font-size:14px;line-height:1.6">${body}</div>
-        </div>`;
-    }).join("");
+
+    const messageToPrint = selectedMessage || lastMessage;
+    if (!messageToPrint) return;
+    const msgIndex = messages.findIndex(m => m.id === messageToPrint.id);
+    const quotedMessages = msgIndex > 0 ? messages.slice(0, msgIndex) : [];
+
+    const date = new Date(messageToPrint.date).toLocaleString();
+    const from = messageToPrint.from_name
+      ? `${escapeHtml(messageToPrint.from_name)} &lt;${escapeHtml(messageToPrint.from_address ?? "")}&gt;`
+      : escapeHtml(messageToPrint.from_address ?? "Unknown");
+    const to = escapeHtml(messageToPrint.to_addresses ?? "");
+    const cc = messageToPrint.cc_addresses ? escapeHtml(messageToPrint.cc_addresses) : "";
+    const body = messageToPrint.body_html ? sanitizeHtml(messageToPrint.body_html) : escapeHtml(messageToPrint.body_text ?? "");
+
+    const quoteHtml = quotedMessages.length > 0
+      ? [...quotedMessages].reverse().map((msg) => {
+          const msgDate = new Date(msg.date).toLocaleString();
+          const msgFrom = msg.from_name
+            ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
+            : escapeHtml(msg.from_address ?? "Unknown");
+          const msgBody = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+          return `<div style="border-left:2px solid #ccc;padding-left:12px;margin:16px 0;color:#666"><div style="font-size:12px;color:#888;margin-bottom:4px">On ${msgDate}, ${msgFrom} wrote:</div>${msgBody}</div>`;
+        }).join("")
+      : "";
+
+    let signatureHtml = "";
+    try {
+      const sig = await getDefaultSignature(activeAccountId ?? "");
+      if (sig) signatureHtml = sig.body_html;
+    } catch {
+      // ignore
+    }
+
+    const printHtml = `
+      <div style="margin-bottom:16px;color:#666;font-size:12px">
+        <strong>From:</strong> ${from}<br/>
+        <strong>To:</strong> ${to}${cc ? `<br/><strong>Cc:</strong> ${cc}` : ''}<br/>
+        <strong>Date:</strong> ${date}
+      </div>
+      <div style="font-size:14px;line-height:1.6">${body}${quoteHtml}${signatureHtml ? `<div style="margin-top:24px;border-top:1px solid #ddd;padding-top:12px">${signatureHtml}</div>` : ''}</div>
+    `;
 
     const safeSubject = escapeHtml(thread.subject ?? "");
-    
-    // Create hidden print-only content
+
     const printDiv = document.createElement("div");
     printDiv.id = "velo-print-content";
     printDiv.innerHTML = `
-      <h1 style="font-size:20px;margin-bottom:16px;border-bottom:2px solid #333;padding-bottom:8px">${safeSubject || "(No subject)"}</h1>
-      ${messagesHtml}
+      <div style="margin-top: 0 !important; padding-top: 0 !important;">
+        <h1 style="font-size:20px; margin-top: 0 !important; margin-bottom: 16px; border-bottom: 2px solid #333; padding-bottom: 8px;">${safeSubject || "(No subject)"}</h1>
+        ${printHtml}
+      </div>
     `;
     document.body.appendChild(printDiv);
 
-    // Add print styles
     const style = document.createElement("style");
     style.id = "velo-print-styles";
     style.textContent = `
       @media print {
-        /* Hide everything by default */
         body > *:not(#velo-print-content) {
           display: none !important;
         }
-        
+
         #velo-print-content {
           display: block !important;
           width: 100% !important;
@@ -278,25 +301,29 @@ const handleForward = useCallback(() => {
           color: black !important;
         }
 
-        /* Reset body background for print */
-        body {
+        html, body {
           background: white !important;
           background-image: none !important;
           overflow: visible !important;
+          height: auto !important;
+          min-height: 100% !important;
+          position: static !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
 
-        .velo-print-message img { max-width: 100% !important; height: auto !important; }
+        #velo-print-content img {
+          max-width: 100% !important;
+          height: auto !important;
+        }
       }
-      
-      /* Hide on screen */
+
       @media screen {
         #velo-print-content { display: none !important; }
       }
     `;
     document.head.appendChild(style);
 
-    // Trigger print
-    // Small delay to ensure the DOM and styles are processed
     setTimeout(() => {
       try {
         window.print();
@@ -305,8 +332,6 @@ const handleForward = useCallback(() => {
       }
     }, 250);
 
-    // Clean up after print (using a longer timeout as some browsers are slow)
-    // We also use 'afterprint' event if available
     const cleanup = () => {
       const printContent = document.getElementById("velo-print-content");
       const printStyles = document.getElementById("velo-print-styles");
@@ -317,7 +342,7 @@ const handleForward = useCallback(() => {
 
     window.addEventListener("afterprint", cleanup);
     setTimeout(cleanup, 5000);
-  }, [messages, thread.subject]);
+  }, [messages, thread.subject, selectedMessage, lastMessage, activeAccountId]);
 
   // Message-level keyboard navigation (ArrowUp / ArrowDown)
   const [focusedMsgIdx, setFocusedMsgIdx] = useState(-1);
