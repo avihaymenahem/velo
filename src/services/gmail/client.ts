@@ -184,6 +184,13 @@ export class GmailClient {
     });
   }
 
+  async modifyMessage(messageId: string, addLabelIds?: string[], removeLabelIds?: string[]): Promise<GmailMessage> {
+    return this.request(`/messages/${messageId}/modify`, {
+      method: "POST",
+      body: JSON.stringify({ addLabelIds, removeLabelIds }),
+    });
+  }
+
   async getHistory(
     startHistoryId: string,
     historyTypes: string[] = ["messageAdded", "messageDeleted", "labelAdded", "labelRemoved"],
@@ -268,6 +275,13 @@ export class GmailClient {
    */
   async trashMessage(messageId: string): Promise<void> {
     await this.request(`/messages/${messageId}/trash`, { method: "POST" });
+  }
+
+  /**
+   * Move an entire thread to Trash via the threads.trash endpoint.
+   */
+  async trashThread(threadId: string): Promise<void> {
+    await this.request(`/threads/${threadId}/trash`, { method: "POST" });
   }
 
   /**

@@ -354,10 +354,11 @@ export async function deltaSync(
       threadIds.map((threadId) => async () => {
         try {
           // Skip metadata overwrite for threads with pending local changes
+          // But always process threads - pending operations are for individual messages
+          // and the server state should still be synced
           const pendingOps = await getPendingOpsForResource(accountId, threadId);
           if (pendingOps.length > 0) {
-            console.log(`[deltaSync] Skipping thread ${threadId}: has ${pendingOps.length} pending local ops`);
-            return;
+            console.log(`[deltaSync] Processing thread ${threadId} despite ${pendingOps.length} pending local ops`);
           }
 
           let thread;

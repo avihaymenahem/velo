@@ -61,11 +61,13 @@ describe("ollamaProvider", () => {
       expect(result).toBe("Hello!");
       expect(mockCreate).toHaveBeenCalledWith({
         model: "llama3.2",
-        max_tokens: 1024,
+        max_tokens: 4096,
         messages: [
           { role: "system", content: "You are helpful" },
           { role: "user", content: "Hi" },
         ],
+        stream: false,
+        think: false,
       });
     });
 

@@ -153,11 +153,7 @@ export class GmailApiProvider implements EmailProvider {
     if (messageIds.length > 0) {
       for (const id of messageIds) await this.client.trashMessage(id);
     } else {
-      await this.client.modifyThread(
-        threadId,
-        ["TRASH"],
-        ["INBOX", "DRAFT", "SPAM"],
-      );
+      await this.client.trashThread(threadId);
     }
   }
 
@@ -171,14 +167,24 @@ export class GmailApiProvider implements EmailProvider {
 
   async markRead(
     threadId: string,
-    _messageIds: string[],
+    messageIds: string[],
     read: boolean,
   ): Promise<void> {
-    await this.client.modifyThread(
-      threadId,
-      read ? undefined : ["UNREAD"],
-      read ? ["UNREAD"] : undefined,
-    );
+    if (messageIds.length > 0) {
+      for (const id of messageIds) {
+        await this.client.modifyMessage(
+          id,
+          read ? undefined : ["UNREAD"],
+          read ? ["UNREAD"] : undefined,
+        );
+      }
+    } else {
+      await this.client.modifyThread(
+        threadId,
+        read ? undefined : ["UNREAD"],
+        read ? ["UNREAD"] : undefined,
+      );
+    }
   }
 
   async star(
@@ -201,7 +207,7 @@ export class GmailApiProvider implements EmailProvider {
     await this.client.modifyThread(
       threadId,
       isSpam ? ["SPAM"] : ["INBOX"],
-      isSpam ? ["INBOX", "TRASH"] : ["SPAM"],
+      isSpam ? ["INBOX"] : ["SPAM"],
     );
   }
 
