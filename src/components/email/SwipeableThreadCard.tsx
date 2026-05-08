@@ -10,18 +10,18 @@ import {
   permanentDeleteThread,
 } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb } from "@/services/db/threads";
+import { scrollTracker } from "@/utils/scrollTracker";
 
 // ── Tuneable constants ────────────────────────────────────────────────────────
-const SWIPE_THRESHOLD  = 120;  // px of raw drag to commit the action
-const SWIPE_MAX        = 200;  // absolute max raw travel (pre-resistance)
-const SWIPE_DEAD_ZONE  = 12;   // px before pointer gesture is recognised
-const DIR_RATIO        = 2.0;  // horizontal must be DIR_RATIO × vertical (pointer)
-const WHEEL_DEBOUNCE   = 250;  // ms of silence before "gesture end" fires (absorbs inertia)
-const WHEEL_SCALE      = 0.55; // trackpad deltaX → raw pixels multiplier
-const WHEEL_DEAD_ZONE  = 18;   // accumulate this many px before the swipe activates
-const WHEEL_ANGLE_MIN  = 2.5;  // deltaX must be WHEEL_ANGLE_MIN × deltaY to start
+const SWIPE_THRESHOLD = 120;  // px of raw drag to commit the action
+const SWIPE_MAX = 200;  // absolute max raw travel (pre-resistance)
+const SWIPE_DEAD_ZONE = 12;   // px before pointer gesture is recognised
+const DIR_RATIO = 2.0;  // horizontal must be DIR_RATIO × vertical (pointer)
+const WHEEL_DEBOUNCE = 250;  // ms of silence before "gesture end" fires (absorbs inertia)
+const WHEEL_SCALE = 0.55; // trackpad deltaX → raw pixels multiplier
+const WHEEL_DEAD_ZONE = 40;   // accumulate this many px before the swipe activates
 
-const WHEEL_DAMPING    = 0.60; // smoothing: each event contributes only this fraction
+const WHEEL_DAMPING = 0.60; // smoothing: each event contributes only this fraction
 
 /**
  * Rubber-band resistance:
@@ -30,7 +30,7 @@ const WHEEL_DAMPING    = 0.60; // smoothing: each event contributes only this fr
  */
 function rubberBand(raw: number): number {
   const sign = raw < 0 ? -1 : 1;
-  const abs  = Math.abs(raw);
+  const abs = Math.abs(raw);
   if (abs <= SWIPE_THRESHOLD) return raw;
   const extra = (abs - SWIPE_THRESHOLD) * 0.32;
   return sign * Math.min(SWIPE_MAX, SWIPE_THRESHOLD + extra);
@@ -52,32 +52,33 @@ interface SwipeableThreadCardProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
   const { thread } = props;
-  const activeLabel    = useActiveLabel();
+  const activeLabel = useActiveLabel();
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
 
   const [translateX, setTranslateX] = useState(0);
-  const [phase,      setPhase]      = useState<SwipePhase>("idle");
-  const [exitDir,    setExitDir]    = useState<"left" | "right">("left");
-  const [collapsed,  setCollapsed]  = useState(false);
+  const [phase, setPhase] = useState<SwipePhase>("idle");
+  const [exitDir, setExitDir] = useState<"left" | "right">("left");
+  const [collapsed, setCollapsed] = useState(false);
 
   // Refs for non-stale access inside event handlers / timeouts
-  const rawX        = useRef(0);           // accumulated raw drag distance
-  const phaseRef    = useRef<SwipePhase>("idle");
-  const startX      = useRef(0);
-  const startY      = useRef(0);
-  const isScroll    = useRef<boolean | null>(null);
-  const cardDivRef    = useRef<HTMLDivElement>(null);
-  const wrapperRef    = useRef<HTMLDivElement>(null);
-  const wheelTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rawX = useRef(0);           // accumulated raw drag distance
+  const phaseRef = useRef<SwipePhase>("idle");
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const pointerDown = useRef(false); // true only between pointerDown and pointerUp/leave
+  const isScroll = useRef<boolean | null>(null);
+  const cardDivRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const wheelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Wheel-specific state (all refs — no re-renders inside the handler)
-  const wheelActive   = useRef(false);   // has the gesture crossed the dead zone?
-  const wheelAccum    = useRef(0);       // raw deltaX accumulator (pre-activation)
+  const wheelActive = useRef(false);   // has the gesture crossed the dead zone?
+  const wheelAccum = useRef(0);       // raw deltaX accumulator (pre-activation)
 
   // Keep phaseRef in sync
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
-  const isTrashView     = activeLabel === "trash";
-  const isTrashViewRef  = useRef(isTrashView);
+  const isTrashView = activeLabel === "trash";
+  const isTrashViewRef = useRef(isTrashView);
   useEffect(() => { isTrashViewRef.current = isTrashView; }, [isTrashView]);
 
   // ── Snap back when another thread is selected ─────────────────────────────
@@ -153,15 +154,23 @@ export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
     if (!el) return;
 
     const resetWheel = () => {
-      wheelActive.current  = false;
-      wheelAccum.current   = 0;
+      wheelActive.current = false;
+      wheelAccum.current = 0;
     };
 
     const onWheel = (e: WheelEvent) => {
-      // ① Angle lock — ignore diagonals and vertical-dominant events
-      //    Skip the check once the gesture is latched so inertia can't disengage it.
-      const angle = Math.abs(e.deltaX) / (Math.abs(e.deltaY) + 0.1);
-      if (!wheelActive.current && angle < WHEEL_ANGLE_MIN) return;
+      // 1. PROTEZIONE TEMPORALE: Se la lista si è mossa negli ultimi 100ms, ignora comando orizzontale
+      if (scrollTracker.getMillisecondsSinceLastScroll() < 100) return;
+
+      // 2. FILTRO DI SICUREZZA: Ignora se il delta è insignificante
+      if (Math.abs(e.deltaX) < 1) return;
+
+      // 3. FILTRO DIREZIONALE RIGIDO / OVERSCROLL
+      // Se il deltaY è superiore al deltaX, stiamo probabilmente scrollando la lista.
+      if (!wheelActive.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        wheelAccum.current = 0;
+        return;
+      }
 
       // ② Dead zone — accumulate before activating
       if (!wheelActive.current) {
@@ -213,12 +222,14 @@ export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     startX.current = e.clientX;
     startY.current = e.clientY;
-    rawX.current   = 0;
+    rawX.current = 0;
     isScroll.current = null;
+    pointerDown.current = true;
   }, []);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
+      if (!pointerDown.current) return;
       const dx = e.clientX - startX.current;
       const dy = e.clientY - startY.current;
 
@@ -241,6 +252,7 @@ export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
   );
 
   const snapBack = useCallback(() => {
+    pointerDown.current = false;
     // Never interrupt a live wheel gesture — the debounce timer owns the release.
     if (phaseRef.current === "exiting" || wheelActive.current) return;
     rawX.current = 0;
@@ -251,6 +263,7 @@ export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
   }, []);
 
   const onPointerUp = useCallback(() => {
+    pointerDown.current = false;
     if (isScroll.current === true) {
       rawX.current = 0;
       setTranslateX(0);
@@ -261,9 +274,9 @@ export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
   }, []);
 
   // ── Render values ─────────────────────────────────────────────────────────
-  const isDragging   = phase === "dragging";
-  const leftReveal   = Math.min(1, Math.max(0, -translateX / SWIPE_THRESHOLD));
-  const rightReveal  = Math.min(1, Math.max(0, translateX  / SWIPE_THRESHOLD));
+  const isDragging = phase === "dragging";
+  const leftReveal = Math.min(1, Math.max(0, -translateX / SWIPE_THRESHOLD));
+  const rightReveal = Math.min(1, Math.max(0, translateX / SWIPE_THRESHOLD));
 
   const cardStyle: React.CSSProperties = {
     transform:
@@ -271,9 +284,9 @@ export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
         ? exitDir === "left" ? "translateX(-110%) translateZ(0)" : "translateX(110%) translateZ(0)"
         : `translateX(${translateX}px) translateZ(0)`,
     transition:
-      isDragging       ? "none"
-      : phase === "exiting" ? "transform 290ms cubic-bezier(0.4,0,0.8,0.2)"
-      : "transform 350ms cubic-bezier(0.34,1.56,0.64,1)",
+      isDragging ? "none"
+        : phase === "exiting" ? "transform 290ms cubic-bezier(0.4,0,0.8,0.2)"
+          : "transform 350ms cubic-bezier(0.34,1.56,0.64,1)",
     position: "relative",
     zIndex: 1,
     willChange: "transform",
@@ -354,6 +367,15 @@ export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
           onPointerUp={onPointerUp}
           onPointerLeave={snapBack}
           onPointerCancel={snapBack}
+          onMouseEnter={() => {
+            if (!wheelActive.current) {
+              rawX.current = 0;
+              wheelAccum.current = 0;
+              setTranslateX(0);
+              setPhase("idle");
+            }
+          }}
+          className={isDragging ? "swiping-active" : ""}
           style={cardStyle}
         >
           <ThreadCard {...props} />

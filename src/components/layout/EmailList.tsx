@@ -70,6 +70,7 @@ import {
   NoAccountIllustration,
   GenericEmptyIllustration,
 } from "../ui/illustrations";
+import { scrollTracker } from "@/utils/scrollTracker";
 
 const PAGE_SIZE = 50;
 
@@ -126,7 +127,7 @@ export function EmailList({
   const setActiveCategory =
     inboxViewMode === "split"
       ? (cat: string) => navigateToLabel("inbox", { category: cat })
-      : () => {};
+      : () => { };
 
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -194,21 +195,21 @@ export function EmailList({
 
         const to = draftMsg.to_addresses
           ? draftMsg.to_addresses
-              .split(",")
-              .map((a) => a.trim())
-              .filter(Boolean)
+            .split(",")
+            .map((a) => a.trim())
+            .filter(Boolean)
           : [];
         const cc = draftMsg.cc_addresses
           ? draftMsg.cc_addresses
-              .split(",")
-              .map((a) => a.trim())
-              .filter(Boolean)
+            .split(",")
+            .map((a) => a.trim())
+            .filter(Boolean)
           : [];
         const bcc = draftMsg.bcc_addresses
           ? draftMsg.bcc_addresses
-              .split(",")
-              .map((a) => a.trim())
-              .filter(Boolean)
+            .split(",")
+            .map((a) => a.trim())
+            .filter(Boolean)
           : [];
 
         openComposer({
@@ -717,32 +718,32 @@ export function EmailList({
     };
   }, [loadThreads, activeAccountId, activeLabel]);
 
-  // Infinite scroll: load more when near bottom
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
+// Infinite scroll: load more when near bottom
+useEffect(() => {
+  const container = scrollContainerRef.current;
+  if (!container) return;
 
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      if (scrollHeight - scrollTop - clientHeight < 200) {
-        loadMore();
-      }
-    };
+  const handleScroll = () => {
+    scrollTracker.markScroll();
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    if (scrollHeight - scrollTop - clientHeight < 200) {
+      loadMore();
+    }
+  };
 
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [loadMore]);
+  container.addEventListener("scroll", handleScroll, { passive: true });
+  return () => container.removeEventListener("scroll", handleScroll);
+}, [loadMore]);
 
   return (
     <div
       ref={listRef}
-      className={`flex flex-col bg-bg-secondary/50 glass-panel ${
-        readingPanePosition === "right"
+      className={`flex flex-col bg-bg-secondary/50 glass-panel ${readingPanePosition === "right"
           ? "min-w-60 shrink-0"
           : readingPanePosition === "bottom"
             ? "w-full border-b border-border-primary h-[40%] min-h-50"
             : "w-full flex-1"
-      }`}
+        }`}
       style={readingPanePosition === "right" && width ? { width } : undefined}
     >
       {/* Search */}
@@ -760,13 +761,13 @@ export function EmailList({
             {isSmartFolder
               ? (activeSmartFolder?.name ?? "Smart Folder")
               : activeLabel === "inbox" &&
-                  inboxViewMode === "split" &&
-                  activeCategory !== "All"
+                inboxViewMode === "split" &&
+                activeCategory !== "All"
                 ? `Inbox — ${activeCategory}`
                 : LABEL_MAP[activeLabel] !== undefined
                   ? activeLabel
                   : (userLabels.find((l: Label) => l.id === activeLabel)
-                      ?.name ?? activeLabel)}
+                    ?.name ?? activeLabel)}
           </h2>
           <span className="text-xs text-text-tertiary">
             {filteredThreads.length} conversation
@@ -908,7 +909,7 @@ export function EmailList({
       </CSSTransition>
 
       {/* Thread list */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto email-list-container">
         {isLoading && threads.length === 0 ? (
           <EmailListSkeleton />
         ) : filteredThreads.length === 0 && bundleRules.length === 0 ? (
@@ -930,8 +931,8 @@ export function EmailList({
                 const isExpanded = expandedBundles.has(rule.category);
                 const bundledThreads = isExpanded
                   ? filteredThreads.filter(
-                      (t) => categoryMap.get(t.id) === rule.category,
-                    )
+                    (t) => categoryMap.get(t.id) === rule.category,
+                  )
                   : [];
                 return (
                   <div key={`bundle-${rule.category}`}>
