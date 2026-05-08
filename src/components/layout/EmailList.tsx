@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { CSSTransition } from "react-transition-group";
 import { ThreadCard } from "../email/ThreadCard";
+import { SwipeableThreadCard } from "../email/SwipeableThreadCard";
 import { CategoryTabs } from "../email/CategoryTabs";
 import { SearchBar } from "../search/SearchBar";
 import { EmailListSkeleton } from "../ui/Skeleton";
@@ -1001,7 +1002,7 @@ export function EmailList({
                       Other emails
                     </div>
                   )}
-                  <ThreadCard
+                  <SwipeableThreadCard
                     thread={thread}
                     isSelected={thread.id === selectedThreadId}
                     onClick={handleThreadClick}
