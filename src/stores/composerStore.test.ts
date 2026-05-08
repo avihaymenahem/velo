@@ -20,6 +20,7 @@ describe("composerStore", () => {
       attachments: [],
       lastSavedAt: null,
       isSaving: false,
+      isSending: false,
       viewMode: "modal",
       signatureHtml: "",
       signatureId: null,

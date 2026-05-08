@@ -43,6 +43,7 @@ describe("draftAutoSave", () => {
       attachments: [],
       lastSavedAt: null,
       isSaving: false,
+      isSending: false,
       signatureHtml: "",
       signatureId: null,
     });

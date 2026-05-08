@@ -30,6 +30,7 @@ export interface ComposerState {
   attachments: ComposerAttachment[];
   lastSavedAt: number | null;
   isSaving: boolean;
+  isSending: boolean;
   fromEmail: string | null;
   composerAccountId: string | null; // Account selezionato nel compositor (null = usa activeAccountId)
   viewMode: ComposerViewMode;
@@ -64,6 +65,7 @@ export interface ComposerState {
   clearAttachments: () => void;
   setLastSavedAt: (ts: number | null) => void;
   setIsSaving: (saving: boolean) => void;
+  setIsSending: (sending: boolean) => void;
   setFromEmail: (email: string | null) => void;
   setComposerAccountId: (accountId: string | null) => void;
   setViewMode: (mode: ComposerViewMode) => void;
@@ -94,6 +96,7 @@ export const useComposerStore = create<ComposerState>()((set) => ({
   composerAccountId: null,
   lastSavedAt: null,
   isSaving: false,
+  isSending: false,
   signatureHtml: "",
   signatureId: null,
   quotedHtml: "",
@@ -130,6 +133,7 @@ openComposer: (opts) => {
         attachments: [],
         lastSavedAt: null,
         isSaving: false,
+        isSending: false,
         signatureHtml: "",
         signatureId: null,
         aiSidebarOpen: false,
@@ -203,6 +207,7 @@ openComposer: (opts) => {
       attachments: [],
       lastSavedAt: null,
       isSaving: false,
+      isSending: false,
       signatureHtml: "",
       signatureId: null,
       aiSidebarOpen: false,
@@ -225,6 +230,7 @@ openComposer: (opts) => {
   clearAttachments: () => set({ attachments: [] }),
   setLastSavedAt: (lastSavedAt) => set({ lastSavedAt }),
   setIsSaving: (isSaving) => set({ isSaving }),
+  setIsSending: (isSending) => set({ isSending }),
   setFromEmail: (fromEmail) => set({ fromEmail }),
   setComposerAccountId: (composerAccountId) => set({ composerAccountId }),
   setViewMode: (viewMode) => set({ viewMode }),

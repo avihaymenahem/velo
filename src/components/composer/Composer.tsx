@@ -79,6 +79,7 @@ export function Composer() {
   const signatureHtml = useComposerStore((s) => s.signatureHtml);
   const quotedHtml = useComposerStore((s) => s.quotedHtml);
   const isSaving = useComposerStore((s) => s.isSaving);
+  const isSending = useComposerStore((s) => s.isSending);
   const lastSavedAt = useComposerStore((s) => s.lastSavedAt);
   const closeComposer = useComposerStore((s) => s.closeComposer);
   const setTo = useComposerStore((s) => s.setTo);
@@ -345,6 +346,7 @@ const getFullHtml = useCallback(() => {
     const state = useComposerStore.getState();
     if (state.to.length === 0) return;
     sendingRef.current = true;
+    state.setIsSending(true);
     stopAutoSave();
     const html = getFullHtml();
     const senderEmail = state.fromEmail ?? activeAccount.email;
@@ -397,11 +399,12 @@ const getFullHtml = useCallback(() => {
         console.error("Failed to send email:", err);
       } finally {
         useComposerStore.getState().setUndoSendVisible(false);
+        useComposerStore.getState().setIsSending(false);
         sendingRef.current = false;
+        closeComposer();
       }
     }, delay);
     state.setUndoSendTimer(timer);
-    closeComposer();
   }, [effectiveAccountId, activeAccount, closeComposer, getFullHtml]);
 
   const handleSchedule = useCallback(
@@ -656,32 +659,32 @@ const getFullHtml = useCallback(() => {
           <SignatureSelector />
           <TemplatePicker editor={editor} />
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            onClick={handleDiscard}
-            disabled={isDiscardingDraft}
-          >
-            {isDiscardingDraft ? "Discarding..." : "Discard"}
-          </Button>
-          <div className="flex items-center">
-            <button
-              onClick={handleSend}
-              disabled={to.length === 0 || isDiscardingDraft}
-              className="px-4 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-l-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+<div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleDiscard}
+              disabled={isDiscardingDraft || isSending}
             >
-              Send
-            </button>
-            <button
-              onClick={() => setShowSchedule(true)}
-              disabled={to.length === 0 || isDiscardingDraft}
-              className="px-2 py-1.5 text-white bg-accent hover:bg-accent-hover border-l border-white/20 rounded-r-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Schedule send"
-            >
-              <Clock size={12} />
-            </button>
+              {isDiscardingDraft ? "Discarding..." : "Discard"}
+            </Button>
+            <div className="flex items-center">
+              <button
+                onClick={handleSend}
+                disabled={to.length === 0 || isDiscardingDraft || isSending}
+                className="px-4 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-l-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSending ? "Sending..." : "Send"}
+              </button>
+              <button
+                onClick={() => setShowSchedule(true)}
+                disabled={to.length === 0 || isDiscardingDraft || isSending}
+                className="px-2 py-1.5 text-white bg-accent hover:bg-accent-hover border-l border-white/20 rounded-r-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Schedule send"
+              >
+                <Clock size={12} />
+              </button>
+            </div>
           </div>
-        </div>
       </div>
 
       {showSchedule && (

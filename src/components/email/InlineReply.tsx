@@ -278,20 +278,20 @@ export function InlineReply({
           console.error("Failed to send inline reply:", err);
         } finally {
           setUndoSendVisible(false);
+          setSending(false);
         }
       }, delay);
 
       setUndoSendTimer(timer);
 
-      // Reset state
+      // Reset editor content but keep editor visible during undo period
       editor.commands.setContent("");
       setMode(null);
       onSent();
     } catch (err) {
       console.error("Failed to send:", err);
-    } finally {
-      setSending(false);
     }
+    // Note: setSending is reset in the timer's finally block
   }, [
     activeAccount,
     editor,
