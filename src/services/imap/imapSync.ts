@@ -21,7 +21,7 @@ import { upsertMessage, updateMessageThreadIds, deleteMessagesForFolder, getStor
 import { upsertThread, setThreadLabels, deleteThread } from "../db/threads";
 import { upsertAttachment } from "../db/attachments";
 import { getAccount, updateAccountSyncState } from "../db/accounts";
-import { withTransaction, getDb } from "../db/connection";
+import { withTransaction } from "../db/connection";
 import {
   upsertFolderSyncState,
   getAllFolderSyncStates,
@@ -230,27 +230,27 @@ async function reconcileDeletedMessages(
 
   console.log(`[imapSync] Reconciliation: removing ${orphans.length} locally stored message(s) deleted externally in ${folderPath}`);
 
-  const db = await getDb();
+  await withTransaction(async (db) => {
+    for (const { id } of orphans) {
+      const rows = await db.select<{ thread_id: string }[]>(
+        "SELECT thread_id FROM messages WHERE id = $1 AND account_id = $2",
+        [id, accountId],
+      );
+      if (rows.length === 0) continue;
+      const threadId = rows[0]!.thread_id;
 
-  for (const { id } of orphans) {
-    const rows = await db.select<{ thread_id: string }[]>(
-      "SELECT thread_id FROM messages WHERE id = $1 AND account_id = $2",
-      [id, accountId],
-    );
-    if (rows.length === 0) continue;
-    const threadId = rows[0]!.thread_id;
+      await db.execute("DELETE FROM messages WHERE id = $1 AND account_id = $2", [id, accountId]);
 
-    await db.execute("DELETE FROM messages WHERE id = $1 AND account_id = $2", [id, accountId]);
-
-    const remaining = await db.select<{ c: number }[]>(
-      "SELECT COUNT(*) as c FROM messages WHERE thread_id = $1 AND account_id = $2",
-      [threadId, accountId],
-    );
-    if ((remaining[0]?.c ?? 1) === 0) {
-      await db.execute("DELETE FROM thread_labels WHERE thread_id = $1 AND account_id = $2", [threadId, accountId]);
-      await db.execute("DELETE FROM threads WHERE id = $1 AND account_id = $2", [threadId, accountId]);
+      const remaining = await db.select<{ c: number }[]>(
+        "SELECT COUNT(*) as c FROM messages WHERE thread_id = $1 AND account_id = $2",
+        [threadId, accountId],
+      );
+      if ((remaining[0]?.c ?? 1) === 0) {
+        await db.execute("DELETE FROM thread_labels WHERE thread_id = $1 AND account_id = $2", [threadId, accountId]);
+        await db.execute("DELETE FROM threads WHERE id = $1 AND account_id = $2", [threadId, accountId]);
+      }
     }
-  }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -946,10 +946,10 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
   const syncStateMap = new Map(syncStates.map((s) => [s.folder_path, s]));
 
   // One-time cleanup of duplicates accumulated from previous syncs (e.g. from virtual
-  // "All Mail" folders or draft autosave copies). Runs fast when there are no dupes.
-  purgeImapDuplicates(accountId).then((n) => {
-    if (n > 0) console.log(`[imapSync] Purged ${n} duplicate message(s) for account ${accountId}`);
-  }).catch(() => {});
+  // "All Mail" folders or draft autosave copies). Awaited to avoid concurrent writes
+  // racing with the folder loop below.
+  const dupeCount = await purgeImapDuplicates(accountId).catch(() => 0);
+  if (dupeCount > 0) console.log(`[imapSync] Purged ${dupeCount} duplicate message(s) for account ${accountId}`);
 
   const allParsed = new Map<string, ParsedMessage>();
   const allThreadable: ThreadableMessage[] = [];

@@ -824,6 +824,14 @@ const MIGRATIONS = [
          );
      `,
    },
+   {
+     version: 28,
+     description: "Separate SMTP credentials (smtp_username, smtp_password) for accounts that require different outgoing auth",
+     sql: `
+       ALTER TABLE accounts ADD COLUMN smtp_username TEXT;
+       ALTER TABLE accounts ADD COLUMN smtp_password TEXT;
+     `,
+   },
  ];
 
 /**

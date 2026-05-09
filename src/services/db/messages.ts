@@ -200,26 +200,30 @@ export async function purgeImapDuplicates(accountId: string): Promise<number> {
     [accountId],
   );
 
+  if (dupes.length === 0) return 0;
+
   let deleted = 0;
-  for (const { message_id_header, imap_folder, keep_uid } of dupes) {
-    const victims = await db.select<{ id: string; thread_id: string }[]>(
-      `SELECT id, thread_id FROM messages
-       WHERE account_id = $1 AND message_id_header = $2 AND imap_folder = $3 AND imap_uid != $4`,
-      [accountId, message_id_header, imap_folder, keep_uid],
-    );
-    for (const { id, thread_id } of victims) {
-      await db.execute("DELETE FROM messages WHERE id = $1 AND account_id = $2", [id, accountId]);
-      deleted++;
-      const remaining = await db.select<{ c: number }[]>(
-        "SELECT COUNT(*) as c FROM messages WHERE thread_id = $1 AND account_id = $2",
-        [thread_id, accountId],
+  await withTransaction(async (db) => {
+    for (const { message_id_header, imap_folder, keep_uid } of dupes) {
+      const victims = await db.select<{ id: string; thread_id: string }[]>(
+        `SELECT id, thread_id FROM messages
+         WHERE account_id = $1 AND message_id_header = $2 AND imap_folder = $3 AND imap_uid != $4`,
+        [accountId, message_id_header, imap_folder, keep_uid],
       );
-      if ((remaining[0]?.c ?? 1) === 0) {
-        await db.execute("DELETE FROM thread_labels WHERE thread_id = $1 AND account_id = $2", [thread_id, accountId]);
-        await db.execute("DELETE FROM threads WHERE id = $1 AND account_id = $2", [thread_id, accountId]);
+      for (const { id, thread_id } of victims) {
+        await db.execute("DELETE FROM messages WHERE id = $1 AND account_id = $2", [id, accountId]);
+        deleted++;
+        const remaining = await db.select<{ c: number }[]>(
+          "SELECT COUNT(*) as c FROM messages WHERE thread_id = $1 AND account_id = $2",
+          [thread_id, accountId],
+        );
+        if ((remaining[0]?.c ?? 1) === 0) {
+          await db.execute("DELETE FROM thread_labels WHERE thread_id = $1 AND account_id = $2", [thread_id, accountId]);
+          await db.execute("DELETE FROM threads WHERE id = $1 AND account_id = $2", [thread_id, accountId]);
+        }
       }
     }
-  }
+  });
 
   return deleted;
 }

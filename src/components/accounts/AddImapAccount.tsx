@@ -384,7 +384,8 @@ export function AddImapAccount({
           smtpPort: form.smtpPort,
           smtpSecurity: form.smtpSecurity,
           authMethod: "password",
-          password: form.samePassword ? form.password : form.password,
+          password: form.password,
+          smtpPassword: form.samePassword ? null : form.smtpPassword || null,
           imapUsername,
           acceptInvalidCerts: form.acceptInvalidCerts,
         });

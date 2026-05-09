@@ -1136,7 +1136,10 @@ pub async fn raw_fetch_messages(
         let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, xoauth2.as_bytes());
         format!("a1 AUTHENTICATE XOAUTH2 {b64}\r\n")
     } else {
-        format!("a1 LOGIN \"{}\" \"{}\"\r\n", config.username, config.password)
+        // RFC 3501: backslash and double-quote must be escaped in quoted strings
+        let esc_user = config.username.replace('\\', "\\\\").replace('"', "\\\"");
+        let esc_pass = config.password.replace('\\', "\\\\").replace('"', "\\\"");
+        format!("a1 LOGIN \"{esc_user}\" \"{esc_pass}\"\r\n")
     };
     raw_send_and_wait(&mut reader, login_cmd.as_bytes(), "a1").await?;
 
@@ -1233,8 +1236,10 @@ pub async fn raw_fetch_diagnostic(
         output.push_str(&format!("S: {}", String::from_utf8_lossy(&buf[..n])));
     }
 
-    // LOGIN
-    let login_cmd = format!("a1 LOGIN \"{}\" \"{}\"\r\n", config.username, config.password);
+    // LOGIN — RFC 3501: escape backslash and double-quote in quoted strings
+    let esc_user = config.username.replace('\\', "\\\\").replace('"', "\\\"");
+    let esc_pass = config.password.replace('\\', "\\\\").replace('"', "\\\"");
+    let login_cmd = format!("a1 LOGIN \"{esc_user}\" \"{esc_pass}\"\r\n");
     stream.write_all(login_cmd.as_bytes()).await.map_err(|e| format!("LOGIN: {e}"))?;
     let n = stream.read(&mut buf).await.map_err(|e| format!("LOGIN read: {e}"))?;
     output.push_str(&format!("S: {}", String::from_utf8_lossy(&buf[..n])));
