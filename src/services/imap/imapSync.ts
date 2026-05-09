@@ -556,23 +556,35 @@ export async function imapInitialSync(
 
     try {
       // Phase 2a: Lightweight search — get UIDs only (no message bodies over IPC)
-      const sinceDate = computeSinceDate(daysBack);
-      const searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
-      const uidsToFetch = searchResult.uids;
+      // When daysBack is 0, fetch all messages without date filtering
+      let searchResult;
+      let uidsToFetch: number[];
+      let uidvalidity: number;
+      
+      if (daysBack > 0) {
+        const sinceDate = computeSinceDate(daysBack);
+        searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
+        uidsToFetch = searchResult.uids;
+        uidvalidity = searchResult.folder_status.uidvalidity;
+      } else {
+        // "Everything" mode: fetch all UIDs using SEARCH ALL
+        const folderStatus = await imapGetFolderStatus(config, folder.raw_path);
+        uidsToFetch = await imapSearchAllUids(config, folder.raw_path);
+        uidvalidity = folderStatus.uidvalidity;
+      }
 
       // Reset circuit breaker on success
       consecutiveFailures = 0;
 
       if (uidsToFetch.length === 0) continue;
 
-      // Date filter config
-      const cutoffDate = Math.floor(Date.now() / 1000) - daysBack * 86400;
+      // Date filter config - only apply when daysBack > 0
+      const cutoffDate = daysBack > 0 ? Math.floor(Date.now() / 1000) - daysBack * 86400 : 0;
       const nowSeconds = Math.floor(Date.now() / 1000);
       let dateFallbackCount = 0;
       let folderFetchedCount = 0;
       let folderStoredCount = 0;
       let lastUid = 0;
-      const uidvalidity = searchResult.folder_status.uidvalidity;
 
       // Phase 2b: Fetch messages in small IPC-friendly chunks
       for (let chunkStart = 0; chunkStart < uidsToFetch.length; chunkStart += CHUNK_SIZE) {
@@ -965,45 +977,57 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
       await delay(CIRCUIT_BREAKER_DELAY_MS);
     }
 
-    const folderMapping = mapFolderToLabel(folder);
-    try {
-      const sinceDate = computeSinceDate(daysBack);
-      const searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
-      consecutiveFailures = 0;
+const folderMapping = mapFolderToLabel(folder);
+     try {
+       let uidsToFetch: number[];
+       let uidvalidity: number;
+        
+       if (daysBack > 0) {
+         const sinceDate = computeSinceDate(daysBack);
+         const searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
+         uidsToFetch = searchResult.uids;
+         uidvalidity = searchResult.folder_status.uidvalidity;
+       } else {
+         // "Everything" mode for new folders: fetch all UIDs and get folder status
+         const folderStatus = await imapGetFolderStatus(config, folder.raw_path);
+         uidsToFetch = await imapSearchAllUids(config, folder.raw_path);
+         uidvalidity = folderStatus.uidvalidity;
+       }
+       consecutiveFailures = 0;
 
-      if (searchResult.uids.length === 0) continue;
+       if (uidsToFetch.length === 0) continue;
 
-      const { messages, lastUid } = await fetchMessagesInBatches(
-        config,
-        folder.raw_path,
-        searchResult.uids,
-      );
+       const { messages, lastUid } = await fetchMessagesInBatches(
+         config,
+         folder.raw_path,
+         uidsToFetch,
+       );
 
-      const tombstone = await getDeletedImapUidsForFolder(accountId, folder.raw_path);
-      for (const msg of messages) {
-        if (tombstone.has(msg.uid)) continue;
-        const rfcId = msg.message_id;
-        if (rfcId) {
-          const seen = seenRfcIds.get(rfcId);
-          if (seen?.has(folderMapping.labelId)) continue;
-          if (!seen) seenRfcIds.set(rfcId, new Set([folderMapping.labelId]));
-          else seen.add(folderMapping.labelId);
-        }
-        const { parsed, threadable } = imapMessageToParsedMessage(
-          msg,
-          accountId,
-          folderMapping.labelId,
-        );
-        allParsed.set(parsed.id, parsed);
-        allThreadable.push(threadable);
-        allImapMsgs.set(parsed.id, msg);
-      }
+       const tombstone = await getDeletedImapUidsForFolder(accountId, folder.raw_path);
+       for (const msg of messages) {
+         if (tombstone.has(msg.uid)) continue;
+         const rfcId = msg.message_id;
+         if (rfcId) {
+           const seen = seenRfcIds.get(rfcId);
+           if (seen?.has(folderMapping.labelId)) continue;
+           if (!seen) seenRfcIds.set(rfcId, new Set([folderMapping.labelId]));
+           else seen.add(folderMapping.labelId);
+         }
+         const { parsed, threadable } = imapMessageToParsedMessage(
+           msg,
+           accountId,
+           folderMapping.labelId,
+         );
+         allParsed.set(parsed.id, parsed);
+         allThreadable.push(threadable);
+         allImapMsgs.set(parsed.id, msg);
+       }
 
-      await upsertFolderSyncState({
-        account_id: accountId,
-        folder_path: folder.raw_path,
-        uidvalidity: searchResult.folder_status.uidvalidity,
-        last_uid: lastUid,
+       await upsertFolderSyncState({
+         account_id: accountId,
+         folder_path: folder.raw_path,
+         uidvalidity: uidvalidity,
+         last_uid: lastUid,
         modseq: null,
         last_sync_at: Math.floor(Date.now() / 1000),
       });
@@ -1102,14 +1126,25 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
           // cleared, otherwise they could block legitimate new messages that happen
           // to reuse the same UID numbers.
           await clearDeletedImapUidsForFolder(accountId, folder.raw_path).catch(() => {});
-          const sinceDate = computeSinceDate(daysBack);
-          const searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
-          if (searchResult.uids.length === 0) continue;
+
+          let uidvalidityUids: number[];
+          let uidvalidityVal: number;
+          if (daysBack > 0) {
+            const sinceDate = computeSinceDate(daysBack);
+            const searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
+            uidvalidityUids = searchResult.uids;
+            uidvalidityVal = searchResult.folder_status.uidvalidity;
+          } else {
+            const folderStatus = await imapGetFolderStatus(config, folder.raw_path);
+            uidvalidityUids = await imapSearchAllUids(config, folder.raw_path);
+            uidvalidityVal = folderStatus.uidvalidity;
+          }
+          if (uidvalidityUids.length === 0) continue;
 
           const { messages, lastUid } = await fetchMessagesInBatches(
             config,
             folder.raw_path,
-            searchResult.uids,
+            uidvalidityUids,
           );
 
           const tombstone = await getDeletedImapUidsForFolder(accountId, folder.raw_path);
@@ -1135,7 +1170,7 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
           await upsertFolderSyncState({
             account_id: accountId,
             folder_path: folder.raw_path,
-            uidvalidity: searchResult.folder_status.uidvalidity,
+            uidvalidity: uidvalidityVal,
             last_uid: lastUid,
             modseq: null,
             last_sync_at: Math.floor(Date.now() / 1000),

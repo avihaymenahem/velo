@@ -1096,20 +1096,21 @@ export function SettingsPage() {
 
                   <Section title="Sync Period">
                     <SettingRow label="Sync emails from">
-                      <select
-                        value={syncPeriodDays}
-                        onChange={async (e) => {
-                          const val = e.target.value;
-                          setSyncPeriodDays(val);
-                          await setSetting("sync_period_days", val);
-                        }}
-                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
-                      >
-                        <option value="30">Last 30 days</option>
-                        <option value="90">Last 90 days</option>
-                        <option value="180">Last 180 days</option>
-                        <option value="365">Last 1 year</option>
-                      </select>
+<select
+                         value={syncPeriodDays}
+                         onChange={async (e) => {
+                           const val = e.target.value;
+                           setSyncPeriodDays(val);
+                           await setSetting("sync_period_days", val);
+                         }}
+                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                       >
+                         <option value="0">Everything</option>
+                         <option value="30">Last 30 days</option>
+                         <option value="90">Last 90 days</option>
+                         <option value="180">Last 180 days</option>
+                         <option value="365">Last 1 year</option>
+                       </select>
                     </SettingRow>
                     <p className="text-xs text-text-tertiary">
                       Changes apply on the next full resync.

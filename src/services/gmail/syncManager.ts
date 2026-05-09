@@ -55,7 +55,8 @@ async function syncGmailAccount(accountId: string): Promise<void> {
   }
 
   const syncPeriodStr = await getSetting("sync_period_days");
-  const syncDays = parseInt(syncPeriodStr ?? "365", 10) || 365;
+  const daysBack = syncPeriodStr ? parseInt(syncPeriodStr, 10) : 365;
+  // Note: daysBack = 0 means "Everything" (no date limit)
 
   if (account.history_id) {
     // Delta sync
@@ -65,7 +66,7 @@ async function syncGmailAccount(accountId: string): Promise<void> {
       const message = err instanceof Error ? err.message : String(err ?? "");
       if (message === "HISTORY_EXPIRED") {
         // Fallback to full sync
-        await initialSync(client, accountId, syncDays, (progress) => {
+        await initialSync(client, accountId, daysBack, (progress) => {
           statusCallback?.(accountId, "syncing", progress);
         });
       } else {
@@ -74,7 +75,7 @@ async function syncGmailAccount(accountId: string): Promise<void> {
     }
   } else {
     // First time — full initial sync
-    await initialSync(client, accountId, syncDays, (progress) => {
+    await initialSync(client, accountId, daysBack, (progress) => {
       statusCallback?.(accountId, "syncing", progress);
     });
   }
@@ -96,13 +97,14 @@ async function syncImapAccount(accountId: string): Promise<void> {
   }
 
   const syncPeriodStr = await getSetting("sync_period_days");
-  const syncDays = parseInt(syncPeriodStr ?? "365", 10) || 365;
+  const daysBack = syncPeriodStr ? parseInt(syncPeriodStr, 10) : 365;
+  // Note: daysBack = 0 means "Everything" (no date limit)
 
   if (account.history_id) {
     // Delta sync — IMAP uses folder-level UID tracking.
     // Prune stale tombstones periodically (runs fast when table is small).
     pruneDeletedImapUids().catch(() => {});
-    const result = await imapDeltaSync(accountId, syncDays);
+    const result = await imapDeltaSync(accountId, daysBack);
 
     // Recovery: if delta sync found nothing new but the DB has no threads,
     // the previous initial sync likely failed or stored data incorrectly.
@@ -113,7 +115,7 @@ async function syncImapAccount(accountId: string): Promise<void> {
         console.warn(`[syncManager] IMAP delta sync returned 0 new messages and DB has 0 threads for ${accountId} — forcing full re-sync`);
         await clearAccountHistoryId(accountId);
         await clearAllFolderSyncStates(accountId);
-        await imapInitialSync(accountId, syncDays, (progress) => {
+        await imapInitialSync(accountId, daysBack, (progress) => {
           statusCallback?.(accountId, "syncing", {
             phase: mapImapPhase(progress.phase),
             current: progress.current,
@@ -124,7 +126,7 @@ async function syncImapAccount(accountId: string): Promise<void> {
     }
   } else {
     // First time — full initial sync
-    await imapInitialSync(accountId, syncDays, (progress) => {
+    await imapInitialSync(accountId, daysBack, (progress) => {
       statusCallback?.(accountId, "syncing", {
         phase: mapImapPhase(progress.phase),
         current: progress.current,

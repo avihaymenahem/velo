@@ -186,12 +186,17 @@ export async function initialSync(
   onProgress?.({ phase: "labels", current: 1, total: 1 });
 
   // Phase 2: Fetch thread list
-  const afterDate = new Date();
-  afterDate.setDate(afterDate.getDate() - daysBack);
-  const afterStr = `${afterDate.getFullYear()}/${afterDate.getMonth() + 1}/${afterDate.getDate()}`;
-
   const threadStubs: { id: string }[] = [];
   let pageToken: string | undefined;
+  let query = "";
+
+  // Only apply date filter if daysBack > 0
+  if (daysBack > 0) {
+    const afterDate = new Date();
+    afterDate.setDate(afterDate.getDate() - daysBack);
+    const afterStr = `${afterDate.getFullYear()}/${afterDate.getMonth() + 1}/${afterDate.getDate()}`;
+    query = `after:${afterStr}`;
+  }
 
   onProgress?.({ phase: "threads", current: 0, total: 0 });
 
@@ -199,7 +204,7 @@ export async function initialSync(
     const response = await client.listThreads({
       maxResults: 100,
       pageToken,
-      q: `after:${afterStr}`,
+      q: query,
     });
 
     if (response.threads) {
