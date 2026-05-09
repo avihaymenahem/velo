@@ -19,6 +19,8 @@ export function createMockTauriFs() {
       readFile: vi.fn(async () => new Uint8Array([1, 2, 3])),
       mkdir: vi.fn(async () => {}),
       remove: vi.fn(async () => {}),
+      watch: vi.fn(async () => () => {}),
+      watchImmediate: vi.fn(async () => () => {}),
       BaseDirectory: { AppData: 26 },
     },
   };

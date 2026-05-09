@@ -42,6 +42,7 @@
     "fs:allow-exists",
     "fs:allow-mkdir",
     "fs:allow-remove",
+    "fs:allow-watch",
     {
       "identifier": "fs:scope",
       "allow": [

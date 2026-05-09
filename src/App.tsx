@@ -74,6 +74,7 @@ import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
 import { router } from "./router";
 import { getSelectedThreadId } from "./router/navigate";
+import { loadSoul, startSoulWatcher } from "./services/ai/soulService";
 
 /**
  * Sync bridge: subscribes to router state changes and writes the selected
@@ -373,8 +374,12 @@ export default function App() {
         const savedAccountId = await getSetting("active_account_id");
         useAccountStore.getState().setAccounts(mapped, savedAccountId);
 
-        // Initialize Gmail clients for existing accounts
-        await initializeClients();
+// Initialize Gmail clients for existing accounts
+         await initializeClients();
+
+         // Load SOUL.md for AI personality
+         await loadSoul();
+         startSoulWatcher().catch(console.error);
 
         // Fetch send-as aliases for Gmail API accounts only (IMAP and CalDAV have no OAuth tokens)
         const activeIds = mapped.filter((a) => a.isActive).map((a) => a.id);

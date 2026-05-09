@@ -18,9 +18,20 @@ import {
   SMART_LABEL_PROMPT,
   EXTRACT_TASK_PROMPT,
 } from "./prompts";
+import { getSoul } from "./soulService";
 
 async function callAi(systemPrompt: string, userContent: string, options?: { skipLanguage?: boolean }): Promise<string> {
   let finalSystemPrompt = systemPrompt;
+
+  // Prepend SOUL.md content as base personality
+  try {
+    const soul = getSoul();
+    if (soul) {
+      finalSystemPrompt = soul + "\n\n---\n\n" + systemPrompt;
+    }
+  } catch {
+    // Continue without soul if unavailable
+  }
 
   // Append language instruction for text-heavy responses if a non-English language is set
   const textPrompts = [

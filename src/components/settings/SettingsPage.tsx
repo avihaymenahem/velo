@@ -48,6 +48,7 @@ import { SmartFolderEditor } from "./SmartFolderEditor";
 import { QuickStepEditor } from "./QuickStepEditor";
 import { SmartLabelEditor } from "./SmartLabelEditor";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
+import { SoulEditorDialog } from "./SoulEditorDialog";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
 import {
@@ -149,6 +150,7 @@ export function SettingsPage() {
   const [vipSenders, setVipSenders] = useState<{ email_address: string; display_name: string | null }[]>([]);
   const [newVipEmail, setNewVipEmail] = useState("");
   const [aiLanguage, setAiLanguage] = useState("English");
+  const [soulEditorOpen, setSoulEditorOpen] = useState(false);
 
 
   // Load settings from DB
@@ -1464,9 +1466,24 @@ export function SettingsPage() {
                         </Button>
                       </div>
                     )}
-                  </Section>
+</Section>
 
-                  <Section title="Categories">
+<Section title="AI Soul">
+                      <p className="text-xs text-text-tertiary mb-2">
+                        Define the AI's personality and behavior. Edit SOUL.md to customize how the assistant communicates.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button variant="secondary" size="md" onClick={() => setSoulEditorOpen(true)}>
+                          Edit Soul
+                        </Button>
+                        <span className="text-xs text-text-tertiary">
+                          File location: ~/Library/Application Support/velo/soul.md
+                        </span>
+                      </div>
+                      <SoulEditorDialog isOpen={soulEditorOpen} onClose={() => setSoulEditorOpen(false)} />
+                    </Section>
+
+                   <Section title="Categories">
                     <p className="text-xs text-text-tertiary mb-1">
                       Incoming emails are automatically sorted using rule-based heuristics (Gmail labels, sender domain, headers). When AI is enabled, it refines results for better accuracy.
                     </p>
