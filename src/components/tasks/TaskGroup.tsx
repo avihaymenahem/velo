@@ -13,6 +13,7 @@ interface TaskGroupProps {
   onToggleComplete: (id: string, completed: boolean) => void;
   onDelete: (id: string) => void;
   onDueDateChange: (id: string, dueDate: number | null) => void;
+  onEdit?: (id: string, updates: { title?: string; direction?: import("@/services/db/tasks").TaskDirection; dueDate?: number | null }) => void;
   onCompleteAll?: (taskIds: string[]) => void;
   selectedTaskId?: string | null;
   onSelect?: (id: string) => void;
@@ -32,6 +33,7 @@ export function TaskGroup({
   onToggleComplete,
   onDelete,
   onDueDateChange,
+  onEdit,
   onCompleteAll,
   selectedTaskId,
   onSelect,
@@ -144,6 +146,7 @@ export function TaskGroup({
               onSelect={onSelect}
               onDelete={onDelete}
               onDueDateChange={onDueDateChange}
+              onEdit={onEdit}
               isSelected={selectedTaskId === task.id}
               accountColor={accountColor}
             />

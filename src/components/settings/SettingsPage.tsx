@@ -36,6 +36,7 @@ import {
   ChevronUp,
   ChevronDown,
   RotateCcw,
+  CheckSquare,
   type LucideIcon,
 } from "lucide-react";
 import { SignatureEditor } from "./SignatureEditor";
@@ -63,7 +64,7 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
 
-type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "people" | "accounts" | "shortcuts" | "ai" | "about";
+type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "people" | "accounts" | "shortcuts" | "ai" | "tasks" | "about";
 
 const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "general", label: "General", icon: Settings },
@@ -74,6 +75,7 @@ const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "accounts", label: "Accounts", icon: UserCircle },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
   { id: "ai", label: "AI", icon: Sparkles },
+  { id: "tasks", label: "Tasks", icon: CheckSquare },
   { id: "about", label: "About", icon: Info },
 ];
 
@@ -151,7 +153,9 @@ export function SettingsPage() {
   const [newVipEmail, setNewVipEmail] = useState("");
   const [aiLanguage, setAiLanguage] = useState("English");
   const [soulEditorOpen, setSoulEditorOpen] = useState(false);
-
+  const [taskRetentionDeleted, setTaskRetentionDeleted] = useState("7");
+  const [taskAutoArchiveHours, setTaskAutoArchiveHours] = useState("24");
+  const [taskRetentionCompleted, setTaskRetentionCompleted] = useState("30");
 
   // Load settings from DB
   useEffect(() => {
@@ -241,6 +245,14 @@ export function SettingsPage() {
       } catch {
         // VIP table may not exist yet
       }
+
+      // Load task retention settings
+      const taskDeleted = await getSetting("task_retention_days_deleted");
+      if (taskDeleted) setTaskRetentionDeleted(taskDeleted);
+      const taskArchive = await getSetting("task_auto_archive_completed_hours");
+      if (taskArchive) setTaskAutoArchiveHours(taskArchive);
+      const taskCompleted = await getSetting("task_retention_days_completed");
+      if (taskCompleted) setTaskRetentionCompleted(taskCompleted);
 
       // Load cache settings
       const cacheMax = await getSetting("attachment_cache_max_mb");
@@ -1512,6 +1524,98 @@ export function SettingsPage() {
                       Collapse categories into a single row in the inbox. Optionally set a delivery schedule to batch emails.
                     </p>
                     <BundleSettings />
+                  </Section>
+                </>
+              )}
+
+              {activeTab === "tasks" && (
+                <>
+                  <Section title="Task Retention">
+                    <p className="text-xs text-text-tertiary mb-4">
+                      Control how long deleted and completed tasks are kept before being permanently removed.
+                    </p>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <p className="text-sm text-text-primary font-medium">Deleted task retention</p>
+                          <p className="text-xs text-text-tertiary mt-0.5">Days before manually deleted tasks are purged from the database</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="1"
+                            max="365"
+                            value={taskRetentionDeleted}
+                            onChange={(e) => setTaskRetentionDeleted(e.target.value)}
+                            onBlur={async (e) => {
+                              const v = parseInt(e.target.value, 10);
+                              const val = isNaN(v) || v < 1 ? "7" : String(v);
+                              setTaskRetentionDeleted(val);
+                              await setSetting("task_retention_days_deleted", val);
+                            }}
+                            className="w-20 bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-sm text-text-primary text-center outline-none focus:border-accent"
+                          />
+                          <span className="text-xs text-text-tertiary w-8">days</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <p className="text-sm text-text-primary font-medium">Auto-hide completed tasks</p>
+                          <p className="text-xs text-text-tertiary mt-0.5">Hours after which completed tasks disappear from the active view (0 = hide immediately)</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="8760"
+                            value={taskAutoArchiveHours}
+                            onChange={(e) => setTaskAutoArchiveHours(e.target.value)}
+                            onBlur={async (e) => {
+                              const v = parseInt(e.target.value, 10);
+                              const val = isNaN(v) || v < 0 ? "24" : String(v);
+                              setTaskAutoArchiveHours(val);
+                              await setSetting("task_auto_archive_completed_hours", val);
+                            }}
+                            className="w-20 bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-sm text-text-primary text-center outline-none focus:border-accent"
+                          />
+                          <span className="text-xs text-text-tertiary w-8">hours</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <p className="text-sm text-text-primary font-medium">Completed task retention</p>
+                          <p className="text-xs text-text-tertiary mt-0.5">Days before completed tasks are permanently deleted (0 = keep forever)</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="3650"
+                            value={taskRetentionCompleted}
+                            onChange={(e) => setTaskRetentionCompleted(e.target.value)}
+                            onBlur={async (e) => {
+                              const v = parseInt(e.target.value, 10);
+                              const val = isNaN(v) || v < 0 ? "0" : String(v);
+                              setTaskRetentionCompleted(val);
+                              await setSetting("task_retention_days_completed", val);
+                            }}
+                            className="w-20 bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-sm text-text-primary text-center outline-none focus:border-accent"
+                          />
+                          <span className="text-xs text-text-tertiary w-8">days</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Section>
+
+                  <Section title="Trash & Recovery">
+                    <p className="text-xs text-text-tertiary mb-2">
+                      Deleted tasks are soft-deleted and visible in the <strong className="text-text-secondary">Cestino</strong> view inside the Tasks page. You can restore or permanently delete them from there.
+                    </p>
+                    <p className="text-xs text-text-tertiary">
+                      When viewing a thread, a <strong className="text-text-secondary">Ripristina</strong> banner appears in the task sidebar if there are recoverable tasks for that thread.
+                    </p>
                   </Section>
                 </>
               )}

@@ -1,16 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, ExternalLink, Sparkles, Loader2, Check, Trash2, ArrowDownLeft, ArrowUpRight, AlertTriangle } from "lucide-react";
+import { X, ExternalLink, Sparkles, Loader2, Check, Trash2, ArrowDownLeft, ArrowUpRight, AlertTriangle, RotateCcw } from "lucide-react";
 import { useTaskStore } from "@/stores/taskStore";
 import { useUIStore } from "@/stores/uiStore";
 import {
   getTasksForThread,
+  getDeletedTasksForThread,
   insertTask,
   completeTask,
   uncompleteTask,
   softDeleteTask,
   softDeleteTasksByThread,
+  restoreDeletedTasksByThread,
   getSubtasks,
   getIncompleteTaskCount,
+  updateTask,
 } from "@/services/db/tasks";
 import type { DbTask, TaskDirection } from "@/services/db/tasks";
 import type { ExtractedTask } from "@/services/ai/taskExtraction";
@@ -46,6 +49,7 @@ export function TaskSidebar({ accountId, threadId, messages = [] }: TaskSidebarP
   const setDraftLoading = useTaskStore((s) => s.setDraftLoading);
 
   const [subtaskMap, setSubtaskMap] = useState<Record<string, DbTask[]>>({});
+  const [deletedCount, setDeletedCount] = useState(0);
   // Local draft edits before confirm
   const [pendingDrafts, setPendingDrafts] = useState<ExtractedTask[]>([]);
   const [confirmError, setConfirmError] = useState<string | null>(null);
@@ -55,7 +59,14 @@ export function TaskSidebar({ accountId, threadId, messages = [] }: TaskSidebarP
     setThreadTasks(tasks);
     const count = await getIncompleteTaskCount(accountId);
     useTaskStore.getState().setIncompleteCount(count);
+    const deleted = await getDeletedTasksForThread(accountId, threadId);
+    setDeletedCount(deleted.length);
   }, [accountId, threadId, setThreadTasks]);
+
+  const handleRestoreDeleted = useCallback(async () => {
+    await restoreDeletedTasksByThread(accountId, threadId);
+    await refreshTasks();
+  }, [accountId, threadId, refreshTasks]);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,6 +110,14 @@ export function TaskSidebar({ accountId, threadId, messages = [] }: TaskSidebarP
 
   const handleDelete = useCallback(async (id: string) => {
     await softDeleteTask(id);
+    await refreshTasks();
+  }, [refreshTasks]);
+
+  const handleEdit = useCallback(async (
+    id: string,
+    updates: { title?: string; direction?: TaskDirection; dueDate?: number | null },
+  ) => {
+    await updateTask(id, updates);
     await refreshTasks();
   }, [refreshTasks]);
 
@@ -365,6 +384,22 @@ export function TaskSidebar({ accountId, threadId, messages = [] }: TaskSidebarP
         </div>
       )}
 
+      {/* Restore deleted banner */}
+      {deletedCount > 0 && (
+        <div className="flex items-center justify-between px-4 py-2 border-b border-amber-500/20 bg-amber-500/5">
+          <span className="text-xs text-amber-400">
+            {deletedCount} task{deletedCount > 1 ? "s" : ""} nel cestino
+          </span>
+          <button
+            onClick={handleRestoreDeleted}
+            className="flex items-center gap-1 text-xs text-accent hover:opacity-80 font-medium"
+          >
+            <RotateCcw size={11} />
+            Ripristina
+          </button>
+        </div>
+      )}
+
       {/* Task list */}
       <div className="flex-1 overflow-y-auto py-1">
         {threadTasks.length === 0 ? (
@@ -380,6 +415,7 @@ export function TaskSidebar({ accountId, threadId, messages = [] }: TaskSidebarP
                 subtasks={subtaskMap[task.id]}
                 onToggleComplete={handleToggleComplete}
                 onDelete={handleDelete}
+                onEdit={handleEdit}
               />
             ))}
           </div>

@@ -1,4 +1,5 @@
-import { completeTask, insertTask, getTaskById, updateTask, purgeOldDeletedTasks as dbPurge } from "@/services/db/tasks";
+import { completeTask, insertTask, getTaskById, updateTask, purgeOldDeletedTasks as dbPurge, purgeOldCompletedTasks as dbPurgeCompleted } from "@/services/db/tasks";
+import { getSetting } from "@/services/db/settings";
 
 export interface RecurrenceRule {
   type: "daily" | "weekly" | "monthly" | "yearly";
@@ -75,13 +76,31 @@ export async function handleRecurringTaskCompletion(
 }
 
 /**
- * Purge tasks soft-deleted more than 7 days ago.
- * Call once at startup and optionally on a daily interval.
+ * Purge soft-deleted tasks using the configured retention period.
+ * Reads `task_retention_days_deleted` from settings (default: 7 days).
  */
 export async function purgeOldDeletedTasks(): Promise<void> {
   try {
-    await dbPurge();
+    const raw = await getSetting("task_retention_days_deleted");
+    const days = raw ? parseInt(raw, 10) : 7;
+    await dbPurge(isNaN(days) || days <= 0 ? 7 : days);
   } catch (err) {
     console.warn("[taskManager] purgeOldDeletedTasks failed:", err);
+  }
+}
+
+/**
+ * Permanently delete completed tasks older than `task_retention_days_completed` days.
+ * No-ops if the setting is unset or ≤ 0 (user opted out).
+ */
+export async function purgeOldCompletedTasks(): Promise<void> {
+  try {
+    const raw = await getSetting("task_retention_days_completed");
+    if (!raw) return;
+    const days = parseInt(raw, 10);
+    if (isNaN(days) || days <= 0) return;
+    await dbPurgeCompleted(days);
+  } catch (err) {
+    console.warn("[taskManager] purgeOldCompletedTasks failed:", err);
   }
 }

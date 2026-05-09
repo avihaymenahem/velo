@@ -277,11 +277,63 @@ export async function restoreTask(id: string): Promise<void> {
   );
 }
 
-export async function purgeOldDeletedTasks(): Promise<void> {
+export async function getDeletedTasksForThread(
+  accountId: string,
+  threadId: string,
+): Promise<DbTask[]> {
   const db = await getDb();
-  // Hard-delete records soft-deleted more than 7 days ago
+  return db.select<DbTask[]>(
+    `SELECT * FROM tasks WHERE thread_account_id = $1 AND thread_id = $2 AND deleted_at IS NOT NULL
+     ORDER BY deleted_at DESC`,
+    [accountId, threadId],
+  );
+}
+
+export async function getDeletedTasksWithSubjects(
+  accountId: string | null,
+): Promise<DbTaskWithSubject[]> {
+  const db = await getDb();
+  return db.select<DbTaskWithSubject[]>(
+    `SELECT t.*, th.subject AS thread_subject
+     FROM tasks t
+     LEFT JOIN threads th ON th.account_id = t.thread_account_id AND th.id = t.thread_id
+     WHERE (t.account_id = $1 OR t.account_id IS NULL)
+       AND t.parent_id IS NULL
+       AND t.deleted_at IS NOT NULL
+     ORDER BY t.deleted_at DESC`,
+    [accountId],
+  );
+}
+
+export async function restoreDeletedTasksByThread(
+  accountId: string,
+  threadId: string,
+): Promise<void> {
+  const db = await getDb();
   await db.execute(
-    "DELETE FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < (unixepoch() - 604800)",
+    "UPDATE tasks SET deleted_at = NULL, updated_at = unixepoch() WHERE thread_account_id = $1 AND thread_id = $2 AND deleted_at IS NOT NULL",
+    [accountId, threadId],
+  );
+}
+
+export async function hardDeleteTask(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM tasks WHERE id = $1", [id]);
+}
+
+export async function purgeOldDeletedTasks(retentionDays = 7): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "DELETE FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < (unixepoch() - $1 * 86400)",
+    [retentionDays],
+  );
+}
+
+export async function purgeOldCompletedTasks(retentionDays: number): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "DELETE FROM tasks WHERE is_completed = 1 AND completed_at IS NOT NULL AND completed_at < (unixepoch() - $1 * 86400) AND deleted_at IS NULL",
+    [retentionDays],
   );
 }
 

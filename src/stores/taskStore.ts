@@ -3,7 +3,7 @@ import type { DbTask, TaskPriority } from "@/services/db/tasks";
 import type { ExtractedTask } from "@/services/ai/taskExtraction";
 
 export type TaskGroupBy = "none" | "priority" | "dueDate" | "tag";
-export type TaskFilterStatus = "all" | "incomplete" | "completed";
+export type TaskFilterStatus = "all" | "incomplete" | "completed" | "deleted";
 export type TaskDirectionFilter = "all" | "incoming" | "outgoing";
 
 interface TaskState {

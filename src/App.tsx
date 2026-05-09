@@ -64,7 +64,7 @@ import { TitleBar } from "./components/layout/TitleBar";
 import { useShortcutStore } from "./stores/shortcutStore";
 import { getIncompleteTaskCount } from "./services/db/tasks";
 import { useTaskStore } from "./stores/taskStore";
-import { purgeOldDeletedTasks } from "./services/tasks/taskManager";
+import { purgeOldDeletedTasks, purgeOldCompletedTasks } from "./services/tasks/taskManager";
 import { ContextMenuPortal } from "./components/ui/ContextMenuPortal";
 import { MoveToFolderDialog } from "./components/email/MoveToFolderDialog";
 import { OfflineBanner } from "./components/ui/OfflineBanner";
@@ -430,8 +430,9 @@ export default function App() {
           const count = await getIncompleteTaskCount(activeAcct);
           useTaskStore.getState().setIncompleteCount(count);
         }
-        // Purge soft-deleted tasks older than 7 days — fire-and-forget so a DB lock at startup never blocks the splash screen
+        // Purge soft-deleted and completed tasks per user-configured retention settings — fire-and-forget
         purgeOldDeletedTasks();
+        purgeOldCompletedTasks();
 
         // Start auto-update checker
         startUpdateChecker();
