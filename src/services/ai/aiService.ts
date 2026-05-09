@@ -286,7 +286,10 @@ export async function extractTaskFromThread(
   const subject = messages[0]?.subject ?? "No subject";
   const formatted = messages.map(formatMessageForSummary).join("\n---\n");
   const combined = `<email_content>Subject: ${subject}\n\n${formatted}</email_content>`.slice(0, 6000);
-  return callAi(EXTRACT_TASK_PROMPT, combined);
+  // Inject current timestamp so the AI can compute relative due dates
+  const nowTs = Math.floor(Date.now() / 1000).toString();
+  const prompt = EXTRACT_TASK_PROMPT.replace("CURRENT_UNIX_TS", nowTs).replace("CURRENT_UNIX_TS", nowTs);
+  return callAi(prompt, combined);
 }
 
 export async function testConnection(): Promise<boolean> {

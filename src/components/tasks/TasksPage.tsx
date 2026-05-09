@@ -2,75 +2,133 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   CheckSquare,
   Search,
-  Trash2,
-  CheckCircle2,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
-import { useTaskStore, type TaskGroupBy, type TaskFilterStatus } from "@/stores/taskStore";
+import { useTaskStore, type TaskFilterStatus, type TaskDirectionFilter } from "@/stores/taskStore";
 import {
-  getTasksForAccount,
+  getTasksWithSubjects,
   insertTask,
   completeTask,
   uncompleteTask,
-  deleteTask as dbDeleteTask,
+  softDeleteTask,
   getSubtasks,
   getIncompleteTaskCount,
+  updateTask,
   type DbTask,
+  type DbTaskWithSubject,
   type TaskPriority,
 } from "@/services/db/tasks";
 import { handleRecurringTaskCompletion } from "@/services/tasks/taskManager";
-import { TaskItem } from "./TaskItem";
+import { TaskGroup } from "./TaskGroup";
 import { TaskQuickAdd } from "./TaskQuickAdd";
 
-const PRIORITY_ORDER: Record<TaskPriority, number> = {
-  urgent: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-  none: 4,
-};
+// Deterministic account color from email string
+const ACCOUNT_COLORS = [
+  "#6366f1", "#ec4899", "#f59e0b", "#10b981",
+  "#3b82f6", "#ef4444", "#8b5cf6", "#14b8a6",
+];
+function accountColor(email: string): string {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) hash = (hash * 31 + email.charCodeAt(i)) | 0;
+  return ACCOUNT_COLORS[Math.abs(hash) % ACCOUNT_COLORS.length]!;
+}
+
+interface ThreadGroup {
+  threadId: string | null;
+  threadSubject: string | null;
+  tasks: DbTaskWithSubject[];
+  hasOverdue: boolean;
+  nearestDue: number | null;
+}
+
+function buildGroups(tasks: DbTaskWithSubject[]): ThreadGroup[] {
+  const map = new Map<string | null, DbTaskWithSubject[]>();
+
+  for (const task of tasks) {
+    const key = task.thread_id ?? null;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(task);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const groups: ThreadGroup[] = [];
+
+  for (const [threadId, groupTasks] of map.entries()) {
+    const hasOverdue = groupTasks.some(
+      (t) => !t.is_completed && t.due_date !== null && t.due_date < now,
+    );
+    const dueDates = groupTasks
+      .filter((t) => !t.is_completed && t.due_date !== null)
+      .map((t) => t.due_date!);
+    const nearestDue = dueDates.length > 0 ? Math.min(...dueDates) : null;
+    const subject = groupTasks[0]?.thread_subject ?? null;
+
+    groups.push({ threadId, threadSubject: subject, tasks: groupTasks, hasOverdue, nearestDue });
+  }
+
+  // Two-level sort: overdue groups first, then by nearest due date (nulls last), general section last
+  groups.sort((a, b) => {
+    // General tasks (null thread_id) always at the end
+    if (a.threadId === null && b.threadId !== null) return 1;
+    if (a.threadId !== null && b.threadId === null) return -1;
+
+    // Overdue threads before non-overdue
+    if (a.hasOverdue !== b.hasOverdue) return a.hasOverdue ? -1 : 1;
+
+    // Nearest due date ascending (null last)
+    if (a.nearestDue !== null && b.nearestDue !== null) return a.nearestDue - b.nearestDue;
+    if (a.nearestDue !== null) return -1;
+    if (b.nearestDue !== null) return 1;
+    return 0;
+  });
+
+  return groups;
+}
 
 export function TasksPage() {
   const accounts = useAccountStore((s) => s.accounts);
   const activeAccount = accounts.find((a) => a.isActive);
   const accountId = activeAccount?.id ?? null;
 
-  const tasks = useTaskStore((s) => s.tasks);
   const setTasks = useTaskStore((s) => s.setTasks);
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId);
   const setSelectedTaskId = useTaskStore((s) => s.setSelectedTaskId);
-  const groupBy = useTaskStore((s) => s.groupBy);
-  const setGroupBy = useTaskStore((s) => s.setGroupBy);
   const filterStatus = useTaskStore((s) => s.filterStatus);
   const setFilterStatus = useTaskStore((s) => s.setFilterStatus);
   const filterPriority = useTaskStore((s) => s.filterPriority);
   const setFilterPriority = useTaskStore((s) => s.setFilterPriority);
+  const filterDirection = useTaskStore((s) => s.filterDirection);
+  const setFilterDirection = useTaskStore((s) => s.setFilterDirection);
   const searchQuery = useTaskStore((s) => s.searchQuery);
   const setSearchQuery = useTaskStore((s) => s.setSearchQuery);
 
+  const [allTasks, setAllTasks] = useState<DbTaskWithSubject[]>([]);
   const [subtaskMap, setSubtaskMap] = useState<Record<string, DbTask[]>>({});
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Load tasks
+  const colorMap = useMemo(
+    () => Object.fromEntries(accounts.map((a) => [a.id, accountColor(a.email)])),
+    [accounts],
+  );
+
   const loadTasks = useCallback(async () => {
     if (!accountId) return;
     const includeCompleted = filterStatus !== "incomplete";
-    const loaded = await getTasksForAccount(accountId, includeCompleted);
+    const loaded = await getTasksWithSubjects(accountId, includeCompleted);
+    setAllTasks(loaded);
     setTasks(loaded);
     const count = await getIncompleteTaskCount(accountId);
     useTaskStore.getState().setIncompleteCount(count);
   }, [accountId, filterStatus, setTasks]);
 
-  useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+  useEffect(() => { loadTasks(); }, [loadTasks]);
 
-  // Load subtasks
   useEffect(() => {
     let cancelled = false;
     async function load() {
       const map: Record<string, DbTask[]> = {};
-      for (const task of tasks) {
+      for (const task of allTasks) {
         const subs = await getSubtasks(task.id);
         if (subs.length > 0) map[task.id] = subs;
       }
@@ -78,21 +136,17 @@ export function TasksPage() {
     }
     load();
     return () => { cancelled = true; };
-  }, [tasks]);
+  }, [allTasks]);
 
-  // Filter + search
+  // Client-side filtering
   const filteredTasks = useMemo(() => {
-    let result = tasks;
+    let result = allTasks;
 
-    if (filterStatus === "completed") {
-      result = result.filter((t) => t.is_completed);
-    } else if (filterStatus === "incomplete") {
-      result = result.filter((t) => !t.is_completed);
-    }
+    if (filterStatus === "completed") result = result.filter((t) => t.is_completed);
+    else if (filterStatus === "incomplete") result = result.filter((t) => !t.is_completed);
 
-    if (filterPriority !== "all") {
-      result = result.filter((t) => t.priority === filterPriority);
-    }
+    if (filterPriority !== "all") result = result.filter((t) => t.priority === filterPriority);
+    if (filterDirection !== "all") result = result.filter((t) => t.direction === filterDirection);
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -100,61 +154,10 @@ export function TasksPage() {
         (t) => t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q),
       );
     }
-
     return result;
-  }, [tasks, filterStatus, filterPriority, searchQuery]);
+  }, [allTasks, filterStatus, filterPriority, filterDirection, searchQuery]);
 
-  // Grouping
-  const groupedTasks = useMemo(() => {
-    if (groupBy === "none") return [{ label: "", tasks: filteredTasks }];
-
-    const groups = new Map<string, DbTask[]>();
-
-    for (const task of filteredTasks) {
-      let key: string;
-      switch (groupBy) {
-        case "priority":
-          key = task.priority.charAt(0).toUpperCase() + task.priority.slice(1);
-          break;
-        case "dueDate":
-          if (!task.due_date) key = "No due date";
-          else {
-            const d = new Date(task.due_date * 1000);
-            const now = new Date();
-            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const dueStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-            const diff = Math.floor((dueStart.getTime() - todayStart.getTime()) / 86400000);
-            if (diff < 0) key = "Overdue";
-            else if (diff === 0) key = "Today";
-            else if (diff === 1) key = "Tomorrow";
-            else if (diff <= 7) key = "This week";
-            else key = "Later";
-          }
-          break;
-        case "tag": {
-          const tags: string[] = (() => { try { return JSON.parse(task.tags_json); } catch { return []; } })();
-          key = tags[0] ?? "Untagged";
-          break;
-        }
-        default:
-          key = "";
-      }
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(task);
-    }
-
-    // Sort groups by priority order if grouping by priority
-    const entries = [...groups.entries()];
-    if (groupBy === "priority") {
-      entries.sort((a, b) => {
-        const aP = PRIORITY_ORDER[a[0].toLowerCase() as TaskPriority] ?? 99;
-        const bP = PRIORITY_ORDER[b[0].toLowerCase() as TaskPriority] ?? 99;
-        return aP - bP;
-      });
-    }
-
-    return entries.map(([label, tasks]) => ({ label, tasks }));
-  }, [filteredTasks, groupBy]);
+  const groups = useMemo(() => buildGroups(filteredTasks), [filteredTasks]);
 
   const handleAddTask = useCallback(async (title: string) => {
     if (!accountId) return;
@@ -164,7 +167,7 @@ export function TasksPage() {
 
   const handleToggleComplete = useCallback(async (id: string, completed: boolean) => {
     if (completed) {
-      const task = tasks.find((t) => t.id === id);
+      const task = allTasks.find((t) => t.id === id);
       if (task?.recurrence_rule) {
         await handleRecurringTaskCompletion(id);
       } else {
@@ -174,28 +177,27 @@ export function TasksPage() {
       await uncompleteTask(id);
     }
     await loadTasks();
-  }, [tasks, loadTasks]);
+  }, [allTasks, loadTasks]);
 
   const handleDelete = useCallback(async (id: string) => {
-    await dbDeleteTask(id);
+    await softDeleteTask(id);
     await loadTasks();
   }, [loadTasks]);
 
-  const handleBulkComplete = useCallback(async () => {
-    for (const id of selectedIds) {
-      await completeTask(id);
-    }
-    setSelectedIds(new Set());
+  const handleDueDateChange = useCallback(async (id: string, dueDate: number | null) => {
+    await updateTask(id, { dueDate });
     await loadTasks();
-  }, [selectedIds, loadTasks]);
+  }, [loadTasks]);
 
-  const handleBulkDelete = useCallback(async () => {
-    for (const id of selectedIds) {
-      await dbDeleteTask(id);
-    }
-    setSelectedIds(new Set());
+  const handleCompleteAll = useCallback(async (taskIds: string[]) => {
+    for (const id of taskIds) await completeTask(id);
     await loadTasks();
-  }, [selectedIds, loadTasks]);
+  }, [loadTasks]);
+
+  const isEmpty = filteredTasks.length === 0;
+  const overdueCount = filteredTasks.filter(
+    (t) => !t.is_completed && t.due_date !== null && t.due_date < Math.floor(Date.now() / 1000),
+  ).length;
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-bg-primary/50">
@@ -209,9 +211,14 @@ export function TasksPage() {
               {filteredTasks.length}
             </span>
           )}
+          {overdueCount > 0 && (
+            <span className="text-xs text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full font-medium">
+              {overdueCount} overdue
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {/* Search */}
           <div className="relative">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
@@ -220,11 +227,28 @@ export function TasksPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search tasks..."
-              className="w-48 pl-8 pr-3 py-1.5 bg-bg-tertiary border border-border-primary rounded-lg text-xs text-text-primary outline-none focus:border-accent"
+              className="w-44 pl-8 pr-3 py-1.5 bg-bg-tertiary border border-border-primary rounded-lg text-xs text-text-primary outline-none focus:border-accent"
             />
           </div>
 
-          {/* Filters */}
+          {/* Direction filter */}
+          <div className="flex items-center gap-0.5 bg-bg-tertiary border border-border-primary rounded-lg p-0.5">
+            {(["all", "outgoing", "incoming"] as TaskDirectionFilter[]).map((d) => (
+              <button
+                key={d}
+                onClick={() => setFilterDirection(d)}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                  filterDirection === d ? "bg-accent text-white" : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                {d === "outgoing" && <ArrowUpRight size={11} />}
+                {d === "incoming" && <ArrowDownLeft size={11} />}
+                {d === "all" ? "All" : d.charAt(0).toUpperCase() + d.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Status filter */}
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as TaskFilterStatus)}
@@ -247,56 +271,17 @@ export function TasksPage() {
             <option value="low">Low</option>
             <option value="none">None</option>
           </select>
-
-          {/* Group by */}
-          <select
-            value={groupBy}
-            onChange={(e) => setGroupBy(e.target.value as TaskGroupBy)}
-            className="bg-bg-tertiary text-text-primary text-xs px-2.5 py-1.5 rounded-lg border border-border-primary"
-          >
-            <option value="none">No grouping</option>
-            <option value="priority">Group by priority</option>
-            <option value="dueDate">Group by due date</option>
-            <option value="tag">Group by tag</option>
-          </select>
         </div>
       </div>
-
-      {/* Bulk actions bar */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-5 py-2 bg-accent/5 border-b border-accent/20">
-          <span className="text-xs text-text-secondary">{selectedIds.size} selected</span>
-          <button
-            onClick={handleBulkComplete}
-            className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover"
-          >
-            <CheckCircle2 size={13} />
-            Complete
-          </button>
-          <button
-            onClick={handleBulkDelete}
-            className="flex items-center gap-1 text-xs text-danger hover:opacity-80"
-          >
-            <Trash2 size={13} />
-            Delete
-          </button>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="text-xs text-text-tertiary hover:text-text-primary ml-auto"
-          >
-            Clear selection
-          </button>
-        </div>
-      )}
 
       {/* Quick add */}
       <div className="border-b border-border-primary px-2">
         <TaskQuickAdd onAdd={handleAddTask} />
       </div>
 
-      {/* Task list */}
-      <div className="flex-1 overflow-y-auto py-2 px-3">
-        {filteredTasks.length === 0 ? (
+      {/* Task list — grouped by thread */}
+      <div className="flex-1 overflow-y-auto py-3 px-3 space-y-2">
+        {isEmpty ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <CheckSquare size={48} className="text-text-tertiary/30 mb-4" />
             <p className="text-sm text-text-secondary mb-1">No tasks</p>
@@ -305,30 +290,24 @@ export function TasksPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {groupedTasks.map((group) => (
-              <div key={group.label || "__ungrouped"}>
-                {group.label && (
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2 px-3">
-                    {group.label}
-                  </h3>
-                )}
-                <div className="space-y-0.5">
-                  {group.tasks.map((task) => (
-                    <TaskItem
-                      key={task.id}
-                      task={task}
-                      subtasks={subtaskMap[task.id]}
-                      onToggleComplete={handleToggleComplete}
-                      onSelect={setSelectedTaskId}
-                      onDelete={handleDelete}
-                      isSelected={selectedTaskId === task.id}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          groups.map((group) => (
+            <TaskGroup
+              key={group.threadId ?? "__general"}
+              threadId={group.threadId}
+              threadSubject={group.threadSubject}
+              accountColor={
+                group.tasks[0]?.account_id ? colorMap[group.tasks[0].account_id] : undefined
+              }
+              tasks={group.tasks}
+              subtaskMap={subtaskMap}
+              onToggleComplete={handleToggleComplete}
+              onDelete={handleDelete}
+              onDueDateChange={handleDueDateChange}
+              onCompleteAll={handleCompleteAll}
+              selectedTaskId={selectedTaskId}
+              onSelect={setSelectedTaskId}
+            />
+          ))
         )}
       </div>
     </div>

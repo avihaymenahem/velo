@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Circle,
   CheckCircle2,
@@ -7,7 +7,9 @@ import {
   Trash2,
   Calendar,
   RepeatIcon,
-  Link2,
+  ArrowDownLeft,
+  ArrowUpRight,
+  AlertTriangle,
 } from "lucide-react";
 import type { DbTask, TaskPriority } from "@/services/db/tasks";
 
@@ -41,12 +43,12 @@ function formatDueDate(timestamp: number): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function getDueDateColor(timestamp: number): string {
-  const now = Math.floor(Date.now() / 1000);
-  const diff = timestamp - now;
-  if (diff < 0) return "text-red-500 bg-red-500/10";
-  if (diff < 86400) return "text-amber-500 bg-amber-500/10";
-  return "text-text-tertiary bg-bg-tertiary";
+function isOverdue(timestamp: number): boolean {
+  return timestamp < Math.floor(Date.now() / 1000);
+}
+
+function tsToDateInput(ts: number): string {
+  return new Date(ts * 1000).toISOString().split("T")[0]!;
 }
 
 interface TaskItemProps {
@@ -55,8 +57,10 @@ interface TaskItemProps {
   onToggleComplete: (id: string, completed: boolean) => void;
   onSelect?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onDueDateChange?: (id: string, dueDate: number | null) => void;
   isSelected?: boolean;
   compact?: boolean;
+  accountColor?: string;
 }
 
 export function TaskItem({
@@ -65,21 +69,24 @@ export function TaskItem({
   onToggleComplete,
   onSelect,
   onDelete,
+  onDueDateChange,
   isSelected,
   compact,
+  accountColor,
 }: TaskItemProps) {
   const [expanded, setExpanded] = useState(false);
+  const [editingDate, setEditingDate] = useState(false);
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
   const tags: string[] = (() => {
-    try {
-      return JSON.parse(task.tags_json) as string[];
-    } catch {
-      return [];
-    }
+    try { return JSON.parse(task.tags_json) as string[]; } catch { return []; }
   })();
 
   const hasSubtasks = subtasks && subtasks.length > 0;
   const completedSubtasks = subtasks?.filter((s) => s.is_completed).length ?? 0;
   const hasRecurrence = !!task.recurrence_rule;
+  const isIncoming = task.direction === "incoming";
+  const overdue = !task.is_completed && task.due_date !== null && isOverdue(task.due_date);
 
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -91,6 +98,31 @@ export function TaskItem({
     onDelete?.(task.id);
   }, [task.id, onDelete]);
 
+  const handleDateClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onDueDateChange) return;
+    setEditingDate(true);
+    // Focus the hidden input after render
+    setTimeout(() => dateInputRef.current?.focus(), 0);
+  }, [onDueDateChange]);
+
+  const handleDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const ts = val ? Math.floor(new Date(val).getTime() / 1000) : null;
+    onDueDateChange?.(task.id, ts);
+    setEditingDate(false);
+  }, [task.id, onDueDateChange]);
+
+  const handleDateBlur = useCallback(() => {
+    setEditingDate(false);
+  }, []);
+
+  const dueDateClass = overdue
+    ? "text-red-500 bg-red-500/10 font-medium"
+    : task.due_date && (task.due_date - Math.floor(Date.now() / 1000)) < 86400
+    ? "text-amber-500 bg-amber-500/10"
+    : "text-text-tertiary bg-bg-tertiary";
+
   return (
     <div>
       <div
@@ -99,6 +131,14 @@ export function TaskItem({
           isSelected ? "bg-accent/10 border border-accent/20" : "hover:bg-bg-hover border border-transparent"
         } ${task.is_completed ? "opacity-60" : ""}`}
       >
+        {/* Account color stripe */}
+        {accountColor && (
+          <span
+            className="w-0.5 self-stretch rounded-full shrink-0 mt-0.5"
+            style={{ backgroundColor: accountColor }}
+          />
+        )}
+
         {/* Checkbox */}
         <button onClick={handleToggle} className="mt-0.5 shrink-0">
           {task.is_completed ? (
@@ -125,20 +165,45 @@ export function TaskItem({
 
           {!compact && (
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              {task.due_date && (
-                <span className={`inline-flex items-center gap-1 text-[0.6875rem] px-1.5 py-0.5 rounded ${getDueDateColor(task.due_date)}`}>
+              {/* Direction badge */}
+              <span
+                className={`inline-flex items-center gap-0.5 text-[0.6875rem] px-1.5 py-0.5 rounded ${
+                  isIncoming ? "bg-blue-500/10 text-blue-400" : "bg-emerald-500/10 text-emerald-400"
+                }`}
+              >
+                {isIncoming ? <ArrowDownLeft size={10} /> : <ArrowUpRight size={10} />}
+                {isIncoming ? "Incoming" : "Outgoing"}
+              </span>
+
+              {/* Due date — clickable for inline edit */}
+              {task.due_date !== null && !editingDate && (
+                <button
+                  onClick={handleDateClick}
+                  className={`inline-flex items-center gap-1 text-[0.6875rem] px-1.5 py-0.5 rounded transition-opacity hover:opacity-80 ${dueDateClass}`}
+                  title={onDueDateChange ? "Click to edit due date" : undefined}
+                >
+                  {overdue && <AlertTriangle size={10} className="text-red-500" />}
                   <Calendar size={10} />
                   {formatDueDate(task.due_date)}
-                </span>
+                </button>
               )}
+
+              {/* Inline date input */}
+              {editingDate && (
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  defaultValue={task.due_date ? tsToDateInput(task.due_date) : ""}
+                  onChange={handleDateChange}
+                  onBlur={handleDateBlur}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[0.6875rem] px-1.5 py-0.5 rounded bg-bg-tertiary border border-accent text-text-primary outline-none"
+                />
+              )}
+
               {hasRecurrence && (
                 <span className="inline-flex items-center gap-0.5 text-[0.6875rem] text-text-tertiary">
                   <RepeatIcon size={10} />
-                </span>
-              )}
-              {task.thread_id && (
-                <span className="inline-flex items-center gap-0.5 text-[0.6875rem] text-accent/70">
-                  <Link2 size={10} />
                 </span>
               )}
               {hasSubtasks && (

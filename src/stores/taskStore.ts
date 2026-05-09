@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import type { DbTask, TaskPriority } from "@/services/db/tasks";
+import type { ExtractedTask } from "@/services/ai/taskExtraction";
 
 export type TaskGroupBy = "none" | "priority" | "dueDate" | "tag";
 export type TaskFilterStatus = "all" | "incomplete" | "completed";
+export type TaskDirectionFilter = "all" | "incoming" | "outgoing";
 
 interface TaskState {
   tasks: DbTask[];
@@ -12,7 +14,15 @@ interface TaskState {
   groupBy: TaskGroupBy;
   filterStatus: TaskFilterStatus;
   filterPriority: TaskPriority | "all";
+  filterDirection: TaskDirectionFilter;
   searchQuery: string;
+
+  // AI monitor: set of threadIds where AI is actively monitoring
+  aiMonitoredThreads: Set<string>;
+  // Draft tasks pending user confirmation (before saving to DB)
+  draftTasks: ExtractedTask[];
+  draftThreadId: string | null;
+  isDraftLoading: boolean;
 
   setTasks: (tasks: DbTask[]) => void;
   setThreadTasks: (tasks: DbTask[]) => void;
@@ -24,10 +34,17 @@ interface TaskState {
   setGroupBy: (groupBy: TaskGroupBy) => void;
   setFilterStatus: (status: TaskFilterStatus) => void;
   setFilterPriority: (priority: TaskPriority | "all") => void;
+  setFilterDirection: (direction: TaskDirectionFilter) => void;
   setSearchQuery: (query: string) => void;
+
+  toggleAiMonitor: (threadId: string) => void;
+  isThreadMonitored: (threadId: string) => boolean;
+  setDraftTasks: (tasks: ExtractedTask[], threadId: string) => void;
+  clearDraftTasks: () => void;
+  setDraftLoading: (loading: boolean) => void;
 }
 
-export const useTaskStore = create<TaskState>((set) => ({
+export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   threadTasks: [],
   selectedTaskId: null,
@@ -35,7 +52,13 @@ export const useTaskStore = create<TaskState>((set) => ({
   groupBy: "none",
   filterStatus: "incomplete",
   filterPriority: "all",
+  filterDirection: "all",
   searchQuery: "",
+
+  aiMonitoredThreads: new Set(),
+  draftTasks: [],
+  draftThreadId: null,
+  isDraftLoading: false,
 
   setTasks: (tasks) => set({ tasks }),
   setThreadTasks: (threadTasks) => set({ threadTasks }),
@@ -78,5 +101,22 @@ export const useTaskStore = create<TaskState>((set) => ({
   setGroupBy: (groupBy) => set({ groupBy }),
   setFilterStatus: (status) => set({ filterStatus: status }),
   setFilterPriority: (priority) => set({ filterPriority: priority }),
+  setFilterDirection: (direction) => set({ filterDirection: direction }),
   setSearchQuery: (searchQuery) => set({ searchQuery }),
+
+  toggleAiMonitor: (threadId) =>
+    set((state) => {
+      const next = new Set(state.aiMonitoredThreads);
+      if (next.has(threadId)) {
+        next.delete(threadId);
+      } else {
+        next.add(threadId);
+      }
+      return { aiMonitoredThreads: next };
+    }),
+  isThreadMonitored: (threadId) => get().aiMonitoredThreads.has(threadId),
+
+  setDraftTasks: (tasks, threadId) => set({ draftTasks: tasks, draftThreadId: threadId, isDraftLoading: false }),
+  clearDraftTasks: () => set({ draftTasks: [], draftThreadId: null, isDraftLoading: false }),
+  setDraftLoading: (loading) => set({ isDraftLoading: loading }),
 }));

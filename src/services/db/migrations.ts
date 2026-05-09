@@ -832,6 +832,23 @@ const MIGRATIONS = [
        ALTER TABLE accounts ADD COLUMN smtp_password TEXT;
      `,
    },
+   {
+     version: 29,
+     description: "Add direction (incoming/outgoing) and soft-delete (deleted_at) to tasks",
+     sql: `
+       ALTER TABLE tasks ADD COLUMN direction TEXT NOT NULL DEFAULT 'outgoing';
+       ALTER TABLE tasks ADD COLUMN deleted_at INTEGER;
+       CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted_at);
+       CREATE INDEX IF NOT EXISTS idx_tasks_direction ON tasks(direction);
+     `,
+   },
+   {
+     version: 30,
+     description: "Add standalone index on tasks(thread_id) for efficient thread-based grouping queries",
+     sql: `
+       CREATE INDEX IF NOT EXISTS idx_tasks_thread_id ON tasks(thread_id);
+     `,
+   },
  ];
 
 /**
