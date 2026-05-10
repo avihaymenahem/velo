@@ -1611,10 +1611,10 @@ export function SettingsPage() {
 
                   <Section title="Trash & Recovery">
                     <p className="text-xs text-text-tertiary mb-2">
-                      Deleted tasks are soft-deleted and visible in the <strong className="text-text-secondary">Cestino</strong> view inside the Tasks page. You can restore or permanently delete them from there.
+                      Deleted tasks are soft-deleted and visible in the <strong className="text-text-secondary">Trash</strong> view inside the Tasks page. You can restore or permanently delete them from there.
                     </p>
                     <p className="text-xs text-text-tertiary">
-                      When viewing a thread, a <strong className="text-text-secondary">Ripristina</strong> banner appears in the task sidebar if there are recoverable tasks for that thread.
+                      When viewing a thread, a <strong className="text-text-secondary">Restore</strong> banner appears in the task sidebar if there are recoverable tasks for that thread.
                     </p>
                   </Section>
                 </>

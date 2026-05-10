@@ -20,7 +20,7 @@ export interface ComposerState {
   bcc: string[];
   subject: string;
   bodyHtml: string;
-  quotedHtml?: string; // Citazioni per reply/forward (vuoto per nuovi messaggi)
+  quotedHtml?: string; // Quotes for reply/forward (empty for new messages)
   threadId: string | null;
   inReplyToMessageId: string | null;
   showCcBcc: boolean;

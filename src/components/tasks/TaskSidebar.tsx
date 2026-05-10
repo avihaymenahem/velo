@@ -388,14 +388,14 @@ export function TaskSidebar({ accountId, threadId, messages = [] }: TaskSidebarP
       {deletedCount > 0 && (
         <div className="flex items-center justify-between px-4 py-2 border-b border-amber-500/20 bg-amber-500/5">
           <span className="text-xs text-amber-400">
-            {deletedCount} task{deletedCount > 1 ? "s" : ""} nel cestino
+            {deletedCount} task{deletedCount > 1 ? "s" : ""} in the trash
           </span>
           <button
             onClick={handleRestoreDeleted}
             className="flex items-center gap-1 text-xs text-accent hover:opacity-80 font-medium"
           >
             <RotateCcw size={11} />
-            Ripristina
+            Restore
           </button>
         </div>
       )}

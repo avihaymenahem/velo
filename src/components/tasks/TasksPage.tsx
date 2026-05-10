@@ -306,7 +306,7 @@ export function TasksPage() {
           )}
           {isTrash && (
             <span className="text-xs text-text-tertiary bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full">
-              Cestino
+              Trash
             </span>
           )}
         </div>
@@ -363,7 +363,7 @@ export function TasksPage() {
             <option value="incomplete">Active</option>
             <option value="all">All</option>
             <option value="completed">Completed</option>
-            <option value="deleted">Cestino</option>
+            <option value="deleted">Trash</option>
           </select>
 
           {!isTrash && (
@@ -397,7 +397,7 @@ export function TasksPage() {
             {isTrash ? (
               <>
                 <Trash2 size={48} className="text-text-tertiary/30 mb-4" />
-                <p className="text-sm text-text-secondary mb-1">Cestino vuoto</p>
+                <p className="text-sm text-text-secondary mb-1">Trash is empty</p>
                 <p className="text-xs text-text-tertiary">I task eliminati appariranno qui</p>
               </>
             ) : (
@@ -430,7 +430,7 @@ export function TasksPage() {
                 <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => handleRestoreDeleted(task.id)}
-                    title="Ripristina task"
+                    title="Restore task"
                     className="p-1 text-text-tertiary hover:text-accent transition-colors"
                   >
                     <RotateCcw size={13} />
