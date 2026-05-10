@@ -36,6 +36,26 @@ fn set_tray_tooltip(app: tauri::AppHandle, tooltip: String) -> Result<(), String
         let _ = tooltip;
         let _ = app;
         log::debug!("set_tray_tooltip is not supported on Linux (KSNI tray)");
+    }
+}
+
+#[tauri::command]
+fn set_tray_badge(app: tauri::AppHandle, count: Option<usize>) -> Result<(), String> {
+    #[cfg(not(target_os = "linux"))]
+    {
+        let tray = app
+            .tray_by_id(&TrayIconId::new("main-tray"))
+            .ok_or_else(|| "Tray icon not found".to_string())?;
+        let title = match count {
+            Some(c) if c > 0 => Some(c.to_string()),
+            _ => None,
+        };
+        tray.set_title(title.as_deref()).map_err(|e| e.to_string())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = app;
+        let _ = count;
         Ok(())
     }
 }
@@ -131,6 +151,7 @@ pub fn run() {
             oauth::oauth_exchange_token,
             oauth::oauth_refresh_token,
             set_tray_tooltip,
+            set_tray_badge,
             set_tray_icon_style,
             close_splashscreen,
             open_devtools,

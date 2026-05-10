@@ -177,7 +177,6 @@ export function SettingsPage() {
   const [behaviorEnabled, setBehaviorEnabled] = useState(true);
   const [urgencyEnabled, setUrgencyEnabled] = useState(true);
   const [accountRagFlags, setAccountRagFlags] = useState<Record<string, boolean>>({});
-  const [appIconStyle, setAppIconStyle] = useState<"auto" | "light" | "dark">("auto");
 
   // Load settings from DB
   useEffect(() => {
@@ -320,11 +319,6 @@ export function SettingsPage() {
       } catch {
         // Non-critical
       }
-
-      // Load app icon style
-      const iconStyle = await getSetting("app_icon_style");
-      if (iconStyle === "light" || iconStyle === "dark") setAppIconStyle(iconStyle);
-      else setAppIconStyle("auto");
 
       // Load cache settings
       const cacheMax = await getSetting("attachment_cache_max_mb");
