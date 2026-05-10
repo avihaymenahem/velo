@@ -127,6 +127,7 @@ export function createMockGmailAccount(
     caldav_home_url: null,
     calendar_provider: null,
     accept_invalid_certs: 0,
+    rag_enabled: 0,
     ...overrides,
   };
 }
@@ -169,6 +170,7 @@ export function createMockImapAccount(
     caldav_home_url: null,
     calendar_provider: null,
     accept_invalid_certs: 0,
+    rag_enabled: 0,
     ...overrides,
   };
 }
@@ -211,6 +213,7 @@ export function createMockDbAccount(
     caldav_home_url: null,
     calendar_provider: null,
     accept_invalid_certs: 0,
+    rag_enabled: 0,
     ...overrides,
   };
 }

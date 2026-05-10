@@ -76,6 +76,10 @@ import type { ColorThemeId } from "./constants/themes";
 import { router } from "./router";
 import { getSelectedThreadId } from "./router/navigate";
 import { loadSoul, startSoulWatcher } from "./services/ai/soulService";
+import {
+  runEmbeddingBackfill,
+  stopEmbeddingBackfill,
+} from "./services/ai/embeddingBackfill";
 
 /**
  * Sync bridge: subscribes to router state changes and writes the selected
@@ -436,6 +440,9 @@ export default function App() {
 
         // Start auto-update checker
         startUpdateChecker();
+
+        // Kick off embedding backfill (fire-and-forget; no-ops if rag_enabled != 'true')
+        runEmbeddingBackfill().catch(() => {});
       } catch (err) {
         console.error("Failed to initialize:", err);
       }
@@ -454,6 +461,7 @@ export default function App() {
       stopQueueProcessor();
       stopPreCacheManager();
       stopUpdateChecker();
+      stopEmbeddingBackfill();
       unregisterComposeShortcut();
       deepLinkCleanupRef.current?.();
     };

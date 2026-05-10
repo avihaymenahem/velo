@@ -17,6 +17,10 @@ export interface DbThread {
   is_muted: number;
   from_name: string | null;
   from_address: string | null;
+  urgency_score: number | null;
+  sentiment_score: number | null;
+  manual_urgency_override: number | null;
+  is_heat_extinguished: number | null;
 }
 
 export async function getThreadsForAccount(
@@ -425,4 +429,44 @@ export async function getMutedThreadIds(
     [accountId],
   );
   return new Set(rows.map((r) => r.id));
+}
+
+export async function setThreadUrgency(
+  accountId: string,
+  threadId: string,
+  urgencyScore: number,
+  sentimentScore?: number,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `UPDATE threads SET urgency_score = $1${sentimentScore !== undefined ? ", sentiment_score = $4" : ""}
+     WHERE account_id = $2 AND id = $3`,
+    sentimentScore !== undefined
+      ? [urgencyScore, accountId, threadId, sentimentScore]
+      : [urgencyScore, accountId, threadId],
+  );
+}
+
+export async function setHeatExtinguished(
+  accountId: string,
+  threadId: string,
+  extinguished: boolean,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE threads SET is_heat_extinguished = $1 WHERE account_id = $2 AND id = $3",
+    [extinguished ? 1 : 0, accountId, threadId],
+  );
+}
+
+export async function setManualUrgencyOverride(
+  accountId: string,
+  threadId: string,
+  override: number,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE threads SET manual_urgency_override = $1, urgency_score = 0 WHERE account_id = $2 AND id = $3",
+    [override, accountId, threadId],
+  );
 }

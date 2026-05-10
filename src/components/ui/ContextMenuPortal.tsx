@@ -532,6 +532,18 @@ function ThreadMenu({
       shortcut: "m",
       action: handleToggleMute,
     },
+    ...(!isMulti && (thread.urgencyScore ?? 0) > 0 && !thread.isHeatExtinguished
+      ? [{
+          id: "mute-urgency",
+          label: "Mute Urgency",
+          icon: Zap,
+          action: async () => {
+            if (!thread.fromAddress) return;
+            const { muteUrgency } = await import("@/services/ai/heatExtinguisher");
+            await muteUrgency(activeAccountId, threadId, thread.fromAddress);
+          },
+        }]
+      : []),
     {
       id: "spam",
       label: isSpamView ? "Not Spam" : "Report Spam",

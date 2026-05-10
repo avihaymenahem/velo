@@ -36,6 +36,7 @@ export interface DbAccount {
   caldav_home_url: string | null;
   calendar_provider: string | null;
   accept_invalid_certs: number;
+  rag_enabled: number;
 }
 
 async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
@@ -343,5 +344,23 @@ export async function insertOAuthImapAccount(account: {
       account.imapUsername || null,
       account.acceptInvalidCerts ? 1 : 0,
     ],
+  );
+}
+
+export async function getAccountRagEnabled(accountId: string): Promise<boolean> {
+  const db = await getDb();
+  type Row = { rag_enabled: number };
+  const [row] = await db.select<Row[]>(
+    "SELECT rag_enabled FROM accounts WHERE id = $1",
+    [accountId],
+  );
+  return (row?.rag_enabled ?? 0) === 1;
+}
+
+export async function setAccountRagEnabled(accountId: string, enabled: boolean): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE accounts SET rag_enabled = $1 WHERE id = $2",
+    [enabled ? 1 : 0, accountId],
   );
 }

@@ -17,6 +17,7 @@ import {
   ASK_INBOX_PROMPT,
   SMART_LABEL_PROMPT,
   EXTRACT_TASK_PROMPT,
+  HEAT_EXTINGUISH_JUDGE_PROMPT,
 } from "./prompts";
 import { getSoul } from "./soulService";
 
@@ -298,5 +299,20 @@ export async function testConnection(): Promise<boolean> {
     return await provider.testConnection();
   } catch {
     return false;
+  }
+}
+
+/**
+ * Smart Judge: determines whether replying to an urgent email likely resolves it.
+ * Returns true → RESOLVED (extinguish), false → PENDING (just log).
+ * Falls back to true on any AI error so the UX degrades gracefully.
+ */
+export async function judgeUrgencyResolved(urgentEmailText: string): Promise<boolean> {
+  try {
+    const userContent = `<email_content>${urgentEmailText.slice(0, 800)}</email_content>`;
+    const result = await callAi(HEAT_EXTINGUISH_JUDGE_PROMPT, userContent, { skipLanguage: true });
+    return result.trim().toUpperCase().startsWith("RESOLVED");
+  } catch {
+    return true;
   }
 }

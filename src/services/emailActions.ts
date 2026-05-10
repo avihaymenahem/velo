@@ -527,9 +527,14 @@ export async function sendEmail(
     threadId,
   });
 
-  // Notify the UI to refresh (so sent message appears in Sent folder)
   if (result.success) {
     window.dispatchEvent(new Event("velo-sync-done"));
+    // Auto-extinguish urgency when a reply resolves the thread
+    if (threadId) {
+      import("./ai/heatExtinguisher").then(({ autoExtinguishOnReply }) => {
+        autoExtinguishOnReply(accountId, threadId).catch(() => {});
+      });
+    }
   }
 
   return result;

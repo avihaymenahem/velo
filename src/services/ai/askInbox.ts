@@ -1,10 +1,14 @@
 import { searchMessages, type SearchResult } from "@/services/db/search";
 import { askInbox as callAskInbox } from "./aiService";
+import { getSetting } from "@/services/db/settings";
+import { getAccountRagEnabled } from "@/services/db/accounts";
+import {
+  generateEmbedding,
+  semanticSearch,
+  sanitizeForEmbedding,
+  type SemanticResult,
+} from "./ollamaEmbeddings";
 
-/**
- * Extract key search terms from a natural language question.
- * Uses simple heuristic: remove common stop words and question words.
- */
 function extractSearchTerms(question: string): string {
   const stopWords = new Set([
     "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
@@ -34,15 +38,24 @@ export interface AskInboxResult {
   sourceMessages: SearchResult[];
 }
 
-/**
- * Answer a natural language question by searching the user's inbox
- * and using AI to synthesize an answer from the results.
- */
+function semToSearch(s: SemanticResult): SearchResult {
+  return {
+    message_id: s.message_id,
+    account_id: s.account_id,
+    thread_id: s.thread_id,
+    subject: s.subject,
+    from_name: s.from_name,
+    from_address: s.from_address,
+    snippet: s.snippet,
+    date: s.date,
+    rank: s.similarity,
+  };
+}
+
 export async function askMyInbox(
   question: string,
   accountId: string,
 ): Promise<AskInboxResult> {
-  // Extract search terms
   const terms = extractSearchTerms(question);
   if (!terms.trim()) {
     return {
@@ -51,8 +64,63 @@ export async function askMyInbox(
     };
   }
 
-  // Search messages using existing FTS
-  const results = await searchMessages(terms, accountId, 15);
+  const ragEnabled = await getSetting("rag_enabled");
+  const accountRagEnabled = ragEnabled === "true" ? await getAccountRagEnabled(accountId) : false;
+  const serverUrl = accountRagEnabled ? await getSetting("ollama_server_url") : null;
+  const embeddingModel = (await getSetting("embedding_model")) ?? "nomic-embed-text";
+
+  let results: SearchResult[];
+
+  if (accountRagEnabled && serverUrl) {
+    // Hybrid retrieval: run FTS and embedding query in parallel
+    const cleanQuery = sanitizeForEmbedding(question, 128);
+    const [ftsResults, queryEmbedding] = await Promise.all([
+      searchMessages(terms, accountId, 20),
+      generateEmbedding(cleanQuery, serverUrl, embeddingModel),
+    ]);
+
+    if (queryEmbedding) {
+      const semResults = await semanticSearch(queryEmbedding, accountId, 20);
+
+      const hasFts = ftsResults.length > 0;
+      const hasSem = semResults.length > 0;
+
+      // Dynamic weights: both available → 40/60; only one available → 100/0 or 0/100
+      const ftsW = hasFts && hasSem ? 0.4 : hasFts ? 1.0 : 0.0;
+      const semW = hasFts && hasSem ? 0.6 : hasSem ? 1.0 : 0.0;
+
+      // Normalised rank score: top result = 1.0, last = ~0
+      const ftsScore = new Map<string, number>();
+      ftsResults.forEach((r, i) => ftsScore.set(r.message_id, 1 - i / Math.max(ftsResults.length, 1)));
+
+      const semScore = new Map<string, SemanticResult>();
+      semResults.forEach((r) => semScore.set(r.message_id, r));
+
+      const allIds = new Set([...ftsScore.keys(), ...semScore.keys()]);
+
+      type Scored = SearchResult & { hybridScore: number };
+      const merged: Scored[] = [];
+
+      for (const id of allIds) {
+        const fts = ftsScore.get(id) ?? 0;
+        const sem = semScore.get(id)?.similarity ?? 0;
+        const hybridScore = ftsW * fts + semW * sem;
+
+        const base = ftsResults.find((r) => r.message_id === id)
+          ?? semToSearch(semScore.get(id)!);
+
+        merged.push({ ...base, hybridScore });
+      }
+
+      merged.sort((a, b) => b.hybridScore - a.hybridScore);
+      results = merged.slice(0, 15);
+    } else {
+      // Ollama unreachable — fall back to FTS silently
+      results = ftsResults.slice(0, 15);
+    }
+  } else {
+    results = await searchMessages(terms, accountId, 15);
+  }
 
   if (results.length === 0) {
     return {
@@ -61,7 +129,6 @@ export async function askMyInbox(
     };
   }
 
-  // Format context for AI
   const context = results
     .map((r) => {
       const date = new Date(r.date).toLocaleDateString("en-US", {
@@ -76,8 +143,6 @@ export async function askMyInbox(
     })
     .join("\n---\n");
 
-  // Call AI
   const answer = await callAskInbox(question, accountId, context);
-
   return { answer, sourceMessages: results };
 }

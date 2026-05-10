@@ -849,7 +849,93 @@ const MIGRATIONS = [
        CREATE INDEX IF NOT EXISTS idx_tasks_thread_id ON tasks(thread_id);
      `,
    },
- ];
+  {
+    version: 31,
+    description: "Add message_embeddings table for local semantic search (RAG) and initialize embedding settings",
+    sql: `
+      CREATE TABLE IF NOT EXISTS message_embeddings (
+        message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        account_id TEXT NOT NULL,
+        embedding TEXT NOT NULL,
+        model TEXT NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (message_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account ON message_embeddings(account_id);
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account_created ON message_embeddings(account_id, created_at);
+
+      INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('rag_enabled', 'false'),
+        ('embedding_model', 'nomic-embed-text'),
+        ('rag_chunk_size', '512'),
+        ('rag_batch_size', '10');
+    `,
+  },
+  {
+    version: 32,
+    description: "Migrate message_embeddings to Base64-encoded binary (3x smaller than JSON), triggering clean re-indexing",
+    sql: `
+      DROP TABLE IF EXISTS message_embeddings;
+      CREATE TABLE IF NOT EXISTS message_embeddings (
+        message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        account_id TEXT NOT NULL,
+        embedding TEXT NOT NULL,
+        model TEXT NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (message_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account ON message_embeddings(account_id);
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account_created ON message_embeddings(account_id, created_at);
+    `,
+  },
+  {
+    version: 33,
+    description: "Add urgency/sentiment/heat scores to threads and interaction_history table for sender reputation engine",
+    sql: `
+      ALTER TABLE threads ADD COLUMN urgency_score REAL DEFAULT 0;
+      ALTER TABLE threads ADD COLUMN sentiment_score REAL DEFAULT 0;
+      ALTER TABLE threads ADD COLUMN manual_urgency_override INTEGER DEFAULT 0;
+      ALTER TABLE threads ADD COLUMN is_heat_extinguished INTEGER DEFAULT 0;
+
+      CREATE TABLE IF NOT EXISTS interaction_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id TEXT NOT NULL,
+        from_address TEXT NOT NULL,
+        action TEXT NOT NULL,
+        thread_id TEXT,
+        created_at INTEGER DEFAULT (unixepoch())
+      );
+      CREATE INDEX IF NOT EXISTS idx_interaction_account_from ON interaction_history(account_id, from_address, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_interaction_created ON interaction_history(created_at);
+
+      INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('ai_urgency_mute_window_days', '30'),
+        ('ai_urgency_mute_threshold', '3'),
+        ('ai_urgency_auto_extinguish', 'true');
+    `,
+  },
+  {
+    version: 34,
+    description: "Add temporal urgency decay settings and RAG priority domains for contextual boosting",
+    sql: `
+      INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('ai_urgency_decay_start_days', '20'),
+        ('ai_urgency_decay_floor_days', '30'),
+        ('rag_priority_domains', '');
+    `,
+  },
+  {
+    version: 35,
+    description: "Add per-account rag_enabled flag and global behavioral intelligence settings",
+    sql: `
+      ALTER TABLE accounts ADD COLUMN rag_enabled INTEGER DEFAULT 0;
+
+      INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('ai_behavior_enabled', 'true'),
+        ('ai_urgency_enabled', 'true');
+    `,
+  },
+];
 
 /**
  * Split a SQL string into individual statements, correctly handling

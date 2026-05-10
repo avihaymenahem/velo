@@ -15,6 +15,9 @@ export interface Thread {
   labelIds: string[];
   fromName: string | null;
   fromAddress: string | null;
+  urgencyScore?: number;
+  sentimentScore?: number;
+  isHeatExtinguished?: boolean;
 }
 
 interface ThreadState {

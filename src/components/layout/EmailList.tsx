@@ -26,6 +26,8 @@ import {
   getCategoryUnreadCounts,
 } from "@/services/db/threadCategories";
 import { getActiveFollowUpThreadIds } from "@/services/db/followUpReminders";
+import { applyTemporalDecay } from "@/services/ai/reputationEngine";
+import { getSetting } from "@/services/db/settings";
 import {
   archiveThread,
   trashThread,
@@ -428,17 +430,32 @@ export function EmailList({
     async (
       dbThreads: Awaited<ReturnType<typeof getThreadsForAccount>>,
     ): Promise<Thread[]> => {
+      const [decayStartRaw, decayFloorRaw, behaviorEnabledRaw, urgencyEnabledRaw] = await Promise.all([
+        getSetting("ai_urgency_decay_start_days"),
+        getSetting("ai_urgency_decay_floor_days"),
+        getSetting("ai_behavior_enabled"),
+        getSetting("ai_urgency_enabled"),
+      ]);
+      const decayStart = parseInt(decayStartRaw ?? "20", 10);
+      const decayFloor = parseInt(decayFloorRaw ?? "30", 10);
+      const urgencyActive = behaviorEnabledRaw !== "false" && urgencyEnabledRaw !== "false";
+
       return Promise.all(
         dbThreads.map(async (t) => {
           const labelIds = await getThreadLabelIds(t.account_id, t.id);
           const alwaysRead =
             labelIds.includes("DRAFT") || labelIds.includes("TRASH");
+          const lastMessageAt = t.last_message_at ?? 0;
+          const rawUrgency = t.urgency_score ?? 0;
+          const urgencyScore = !urgencyActive || t.is_heat_extinguished === 1
+            ? 0
+            : applyTemporalDecay(rawUrgency, lastMessageAt * 1000, decayStart, decayFloor);
           return {
             id: t.id,
             accountId: t.account_id,
             subject: t.subject,
             snippet: t.snippet,
-            lastMessageAt: t.last_message_at ?? 0,
+            lastMessageAt,
             messageCount: t.message_count,
             isRead: alwaysRead || t.is_read === 1,
             isStarred: t.is_starred === 1,
@@ -448,6 +465,9 @@ export function EmailList({
             labelIds,
             fromName: t.from_name,
             fromAddress: t.from_address,
+            urgencyScore,
+            sentimentScore: t.sentiment_score ?? 0,
+            isHeatExtinguished: t.is_heat_extinguished === 1,
           };
         }),
       );
