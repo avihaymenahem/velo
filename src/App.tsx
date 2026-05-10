@@ -364,16 +364,9 @@ export default function App() {
           }
         }
 
-        // Apply app icon style
+        // Apply app icon style (tray only now)
         const savedAppIconStyle = (await getSetting("app_icon_style")) || "auto";
         try {
-          const computedStyle =
-            savedAppIconStyle === "auto"
-              ? window.matchMedia("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light"
-              : savedAppIconStyle;
-          await invoke("update_app_icon", { style: computedStyle });
           await invoke("set_tray_icon_style", { style: savedAppIconStyle });
         } catch {
           // commands may not be available yet
@@ -551,13 +544,6 @@ export default function App() {
           root.classList.add("dark");
         } else {
           root.classList.remove("dark");
-        }
-        
-        // Update app icon dynamically if set to auto
-        const iconStyle = await getSetting("app_icon_style");
-        if (!iconStyle || iconStyle === "auto") {
-           const computedStyle = mq.matches ? "dark" : "light";
-           invoke("update_app_icon", { style: computedStyle }).catch(() => {});
         }
       };
       apply();

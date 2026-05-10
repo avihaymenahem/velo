@@ -619,29 +619,7 @@ export function SettingsPage() {
                         })}
                       </div>
                     </SettingRow>
-                    <SettingRow label="App icon style">
-                      <select
-                        value={appIconStyle}
-                        onChange={async (e) => {
-                          const val = e.target.value as "auto" | "light" | "dark";
-                          setAppIconStyle(val);
-                          await setSetting("app_icon_style", val);
-                          try {
-                            const { invoke } = await import("@tauri-apps/api/core");
-                            await invoke("set_tray_icon_style", { style: val });
-                            const computedStyle = val === "auto" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : val;
-                            await invoke("update_app_icon", { style: computedStyle });
-                          } catch {
-                            // command may not be available yet
-                          }
-                        }}
-                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
-                      >
-                        <option value="auto">Auto (follows system)</option>
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                      </select>
-                    </SettingRow>
+
                     <SettingRow label="Inbox view mode">
                       <select
                         value={inboxViewMode}

@@ -87,33 +87,6 @@ fn set_tray_icon_style(app: tauri::AppHandle, style: String) -> Result<(), Strin
     Ok(())
 }
 
-#[tauri::command]
-fn update_app_icon(style: String) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    {
-        use cocoa::appkit::{NSApplication, NSImage};
-        use cocoa::base::nil;
-        use cocoa::foundation::NSData;
-        
-        let icon_bytes = match style.as_str() {
-            "dark" => include_bytes!("../icons/appicon-dark.icns").as_slice(),
-            _ => include_bytes!("../icons/appicon.icns").as_slice(),
-        };
-
-        unsafe {
-            let app = NSApplication::sharedApplication(nil);
-            let data = NSData::dataWithBytes_length_(
-                nil,
-                icon_bytes.as_ptr() as *const std::ffi::c_void,
-                icon_bytes.len() as u64,
-            );
-            let img = NSImage::initWithData_(NSImage::alloc(nil), data);
-            app.setApplicationIconImage_(img);
-        }
-    }
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Set explicit AUMID on Windows so toast notifications show "Velo"
@@ -159,7 +132,6 @@ pub fn run() {
             oauth::oauth_refresh_token,
             set_tray_tooltip,
             set_tray_icon_style,
-            update_app_icon,
             close_splashscreen,
             open_devtools,
             commands::imap_test_connection,
