@@ -12,6 +12,7 @@ import { getMutedThreadIds } from "../db/threads";
 import { getThreadCategory } from "../db/threadCategories";
 import { getVipSenders } from "../db/notificationVips";
 import { getPendingOpsForResource } from "../db/pendingOperations";
+import { processThreadUrgency } from "@/services/ai/urgencyPipeline";
 
 async function loadAutoArchiveCategories(): Promise<Set<string>> {
   const raw = await getSetting("auto_archive_categories");
@@ -65,6 +66,16 @@ async function processAndStoreThread(
     isImportant,
     hasAttachments,
   });
+
+  processThreadUrgency({
+    accountId,
+    threadId: thread.id,
+    subject: firstMessage.subject,
+    bodyText: lastMessage.bodyText,
+    fromAddress: lastMessage.fromAddress,
+    lastMessageAt: lastMessage.date,
+    labelIds: [...allLabelIds],
+  }).catch(() => {});
 
   await setThreadLabels(accountId, thread.id, [...allLabelIds]);
 

@@ -144,20 +144,13 @@ describe("GmailApiProvider", () => {
   });
 
   describe("trash", () => {
-    it("calls modifyThread adding TRASH when no messageIds (thread-level)", async () => {
-      vi.mocked(mockClient.modifyThread).mockResolvedValue({
-        id: "thread-1",
-        historyId: "123",
-        messages: [],
-      });
+    it("calls trashThread when no messageIds (thread-level)", async () => {
+      vi.mocked(mockClient.trashThread).mockResolvedValue(undefined);
 
       await provider.trash("thread-1", []);
 
-      expect(mockClient.modifyThread).toHaveBeenCalledWith(
-        "thread-1",
-        ["TRASH"],
-        ["INBOX", "DRAFT"],
-      );
+      expect(mockClient.trashThread).toHaveBeenCalledWith("thread-1");
+      expect(mockClient.modifyThread).not.toHaveBeenCalled();
     });
 
     it("calls trashMessage for each id when messageIds provided (message-level)", async () => {
@@ -194,14 +187,14 @@ describe("GmailApiProvider", () => {
   });
 
   describe("markRead", () => {
-    it("removes UNREAD label when marking as read", async () => {
+    it("removes UNREAD label when marking as read (thread-level)", async () => {
       vi.mocked(mockClient.modifyThread).mockResolvedValue({
         id: "thread-1",
         historyId: "123",
         messages: [],
       });
 
-      await provider.markRead("thread-1", ["msg-1"], true);
+      await provider.markRead("thread-1", [], true);
 
       expect(mockClient.modifyThread).toHaveBeenCalledWith(
         "thread-1",
@@ -210,14 +203,14 @@ describe("GmailApiProvider", () => {
       );
     });
 
-    it("adds UNREAD label when marking as unread", async () => {
+    it("adds UNREAD label when marking as unread (thread-level)", async () => {
       vi.mocked(mockClient.modifyThread).mockResolvedValue({
         id: "thread-1",
         historyId: "123",
         messages: [],
       });
 
-      await provider.markRead("thread-1", ["msg-1"], false);
+      await provider.markRead("thread-1", [], false);
 
       expect(mockClient.modifyThread).toHaveBeenCalledWith(
         "thread-1",

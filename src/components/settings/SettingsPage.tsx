@@ -1604,6 +1604,9 @@ export function SettingsPage() {
                         const next = !behaviorEnabled;
                         setBehaviorEnabled(next);
                         await setSetting("ai_behavior_enabled", next ? "true" : "false");
+                        const { invalidateUrgencySettingsCache, runUrgencyBackfill } = await import("@/services/ai/urgencyPipeline");
+                        invalidateUrgencySettingsCache();
+                        if (next) runUrgencyBackfill().catch(() => {});
                       }}
                     />
                     {behaviorEnabled && (
@@ -1616,6 +1619,8 @@ export function SettingsPage() {
                             const next = !urgencyEnabled;
                             setUrgencyEnabled(next);
                             await setSetting("ai_urgency_enabled", next ? "true" : "false");
+                            const { invalidateUrgencySettingsCache } = await import("@/services/ai/urgencyPipeline");
+                            invalidateUrgencySettingsCache();
                           }}
                         />
                       </div>

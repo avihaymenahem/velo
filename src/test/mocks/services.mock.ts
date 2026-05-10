@@ -12,6 +12,7 @@ export function createMockGmailClient(
     modifyThread: vi.fn(),
     deleteThread: vi.fn(),
     trashMessage: vi.fn(),
+    trashThread: vi.fn(),
     deleteMessage: vi.fn(),
     getMessage: vi.fn(),
     getAttachment: vi.fn(),

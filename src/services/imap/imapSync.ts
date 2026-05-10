@@ -34,6 +34,7 @@ import {
 } from "../threading/threadBuilder";
 import { getPendingOpsForResource } from "../db/pendingOperations";
 import { recalculateThreadStats } from "../db/threads";
+import { processThreadUrgency, type ThreadUrgencyParams } from "@/services/ai/urgencyPipeline";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -282,6 +283,7 @@ async function storeThreadsAndMessages(
   // Process in batches within transactions to avoid long-held locks
   for (let i = 0; i < threadGroups.length; i += THREAD_BATCH_SIZE) {
     const batch = threadGroups.slice(i, i + THREAD_BATCH_SIZE);
+    const urgencyQueue: ThreadUrgencyParams[] = [];
 
     await withTransaction(async () => {
       for (const group of batch) {
@@ -345,6 +347,16 @@ async function storeThreadsAndMessages(
         const labelArray = [...allLabelIds];
         await setThreadLabels(accountId, group.threadId, labelArray);
 
+        urgencyQueue.push({
+          accountId,
+          threadId: group.threadId,
+          subject: firstMessage.subject,
+          bodyText: lastMessage.bodyText,
+          fromAddress: lastMessage.fromAddress,
+          lastMessageAt: lastMessage.date,
+          labelIds: labelArray,
+        });
+
         // Store messages sequentially to avoid concurrent DB writes
         for (const parsed of messages) {
           const imapMsg = imapMsgByLocalId.get(parsed.id);
@@ -399,6 +411,11 @@ async function storeThreadsAndMessages(
         await recalculateThreadStats(accountId, group.threadId);
       }
     });
+
+    // Score urgency outside the transaction to avoid DB lock contention
+    for (const params of urgencyQueue) {
+      processThreadUrgency(params).catch(() => {});
+    }
   }
 
   return storedMessages;
@@ -502,6 +519,7 @@ export async function imapInitialSync(
     hasAttachments: boolean;
     subject: string | null;
     snippet: string;
+    fromAddress: string | null;
     date: number;
   }
 
@@ -719,6 +737,7 @@ export async function imapInitialSync(
             hasAttachments: parsed.hasAttachments,
             subject: parsed.subject,
             snippet: parsed.snippet,
+            fromAddress: parsed.fromAddress,
             date: parsed.date,
           };
           allMeta.set(parsed.id, meta);
@@ -801,6 +820,7 @@ export async function imapInitialSync(
 
   for (let batchStart = 0; batchStart < threadGroups.length; batchStart += THREAD_BATCH_SIZE) {
     const batch = threadGroups.slice(batchStart, batchStart + THREAD_BATCH_SIZE);
+    const urgencyQueue: ThreadUrgencyParams[] = [];
 
     // Pre-check pending ops OUTSIDE the transaction to avoid nested DB issues
     const skippedThreadIds = new Set<string>();
@@ -859,15 +879,31 @@ export async function imapInitialSync(
           hasAttachments,
         });
 
-        await setThreadLabels(accountId, group.threadId, [...allLabelIds]);
+        const labelArray = [...allLabelIds];
+        await setThreadLabels(accountId, group.threadId, labelArray);
 
         // Batch-update thread IDs for all messages in this thread
         const messageIds = messages.map((m) => m.id);
         await updateMessageThreadIds(accountId, messageIds, group.threadId);
-        
+
         await recalculateThreadStats(accountId, group.threadId);
+
+        urgencyQueue.push({
+          accountId,
+          threadId: group.threadId,
+          subject: firstMessage.subject,
+          bodyText: lastMessage.snippet,
+          fromAddress: lastMessage.fromAddress,
+          lastMessageAt: lastMessage.date,
+          labelIds: labelArray,
+        });
       }
     });
+
+    // Score urgency outside the transaction to avoid DB lock contention
+    for (const params of urgencyQueue) {
+      processThreadUrgency(params).catch(() => {});
+    }
 
     onProgress?.({
       phase: "storing_threads",
