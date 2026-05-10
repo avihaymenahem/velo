@@ -47,6 +47,29 @@ fn open_devtools(app: tauri::AppHandle) {
     }
 }
 
+/// Switch the tray icon between template (auto) and fixed style.
+/// "auto" → icon_as_template(true): macOS adapts white/dark automatically.
+/// "light" / "dark" → icon_as_template(false): renders the PNG as-is.
+/// Full per-style icon swapping requires separate light/dark tray assets.
+#[tauri::command]
+fn set_tray_icon_style(app: tauri::AppHandle, style: String) -> Result<(), String> {
+    #[cfg(not(target_os = "linux"))]
+    {
+        let tray = app
+            .tray_by_id(&TrayIconId::new("main-tray"))
+            .ok_or_else(|| "Tray icon not found".to_string())?;
+        let as_template = style == "auto";
+        tray.set_icon_as_template(as_template)
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = app;
+        let _ = style;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Set explicit AUMID on Windows so toast notifications show "Velo"
@@ -91,6 +114,7 @@ pub fn run() {
             oauth::oauth_exchange_token,
             oauth::oauth_refresh_token,
             set_tray_tooltip,
+            set_tray_icon_style,
             close_splashscreen,
             open_devtools,
             commands::imap_test_connection,

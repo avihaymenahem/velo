@@ -953,6 +953,13 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_embeddings_account_created ON message_embeddings(account_id, created_at);
     `,
   },
+  {
+    version: 37,
+    description: "Add app_icon_style setting for dock/tray icon appearance preference",
+    sql: `
+      INSERT OR IGNORE INTO settings (key, value) VALUES ('app_icon_style', 'auto');
+    `,
+  },
 ];
 
 /**

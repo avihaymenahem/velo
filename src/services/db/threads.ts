@@ -409,7 +409,7 @@ export async function muteThread(
 ): Promise<void> {
   await withTransaction(async (db) => {
     await db.execute(
-      "UPDATE threads SET is_muted = 1 WHERE account_id = $1 AND id = $2",
+      "UPDATE threads SET is_muted = 1, urgency_score = 0.05 WHERE account_id = $1 AND id = $2",
       [accountId, threadId],
     );
   });

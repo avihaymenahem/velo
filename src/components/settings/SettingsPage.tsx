@@ -177,6 +177,7 @@ export function SettingsPage() {
   const [behaviorEnabled, setBehaviorEnabled] = useState(true);
   const [urgencyEnabled, setUrgencyEnabled] = useState(true);
   const [accountRagFlags, setAccountRagFlags] = useState<Record<string, boolean>>({});
+  const [appIconStyle, setAppIconStyle] = useState<"auto" | "light" | "dark">("auto");
 
   // Load settings from DB
   useEffect(() => {
@@ -319,6 +320,11 @@ export function SettingsPage() {
       } catch {
         // Non-critical
       }
+
+      // Load app icon style
+      const iconStyle = await getSetting("app_icon_style");
+      if (iconStyle === "light" || iconStyle === "dark") setAppIconStyle(iconStyle);
+      else setAppIconStyle("auto");
 
       // Load cache settings
       const cacheMax = await getSetting("attachment_cache_max_mb");
@@ -612,6 +618,27 @@ export function SettingsPage() {
                           );
                         })}
                       </div>
+                    </SettingRow>
+                    <SettingRow label="App icon style">
+                      <select
+                        value={appIconStyle}
+                        onChange={async (e) => {
+                          const val = e.target.value as "auto" | "light" | "dark";
+                          setAppIconStyle(val);
+                          await setSetting("app_icon_style", val);
+                          try {
+                            const { invoke } = await import("@tauri-apps/api/core");
+                            await invoke("set_tray_icon_style", { style: val });
+                          } catch {
+                            // command may not be available yet
+                          }
+                        }}
+                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                      >
+                        <option value="auto">Auto (follows system)</option>
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                      </select>
                     </SettingRow>
                     <SettingRow label="Inbox view mode">
                       <select

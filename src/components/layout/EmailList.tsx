@@ -447,9 +447,10 @@ export function EmailList({
             labelIds.includes("DRAFT") || labelIds.includes("TRASH");
           const lastMessageAt = t.last_message_at ?? 0;
           const rawUrgency = t.urgency_score ?? 0;
-          const urgencyScore = !urgencyActive || t.is_heat_extinguished === 1
+          const decayedUrgency = !urgencyActive || t.is_heat_extinguished === 1
             ? 0
             : applyTemporalDecay(rawUrgency, lastMessageAt * 1000, decayStart, decayFloor);
+          const urgencyScore = t.is_muted === 1 ? Math.min(decayedUrgency, 0.05) : decayedUrgency;
           return {
             id: t.id,
             accountId: t.account_id,
