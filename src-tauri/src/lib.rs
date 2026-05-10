@@ -47,10 +47,10 @@ fn open_devtools(app: tauri::AppHandle) {
     }
 }
 
-/// Switch the tray icon between template (auto) and fixed style.
-/// "auto" → icon_as_template(true): macOS adapts white/dark automatically.
-/// "light" / "dark" → icon_as_template(false): renders the PNG as-is.
-/// Full per-style icon swapping requires separate light/dark tray assets.
+/// Switch the tray icon between template (auto) and fixed light/dark style.
+/// "auto"  → white template PNG + icon_as_template(true): macOS adapts automatically.
+/// "dark"  → black PNG + icon_as_template(false): always dark, visible on light menu bars.
+/// "light" → white PNG + icon_as_template(false): always light, visible on dark menu bars.
 #[tauri::command]
 fn set_tray_icon_style(app: tauri::AppHandle, style: String) -> Result<(), String> {
     #[cfg(not(target_os = "linux"))]
@@ -58,9 +58,26 @@ fn set_tray_icon_style(app: tauri::AppHandle, style: String) -> Result<(), Strin
         let tray = app
             .tray_by_id(&TrayIconId::new("main-tray"))
             .ok_or_else(|| "Tray icon not found".to_string())?;
-        let as_template = style == "auto";
-        tray.set_icon_as_template(as_template)
-            .map_err(|e| e.to_string())?;
+        match style.as_str() {
+            "dark" => {
+                // Black icon — always visible on light/white menu bars
+                let icon = tauri::include_image!("icons/tray-16x16-dark.png");
+                tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
+                tray.set_icon_as_template(false).map_err(|e| e.to_string())?;
+            }
+            "light" => {
+                // White icon — always visible on dark menu bars
+                let icon = tauri::include_image!("icons/tray-16x16-light.png");
+                tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
+                tray.set_icon_as_template(false).map_err(|e| e.to_string())?;
+            }
+            _ => {
+                // "auto": template mode — macOS adapts black↔white automatically
+                let icon = tauri::include_image!("icons/tray-16x16Template.png");
+                tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
+                tray.set_icon_as_template(true).map_err(|e| e.to_string())?;
+            }
+        }
     }
     #[cfg(target_os = "linux")]
     {

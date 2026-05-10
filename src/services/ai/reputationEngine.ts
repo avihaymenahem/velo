@@ -83,9 +83,9 @@ const HIGH_URGENCY_KEYWORDS = [
   /urgent/i, /asap/i, /as soon as possible/i, /immediately/i,
   /critical/i, /emergency/i, /deadline/i, /overdue/i,
   /urgente/i, /immediatamente/i, /scadenza/i,
-  /urgent/i, /dringend/i, /sofort/i, /frist/i,
-  /urgente/i, /inmediatamente/i, /plazo/i,
-  /urgent/i, /immédiatement/i, /délai/i,
+  /dringend/i, /sofort/i, /frist/i,
+  /inmediatamente/i, /plazo/i,
+  /immédiatement/i, /délai/i,
 ];
 
 /**

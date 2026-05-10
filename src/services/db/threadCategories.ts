@@ -84,6 +84,8 @@ export async function getCategoriesForThreads(
   return map;
 }
 
+const NON_PRIMARY_CATEGORIES = new Set(["Updates", "Promotions", "Social", "Newsletters"]);
+
 export async function setThreadCategory(
   accountId: string,
   threadId: string,
@@ -98,6 +100,17 @@ export async function setThreadCategory(
          category = $3, is_manual = $4`,
       [accountId, threadId, category, isManual ? 1 : 0],
     );
+    // Urgency is only meaningful for Primary. If a thread (typically IMAP, where
+    // category is determined after sync) ends up non-Primary, clear any auto-scored
+    // urgency so it doesn't show badges in non-Primary views.
+    if (!isManual && NON_PRIMARY_CATEGORIES.has(category)) {
+      await db.execute(
+        `UPDATE threads SET urgency_score = 0, is_heat_extinguished = 0
+         WHERE account_id = $1 AND id = $2
+           AND (manual_urgency_override IS NULL OR manual_urgency_override = 0)`,
+        [accountId, threadId],
+      );
+    }
   });
 }
 

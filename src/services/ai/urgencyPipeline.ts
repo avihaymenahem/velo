@@ -8,6 +8,13 @@ import {
 } from "./reputationEngine";
 
 const SKIP_LABELS = new Set(["SENT", "DRAFT", "TRASH", "SPAM"]);
+// Gmail category labels that indicate non-Primary threads — urgency is suppressed for these.
+const NON_PRIMARY_GMAIL_LABELS = new Set([
+  "CATEGORY_UPDATES",
+  "CATEGORY_PROMOTIONS",
+  "CATEGORY_SOCIAL",
+  "CATEGORY_FORUMS",
+]);
 const EXTINGUISH_RESET_THRESHOLD = 0.3;
 
 interface UrgencySettings {
@@ -65,6 +72,8 @@ export async function processThreadUrgency(params: ThreadUrgencyParams): Promise
     if (!settings.behaviorEnabled || !settings.urgencyEnabled) return;
 
     if (params.labelIds.some((l) => SKIP_LABELS.has(l))) return;
+    // Non-Primary Gmail categories: no urgency scoring
+    if (params.labelIds.some((l) => NON_PRIMARY_GMAIL_LABELS.has(l))) return;
 
     const ageDays = (Date.now() - params.lastMessageAt) / 86_400_000;
     if (ageDays > settings.decayFloorDays) return;
@@ -133,10 +142,12 @@ export async function runUrgencyBackfill(): Promise<void> {
        FROM threads t
        LEFT JOIN messages m ON m.account_id = t.account_id
          AND m.thread_id = t.id AND m.date = t.last_message_at
+       LEFT JOIN thread_categories tc ON tc.account_id = t.account_id AND tc.thread_id = t.id
        WHERE t.urgency_score = 0
          AND (t.manual_urgency_override IS NULL OR t.manual_urgency_override = 0)
          AND t.last_message_at IS NOT NULL
          AND t.last_message_at >= $1
+         AND (tc.category IS NULL OR tc.category = 'Primary')
        GROUP BY t.id, t.account_id
        LIMIT $2 OFFSET $3`,
       [cutoffMs, BACKFILL_BATCH, offset],

@@ -1572,7 +1572,7 @@ fn format_imap_date(unix_ts: i64) -> String {
         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
     // Compute days since Unix epoch
-    let days = (unix_ts / 86_400) as i64;
+    let days = unix_ts / 86_400;
     // Compute year, month, day using a simple algorithm
     let mut y = 1970i64;
     let mut remaining = days;
@@ -1782,6 +1782,7 @@ fn detect_special_use(name: &async_imap::types::Name) -> Option<String> {
 ///
 /// `internal_date`: optional INTERNALDATE timestamp from the IMAP server,
 /// used as fallback when the Date header cannot be parsed.
+#[allow(clippy::too_many_arguments)]
 fn parse_message(
     parser: &MessageParser,
     raw: &[u8],
@@ -1908,7 +1909,7 @@ fn parse_message(
                 mime_type,
                 size: att.len() as u32,
                 content_id: att.content_id().map(|s| s.to_string()),
-                is_inline: att.content_disposition().map_or(false, |cd| cd.is_inline()),
+                is_inline: att.content_disposition().is_some_and(|cd| cd.is_inline()),
             })
         })
         .collect();
@@ -2019,10 +2020,7 @@ fn extract_first_address(
 
 /// Format an address list as a comma-separated string of "Name <email>" or "email".
 fn format_address_list(addr: Option<&mail_parser::Address>) -> Option<String> {
-    let addr = match addr {
-        Some(a) => a,
-        None => return None,
-    };
+    let addr = addr?;
 
     let parts: Vec<String> = addr
         .iter()
