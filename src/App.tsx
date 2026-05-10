@@ -364,6 +364,21 @@ export default function App() {
           }
         }
 
+        // Apply app icon style
+        const savedAppIconStyle = (await getSetting("app_icon_style")) || "auto";
+        try {
+          const computedStyle =
+            savedAppIconStyle === "auto"
+              ? window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light"
+              : savedAppIconStyle;
+          await invoke("update_app_icon", { style: computedStyle });
+          await invoke("set_tray_icon_style", { style: savedAppIconStyle });
+        } catch {
+          // commands may not be available yet
+        }
+
         // Load custom keyboard shortcuts
         await useShortcutStore.getState().loadKeyMap();
 
@@ -531,11 +546,18 @@ export default function App() {
       root.classList.remove("dark");
     } else {
       const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      const apply = () => {
+      const apply = async () => {
         if (mq.matches) {
           root.classList.add("dark");
         } else {
           root.classList.remove("dark");
+        }
+        
+        // Update app icon dynamically if set to auto
+        const iconStyle = await getSetting("app_icon_style");
+        if (!iconStyle || iconStyle === "auto") {
+           const computedStyle = mq.matches ? "dark" : "light";
+           invoke("update_app_icon", { style: computedStyle }).catch(() => {});
         }
       };
       apply();

@@ -629,6 +629,8 @@ export function SettingsPage() {
                           try {
                             const { invoke } = await import("@tauri-apps/api/core");
                             await invoke("set_tray_icon_style", { style: val });
+                            const computedStyle = val === "auto" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : val;
+                            await invoke("update_app_icon", { style: computedStyle });
                           } catch {
                             // command may not be available yet
                           }

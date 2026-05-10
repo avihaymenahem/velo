@@ -87,6 +87,26 @@ fn set_tray_icon_style(app: tauri::AppHandle, style: String) -> Result<(), Strin
     Ok(())
 }
 
+#[tauri::command]
+fn update_app_icon(app: tauri::AppHandle, style: String) -> Result<(), String> {
+    #[cfg(not(target_os = "linux"))]
+    {
+        if let Some(window) = app.get_webview_window("main") {
+            match style.as_str() {
+                "dark" => {
+                    let icon = tauri::include_image!("icons/icon_512x512-dark.png");
+                    let _ = window.set_icon(icon);
+                }
+                _ => {
+                    let icon = tauri::include_image!("icons/icon_512x512.png");
+                    let _ = window.set_icon(icon);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Set explicit AUMID on Windows so toast notifications show "Velo"
@@ -132,6 +152,7 @@ pub fn run() {
             oauth::oauth_refresh_token,
             set_tray_tooltip,
             set_tray_icon_style,
+            update_app_icon,
             close_splashscreen,
             open_devtools,
             commands::imap_test_connection,
