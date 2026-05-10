@@ -341,6 +341,13 @@ export async function deleteThread(
       )`,
       [accountId, threadId],
     );
+    // Delete embeddings for messages in this thread
+    await db.execute(
+      `DELETE FROM message_embeddings WHERE account_id = $1 AND message_id IN (
+        SELECT id FROM messages WHERE account_id = $1 AND thread_id = $2
+      )`,
+      [accountId, threadId],
+    );
     // Delete messages
     await db.execute(
       "DELETE FROM messages WHERE account_id = $1 AND thread_id = $2",

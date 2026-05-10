@@ -935,6 +935,24 @@ const MIGRATIONS = [
         ('ai_urgency_enabled', 'true');
     `,
   },
+  {
+    version: 36,
+    description: "Fix message_embeddings FK mismatch: reference composite PK (account_id, id) instead of standalone id",
+    sql: `
+      DROP TABLE IF EXISTS message_embeddings;
+      CREATE TABLE IF NOT EXISTS message_embeddings (
+        message_id TEXT NOT NULL,
+        account_id TEXT NOT NULL,
+        embedding TEXT NOT NULL,
+        model TEXT NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (account_id, message_id),
+        FOREIGN KEY (account_id, message_id) REFERENCES messages(account_id, id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account ON message_embeddings(account_id);
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account_created ON message_embeddings(account_id, created_at);
+    `,
+  },
 ];
 
 /**

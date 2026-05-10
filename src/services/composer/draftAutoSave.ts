@@ -36,6 +36,10 @@ async function cleanupOldDraftFromDb(accountId: string, oldDraftId: string): Pro
     if (rows.length === 0) return;
     const threadId = rows[0]!.thread_id;
     await db.execute(
+      "DELETE FROM message_embeddings WHERE account_id = $1 AND message_id = $2",
+      [accountId, oldDraftId],
+    );
+    await db.execute(
       "DELETE FROM messages WHERE id = $1 AND account_id = $2",
       [oldDraftId, accountId],
     );

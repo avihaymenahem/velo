@@ -123,6 +123,10 @@ export async function deleteMessage(
 ): Promise<void> {
   const db = await getDb();
   await db.execute(
+    "DELETE FROM message_embeddings WHERE account_id = $1 AND message_id = $2",
+    [accountId, messageId],
+  );
+  await db.execute(
     "DELETE FROM messages WHERE account_id = $1 AND id = $2",
     [accountId, messageId],
   );
@@ -151,6 +155,12 @@ export async function deleteMessagesForFolder(
 ): Promise<void> {
   const db = await getDb();
   await db.execute(
+    `DELETE FROM message_embeddings WHERE account_id = $1 AND message_id IN (
+      SELECT id FROM messages WHERE account_id = $1 AND imap_folder = $2
+    )`,
+    [accountId, imapFolder],
+  );
+  await db.execute(
     "DELETE FROM messages WHERE account_id = $1 AND imap_folder = $2",
     [accountId, imapFolder],
   );
@@ -171,6 +181,10 @@ export async function deleteAllMessagesForAccount(
   accountId: string,
 ): Promise<void> {
   const db = await getDb();
+  await db.execute(
+    "DELETE FROM message_embeddings WHERE account_id = $1",
+    [accountId],
+  );
   await db.execute(
     "DELETE FROM messages WHERE account_id = $1",
     [accountId],
@@ -211,6 +225,7 @@ export async function purgeImapDuplicates(accountId: string): Promise<number> {
         [accountId, message_id_header, imap_folder, keep_uid],
       );
       for (const { id, thread_id } of victims) {
+        await db.execute("DELETE FROM message_embeddings WHERE account_id = $1 AND message_id = $2", [accountId, id]);
         await db.execute("DELETE FROM messages WHERE id = $1 AND account_id = $2", [id, accountId]);
         deleted++;
         const remaining = await db.select<{ c: number }[]>(

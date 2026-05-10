@@ -258,6 +258,12 @@ async function applyLocalDbUpdate(
           [accountId, tid],
         );
         await db.execute(
+          `DELETE FROM message_embeddings WHERE account_id = $1 AND message_id IN (
+            SELECT id FROM messages WHERE account_id = $1 AND thread_id = $2
+          )`,
+          [accountId, tid],
+        );
+        await db.execute(
           "DELETE FROM messages WHERE account_id = $1 AND thread_id = $2",
           [accountId, tid],
         );
@@ -593,6 +599,10 @@ export async function deleteSingleMessage(
   const db = await getDb();
 
   // 1. Local DB: remove the message
+  await db.execute("DELETE FROM message_embeddings WHERE account_id = $1 AND message_id = $2", [
+    accountId,
+    messageId,
+  ]);
   await db.execute("DELETE FROM messages WHERE account_id = $1 AND id = $2", [
     accountId,
     messageId,

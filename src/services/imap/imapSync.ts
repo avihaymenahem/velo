@@ -240,6 +240,7 @@ async function reconcileDeletedMessages(
       if (rows.length === 0) continue;
       const threadId = rows[0]!.thread_id;
 
+      await db.execute("DELETE FROM message_embeddings WHERE account_id = $1 AND message_id = $2", [accountId, id]);
       await db.execute("DELETE FROM messages WHERE id = $1 AND account_id = $2", [id, accountId]);
 
       const remaining = await db.select<{ c: number }[]>(
