@@ -88,20 +88,27 @@ fn set_tray_icon_style(app: tauri::AppHandle, style: String) -> Result<(), Strin
 }
 
 #[tauri::command]
-fn update_app_icon(app: tauri::AppHandle, style: String) -> Result<(), String> {
-    #[cfg(not(target_os = "linux"))]
+fn update_app_icon(style: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
     {
-        if let Some(window) = app.get_webview_window("main") {
-            match style.as_str() {
-                "dark" => {
-                    let icon = tauri::include_image!("icons/icon_512x512-dark.png");
-                    let _ = window.set_icon(icon);
-                }
-                _ => {
-                    let icon = tauri::include_image!("icons/icon_512x512.png");
-                    let _ = window.set_icon(icon);
-                }
-            }
+        use cocoa::appkit::{NSApplication, NSImage};
+        use cocoa::base::nil;
+        use cocoa::foundation::NSData;
+        
+        let icon_bytes = match style.as_str() {
+            "dark" => include_bytes!("../icons/appicon-dark.icns").as_slice(),
+            _ => include_bytes!("../icons/appicon.icns").as_slice(),
+        };
+
+        unsafe {
+            let app = NSApplication::sharedApplication(nil);
+            let data = NSData::dataWithBytes_length_(
+                nil,
+                icon_bytes.as_ptr() as *const std::ffi::c_void,
+                icon_bytes.len() as u64,
+            );
+            let img = NSImage::initWithData_(NSImage::alloc(nil), data);
+            app.setApplicationIconImage_(img);
         }
     }
     Ok(())
