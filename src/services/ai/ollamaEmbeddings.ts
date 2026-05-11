@@ -271,3 +271,50 @@ export async function getEmbeddingProgress(
     total: totalRow?.cnt ?? 0,
   };
 }
+
+export async function getEmbeddingProgressAll(
+  ragEnabledAccountIds: string[],
+): Promise<{ indexed: number; total: number }> {
+  const db = await getDb();
+  type CountRow = { cnt: number };
+
+  if (ragEnabledAccountIds.length === 0) {
+    return { indexed: 0, total: 0 };
+  }
+
+  const placeholders = ragEnabledAccountIds.map(() => '?').join(',');
+
+  // Indexed: embeddings for eligible messages only (exclude SPAM/TRASH, same filter as total)
+  const indexedRow = await db.select<CountRow[]>(
+    `SELECT COUNT(*) as cnt FROM message_embeddings me
+     JOIN messages m ON m.id = me.message_id
+     WHERE me.account_id IN (${placeholders})
+       AND NOT EXISTS (
+         SELECT 1 FROM thread_labels tl
+         WHERE tl.account_id = m.account_id
+           AND tl.thread_id = m.thread_id
+           AND tl.label_id IN ('SPAM', 'TRASH')
+       )`,
+    ragEnabledAccountIds,
+  );
+  // Total: all messages eligible for indexing (rag_enabled=1 account, not spam/trash thread)
+  const totalRow = await db.select<CountRow[]>(
+    `SELECT COUNT(DISTINCT m.id) as cnt FROM messages m
+     JOIN accounts a ON a.id = m.account_id
+     WHERE m.account_id IN (${placeholders})
+       AND a.rag_enabled = 1
+       AND m.account_id IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM thread_labels tl
+         WHERE tl.account_id = m.account_id
+           AND tl.thread_id = m.thread_id
+           AND tl.label_id IN ('SPAM', 'TRASH')
+       )`,
+    ragEnabledAccountIds,
+  );
+
+  return {
+    indexed: indexedRow[0]?.cnt ?? 0,
+    total: totalRow[0]?.cnt ?? 0,
+  };
+}

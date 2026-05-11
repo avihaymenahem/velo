@@ -79,6 +79,7 @@ import { loadSoul, startSoulWatcher } from "./services/ai/soulService";
 import {
   runEmbeddingBackfill,
   stopEmbeddingBackfill,
+  isEmbeddingBackfillRunning,
 } from "./services/ai/embeddingBackfill";
 
 /**
@@ -501,6 +502,11 @@ export default function App() {
         setTimeout(() => setSyncStatus(null), 2_000);
         window.dispatchEvent(new Event("velo-sync-done"));
         updateBadgeCount();
+
+        // Resume embedding backfill if new messages arrived since the last run
+        if (!isEmbeddingBackfillRunning()) {
+          runEmbeddingBackfill().catch(() => {});
+        }
 
         // Backfill uncategorized threads after first successful sync
         if (!backfillDoneRef.current) {

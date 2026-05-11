@@ -162,12 +162,14 @@ export function SettingsPage() {
   const [embeddingModel, setEmbeddingModel] = useState("nomic-embed-text");
   const [ragChunkSize, setRagChunkSize] = useState("512");
   const [ragBatchSize, setRagBatchSize] = useState("10");
-  const [ragProgress, setRagProgress] = useState<{ indexed: number; total: number } | null>(null);
+const [ragProgress, setRagProgress] = useState<{ indexed: number; total: number } | null>(null);
   const [ragTesting, setRagTesting] = useState(false);
   const [ragTestResult, setRagTestResult] = useState<"success" | "fail" | null>(null);
   const [ragTestError, setRagTestError] = useState<"server_down" | "model_not_found" | "unknown" | null>(null);
   const [ragDimensions, setRagDimensions] = useState<number | null>(null);
   const [ragSaved, setRagSaved] = useState(false);
+  const [ragRunning, setRagRunning] = useState(false);
+  const [ragError, setRagError] = useState<string | null>(null);
   const [urgencyMuteWindow, setUrgencyMuteWindow] = useState("30");
   const [urgencyMuteThreshold, setUrgencyMuteThreshold] = useState("3");
   const [urgencyAutoExtinguish, setUrgencyAutoExtinguish] = useState(true);
@@ -176,6 +178,8 @@ export function SettingsPage() {
   const [ragPriorityDomains, setRagPriorityDomains] = useState("");
   const [behaviorEnabled, setBehaviorEnabled] = useState(true);
   const [urgencyEnabled, setUrgencyEnabled] = useState(true);
+  const [ragDiagOpen, setRagDiagOpen] = useState(false);
+  const [ragDiagData, setRagDiagData] = useState<any>(null);
   const [accountRagFlags, setAccountRagFlags] = useState<Record<string, boolean>>({});
 
   // Load settings from DB
@@ -284,13 +288,25 @@ export function SettingsPage() {
       if (chunkSz) setRagChunkSize(chunkSz);
       const batchSz = await getSetting("rag_batch_size");
       if (batchSz) setRagBatchSize(batchSz);
-      try {
-        const { getEmbeddingProgress } = await import("@/services/ai/ollamaEmbeddings");
-        const activeId = accounts.find((a) => a.isActive)?.id;
-        if (activeId) setRagProgress(await getEmbeddingProgress(activeId));
-      } catch { /* table may not exist yet */ }
 
-      // Load urgency / reputation settings
+      // Load per-account RAG flags
+      try {
+        const { getAccountRagEnabled } = await import("@/services/db/accounts");
+        const flags: Record<string, boolean> = {};
+        for (const acc of accounts) {
+          flags[acc.id] = await getAccountRagEnabled(acc.id);
+        }
+        setAccountRagFlags(flags);
+
+        // Load aggregated RAG progress for all RAG-enabled accounts
+        const ragEnabledIds = accounts.filter((a) => flags[a.id]).map((a) => a.id);
+        if (ragEnabledIds.length > 0) {
+          const { getEmbeddingProgressAll } = await import("@/services/ai/ollamaEmbeddings");
+          setRagProgress(await getEmbeddingProgressAll(ragEnabledIds));
+        }
+      } catch (err) {
+        console.error("Failed to load RAG flags:", err);
+      }
       const muteWindow = await getSetting("ai_urgency_mute_window_days");
       if (muteWindow) setUrgencyMuteWindow(muteWindow);
       const muteThreshold = await getSetting("ai_urgency_mute_threshold");
@@ -303,22 +319,10 @@ export function SettingsPage() {
       if (decayFloor) setUrgencyDecayFloor(decayFloor);
       const priorityDomains = await getSetting("rag_priority_domains");
       if (priorityDomains !== null) setRagPriorityDomains(priorityDomains);
-      const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
+const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
       setBehaviorEnabled(behaviorEnabledSetting !== "false");
       const urgencyEnabledSetting = await getSetting("ai_urgency_enabled");
       setUrgencyEnabled(urgencyEnabledSetting !== "false");
-
-      // Load per-account RAG flags
-      try {
-        const { getAccountRagEnabled } = await import("@/services/db/accounts");
-        const flags: Record<string, boolean> = {};
-        for (const acc of accounts) {
-          flags[acc.id] = await getAccountRagEnabled(acc.id);
-        }
-        setAccountRagFlags(flags);
-      } catch {
-        // Non-critical
-      }
 
       // Load cache settings
       const cacheMax = await getSetting("attachment_cache_max_mb");
@@ -332,7 +336,37 @@ export function SettingsPage() {
       }
     }
     load();
-  }, []);
+  }, [accounts]);
+
+  // Auto-refresh RAG progress when tab is active
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    if (activeTab === "intelligence" && ragEnabled) {
+      const refresh = async () => {
+        if (cancelled) return;
+        const { getEmbeddingProgressAll } = await import("@/services/ai/ollamaEmbeddings");
+        const ragEnabledIds = accounts.filter((a) => accountRagFlags[a.id]).map((a) => a.id);
+        if (ragEnabledIds.length > 0) {
+          const progress = await getEmbeddingProgressAll(ragEnabledIds);
+          if (!cancelled) setRagProgress(progress);
+        }
+        if (cancelled) return;
+        const { isEmbeddingBackfillRunning, getLastError } = await import("@/services/ai/embeddingBackfill");
+        if (!cancelled) {
+          setRagRunning(isEmbeddingBackfillRunning());
+          setRagError(getLastError());
+          timer = setTimeout(refresh, 3000);
+        }
+      };
+      refresh();
+    }
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [activeTab, ragEnabled, accounts, accountRagFlags]);
 
   const handleNotificationsToggle = useCallback(async () => {
     const newVal = !notificationsEnabled;
@@ -1755,6 +1789,15 @@ export function SettingsPage() {
                                 const { runEmbeddingBackfill } = await import("@/services/ai/embeddingBackfill");
                                 runEmbeddingBackfill().catch(() => {});
                               }
+                              // Refresh progress after account toggle
+                              const { getEmbeddingProgressAll } = await import("@/services/ai/ollamaEmbeddings");
+                              const updatedFlags = { ...accountRagFlags, [acc.id]: next };
+                              const ragEnabledIds = accounts.filter((a) => updatedFlags[a.id]).map((a) => a.id);
+                              if (ragEnabledIds.length > 0) {
+                                setRagProgress(await getEmbeddingProgressAll(ragEnabledIds));
+                              } else {
+                                setRagProgress(null);
+                              }
                             }}
                           />
                         ))}
@@ -1893,47 +1936,118 @@ export function SettingsPage() {
                   </Section>
 
                   <Section title="Indexing Progress">
-                    {ragProgress ? (
-                      <div>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-text-secondary">Emails indexed</span>
-                          <span className="text-text-primary font-medium tabular-nums">
-                            {ragProgress.indexed.toLocaleString()} / {ragProgress.total.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="w-full bg-bg-tertiary rounded-full h-2 border border-border-primary">
-                          <div
-                            className="bg-accent h-2 rounded-full transition-all duration-300"
-                            style={{
-                              width: ragProgress.total > 0
-                                ? `${Math.min(100, (ragProgress.indexed / ragProgress.total) * 100)}%`
-                                : "0%",
-                            }}
-                          />
-                        </div>
-                        <p className="text-xs text-text-tertiary mt-2">
-                          {ragProgress.indexed >= ragProgress.total && ragProgress.total > 0
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-text-secondary">Emails indexed</span>
+                        <span className="text-text-primary font-medium tabular-nums">
+                          {ragProgress
+                            ? `${ragProgress.indexed.toLocaleString()} / ${ragProgress.total.toLocaleString()}`
+                            : "— / —"}
+                        </span>
+                      </div>
+                      <div className="w-full bg-bg-tertiary rounded-full h-2 border border-border-primary">
+                        <div
+                          className="bg-accent h-2 rounded-full transition-all duration-300"
+                          style={{
+                            width: ragProgress && ragProgress.total > 0
+                              ? `${Math.min(100, (ragProgress.indexed / ragProgress.total) * 100)}%`
+                              : "0%",
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-text-tertiary mt-2">
+                        {!ragProgress
+                          ? (accounts.some((a) => accountRagFlags[a.id])
+                              ? "Loading indexing data…"
+                              : "Enable semantic indexing for at least one account above to start indexing.")
+                          : ragProgress.indexed >= ragProgress.total && ragProgress.total > 0
                             ? "All emails indexed. Semantic search is fully operational."
-                            : ragEnabled
-                              ? "Indexing in progress — runs automatically in the background."
-                              : "Enable Semantic Search above to start indexing."}
-                        </p>
+                            : ragProgress.indexed > ragProgress.total
+                              ? `Indexing complete — ${(ragProgress.indexed - ragProgress.total).toLocaleString()} emails had no embeddable content`
+                              : ragRunning
+                                ? `Indexing in progress — ${(ragProgress.total - ragProgress.indexed).toLocaleString()} remaining`
+                                : `Paused — ${(ragProgress.total - ragProgress.indexed).toLocaleString()} emails remaining`}
+                      </p>
+                      {ragError && (
+                        <p className="text-xs text-danger mt-1">{ragError}</p>
+                      )}
+                      <div className="flex gap-2 mt-3">
+                        {ragProgress && ragProgress.indexed < ragProgress.total && ragEnabled && (
+                          <Button
+                            variant="secondary"
+                            size="md"
+                            className="bg-bg-tertiary text-text-primary border border-border-primary"
+                            onClick={async () => {
+                              const { runEmbeddingBackfill, isEmbeddingBackfillRunning, getLastError } = await import("@/services/ai/embeddingBackfill");
+                              runEmbeddingBackfill().catch(() => {});
+                              setRagRunning(isEmbeddingBackfillRunning());
+                              setRagError(getLastError());
+                            }}>
+                            {ragRunning ? "Restart Indexing" : "Resume Indexing"}
+                          </Button>
+                        )}
                         <Button
                           variant="secondary"
                           size="md"
-                          className="mt-3 bg-bg-tertiary text-text-primary border border-border-primary"
+                          className="bg-bg-tertiary text-text-primary border border-border-primary"
                           onClick={async () => {
-                            const { getEmbeddingProgress } = await import("@/services/ai/ollamaEmbeddings");
-                            const activeId = accounts.find((a) => a.isActive)?.id;
-                            if (activeId) setRagProgress(await getEmbeddingProgress(activeId));
-                          }}
-                        >
-                          Refresh
+                            if (ragDiagOpen) {
+                              setRagDiagOpen(false);
+                              return;
+                            }
+                            const { getDiagnostics } = await import("@/services/ai/embeddingBackfill");
+                            const diag = await getDiagnostics();
+                            setRagDiagData(diag);
+                            setRagDiagOpen(true);
+                          }}>
+                          {ragDiagOpen ? "Hide Diagnostics" : "Detailed Diagnostics"}
                         </Button>
                       </div>
-                    ) : (
-                      <p className="text-xs text-text-tertiary">No indexing data available yet.</p>
-                    )}
+
+                      {ragDiagOpen && ragDiagData && (
+                        <div className="mt-4 p-4 rounded-lg bg-bg-secondary border border-border-primary space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-text-tertiary mb-2">Internal Index State</h4>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <p className="text-[10px] text-text-tertiary uppercase">Database Totals</p>
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-xs text-text-secondary">Total Messages</span>
+                                <span className="text-sm font-medium tabular-nums">{ragDiagData.totalMessages.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-xs text-text-secondary">RAG-Enabled Accounts</span>
+                                <span className="text-sm font-medium tabular-nums">{ragDiagData.ragAccounts}</span>
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[10px] text-text-tertiary uppercase">Eligibility</p>
+                              <div className="flex justify-between items-baseline border-b border-border-primary pb-1 mb-1">
+                                <span className="text-xs text-text-secondary font-semibold">Eligible Messages</span>
+                                <span className="text-sm font-bold tabular-nums text-accent">{ragDiagData.eligibleMessages.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-xs text-text-secondary">Successfully Indexed</span>
+                                <span className="text-sm font-medium tabular-nums text-success">{ragDiagData.indexed.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-xs text-text-secondary">No Content (Sentinels)</span>
+                                <span className="text-sm font-medium tabular-nums text-text-tertiary">{ragDiagData.sentinels.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between items-baseline pt-1">
+                                <span className="text-xs text-text-secondary">Pending Processing</span>
+                                <span className="text-sm font-medium tabular-nums text-warning">{ragDiagData.pending.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-t border-border-primary">
+                            <p className="text-[10px] text-text-tertiary leading-relaxed italic">
+                              * Eligible messages exclude Spam, Trash, and accounts where semantic search is disabled.
+                              Sentinels mark messages that were processed but had insufficient text for embedding.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </Section>
 
                   <Section title="Temporal Aging">
