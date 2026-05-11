@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CSSTransition } from "react-transition-group";
 import { ThreadCard } from "../email/ThreadCard";
 import { CategoryTabs } from "../email/CategoryTabs";
@@ -45,6 +46,7 @@ const LABEL_MAP: Record<string, string> = {
 };
 
 export function EmailList({ width, listRef }: { width?: number; listRef?: React.Ref<HTMLDivElement> }) {
+  const { t } = useTranslation();
   const threads = useThreadStore((s) => s.threads);
   const selectedThreadId = useSelectedThreadId();
   const selectedThreadIds = useThreadStore((s) => s.selectedThreadIds);
@@ -513,7 +515,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
                   : userLabels.find((l) => l.id === activeLabel)?.name ?? activeLabel}
           </h2>
           <span className="text-xs text-text-tertiary">
-            {filteredThreads.length} conversation{filteredThreads.length !== 1 ? "s" : ""}
+            {t('email.nConversations', { n: filteredThreads.length })}
           </span>
         </div>
         <select
@@ -521,9 +523,9 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
           onChange={(e) => setReadFilter(e.target.value as "all" | "read" | "unread")}
           className="text-xs bg-bg-tertiary text-text-secondary px-2 py-1 rounded border border-border-primary"
         >
-          <option value="all">All</option>
-          <option value="unread">Unread</option>
-          <option value="read">Read</option>
+          <option value="all">{t('common.all')}</option>
+          <option value="unread">{t('common.unread')}</option>
+          <option value="read">{t('common.read')}</option>
         </select>
       </div>
 
@@ -541,14 +543,14 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
         <div ref={multiSelectBarRef} className="px-3 py-2 border-b border-border-primary bg-accent/5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-text-primary">
-              {multiSelectCount} selected
+              {t('email.nSelected', { n: multiSelectCount })}
             </span>
             {multiSelectCount < filteredThreads.length && (
               <button
                 onClick={selectAll}
                 className="text-xs text-accent hover:text-accent-hover transition-colors"
               >
-                Select all
+                {t('email.selectAll')}
               </button>
             )}
           </div>
@@ -668,7 +670,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
                 >
                   {showDivider && (
                     <div className="px-4 py-1.5 text-xs font-medium text-text-tertiary uppercase tracking-wider bg-bg-tertiary/50 border-b border-border-secondary">
-                      Other emails
+                      {t('email.otherEmails')}
                     </div>
                   )}
                   <ThreadCard
@@ -685,12 +687,12 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
             })}
             {loadingMore && (
               <div className="px-4 py-3 text-center text-xs text-text-tertiary">
-                Loading more...
+                {t('email.loadingMore')}
               </div>
             )}
             {!hasMore && threads.length > PAGE_SIZE && (
               <div className="px-4 py-3 text-center text-xs text-text-tertiary">
-                All conversations loaded
+                {t('email.allConversationsLoaded')}
               </div>
             )}
           </>
@@ -713,14 +715,15 @@ function EmptyStateForContext({
   readFilter: string;
   activeCategory: string;
 }) {
+  const { t } = useTranslation();
   if (searchQuery) {
-    return <EmptyState illustration={NoSearchResultsIllustration} title="No results found" subtitle="Try a different search term" />;
+    return <EmptyState illustration={NoSearchResultsIllustration} title={t('email.noResultsFound')} subtitle={t('email.tryDifferentSearch')} />;
   }
   if (readFilter !== "all") {
     return <EmptyState icon={Filter} title={`No ${readFilter} emails`} subtitle="Try changing the filter" />;
   }
   if (!activeAccountId) {
-    return <EmptyState illustration={NoAccountIllustration} title="No account connected" subtitle="Add a Gmail account to get started" />;
+    return <EmptyState illustration={NoAccountIllustration} title={t('email.noAccountConnected')} subtitle={t('email.addAccountToStart')} />;
   }
 
   switch (activeLabel) {
@@ -736,7 +739,7 @@ function EmptyStateForContext({
         const msg = categoryMessages[activeCategory];
         if (msg) return <EmptyState illustration={InboxClearIllustration} title={msg.title} subtitle={msg.subtitle} />;
       }
-      return <EmptyState illustration={InboxClearIllustration} title="You're all caught up" subtitle="No new conversations" />;
+      return <EmptyState illustration={InboxClearIllustration} title={t('email.allCaughtUp')} subtitle={t('email.noNewConversations')} />;
     case "starred":
       return <EmptyState illustration={GenericEmptyIllustration} title="No starred conversations" subtitle="Star emails to find them here" />;
     case "snoozed":

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, Pencil, Trash2, Check, X, Tags, Users } from "lucide-react";
 import {
   getAllContacts,
@@ -7,15 +8,21 @@ import {
   type DbContact,
 } from "@/services/db/contacts";
 import { GroupManager } from "@/components/contacts/GroupManager";
+import { CsvImportWizard } from "@/components/contacts/CsvImportWizard";
+import { ContactMergeDialog } from "@/components/contacts/ContactMergeDialog";
+import { Modal } from "@/components/ui/Modal";
 import { useContactStore } from "@/stores/contactStore";
 import { useAccountStore } from "@/stores/accountStore";
 
 export function ContactEditor() {
+  const { t } = useTranslation();
   const [contacts, setContacts] = useState<DbContact[]>([]);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [tab, setTab] = useState<"contacts" | "tags">("contacts");
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
   const primaryAccountId = useAccountStore((s) =>
     s.accounts.find((a) => a.isActive)?.id ?? "",
   );
@@ -66,7 +73,8 @@ export function ContactEditor() {
   };
 
   return (
-    <div className="space-y-3">
+    <>
+      <div className="space-y-3">
       {/* Tab switcher */}
       <div className="flex items-center gap-1 border-b border-border-primary pb-2">
         <button
@@ -191,6 +199,16 @@ export function ContactEditor() {
         </>
       ) : (
         <div className="space-y-6">
+          <div className="flex items-center gap-2 mb-4">
+            <button onClick={() => setShowCsvImport(true)}
+              className="px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-md hover:bg-accent-hover transition-colors">
+              {t('contact.importContacts')}
+            </button>
+            <button onClick={() => setShowMergeDialog(true)}
+              className="px-3 py-1.5 text-xs font-medium border border-border-primary text-text-secondary rounded-md hover:bg-bg-hover transition-colors">
+              {t('contact.mergeDuplicates')}
+            </button>
+          </div>
           <div>
             <GroupManager accountId={primaryAccountId} />
           </div>
@@ -222,5 +240,19 @@ export function ContactEditor() {
         </div>
       )}
     </div>
+      {showCsvImport && (
+        <Modal isOpen={showCsvImport} onClose={() => setShowCsvImport(false)} title={t('contact.importContacts')}>
+          <CsvImportWizard isOpen={true} onClose={() => { setShowCsvImport(false); loadTags(primaryAccountId); }} accountId={primaryAccountId} />
+        </Modal>
+      )}
+      {showMergeDialog && (
+        <ContactMergeDialog
+          isOpen={true}
+          onClose={() => setShowMergeDialog(false)}
+          candidates={[]}
+          onMerge={(_keepId, _mergeId) => {}}
+        />
+      )}
+    </>
   );
 }
