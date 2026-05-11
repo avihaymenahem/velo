@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useDroppable } from "@dnd-kit/core";
 import { AccountSwitcher } from "../accounts/AccountSwitcher";
 import { LabelForm } from "../labels/LabelForm";
@@ -50,28 +51,28 @@ interface SidebarProps {
 }
 
 export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "inbox", label: "Inbox", icon: Inbox },
-  { id: "starred", label: "Starred", icon: Star },
-  { id: "snoozed", label: "Snoozed", icon: Clock },
-  { id: "sent", label: "Sent", icon: Send },
-  { id: "drafts", label: "Drafts", icon: FileEdit },
-  { id: "trash", label: "Trash", icon: Trash2 },
-  { id: "spam", label: "Spam", icon: Ban },
-  { id: "all", label: "All Mail", icon: Mail },
-  { id: "tasks", label: "Tasks", icon: CheckSquare },
-  { id: "calendar", label: "Calendar", icon: Calendar },
-  { id: "attachments", label: "Attachments", icon: Paperclip },
-  { id: "campaigns", label: "Campaigns", icon: Send },
-  { id: "smart-folders", label: "Smart Folders", icon: FolderSearch },
-  { id: "labels", label: "Labels", icon: Tag },
+  { id: "inbox", label: "nav.inbox", icon: Inbox },
+  { id: "starred", label: "nav.starred", icon: Star },
+  { id: "snoozed", label: "nav.snoozed", icon: Clock },
+  { id: "sent", label: "nav.sent", icon: Send },
+  { id: "drafts", label: "nav.drafts", icon: FileEdit },
+  { id: "trash", label: "nav.trash", icon: Trash2 },
+  { id: "spam", label: "nav.spam", icon: Ban },
+  { id: "all", label: "nav.allMail", icon: Mail },
+  { id: "tasks", label: "nav.tasks", icon: CheckSquare },
+  { id: "calendar", label: "nav.calendar", icon: Calendar },
+  { id: "attachments", label: "nav.attachments", icon: Paperclip },
+  { id: "campaigns", label: "nav.campaigns", icon: Send },
+  { id: "smart-folders", label: "nav.smartFolders", icon: FolderSearch },
+  { id: "labels", label: "nav.labels", icon: Tag },
 ];
 
 const CATEGORY_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "Primary", label: "Primary", icon: Inbox },
-  { id: "Updates", label: "Updates", icon: Bell },
-  { id: "Promotions", label: "Promotions", icon: Tag },
-  { id: "Social", label: "Social", icon: Users },
-  { id: "Newsletters", label: "Newsletters", icon: Newspaper },
+  { id: "Primary", label: "categories.primary", icon: Inbox },
+  { id: "Updates", label: "categories.updates", icon: Bell },
+  { id: "Promotions", label: "categories.promotions", icon: Tag },
+  { id: "Social", label: "categories.social", icon: Users },
+  { id: "Newsletters", label: "categories.newsletters", icon: Newspaper },
 ];
 
 function DroppableNavItem({
@@ -207,6 +208,7 @@ function getSmartFolderIcon(iconName: string): LucideIcon {
 const LABELS_COLLAPSED_COUNT = 3;
 
 export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
+  const { t } = useTranslation();
   const activeLabel = useActiveLabel();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const sidebarNavConfig = useUIStore((s) => s.sidebarNavConfig);
@@ -356,7 +358,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           onClick={() => openComposer()}
           className="w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent-hover text-white rounded-lg py-2 text-sm font-medium interactive-btn"
         >
-          {collapsed ? <Plus size={16} /> : "Compose"}
+          {collapsed ? <Plus size={16} /> : t("nav.compose")}
         </button>
       </div>
 
@@ -378,7 +380,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                   }
                 }}
                 onContextMenu={(e) => handleNavContextMenu(e, item.id)}
-                title={collapsed ? item.label : undefined}
+                title={collapsed ? t(item.label) : undefined}
               >
                 {() => (
                   <>
@@ -388,7 +390,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                       <Icon size={18} className="shrink-0" />
                     )}
                     {!collapsed && (
-                      <span className="flex-1 truncate">{item.label}</span>
+                      <span className="flex-1 truncate">{t(item.label)}</span>
                     )}
                     {item.id === "tasks" && taskIncompleteCount > 0 && !collapsed && (
                       <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
@@ -442,7 +444,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                         }`}
                       >
                         <CatIcon size={14} className="shrink-0" />
-                        <span className="flex-1 truncate">{cat.label}</span>
+                        <span className="flex-1 truncate">{t(cat.label)}</span>
                       </button>
                     );
                   })}
@@ -458,7 +460,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">
                 <span className="text-xs font-medium text-sidebar-text/60 uppercase tracking-wider">
-                  Smart Folders
+                  {t("nav.smartFolders")}
                 </span>
                 <button
                   onClick={handleAddSmartFolder}
@@ -513,7 +515,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">
                 <span className="text-xs font-medium text-sidebar-text/60 uppercase tracking-wider">
-                  Labels
+                  {t("nav.labels")}
                 </span>
                 <button
                   onClick={handleAddLabel}
@@ -580,12 +582,12 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                 {labelsExpanded ? (
                   <>
                     <ChevronUp size={12} />
-                    <span>Show less</span>
+                    <span>{t("nav.showLess")}</span>
                   </>
                 ) : (
                   <>
                     <ChevronDown size={12} />
-                    <span>{labels.length - LABELS_COLLAPSED_COUNT} more</span>
+                    <span>{t("nav.nMore", { n: labels.length - LABELS_COLLAPSED_COUNT })}</span>
                   </>
                 )}
               </button>
@@ -613,10 +615,10 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
               ? "bg-accent/10 text-accent font-medium"
               : "text-sidebar-text hover:bg-sidebar-hover"
           }`}
-          title="Settings"
+          title={t("nav.settings")}
         >
           <Settings size={18} className="shrink-0" />
-          {!collapsed && <span>Settings</span>}
+          {!collapsed && <span>{t("nav.settings")}</span>}
         </button>
         <button
           onClick={() => navigateToLabel("help")}
@@ -627,14 +629,14 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
               ? "bg-accent/10 text-accent font-medium"
               : "text-sidebar-text hover:bg-sidebar-hover"
           }`}
-          title="Help"
+          title={t("nav.help")}
         >
           <HelpCircle size={18} className="shrink-0" />
         </button>
         <button
           onClick={toggleSidebar}
           className="p-2 text-sidebar-text/60 hover:text-sidebar-text hover:bg-sidebar-hover rounded-md transition-colors"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? t("nav.expandSidebar") : t("nav.collapseSidebar")}
         >
           {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
         </button>
@@ -650,10 +652,10 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
             activeAccountId ?? undefined,
           );
         }}
-        title="New Smart Folder"
+        title={t("nav.newSmartFolder")}
         fields={[
-          { key: "name", label: "Name", placeholder: "e.g. Unread from boss" },
-          { key: "query", label: "Search query", placeholder: "e.g. is:unread from:boss" },
+          { key: "name", label: t("nav.name"), placeholder: t("nav.nameExample") },
+          { key: "query", label: t("nav.searchQuery"), placeholder: t("nav.searchQueryExample") },
         ]}
       />
 
@@ -664,6 +666,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
 }
 
 function PendingOpsIndicator({ collapsed }: { collapsed: boolean }) {
+  const { t } = useTranslation();
   const pendingOpsCount = useUIStore((s) => s.pendingOpsCount);
   if (pendingOpsCount <= 0) return null;
 
@@ -675,7 +678,7 @@ function PendingOpsIndicator({ collapsed }: { collapsed: boolean }) {
         </div>
       ) : (
         <div className="text-xs text-text-secondary">
-          {pendingOpsCount} pending {pendingOpsCount === 1 ? "change" : "changes"}
+          {t("nav.nPending", { n: pendingOpsCount })}
         </div>
       )}
     </div>

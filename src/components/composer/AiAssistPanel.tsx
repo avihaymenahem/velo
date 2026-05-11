@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { Editor } from "@tiptap/react";
+import { useTranslation } from "react-i18next";
 import { Wand2, Sparkles, ArrowDown, Briefcase } from "lucide-react";
 import { isAiAvailable } from "@/services/ai/providerManager";
 import {
@@ -17,6 +18,7 @@ interface AiAssistPanelProps {
 }
 
 export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistPanelProps) {
+  const { t } = useTranslation();
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +89,7 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
     <div className="px-3 py-2 border-b border-border-secondary bg-accent/5">
       <div className="flex items-center gap-2 mb-2">
         <Sparkles size={12} className="text-accent" />
-        <span className="text-xs font-medium text-accent">AI Assist</span>
+        <span className="text-xs font-medium text-accent">{t('composer.aiAssist')}</span>
       </div>
 
       {/* Prompt input */}
@@ -103,7 +105,7 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
               else handleCompose();
             }
           }}
-          placeholder={isReplyMode ? "Instructions for reply (optional)..." : "Describe what to write..."}
+          placeholder={isReplyMode ? t('composer.instructionsForReply') : t('composer.describeWhatToWrite')}
           className="flex-1 px-2 py-1 text-xs bg-bg-tertiary border border-border-primary rounded outline-none focus:border-accent text-text-primary placeholder:text-text-tertiary"
           disabled={loading}
         />
