@@ -8,6 +8,7 @@ import { navigateToThread, getSelectedThreadId } from "@/router/navigate";
 import { getAccount } from "@/services/db/accounts";
 import { deleteThread as deleteThreadFromDb } from "@/services/db/threads";
 import { getMessagesForThread } from "@/services/db/messages";
+import { updateBadgeCount } from "@/services/badgeManager";
 
 // ---------------------------------------------------------------------------
 // Action types
@@ -360,6 +361,9 @@ export async function executeEmailAction(
       getResourceId(action),
       actionToParams(action),
     );
+    if (action.type === "markRead" || action.type === "archive" || action.type === "trash" || action.type === "spam") {
+      updateBadgeCount().catch(console.error);
+    }
     return { success: true, queued: true };
   }
 
@@ -367,6 +371,9 @@ export async function executeEmailAction(
   try {
     const data = await executeViaProvider(accountId, action);
     window.dispatchEvent(new Event("velo-sync-done"));
+    if (action.type === "markRead" || action.type === "archive" || action.type === "trash" || action.type === "spam") {
+      updateBadgeCount().catch(console.error);
+    }
     return { success: true, data };
   } catch (err) {
     const classified = classifyError(err);
@@ -379,6 +386,9 @@ export async function executeEmailAction(
         getResourceId(action),
         actionToParams(action),
       );
+      if (action.type === "markRead" || action.type === "archive" || action.type === "trash" || action.type === "spam") {
+        updateBadgeCount().catch(console.error);
+      }
       return { success: true, queued: true };
     }
 
