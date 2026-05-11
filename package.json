@@ -51,8 +51,12 @@
     "react-dom": "^19.2.4",
     "react-i18next": "^17.0.7",
     "react-transition-group": "^4.4.5",
+    "recharts": "^2.15.4",
     "tsdav": "^2.1.8",
     "zustand": "^5.0.11"
+  },
+  "overrides": {
+    "react-is": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",
