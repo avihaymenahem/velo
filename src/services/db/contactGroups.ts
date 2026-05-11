@@ -70,3 +70,11 @@ export async function removeContactFromGroup(contactId: string, groupId: string)
     [contactId, groupId],
   );
 }
+
+export async function getContactGroupIds(groupId: string): Promise<{ contact_id: string }[]> {
+  const db = await getDb();
+  return db.select<{ contact_id: string }[]>(
+    "SELECT contact_id FROM contact_group_pivot WHERE group_id = $1",
+    [groupId],
+  );
+}
