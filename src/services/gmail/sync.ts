@@ -73,6 +73,7 @@ async function processAndStoreThread(
     subject: firstMessage.subject,
     bodyText: lastMessage.bodyText,
     fromAddress: lastMessage.fromAddress,
+    fromName: lastMessage.fromName,
     lastMessageAt: lastMessage.date,
     labelIds: [...allLabelIds],
   }).catch(() => {});

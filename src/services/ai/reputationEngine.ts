@@ -88,13 +88,79 @@ const HIGH_URGENCY_KEYWORDS = [
   /immédiatement/i, /délai/i,
 ];
 
+// Patterns indicating an unanswered follow-up / pending request (IT · EN · FR · ES · DE)
+const SOLLECITO_PATTERNS: RegExp[] = [
+  /sollecito/i, /in attesa\b/i, /attendo\b.{0,30}riscontro/i,
+  /rimango in attesa/i, /rammento/i, /come da mia precedente/i,
+  /ancora in attesa/i, /non ho ricevuto risposta/i,
+  /mancata risposta/i,
+  /follow[- ]?up/i, /following up/i, /awaiting your reply/i,
+  /no response received/i, /gentle reminder/i, /kind reminder/i,
+  /as per my previous/i, /as previously mentioned/i,
+  /still waiting/i, /haven.?t heard back/i,
+  /relance/i, /sans réponse/i,
+  /recordatorio/i, /sin respuesta/i,
+  /erinnerung/i, /keine antwort/i,
+];
+
+// Legal / professional sender signals (name or address)
+const LEGAL_SENDER_PATTERNS: RegExp[] = [
+  /avvocato/i, /avv\./i, /studio legale/i, /\blegale\b/i,
+  /\blegal\b/i, /law firm/i, /attorney/i, /counsel/i,
+  /studio professionale/i, /\bstudio\b.{0,20}(ass|assoc|prof)/i,
+  /\bpec\b/i, /\.pec\./i,
+  /notai?o/i, /notary/i,
+  /avocat/i, /\bcabinet\b/i,
+  /abogado/i, /\bdespacho\b/i,
+  /rechtsanwalt/i, /kanzlei/i,
+];
+
+// Disclaimer patterns — strip everything after these to clean the signal
+const DISCLAIMER_PATTERNS: RegExp[] = [
+  /ai sensi della l\.?\s*196\/0?3[\s\S]*/i,
+  /ai sensi del d\.?\s*lgs\.?\s*196[\s\S]*/i,
+  /ai sensi del regolamento\s+ue\s+2016\/679[\s\S]*/i,
+  /\bgdpr\b[\s\S]*/i,
+  /under the italian (privacy )?law[\s\S]*/i,
+  /privacy policy[\s\S]*/i,
+  /\bdisclaimer\b[\s\S]*/i,
+  /this (e-?mail|message) (and any attachments? )?is intended[\s\S]*/i,
+  /confidentiality notice[\s\S]*/i,
+  /\bconfidential(ity)?\b.{0,30}notice[\s\S]*/i,
+];
+
+/**
+ * Strip legal/privacy disclaimers from body text before urgency scoring.
+ * Removes everything after the first disclaimer trigger found.
+ */
+export function sanitizeForUrgencyScoring(text: string): string {
+  let cleaned = text;
+  for (const pat of DISCLAIMER_PATTERNS) {
+    cleaned = cleaned.replace(pat, "");
+  }
+  return cleaned.trim();
+}
+
+/** Returns true if the email is a follow-up / sollecito. */
+export function detectSollecito(subject: string, bodyText: string): boolean {
+  const combined = `${subject} ${bodyText.slice(0, 800)}`;
+  return SOLLECITO_PATTERNS.some((p) => p.test(combined));
+}
+
+/** Returns true if the sender appears to be a legal professional. */
+export function detectLegalSender(fromName: string, fromAddress: string): boolean {
+  const combined = `${fromName} ${fromAddress}`;
+  return LEGAL_SENDER_PATTERNS.some((p) => p.test(combined));
+}
+
 /**
  * Score urgency from subject + body text using keyword heuristics.
- * Returns a value in [0, 1]. Does not apply reputation penalty — call
- * adjustUrgencyWithReputation() separately if needed.
+ * Strips disclaimers before scoring. Returns a value in [0, 1].
+ * Does not apply reputation penalty — call adjustUrgencyWithReputation() separately.
  */
 export function scoreUrgencyFromText(subject: string, bodyText: string): number {
-  const combined = `${subject} ${bodyText.slice(0, 500)}`.toLowerCase();
+  const cleanBody = sanitizeForUrgencyScoring(bodyText);
+  const combined = `${subject} ${cleanBody.slice(0, 500)}`.toLowerCase();
   let hits = 0;
   for (const kw of HIGH_URGENCY_KEYWORDS) {
     if (kw.test(combined)) hits++;

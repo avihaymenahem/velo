@@ -354,6 +354,7 @@ async function storeThreadsAndMessages(
           subject: firstMessage.subject,
           bodyText: lastMessage.bodyText,
           fromAddress: lastMessage.fromAddress,
+          fromName: lastMessage.fromName,
           lastMessageAt: lastMessage.date,
           labelIds: labelArray,
         });
@@ -521,6 +522,7 @@ export async function imapInitialSync(
     subject: string | null;
     snippet: string;
     fromAddress: string | null;
+    fromName: string | null;
     date: number;
   }
 
@@ -739,6 +741,7 @@ export async function imapInitialSync(
             subject: parsed.subject,
             snippet: parsed.snippet,
             fromAddress: parsed.fromAddress,
+            fromName: parsed.fromName,
             date: parsed.date,
           };
           allMeta.set(parsed.id, meta);
@@ -895,6 +898,7 @@ export async function imapInitialSync(
           subject: firstMessage.subject,
           bodyText: lastMessage.snippet,
           fromAddress: lastMessage.fromAddress,
+          fromName: lastMessage.fromName,
           lastMessageAt: lastMessage.date,
           labelIds: labelArray,
         });

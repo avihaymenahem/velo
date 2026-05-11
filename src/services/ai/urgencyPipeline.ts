@@ -5,6 +5,9 @@ import {
   scoreUrgencyFromText,
   adjustUrgencyWithReputation,
   ragPriorityDomainBoost,
+  detectSollecito,
+  detectLegalSender,
+  sanitizeForUrgencyScoring,
 } from "./reputationEngine";
 
 const SKIP_LABELS = new Set(["SENT", "DRAFT", "TRASH", "SPAM"]);
@@ -58,6 +61,7 @@ export interface ThreadUrgencyParams {
   subject: string | null;
   bodyText: string | null;
   fromAddress: string | null;
+  fromName?: string | null;
   lastMessageAt: number; // ms since epoch
   labelIds: string[];
 }
@@ -81,12 +85,25 @@ export async function processThreadUrgency(params: ThreadUrgencyParams): Promise
     const subject = params.subject ?? "";
     const bodyText = params.bodyText ?? "";
     const fromAddress = params.fromAddress ?? "";
+    const fromName = params.fromName ?? "";
 
-    const rawScore = scoreUrgencyFromText(subject, bodyText);
-    if (rawScore === 0) return;
+    const isSollecito = detectSollecito(subject, bodyText);
+    const isLegalSender = detectLegalSender(fromName, fromAddress);
+
+    let rawScore = scoreUrgencyFromText(subject, sanitizeForUrgencyScoring(bodyText));
+
+    // Sollecito floor: pending follow-ups are never below 0.4
+    if (isSollecito) rawScore = Math.max(rawScore, 0.4);
+
+    // Skip threads with no urgency signal unless legal sender
+    if (rawScore === 0 && !isLegalSender) return;
 
     const boost = ragPriorityDomainBoost(fromAddress, bodyText, settings.priorityDomains);
-    const boostedScore = Math.min(1, rawScore + boost);
+    let boostedScore = Math.min(1, rawScore + boost);
+
+    // Legal sender: guaranteed minimum of 0.8 — role beats tone
+    if (isLegalSender) boostedScore = Math.max(boostedScore + 0.4, 0.8);
+    boostedScore = Math.min(1, boostedScore);
 
     const finalScore = fromAddress
       ? await adjustUrgencyWithReputation(params.accountId, fromAddress, boostedScore)
@@ -113,6 +130,7 @@ type BackfillRow = {
   subject: string | null;
   last_message_at: number | null;
   from_address: string | null;
+  from_name: string | null;
   body_text: string | null;
   label_ids: string | null; // GROUP_CONCAT of thread_labels
 };
@@ -136,7 +154,7 @@ export async function runUrgencyBackfill(): Promise<void> {
   while (true) {
     const rows = await db.select<BackfillRow[]>(
       `SELECT t.id, t.account_id, t.subject, t.last_message_at,
-              m.from_address, m.body_text,
+              m.from_address, m.from_name, m.body_text,
               (SELECT GROUP_CONCAT(tl.label_id) FROM thread_labels tl
                WHERE tl.account_id = t.account_id AND tl.thread_id = t.id) AS label_ids
        FROM threads t
@@ -162,6 +180,7 @@ export async function runUrgencyBackfill(): Promise<void> {
         subject: row.subject,
         bodyText: row.body_text,
         fromAddress: row.from_address,
+        fromName: row.from_name,
         lastMessageAt: row.last_message_at ?? 0,
         labelIds: row.label_ids ? row.label_ids.split(",") : [],
       });
