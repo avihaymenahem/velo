@@ -775,6 +775,58 @@ const MIGRATIONS = [
     description: "Accept self-signed certificates for IMAP/SMTP",
     sql: `ALTER TABLE accounts ADD COLUMN accept_invalid_certs INTEGER DEFAULT 0;`,
   },
+  {
+    version: 24,
+    description: "Contact intelligence: tags, groups, segments",
+    sql: `
+      -- Contact tags (follows task_tags pattern)
+      CREATE TABLE IF NOT EXISTS contact_tags (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        color TEXT,
+        sort_order INTEGER DEFAULT 0,
+        created_at INTEGER DEFAULT (unixepoch()),
+        UNIQUE(account_id, name)
+      );
+      CREATE INDEX IF NOT EXISTS idx_contact_tags_account ON contact_tags(account_id);
+
+      -- Contact tag pivot
+      CREATE TABLE IF NOT EXISTS contact_tag_pivot (
+        contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+        tag_id TEXT NOT NULL REFERENCES contact_tags(id) ON DELETE CASCADE,
+        PRIMARY KEY (contact_id, tag_id)
+      );
+
+      -- Contact groups
+      CREATE TABLE IF NOT EXISTS contact_groups (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        description TEXT,
+        created_at INTEGER DEFAULT (unixepoch()),
+        UNIQUE(account_id, name)
+      );
+      CREATE INDEX IF NOT EXISTS idx_contact_groups_account ON contact_groups(account_id);
+
+      -- Contact group pivot
+      CREATE TABLE IF NOT EXISTS contact_group_pivot (
+        contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+        group_id TEXT NOT NULL REFERENCES contact_groups(id) ON DELETE CASCADE,
+        PRIMARY KEY (contact_id, group_id)
+      );
+
+      -- Contact segments (saved search queries applied to contacts)
+      CREATE TABLE IF NOT EXISTS contact_segments (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        query TEXT NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch()),
+        UNIQUE(account_id, name)
+      );
+    `,
+  },
 ];
 
 /**

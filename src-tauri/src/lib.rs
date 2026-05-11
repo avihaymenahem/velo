@@ -7,6 +7,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::MacosLauncher;
 
 mod commands;
+mod contacts;
 mod imap;
 mod oauth;
 mod smtp;
@@ -112,6 +113,7 @@ pub fn run() {
             commands::imap_delta_check,
             commands::smtp_send_email,
             commands::smtp_test_connection,
+            contacts::csv::parse_csv,
         ])
         .setup(|app| {
             {

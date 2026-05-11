@@ -18,6 +18,8 @@ import { navigateToThread } from "@/router/navigate";
 import { formatRelativeDate } from "@/utils/date";
 import { formatFileSize, getFileIcon } from "@/utils/fileTypeHelpers";
 import { AuthBadge } from "./AuthBadge";
+import { TagCloud } from "@/components/contacts/TagCloud";
+import { useContactStore } from "@/stores/contactStore";
 
 interface ContactSidebarProps {
   email: string;
@@ -37,6 +39,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
   const [attachments, setAttachments] = useState<ContactAttachment[]>([]);
   const [sameDomainContacts, setSameDomainContacts] = useState<SameDomainContact[]>([]);
   const [authResults, setAuthResults] = useState<string | null>(null);
+  const [tagIds, setTagIds] = useState<string[]>([]);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [addedFeedback, setAddedFeedback] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -111,6 +114,16 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
 
     // Load auth results
     getLatestAuthResult(email).then((r) => { if (!cancelled) setAuthResults(r); });
+
+    // Load tags for this contact once contact exists
+    getContactByEmail(email).then((c) => {
+      if (cancelled || !c) return;
+      import("@/services/contacts/tags").then(({ getContactTags }) => {
+        getContactTags(c.id).then((tags) => {
+          if (!cancelled) setTagIds(tags.map((t) => t.id));
+        });
+      });
+    });
 
     return () => { cancelled = true; };
   }, [email, accountId]);
@@ -350,6 +363,28 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
                 className="w-full text-xs bg-bg-primary border border-border-primary rounded-md px-2 py-1.5 text-text-secondary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent resize-y"
               />
             )}
+          </div>
+        )}
+
+        {/* Tags */}
+        {contact && (
+          <div className="mb-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2">
+              Tags
+            </h4>
+            <TagCloud
+              tagIds={tagIds}
+              allTags={useContactStore.getState().tags}
+              onAddTag={() => {}}
+              onRemoveTag={(tagId) => {
+                if (!contact) return;
+                import("@/services/contacts/tags").then(({ untagContact }) => {
+                  untagContact(contact.id, tagId);
+                  setTagIds((prev) => prev.filter((id) => id !== tagId));
+                });
+              }}
+              editable={true}
+            />
           </div>
         )}
 
