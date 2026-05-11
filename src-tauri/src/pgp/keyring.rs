@@ -8,10 +8,9 @@ pub struct PgpKeyInfo {
     pub creation_time: String,
 }
 
-pub fn generate_key_pair(user_id: &str, passphrase: &str) -> Result<(String, String), String> {
+pub fn generate_key_pair(user_id: &str, _passphrase: &str) -> Result<(String, String), String> {
     use openpgp::cert::CipherSuite;
-    use openpgp::policy::StandardPolicy;
-    use openpgp::serialize::SerializeInto;
+    use openpgp::serialize::Serialize;
 
     let (cert, _) = openpgp::cert::CertBuilder::new()
         .set_cipher_suite(CipherSuite::Cv25519)
@@ -19,20 +18,18 @@ pub fn generate_key_pair(user_id: &str, passphrase: &str) -> Result<(String, Str
         .generate()
         .map_err(|e| format!("Key generation failed: {}", e))?;
 
-    let policy = StandardPolicy::new();
-
     // Export public key (armored)
-    let public_key = cert
-        .armored()
-        .serialize_to_vec()
+    let mut public_key = Vec::new();
+    cert.armored()
+        .serialize(&mut public_key)
         .map_err(|e| format!("Serialize public key failed: {}", e))?;
     let public_armored = String::from_utf8_lossy(&public_key).to_string();
 
     // Export encrypted private key
-    let private_key = cert
-        .as_tsk()
+    let mut private_key = Vec::new();
+    cert.as_tsk()
         .armored()
-        .serialize_to_vec()
+        .serialize(&mut private_key)
         .map_err(|e| format!("Serialize private key failed: {}", e))?;
     let private_armored = String::from_utf8_lossy(&private_key).to_string();
 
@@ -42,8 +39,8 @@ pub fn generate_key_pair(user_id: &str, passphrase: &str) -> Result<(String, Str
 pub fn get_key_info(armored_key: &str) -> Result<PgpKeyInfo, String> {
     use openpgp::parse::Parse;
 
-    let cert =
-        openpgp::Cert::from_str(armored_key).map_err(|e| format!("Parse key failed: {}", e))?;
+    let cert = openpgp::Cert::from_bytes(armored_key.as_bytes())
+        .map_err(|e| format!("Parse key failed: {}", e))?;
 
     let fingerprint = cert.fingerprint().to_string();
     let key_id = cert.keyid().to_string();

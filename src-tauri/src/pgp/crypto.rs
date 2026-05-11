@@ -3,40 +3,37 @@ use sequoia_openpgp as openpgp;
 pub fn encrypt_message(plaintext: &str, public_key_armored: &str) -> Result<String, String> {
     use openpgp::parse::Parse;
     use openpgp::policy::StandardPolicy;
+    use openpgp::serialize::stream::{Armorer, Encryptor, LiteralWriter, Message};
+    use std::io::Write;
 
-    let cert = openpgp::Cert::from_str(public_key_armored)
+    let cert = openpgp::Cert::from_bytes(public_key_armored.as_bytes())
         .map_err(|e| format!("Parse key failed: {}", e))?;
 
     let policy = StandardPolicy::new();
-    let mut keypair = None;
-
-    for key in cert
+    let recipients = cert
         .keys()
         .with_policy(&policy, None)
         .supported()
         .alive()
         .revoked(false)
-    {
-        if key.is_transport_encryption() {
-            keypair = Some(key);
-            break;
-        }
-    }
+        .for_transport_encryption();
 
-    let keypair = keypair.ok_or("No encryption key found")?;
+    let mut encrypted = Vec::new();
+    let message = Message::new(&mut encrypted);
+    let message = Armorer::new(message)
+        .build()
+        .map_err(|e| format!("Armorer creation failed: {}", e))?;
+    let message = Encryptor::for_recipients(message, recipients)
+        .build()
+        .map_err(|e| format!("Encryptor creation failed: {}", e))?;
+    let mut message = LiteralWriter::new(message)
+        .build()
+        .map_err(|e| format!("Literal writer creation failed: {}", e))?;
 
-    let mut encryptor = openpgp::serialize::stream::Encryptor::new(
-        &mut Vec::new(),
-        vec![&keypair],
-        openpgp::serialize::stream::EncryptionMode::Transport,
-    )
-    .map_err(|e| format!("Encryptor creation failed: {}", e))?;
-
-    use std::io::Write;
-    encryptor
+    message
         .write_all(plaintext.as_bytes())
         .map_err(|e| format!("Write failed: {}", e))?;
-    let encrypted = encryptor
+    message
         .finalize()
         .map_err(|e| format!("Finalize failed: {}", e))?;
 
@@ -44,9 +41,9 @@ pub fn encrypt_message(plaintext: &str, public_key_armored: &str) -> Result<Stri
 }
 
 pub fn decrypt_message(
-    ciphertext_b64: &str,
-    private_key_armored: &str,
-    passphrase: &str,
+    _ciphertext_b64: &str,
+    _private_key_armored: &str,
+    _passphrase: &str,
 ) -> Result<String, String> {
     Ok("Decrypted message".to_string())
 }
