@@ -44,10 +44,12 @@
     "@tiptap/react": "^3.19.0",
     "@tiptap/starter-kit": "^3.19.0",
     "dompurify": "^3.3.1",
+    "i18next": "^26.1.0",
     "lucide-react": "^0.563.0",
     "openai": "^6.21.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-i18next": "^17.0.7",
     "react-transition-group": "^4.4.5",
     "tsdav": "^2.1.8",
     "zustand": "^5.0.11"
