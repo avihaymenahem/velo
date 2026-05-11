@@ -101,6 +101,15 @@ export async function upsertContact(
   );
 }
 
+export async function getContactById(
+  id: string,
+): Promise<DbContact | null> {
+  return selectFirstBy<DbContact>(
+    "SELECT * FROM contacts WHERE id = $1 LIMIT 1",
+    [id],
+  );
+}
+
 export async function getContactByEmail(
   email: string,
 ): Promise<DbContact | null> {

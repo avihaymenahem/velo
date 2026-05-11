@@ -61,6 +61,7 @@ export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = 
   { id: "tasks", label: "Tasks", icon: CheckSquare },
   { id: "calendar", label: "Calendar", icon: Calendar },
   { id: "attachments", label: "Attachments", icon: Paperclip },
+  { id: "campaigns", label: "Campaigns", icon: Send },
   { id: "smart-folders", label: "Smart Folders", icon: FolderSearch },
   { id: "labels", label: "Labels", icon: Tag },
 ];

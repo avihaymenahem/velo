@@ -9,11 +9,76 @@ import {
   compactQueue,
 } from "../db/pendingOperations";
 import { executeQueuedAction } from "../emailActions";
+import { getEmailProvider } from "@/services/email/providerFactory";
+import { getContactById } from "@/services/db/contacts";
+import { getDb } from "@/services/db/connection";
+import { interpolateVariables } from "@/utils/templateVariables";
 import { classifyError } from "@/utils/networkErrors";
 
 const BATCH_SIZE = 50;
 
 let checker: BackgroundChecker | null = null;
+
+async function processSendCampaignEmail(
+  opId: string,
+  accountId: string,
+  params: Record<string, unknown>,
+): Promise<void> {
+  const campaignId = params.campaignId as string;
+  const contactId = params.contactId as string;
+  const templateId = params.templateId as string | undefined;
+
+  if (!campaignId || !contactId) {
+    throw new Error("send_campaign_email: missing campaignId or contactId");
+  }
+
+  // 1. Get contact email
+  const contact = await getContactById(contactId);
+  if (!contact) {
+    await deleteOperation(opId);
+    return;
+  }
+
+  // 2. Get template content
+  let subject = "";
+  let bodyHtml = "";
+  if (templateId) {
+    const db = await getDb();
+    const rows = await db.select<{ subject: string | null; body_html: string }[]>(
+      "SELECT subject, body_html FROM templates WHERE id = $1",
+      [templateId],
+    );
+    const tmpl = rows[0];
+    if (tmpl) {
+      subject = tmpl.subject ?? "";
+      bodyHtml = tmpl.body_html;
+    }
+  }
+
+  // 3. Resolve template variables
+  const resolvedHtml = await interpolateVariables(bodyHtml, {
+    recipientEmail: contact.email,
+    recipientName: contact.display_name ?? undefined,
+  });
+  const resolvedSubject = subject.includes("{{")
+    ? await interpolateVariables(subject, {
+        recipientEmail: contact.email,
+        recipientName: contact.display_name ?? undefined,
+      })
+    : subject;
+
+  // 4. Send via provider
+  const provider = await getEmailProvider(accountId);
+  const rawContent = btoa(
+    `To: ${contact.email}\r\nSubject: ${resolvedSubject}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${resolvedHtml}`,
+  );
+  const rawBase64Url = rawContent
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  await provider.sendMessage(rawBase64Url);
+}
 
 async function processQueue(): Promise<void> {
   // Skip if offline
@@ -34,9 +99,14 @@ async function processQueue(): Promise<void> {
       // Mark as executing
       await updateOperationStatus(op.id, "executing");
 
-      // Parse params and execute
+      // Parse params
       const params = JSON.parse(op.params) as Record<string, unknown>;
-      await executeQueuedAction(op.account_id, op.operation_type, params);
+
+      if (op.operation_type === "send_campaign_email") {
+        await processSendCampaignEmail(op.id, op.account_id, params);
+      } else {
+        await executeQueuedAction(op.account_id, op.operation_type, params);
+      }
 
       // Success — delete from queue
       await deleteOperation(op.id);

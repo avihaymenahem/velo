@@ -14,6 +14,7 @@ const HelpPage = lazy(() => import("@/components/help/HelpPage").then((m) => ({ 
 const CalendarPage = lazy(() => import("@/components/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
 const TasksPage = lazy(() => import("@/components/tasks/TasksPage").then((m) => ({ default: m.TasksPage })));
 const AttachmentLibrary = lazy(() => import("@/components/attachments/AttachmentLibrary").then((m) => ({ default: m.AttachmentLibrary })));
+const CampaignPage = lazy(() => import("@/components/campaigns/CampaignPage").then((m) => ({ default: m.CampaignPage })));
 
 // ---------- Search param validation ----------
 const VALID_CATEGORIES = ["Primary", "Updates", "Promotions", "Social", "Newsletters"] as const;
@@ -187,6 +188,23 @@ export const calendarRoute = createRoute({
   component: CalendarPageWrapper,
 });
 
+// ---------- /campaigns ----------
+function CampaignPageWrapper() {
+  return (
+    <ErrorBoundary name="CampaignPage">
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading campaigns...</div>}>
+        <CampaignPage />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+export const campaignsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "campaigns",
+  component: CampaignPageWrapper,
+});
+
 // ---------- /help (redirect to /help/getting-started) ----------
 const helpIndexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -214,6 +232,7 @@ export const routeTree = rootRoute.addChildren([
   attachmentsRoute,
   tasksRoute,
   calendarRoute,
+  campaignsRoute,
   helpIndexRoute,
   helpTopicRoute,
 ]);

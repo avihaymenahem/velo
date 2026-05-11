@@ -19,13 +19,14 @@ export async function enqueuePendingOperation(
   operationType: string,
   resourceId: string,
   params: Record<string, unknown>,
+  campaignId?: string,
 ): Promise<string> {
   const db = await getDb();
   const id = crypto.randomUUID();
   await db.execute(
-    `INSERT INTO pending_operations (id, account_id, operation_type, resource_id, params)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [id, accountId, operationType, resourceId, JSON.stringify(params)],
+    `INSERT INTO pending_operations (id, account_id, operation_type, resource_id, params, campaign_id)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, accountId, operationType, resourceId, JSON.stringify(params), campaignId ?? null],
   );
   return id;
 }
