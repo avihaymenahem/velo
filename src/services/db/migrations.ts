@@ -828,6 +828,35 @@ const MIGRATIONS = [
       ALTER TABLE pending_operations ADD COLUMN campaign_id TEXT REFERENCES campaigns(id) ON DELETE CASCADE;
     `,
   },
+  {
+    version: 26,
+    description: "Workflow rules engine",
+    sql: `
+      CREATE TABLE IF NOT EXISTS workflow_rules (
+        id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        trigger_event TEXT NOT NULL,
+        trigger_conditions TEXT,
+        actions TEXT NOT NULL,
+        is_active INTEGER DEFAULT 1,
+        created_at INTEGER DEFAULT (unixepoch())
+      );
+      CREATE INDEX IF NOT EXISTS idx_workflow_rules_account ON workflow_rules(account_id);
+    `,
+  },
+  {
+    version: 27,
+    description: "PGP encryption keys",
+    sql: `
+      CREATE TABLE IF NOT EXISTS pgp_keys (
+        id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        key_id TEXT NOT NULL, public_key TEXT NOT NULL,
+        private_key_encrypted TEXT, passphrase_hint TEXT,
+        fingerprint TEXT, created_at INTEGER DEFAULT (unixepoch()),
+        UNIQUE(account_id, key_id)
+      );
+    `,
+  },
 ];
 
 /**
