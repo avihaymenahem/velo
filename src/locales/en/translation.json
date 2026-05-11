@@ -74,7 +74,19 @@
     "generate": "Generate",
     "improve": "Improve",
     "shorter": "Shorter",
-    "formal": "Formal"
+    "formal": "Formal",
+    "bulletList": "• List",
+    "orderedList": "1. List",
+    "quote": "Quote",
+    "code": "Code",
+    "rule": "— Rule",
+    "link": "Link",
+    "undo": "Undo",
+    "redo": "Redo",
+    "insertLink": "Insert Link",
+    "url": "URL",
+    "insert": "Insert",
+    "ai": "AI"
   },
   "settings": {
     "title": "Settings",

@@ -1,0 +1,882 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "inclusionai/ring-2.6-1t:free",
+  "default_agent": "core-factory",
+  "autoupdate": true,
+  "share": "manual",
+  "enabled_providers": [
+    "opencode",
+    "lmstudio",
+    "opencode-go",
+    "cerebras",
+    "openrouter"
+  ],
+  "plugin": [
+    "plugins/index.ts",
+    "plugins/agent-router.ts",
+    "plugins/skill-manager.ts",
+    "plugins/context-manager.ts",
+    "plugins/extension-context-bridge.ts",
+    "brain-plugin/brain.ts"
+  ],
+  "provider": {
+    "opencode": {
+      "name": "opencode",
+      "options": {},
+      "models": {}
+    },
+    "cerebras": {
+      "npm": "@ai-sdk/cerebras",
+      "name": "Cerebras",
+      "options": {
+        "baseURL": "https://api.cerebras.ai/v1",
+        "apiKey": "${CEREBRAS_API_KEY}"
+      },
+      "models": {
+        "qwen-3-235b-a22b-instruct-2507": {
+          "name": "Qwen 3 235B-A22B",
+          "tool_call": true,
+          "reasoning": true
+        },
+        "zai-glm-4.7": {
+          "name": "ZAI GLM 4.7",
+          "tool_call": false,
+          "reasoning": true
+        }
+      }
+    },
+    "lmstudio": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LM Studio (local)",
+      "options": {
+        "baseURL": "http://192.168.1.12:1234/v1"
+      },
+      "models": {
+        "gemma-4-e2b-it": {
+          "name": "Gemma 4 E2B (local)",
+          "tool_call": true,
+          "reasoning": true
+        },
+        "gemma-4-e4b-it": {
+          "name": "Gemma 4 EB4 IT (local)",
+          "tool_call": true,
+          "reasoning": true
+        },
+        "qwen3.5-4b-claude-4.6-opus-reasoning-distilled-v2": {
+          "name": "Qwen 3.5 4B (local)",
+          "tool_call": true,
+          "reasoning": true
+        }
+      }
+    },
+    "opencode-go": {
+      "name": "OpenCode Go (Premium)",
+      "options": {
+        "baseURL": "https://api.opencode.ai/v1"
+      },
+      "models": {}
+    },
+    "openrouter": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "OpenRouter",
+      "options": {
+        "baseURL": "https://openrouter.ai/api/v1"
+      },
+      "models": {
+        "inclusionai/ring-2.6-1t:free": {
+          "name": "Ring 2.6-1t (free)",
+          "tool_call": true,
+          "reasoning": true
+        },
+        "poolside/laguna-m.1:free": {
+          "name": "Laguna M.1 (free)",
+          "tool_call": true,
+          "reasoning": true
+        }
+      }
+    }
+  },
+  "server": {
+    "port": 4096,
+    "hostname": "127.0.0.1",
+    "mdns": false,
+    "cors": [
+      "http://127.0.0.1:8080",
+      "http://"
+    ]
+  },
+  "mcp": {
+    "context7": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ],
+      "enabled": true,
+      "timeout": 45000
+    },
+    "memory": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "git": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "mcp-server-git"
+      ],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "fetch": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "mcp-server-fetch"
+      ],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "sqlite": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "mcp-server-sqlite",
+        "--db-path",
+        "${OPENCODE_HOME:-./database.sqlite}"
+      ],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "sequential-thinking": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "enabled": true,
+      "timeout": 60000
+    },
+    "language-server": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-language-server"
+      ],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "type-inject": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@nick-vi/type-inject-mcp"
+      ],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "puppeteer": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "enabled": true,
+      "timeout": 60000
+    },
+    "personal-knowledge": {
+      "type": "local",
+      "command": [
+        "bunx",
+        "opencode-personal-knowledge"
+      ],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "filesystem": {
+      "type": "local",
+      "command": [
+        "bunx",
+        "@modelcontextprotocol/server-filesystem",
+        "c:/opencode"
+      ],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "everything": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-everything"
+      ],
+      "enabled": false,
+      "timeout": 30000
+    }
+  },
+  "permission": {
+    "skill": {
+      "*": "allow",
+      "experimental-*": "ask",
+      "internal-*": "deny"
+    },
+    "command": {
+      "*": "ask",
+      "ls": "allow",
+      "dir": "allow",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git push": "ask",
+      "git pull": "ask",
+      "git branch*": "allow",
+      "npm test*": "allow",
+      "npm run*": "allow",
+      "cargo check*": "allow",
+      "cargo build*": "allow",
+      "cargo run*": "ask",
+      "php artisan list*": "allow",
+      "php artisan migrate*": "ask",
+      "php artisan test*": "allow",
+      "pnpm*": "allow",
+      "bun*": "allow",
+      "npx*": "allow",
+      "rm -rf *": "deny"
+    },
+    "file": {
+      "*": "ask",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      ".env*": "deny",
+      "**/node_modules/**": "deny",
+      "**/.git/**": "deny",
+      "**/vendor/**": "deny",
+      "**/target/**": "deny",
+      ".\\**": "allow"
+    },
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "**/node_modules/**": "deny"
+    },
+    "edit": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "**/node_modules/**": "deny"
+    },
+    "bash": {
+      "*": "ask",
+      "git status": "allow",
+      "git diff": "allow",
+      "git log": "allow",
+      "ls": "allow",
+      "pwd": "allow",
+      "cat": "allow",
+      "which": "allow"
+    },
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "webfetch": "allow",
+    "websearch": "allow",
+    "codesearch": "allow",
+    "todoread": "allow",
+    "todowrite": "allow",
+    "memory": "allow",
+    "context7": "allow",
+    "sequential-thinking": "allow",
+    "language-server": "allow",
+    "type-inject": "allow",
+    "sqlite": "allow",
+    "external_directory": {
+      ".\\**": "allow",
+      "~\\**": "ask"
+    },
+    "doom_loop": "deny"
+  },
+  "tools": {
+    "read": true,
+    "write": true,
+    "edit": true,
+    "bash": true,
+    "glob": true,
+    "grep": true,
+    "list": true,
+    "task": true,
+    "skill": true,
+    "lsp": true,
+    "todoread": true,
+    "todowrite": true,
+    "webfetch": true,
+    "websearch": true,
+    "codesearch": true,
+    "mcp": true,
+    "context7": true,
+    "memory": true,
+    "filesystem": true,
+    "sqlite": true,
+    "sequential-thinking": true,
+    "language-server": true,
+    "type-inject": true
+  },
+  "lsp": {
+    "typescript": {
+      "command": [
+        "typescript-language-server",
+        "--stdio"
+      ],
+      "extensions": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx"
+      ]
+    },
+    "php": {
+      "command": [
+        "intelephense",
+        "--stdio"
+      ],
+      "extensions": [
+        ".php"
+      ],
+      "initialization": {
+        "storagePath": "${OPENCODE_HOME:-.}/.cache/intelephense"
+      }
+    },
+    "rust": {
+      "command": [
+        "rust-analyzer"
+      ],
+      "extensions": [
+        ".rs"
+      ]
+    },
+    "tailwind": {
+      "command": [
+        "tailwindcss-language-server",
+        "--stdio"
+      ],
+      "extensions": [
+        ".css",
+        ".html",
+        ".js",
+        ".ts",
+        ".tsx"
+      ]
+    }
+  },
+  "formatter": {
+    "biome": {
+      "disabled": false,
+      "command": [
+        "npx",
+        "biome",
+        "format",
+        "--write",
+        "$FILE"
+      ],
+      "extensions": [
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".json",
+        ".jsonc"
+      ]
+    },
+    "prettier": {
+      "disabled": false,
+      "command": [
+        "npx",
+        "prettier",
+        "--write",
+        "$FILE"
+      ],
+      "extensions": [
+        ".css",
+        ".scss",
+        ".html",
+        ".md",
+        ".yaml",
+        ".yml"
+      ]
+    },
+    "pint": {
+      "command": [
+        "php",
+        "artisan",
+        "pint",
+        "$FILE"
+      ],
+      "extensions": [
+        ".php"
+      ]
+    },
+    "rustfmt": {
+      "command": [
+        "rustfmt",
+        "$FILE"
+      ],
+      "extensions": [
+        ".rs"
+      ]
+    },
+    "shfmt": {
+      "command": [
+        "shfmt",
+        "-w",
+        "$FILE"
+      ],
+      "extensions": [
+        ".sh",
+        ".bash"
+      ]
+    }
+  },
+  "instructions": [
+    "Follow project rules: rules/general.md, rules/project.md, rules/trae.md, rules/laravel-boost.md",
+    "Stack: Tauri (Rust), React (TypeScript), Laravel (PHP). Use auto-detect.",
+    "Auto-format based on rules/auto-format.md.",
+    "REASONING: Always use <thinking> blocks before acting.",
+    "ERROR HANDLING: If a tool fails, try one alternative before asking for help.",
+    "STYLE: Strict naming conventions and architectural patterns."
+  ],
+  "command": {
+    "audit": {
+      "template": "npm run lint && npm test",
+      "description": "Full project audit (lint + tests)",
+      "agent": "qa-guardian"
+    },
+    "doctor": {
+      "template": "echo 'Config-doctor skill running...'",
+      "description": "Audit and repair OpenCode configuration",
+      "agent": "lead-strategist"
+    },
+    "clean": {
+      "template": "rm -rf node_modules/.cache vendor/.cache target",
+      "description": "Clean project caches",
+      "agent": "devops-engineer"
+    },
+    "build": {
+      "template": "npm run build",
+      "description": "Build the project",
+      "agent": "core-factory"
+    },
+    "test": {
+      "template": "npm test",
+      "description": "Run test suite",
+      "agent": "qa-guardian"
+    },
+    "lint": {
+      "template": "npm run lint",
+      "description": "Run linter checks",
+      "agent": "qa-guardian"
+    },
+    "improve": {
+      "template": "echo 'Running self-improvement analysis'",
+      "description": "Analyze and enhance project configuration using self-improvement patterns",
+      "agent": "core-factory"
+    },
+    "reflect": {
+      "template": "echo 'Self-reflection...'",
+      "description": "Analyze opencode config",
+      "agent": "docs-curator"
+    },
+    "db:init": {
+      "template": "node tools/db-init.js",
+      "description": "Initialize database",
+      "agent": "devops-engineer"
+    },
+    "process:check": {
+      "template": "npx ts-node tools/process-check.ts",
+      "description": "Check processes and health",
+      "agent": "devops-engineer"
+    },
+    "check-updates": {
+      "template": "powershell -File scripts/check-updates.ps1",
+      "description": "Check dependency updates",
+      "agent": "devops-engineer"
+    },
+    "db:backup": {
+      "template": "powershell -File scripts/db-backup.ps1",
+      "description": "Backup database",
+      "agent": "devops-engineer"
+    },
+    "autoresearch": {
+      "template": "echo 'Starting autoresearch loop - delegate to lead-strategist agent'",
+      "description": "Run autonomous research loop - optimize code, benchmarks, or metrics iteratively",
+      "agent": "lead-strategist"
+    }
+  },
+  "agent": {
+    "build": {
+      "mode": "primary",
+      "steps": 50,
+      "description": "Primary build agent — fast implementation, direct file editing, all tools enabled.",
+      "instructions": [
+        "CORE: Fast implementation. Read → Analyze → Write → Validate.",
+        "STRICT: No speculation. Only state what you know or can verify.",
+        "CONCISE: Use minimal words. Long descriptions waste tokens.",
+        "WORKFLOW: Read file → Use edit tool (oldString→newString) → Validate.",
+        "If edit fails: re-read file, add context to oldString.",
+        "No unnecessary comments. Reference lines as file_path:line_number.",
+        "PROJECT STACK: Tauri (Rust), React (TypeScript), Laravel (PHP).",
+        "Auto-format after edits per rules/auto-format.md."
+      ],
+      "permission": {
+        "file": {
+          "src/**": "allow",
+          "app/**": "allow",
+          "resources/**": "allow"
+        },
+        "read": "allow",
+        "edit": "allow",
+        "grep": "allow",
+        "glob": "allow",
+        "command": {
+          "git status*": "allow",
+          "ls": "allow",
+          "npm test*": "allow"
+        }
+      }
+    },
+    "plan": {
+      "mode": "primary",
+      "steps": 20,
+      "description": "Planning and analysis agent — no code changes, read-only analysis.",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    },
+    "explore": {
+      "mode": "subagent",
+      "steps": 15,
+      "description": "Fast read-only agent for codebase exploration — find files, search patterns, answer questions about structure.",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny",
+        "write": "deny"
+      }
+    },
+    "scout": {
+      "mode": "subagent",
+      "steps": 15,
+      "description": "External research agent — clone repos, inspect dependencies, cross-reference upstream implementations.",
+      "permission": {
+        "edit": "deny",
+        "bash": "ask",
+        "webfetch": "allow",
+        "websearch": "allow"
+      }
+    },
+    "core-factory": {
+      "mode": "subagent",
+      "steps": 40,
+      "description": "Core implementation and direct file editing (merged builder/planner/opencoder). Self-evolving with autoresearch.",
+      "instructions": [
+        "CORE: Fast implementation. Read → Analyze → Write → Validate.",
+        "STRICT: No speculation. Only state what you know or can verify.",
+        "CONCISE: Use minimal words. Long descriptions waste tokens.",
+        "WORKFLOW: Read file → Use edit tool (oldString→newString) → Validate.",
+        "If edit fails: re-read file, add context to oldString.",
+        "No unnecessary comments. Reference lines as file_path:line_number.",
+        "PROJECT STACK: Tauri (Rust), React (TypeScript), Laravel (PHP).",
+        "Auto-format after edits per rules/auto-format.md.",
+        "SELF-EVOLUTION: After completing complex tasks, use skill:autoresearch to benchmark and optimize your implementation patterns.",
+        "REFACTORING: When refactoring, first use skill:self-improver to analyze the codebase, then use skill:autoresearch to validate improvements.",
+        "INTEGRATION: Always check for redundant imports, unused code, and naming convention violations before and after edits."
+      ],
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "skill": true,
+        "grep": true,
+        "glob": true,
+        "todowrite": true,
+        "context7": true,
+        "memory": true,
+        "sequential-thinking": true
+      },
+      "permission": {
+        "file": {
+          "src/**": "allow",
+          "app/**": "allow",
+          "resources/**": "allow"
+        },
+        "read": "allow",
+        "edit": "allow",
+        "grep": "allow",
+        "glob": "allow",
+        "command": {
+          "git status*": "allow",
+          "ls": "allow",
+          "npm test*": "allow"
+        }
+      }
+    },
+    "lead-strategist": {
+      "mode": "subagent",
+      "steps": 30,
+      "description": "Strategic orchestrator, architect, and product lead. Delegates to specialized agents.",
+      "instructions": [
+        "LEAD: Orchestration and architecture. No code unless requested.",
+        "STRICT: Only read/analyze for planning. Delegate implementation.",
+        "CONCISE: State decision, not reasoning. Avoid long explanations.",
+        "When delegating: Name target agent + specific task. No agent delegation descriptions.",
+        "Use task tool for parallel execution when independent.",
+        "Use skill:autoresearch for autonomous optimization loops on code, benchmarks, or metrics.",
+        "Use skill:self-improver to analyze and improve project configuration.",
+        "REALITY CHECK: Always assess feasibility against actual codebase state before proposing changes.",
+        "GAP ANALYSIS: Identify gaps between current implementation and target architecture."
+      ],
+      "tools": {
+        "skill": true,
+        "bash": true,
+        "read": true,
+        "lsp": true,
+        "codesearch": true,
+        "todowrite": true,
+        "task": true,
+        "memory": true,
+        "context7": true,
+        "sequential-thinking": true
+      },
+      "permission": {
+        "file": {
+          "src/**": "allow",
+          "app/**": "allow",
+          "resources/**": "allow"
+        },
+        "read": "allow",
+        "edit": "ask",
+        "grep": "allow",
+        "glob": "allow"
+      }
+    },
+    "lead-architect": {
+      "mode": "subagent",
+      "steps": 30,
+      "description": "Technical vision and long-term structural integrity. Pure analysis, delegates to core-factory.",
+      "instructions": [
+        "ARCHITECT: Technical vision and structure. Read → Analyze only.",
+        "No implementation code. Delegate to core-factory or build.",
+        "CONCISE: Brief analysis, state decisions.",
+        "Use spec-driven-design skill before implementation.",
+        "Use sequential-thinking for trade-offs when needed.",
+        "Use task tool for parallel execution when independent.",
+        "Use skill:autoresearch for autonomous optimization loops.",
+        "Use skill:self-improver to analyze and improve project configuration.",
+        "NORMING: Check all proposed patterns against existing codebase conventions before recommending."
+      ],
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "skill": true,
+        "lsp": true,
+        "codesearch": true,
+        "task": true,
+        "mcp": true,
+        "context7": true,
+        "memory": true,
+        "sequential-thinking": true
+      }
+    },
+    "frontend-ui-ux": {
+      "mode": "subagent",
+      "steps": 30,
+      "description": "Premium UI/UX implementation for React + TypeScript + Tailwind + shadcn/ui.",
+      "instructions": [
+        "UI/UX: Premium interfaces. Read → Generate → Validate.",
+        "STRICT: No speculation on user intent. Ask if unclear.",
+        "CONCISE: Minimal explanation. Show code.",
+        "Use ui-ux-pro-max skill for design tokens.",
+        "Use parallel execution for independent components.",
+        "Validate accessibility (WCAG AA) after implementation.",
+        "REUSABILITY: Check for existing components before creating new ones. Use react-reuse-audit skill."
+      ],
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "skill": true,
+        "lsp": true,
+        "codesearch": true,
+        "task": true,
+        "mcp": true,
+        "context7": true,
+        "memory": true,
+        "sequential-thinking": true
+      }
+    },
+    "backend-api": {
+      "mode": "subagent",
+      "steps": 30,
+      "description": "API implementation — Node/Express or Laravel. Type-safe, validated.",
+      "instructions": [
+        "API: Node/Express or Laravel. Read → Implement → Validate.",
+        "CONCISE: Brief code. No long explanations.",
+        "Use fullstack-dev skill for web patterns.",
+        "Validate with LSP after changes.",
+        "NO REDUNDANCY: Check for existing endpoints/services before implementing.",
+        "IMPORT AUDIT: Only add external imports when necessary. Prefer stdlib."
+      ],
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "skill": true,
+        "lsp": true,
+        "context7": true,
+        "memory": true
+      }
+    },
+    "backend-laravel": {
+      "mode": "subagent",
+      "steps": 30,
+      "description": "Specialized Laravel 13 and Livewire 4 development.",
+      "instructions": [
+        "LARAVEL: PHP/Laravel 13 + Livewire 4. Read → Implement → Validate.",
+        "CONCISE: Brief patterns. No lengthy explanations.",
+        "Use laravel-feature-scaffold for new features.",
+        "Use pest-testing for tests.",
+        "Run php artisan pint after edits.",
+        "IMPORT AUDIT: Check for unused imports after every file change.",
+        "NAMING: Follow Laravel conventions strictly (PascalCase models, snake_case tables)."
+      ],
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "skill": true,
+        "lsp": true,
+        "context7": true,
+        "memory": true
+      }
+    },
+    "backend-tauri": {
+      "mode": "subagent",
+      "steps": 30,
+      "description": "Tauri desktop application development (Rust).",
+      "instructions": [
+        "Rust/Tauri developer. Follow rules/tauri.md.",
+        "Use cargo check frequently; never commit without passing.",
+        "TAURI IPC: Use invoke only from the frontend; keep commands in src-tauri/src/main.rs or separate modules.",
+        "State management: Use tauri::State for shared resources, wrap with Mutex or RwLock.",
+        "Error handling: Return Result<T, String> for commands; map errors to user-friendly messages.",
+        "Events: Emit events with app_handle.emit_all; listen in React via listen('event-name', ...).",
+        "Performance: Avoid blocking the main thread; use async commands and tauri::async_runtime::spawn.",
+        "Always run rust-analyzer diagnostics before final edits.",
+        "For React-Tauri bridging: use @tauri-apps/api packages, never direct DOM manipulation bypassing React.",
+        "Refer to Tauri v2 documentation, not v1, unless specified.",
+        "IMPORT AUDIT: Check Cargo.toml for unused dependencies regularly."
+      ],
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "skill": true,
+        "lsp": true,
+        "context7": true,
+        "memory": true
+      }
+    },
+    "qa-guardian": {
+      "mode": "subagent",
+      "steps": 20,
+      "description": "Unified QA: review, testing, security, and debugging.",
+      "instructions": [
+        "QA: Review, test, debug. No implementation unless asked.",
+        "STRICT: Verify not speculate. Test outputs must pass.",
+        "CONCISE: Brief issues found. No lengthy reports.",
+        "Run lint/test commands to validate changes.",
+        "Never expose secrets in code.",
+        "REDUNDANCY CHECK: Flag duplicate code, unused imports, dead code paths."
+      ],
+      "tools": {
+        "read": true,
+        "bash": true,
+        "skill": true,
+        "lsp": true,
+        "context7": true,
+        "memory": true
+      }
+    },
+    "devops-engineer": {
+      "mode": "subagent",
+      "steps": 20,
+      "description": "Operational tasks, MCP integration, and infrastructure.",
+      "instructions": [
+        "DEVOPS: Terminal, MCP, system tasks.",
+        "CONCISE: Brief execution. No explanation unless asked.",
+        "Use bash with safety checks.",
+        "Handle db:init, clean, process:check."
+      ],
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "skill": true,
+        "context7": true,
+        "memory": true
+      }
+    },
+    "docs-curator": {
+      "mode": "subagent",
+      "steps": 30,
+      "description": "Documentation, self-improvement, and system evolution.",
+      "instructions": [
+        "DOCS: Documentation and content. Read → Write → Format.",
+        "CONCISE: Brief content. No verbose explanations.",
+        "Use spec-driven-design skill for structured specs.",
+        "Format with biome/prettier after edits.",
+        "Use skill:autoresearch for autonomous research loops.",
+        "Use skill:self-improver for system evolution.",
+        "REALITY CHECK: Verify docs match actual codebase before writing."
+      ],
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "skill": true,
+        "lsp": true,
+        "codesearch": true,
+        "websearch": true,
+        "webfetch": true,
+        "todowrite": true,
+        "memory": true,
+        "context7": true,
+        "sequential-thinking": true
+      }
+    }
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 8192
+  }
+}

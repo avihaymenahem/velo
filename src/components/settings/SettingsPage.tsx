@@ -46,6 +46,7 @@ import { SubscriptionManager } from "./SubscriptionManager";
 import { SmartFolderEditor } from "./SmartFolderEditor";
 import { QuickStepEditor } from "./QuickStepEditor";
 import { SmartLabelEditor } from "./SmartLabelEditor";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
@@ -493,6 +494,7 @@ export function SettingsPage() {
                         })}
                       </div>
                     </SettingRow>
+                    <LanguageSwitcher />
                     <SettingRow label="Inbox view mode">
                       <select
                         value={inboxViewMode}

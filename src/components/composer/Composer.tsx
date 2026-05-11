@@ -4,6 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
+import TextAlign from "@tiptap/extension-text-align";
 import { Clock, Maximize2, Minimize2, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -58,6 +59,7 @@ export function Composer() {
   const setViewMode = useComposerStore((s) => s.setViewMode);
   const addAttachment = useComposerStore((s) => s.addAttachment);
 
+  const textDirection = useUIStore((s) => s.textDirection);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const accounts = useAccountStore((s) => s.accounts);
   const activeAccount = accounts.find((a) => a.id === activeAccountId);
@@ -82,6 +84,10 @@ export function Composer() {
       Image.configure({
         inline: true,
         allowBase64: true,
+      }),
+      TextAlign.configure({
+        types: ["heading", "paragraph"],
+        alignments: ["left", "right", "center", "justify"],
       }),
     ],
     content: useComposerStore.getState().bodyHtml,
@@ -439,6 +445,7 @@ export function Composer() {
 
       {/* Composer window */}
       <div
+        dir={textDirection}
         className={`relative bg-bg-primary border rounded-lg glass-modal pointer-events-auto flex flex-col slide-up-panel ${
           isFullpage ? "w-full h-full max-w-5xl" : "w-full max-w-2xl max-h-[80vh]"
         } ${isDragging ? "border-accent border-2" : "border-border-primary"}`}

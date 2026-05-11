@@ -4,7 +4,8 @@ import { getCalendarEventsInRangeMulti, upsertCalendarEvent, type DbCalendarEven
 import { getVisibleCalendars, getCalendarsForAccount, upsertCalendar, type DbCalendar } from "@/services/db/calendars";
 import { getCalendarProvider, hasCalendarSupport } from "@/services/calendar/providerFactory";
 import type { CalendarEventData, CreateEventInput } from "@/services/calendar/types";
-import { CalendarToolbar, type CalendarView } from "./CalendarToolbar";
+import { getSetting, setSetting } from "@/services/db/settings";
+import { CalendarToolbar, type CalendarView, type CalendarType } from "./CalendarToolbar";
 import { MonthView } from "./MonthView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
@@ -28,7 +29,19 @@ export function CalendarPage() {
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [showCalendarList, setShowCalendarList] = useState(false);
   const [hasCalendar, setHasCalendar] = useState(true);
+  const [calendarType, setCalendarType] = useState<CalendarType>("gregorian");
   const reauthDoneRef = useRef(false);
+
+  useEffect(() => {
+    getSetting("calendar_type").then((val) => {
+      if (val === "islamic") setCalendarType("islamic");
+    });
+  }, []);
+
+  const handleCalendarTypeChange = useCallback((type: CalendarType) => {
+    setCalendarType(type);
+    setSetting("calendar_type", type);
+  }, []);
 
   const getRange = useCallback((): { start: Date; end: Date } => {
     const d = new Date(currentDate);
@@ -276,10 +289,12 @@ export function CalendarPage() {
       <CalendarToolbar
         currentDate={currentDate}
         view={view}
+        calendarType={calendarType}
         onPrev={handlePrev}
         onNext={handleNext}
         onToday={handleToday}
         onViewChange={setView}
+        onCalendarTypeChange={handleCalendarTypeChange}
         onCreateEvent={() => setShowCreate(true)}
         onToggleCalendarList={() => setShowCalendarList((v) => !v)}
         showCalendarListButton={calendars.length > 1}

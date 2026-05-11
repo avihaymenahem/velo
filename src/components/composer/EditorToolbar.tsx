@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Editor } from "@tiptap/react";
 import { InputDialog } from "@/components/ui/InputDialog";
 import { Sparkles } from "lucide-react";
@@ -10,6 +11,7 @@ interface EditorToolbarProps {
 }
 
 export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: EditorToolbarProps) {
+  const { t } = useTranslation();
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
 
@@ -60,15 +62,15 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
 
       <div className="w-px h-4 bg-border-primary mx-1" />
 
-      {btn("• List", editor.isActive("bulletList"), () => editor.chain().focus().toggleBulletList().run())}
-      {btn("1. List", editor.isActive("orderedList"), () => editor.chain().focus().toggleOrderedList().run())}
-      {btn("Quote", editor.isActive("blockquote"), () => editor.chain().focus().toggleBlockquote().run())}
-      {btn("< > Code", editor.isActive("codeBlock"), () => editor.chain().focus().toggleCodeBlock().run())}
+      {btn(t("composer.bulletList"), editor.isActive("bulletList"), () => editor.chain().focus().toggleBulletList().run())}
+      {btn(t("composer.orderedList"), editor.isActive("orderedList"), () => editor.chain().focus().toggleOrderedList().run())}
+      {btn(t("composer.quote"), editor.isActive("blockquote"), () => editor.chain().focus().toggleBlockquote().run())}
+      {btn(t("composer.code"), editor.isActive("codeBlock"), () => editor.chain().focus().toggleCodeBlock().run())}
 
       <div className="w-px h-4 bg-border-primary mx-1" />
 
-      {btn("— Rule", false, () => editor.chain().focus().setHorizontalRule().run())}
-      {btn("Link", editor.isActive("link"), () => {
+      {btn(t("composer.rule"), false, () => editor.chain().focus().setHorizontalRule().run())}
+      {btn(t("composer.link"), editor.isActive("link"), () => {
         if (editor.isActive("link")) {
           editor.chain().focus().unsetLink().run();
         } else {
@@ -82,7 +84,7 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
         className="hidden"
         onChange={handleImageSelect}
       />
-      {btn("Image", false, () => imageInputRef.current?.click(), "Insert image")}
+      {btn(t("composer.image"), false, () => imageInputRef.current?.click(), t("composer.insertImage"))}
 
       <div className="flex-1" />
 
@@ -100,8 +102,8 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
         </button>
       )}
 
-      {btn("Undo", false, () => editor.chain().focus().undo().run())}
-      {btn("Redo", false, () => editor.chain().focus().redo().run())}
+      {btn(t("composer.undo"), false, () => editor.chain().focus().undo().run())}
+      {btn(t("composer.redo"), false, () => editor.chain().focus().redo().run())}
       <InputDialog
         isOpen={showLinkDialog}
         onClose={() => setShowLinkDialog(false)}
@@ -110,9 +112,9 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
             editor.chain().focus().setLink({ href: values.url }).run();
           }
         }}
-        title="Insert Link"
-        fields={[{ key: "url", label: "URL", placeholder: "https://..." }]}
-        submitLabel="Insert"
+        title={t("composer.insertLink")}
+        fields={[{ key: "url", label: t("composer.url"), placeholder: "https://..." }]}
+        submitLabel={t("common.insert")}
       />
     </div>
   );

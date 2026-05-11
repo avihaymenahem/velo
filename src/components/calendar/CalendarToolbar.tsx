@@ -1,14 +1,20 @@
 import { ChevronLeft, ChevronRight, Plus, CalendarDays } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { i18n } from "@/locales/i18n";
 
 export type CalendarView = "day" | "week" | "month";
+
+export type CalendarType = "gregorian" | "islamic";
 
 interface CalendarToolbarProps {
   currentDate: Date;
   view: CalendarView;
+  calendarType: CalendarType;
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
   onViewChange: (view: CalendarView) => void;
+  onCalendarTypeChange: (type: CalendarType) => void;
   onCreateEvent: () => void;
   onToggleCalendarList?: () => void;
   showCalendarListButton?: boolean;
@@ -17,15 +23,18 @@ interface CalendarToolbarProps {
 export function CalendarToolbar({
   currentDate,
   view,
+  calendarType,
   onPrev,
   onNext,
   onToday,
   onViewChange,
+  onCalendarTypeChange,
   onCreateEvent,
   onToggleCalendarList,
   showCalendarListButton,
 }: CalendarToolbarProps) {
-  const title = formatTitle(currentDate, view);
+  const { t } = useTranslation();
+  const title = formatTitle(currentDate, view, calendarType);
 
   return (
     <div className="flex items-center justify-between px-6 py-3 border-b border-border-primary">
@@ -42,7 +51,7 @@ export function CalendarToolbar({
             onClick={onToday}
             className="px-2.5 py-1 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
           >
-            Today
+            {t("date.today")}
           </button>
           <button
             onClick={onNext}
@@ -63,6 +72,21 @@ export function CalendarToolbar({
             <CalendarDays size={16} />
           </button>
         )}
+        <div className="flex bg-bg-tertiary rounded-md p-0.5">
+          {(["gregorian", "islamic"] as const).map((type) => (
+            <button
+              key={type}
+              onClick={() => onCalendarTypeChange(type)}
+              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                calendarType === type
+                  ? "bg-bg-primary text-text-primary shadow-sm"
+                  : "text-text-tertiary hover:text-text-secondary"
+              }`}
+            >
+              {t(`calendar.${type}`)}
+            </button>
+          ))}
+        </div>
         <div className="flex bg-bg-tertiary rounded-md p-0.5">
           {(["day", "week", "month"] as CalendarView[]).map((v) => (
             <button
@@ -90,20 +114,37 @@ export function CalendarToolbar({
   );
 }
 
-function formatTitle(date: Date, view: CalendarView): string {
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+function formatTitle(date: Date, view: CalendarView, calendarType: CalendarType): string {
+  const calendar = calendarType === "islamic" ? "islamic" : undefined;
+
   if (view === "month") {
-    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+    return new Intl.DateTimeFormat(i18n.language, {
+      calendar,
+      year: "numeric",
+      month: "long",
+    }).format(date);
   }
+
   if (view === "week") {
     const start = new Date(date);
     start.setDate(start.getDate() - start.getDay());
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
-    if (start.getMonth() === end.getMonth()) {
-      return `${months[start.getMonth()]} ${start.getDate()}-${end.getDate()}, ${start.getFullYear()}`;
-    }
-    return `${months[start.getMonth()]?.slice(0, 3)} ${start.getDate()} - ${months[end.getMonth()]?.slice(0, 3)} ${end.getDate()}, ${end.getFullYear()}`;
+
+    const fmt = new Intl.DateTimeFormat(i18n.language, {
+      calendar,
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    return `${fmt.format(start)} – ${fmt.format(end)}`;
   }
-  return date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
+  return new Intl.DateTimeFormat(i18n.language, {
+    calendar,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
 }

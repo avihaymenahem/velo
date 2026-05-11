@@ -74,7 +74,19 @@
     "generate": "توليد",
     "improve": "تحسين",
     "shorter": "أقصر",
-    "formal": "رسمي"
+    "formal": "رسمي",
+    "bulletList": "• قائمة",
+    "orderedList": "1. قائمة",
+    "quote": "اقتباس",
+    "code": "كود",
+    "rule": "— فاصل",
+    "link": "رابط",
+    "undo": "تراجع",
+    "redo": "إعادة",
+    "insertLink": "إدراج رابط",
+    "url": "الرابط",
+    "insert": "إدراج",
+    "ai": "الذكاء الاصطناعي"
   },
   "settings": {
     "title": "الإعدادات",

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { Outlet } from "@tanstack/react-router";
 import { Sidebar } from "./components/layout/Sidebar";
 import { AddAccount } from "./components/accounts/AddAccount";
@@ -73,6 +73,8 @@ import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { formatSyncError } from "./utils/networkErrors";
 import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
+import { initI18n, changeLanguage, SUPPORTED_LOCALES } from "./locales";
+import type { SupportedLocale } from "./locales";
 import { router } from "./router";
 import { getSelectedThreadId } from "./router/navigate";
 
@@ -189,6 +191,14 @@ export default function App() {
     async function init() {
       try {
         await runMigrations();
+
+        // Initialize i18n
+        await initI18n();
+        const savedLocale = await getSetting("locale");
+        if (savedLocale && SUPPORTED_LOCALES.includes(savedLocale as SupportedLocale)) {
+          changeLanguage(savedLocale as SupportedLocale);
+          useUIStore.getState().setLocale(savedLocale as SupportedLocale);
+        }
 
         const ui = useUIStore.getState();
 
@@ -360,6 +370,7 @@ export default function App() {
         console.error("Failed to initialize:", err);
       }
       setInitialized(true);
+      document.documentElement.dir = useUIStore.getState().textDirection;
       invoke("close_splashscreen").catch(() => {});
     }
 
@@ -489,6 +500,16 @@ export default function App() {
     }
   }, [colorTheme, theme]);
 
+  // Subscribe to textDirection changes to update <html dir>
+  useEffect(() => {
+    const unsub = useUIStore.subscribe((state, prev) => {
+      if (state.textDirection !== prev.textDirection) {
+        document.documentElement.dir = state.textDirection;
+      }
+    });
+    return () => unsub();
+  }, []);
+
   const handleAddAccountSuccess = useCallback(async () => {
     setShowAddAccount(false);
     const dbAccounts = await getAllAccounts();
@@ -540,6 +561,7 @@ export default function App() {
   }
 
   return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-bg-primary"><span className="text-xs text-text-tertiary">Loading...</span></div>}>
     <div className="flex flex-col h-screen overflow-hidden text-text-primary">
       <OfflineBanner />
       {/* Animated gradient blobs for glassmorphism effect */}
@@ -609,5 +631,6 @@ export default function App() {
         onClose={() => setMoveToFolderState({ open: false, threadIds: [] })}
       />
     </div>
+    </Suspense>
   );
 }
