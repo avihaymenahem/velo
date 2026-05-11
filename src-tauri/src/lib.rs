@@ -10,6 +10,7 @@ mod commands;
 mod contacts;
 mod imap;
 mod oauth;
+mod pgp;
 mod smtp;
 
 #[tauri::command]
@@ -114,6 +115,9 @@ pub fn run() {
             commands::smtp_send_email,
             commands::smtp_test_connection,
             contacts::csv::parse_csv,
+            pgp::keyring::generate_key,
+            pgp::keyring::get_key_info_cmd,
+            pgp::crypto::encrypt,
         ])
         .setup(|app| {
             {

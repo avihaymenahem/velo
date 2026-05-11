@@ -35,6 +35,7 @@ import {
   ChevronUp,
   ChevronDown,
   RotateCcw,
+  Repeat,
   type LucideIcon,
 } from "lucide-react";
 import { SignatureEditor } from "./SignatureEditor";
@@ -47,6 +48,7 @@ import { SmartFolderEditor } from "./SmartFolderEditor";
 import { QuickStepEditor } from "./QuickStepEditor";
 import { SmartLabelEditor } from "./SmartLabelEditor";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { WorkflowEditor } from "./WorkflowEditor";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
@@ -62,13 +64,14 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
 
-type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "people" | "accounts" | "shortcuts" | "ai" | "about";
+type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "workflows" | "people" | "accounts" | "shortcuts" | "ai" | "about";
 
 const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "general", label: "General", icon: Settings },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "composing", label: "Composing", icon: PenLine },
   { id: "mail-rules", label: "Mail Rules", icon: Filter },
+  { id: "workflows", label: "Workflows", icon: Repeat },
   { id: "people", label: "People", icon: Users },
   { id: "accounts", label: "Accounts", icon: UserCircle },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
@@ -826,6 +829,15 @@ export function SettingsPage() {
                     <QuickStepEditor />
                   </Section>
                 </>
+              )}
+
+              {activeTab === "workflows" && (
+                <Section title="Workflow Rules">
+                  <p className="text-xs text-text-tertiary mb-3">
+                    Automate actions when specific email events occur. Create rules that trigger on incoming email, follow-up reminders, or time-based schedules.
+                  </p>
+                  <WorkflowEditor />
+                </Section>
               )}
 
               {activeTab === "people" && (
