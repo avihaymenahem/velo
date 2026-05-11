@@ -677,6 +677,22 @@ export async function deleteSingleMessage(
 }
 
 /**
+ * Trash (or permanently delete) only the most recent message in a thread.
+ * If it's the last message, the thread itself is removed from the DB and UI.
+ */
+export async function trashLatestMessage(
+  accountId: string,
+  threadId: string,
+  permanent: boolean = false,
+): Promise<ActionResult> {
+  const msgs = await getMessagesForThread(accountId, threadId);
+  if (msgs.length === 0) return { success: false, error: "No messages in thread" };
+  const latest = msgs[msgs.length - 1] as (typeof msgs)[number] | undefined;
+  if (!latest) return { success: false, error: "No messages in thread" };
+  return deleteSingleMessage(accountId, threadId, latest.id, permanent);
+}
+
+/**
  * Delete a draft thread from the Drafts folder view.
  * Routes to the correct path based on account provider:
  * - Gmail: uses the Drafts API (drafts.delete) which properly removes the draft
@@ -700,8 +716,19 @@ export async function deleteDraftThread(
     const client = await getGmailClient(accountId);
     await deleteDraftsForThread(client, accountId, threadId);
   } else {
-    // IMAP: delete directly from current folder (avoids UID-changing MOVE to Trash)
-    await permanentDeleteThread(accountId, threadId, []);
+    // IMAP: read UIDs from DB BEFORE cleanup — permanentDeleteThread([], ...) would
+    // call resolveGrouped after applyLocalDbUpdate already cleared the messages table,
+    // returning an empty map and skipping both IMAP delete and tombstone.
+    const msgs = await getMessagesForThread(accountId, threadId);
     await deleteThreadFromDb(accountId, threadId);
+    const provider = await getEmailProvider(accountId);
+    for (const msg of msgs) {
+      if (msg.imap_uid != null && msg.imap_folder) {
+        const msgId = `imap-${accountId}-${msg.imap_folder}-${msg.imap_uid}`;
+        await provider.deleteDraft(msgId).catch((err) =>
+          console.warn("[deleteDraftThread] IMAP delete failed:", err),
+        );
+      }
+    }
   }
 }

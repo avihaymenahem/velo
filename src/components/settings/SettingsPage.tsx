@@ -933,20 +933,21 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
 
                   <Section title="Style">
                     <SettingRow label="Default font">
-                      <select
-                        value={composerFontFamily}
-                        onChange={(e) => setComposerFontFamily(e.target.value as ComposerFontFamily)}
-                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
-                      >
-                        <option value="system">System</option>
-                        <option value="arial">Arial</option>
-                        <option value="calibri">Calibri</option>
-                        <option value="times">Times New Roman</option>
-                        <option value="courier">Courier New</option>
-                        <option value="georgia">Georgia</option>
-                        <option value="verdana">Verdana</option>
-                        <option value="avenir">Avenir</option>
-                      </select>
+<select
+                         value={composerFontFamily}
+                         onChange={(e) => setComposerFontFamily(e.target.value as ComposerFontFamily)}
+                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                       >
+                         <option value="system">System</option>
+                         <option value="arial">Arial</option>
+                         <option value="calibri">Calibri</option>
+                         <option value="times">Times New Roman</option>
+                         <option value="courier">Courier New</option>
+                         <option value="georgia">Georgia</option>
+                         <option value="verdana">Verdana</option>
+                         <option value="avenir">Avenir</option>
+                         <option value="inter">Inter</option>
+                       </select>
                     </SettingRow>
                     <SettingRow label="Default size">
                       <select

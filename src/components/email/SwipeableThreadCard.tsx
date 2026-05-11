@@ -6,10 +6,8 @@ import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { useAccountStore } from "@/stores/accountStore";
 import {
   archiveThread,
-  trashThread,
-  permanentDeleteThread,
+  trashLatestMessage,
 } from "@/services/emailActions";
-import { deleteThread as deleteThreadFromDb } from "@/services/db/threads";
 import { scrollTracker } from "@/utils/scrollTracker";
 
 // ── Tuneable constants ────────────────────────────────────────────────────────
@@ -97,12 +95,7 @@ export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
     async (dir: "left" | "right") => {
       if (!activeAccountId) return;
       if (dir === "left") {
-        if (isTrashViewRef.current) {
-          await permanentDeleteThread(activeAccountId, thread.id, []);
-          await deleteThreadFromDb(activeAccountId, thread.id);
-        } else {
-          await trashThread(activeAccountId, thread.id, []);
-        }
+        await trashLatestMessage(activeAccountId, thread.id, isTrashViewRef.current);
       } else {
         await archiveThread(activeAccountId, thread.id, []);
       }

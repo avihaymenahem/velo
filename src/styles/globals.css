@@ -662,10 +662,8 @@ body {
 .ProseMirror {
     min-height: 200px;
     padding: 0.5rem 1rem;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-        Arial, sans-serif;
-    font-size: 14px;
+    font-family: var(--composer-font, inherit);
+    font-size: var(--composer-size, 14px);
     line-height: 1.6;
     color: var(--color-text-primary);
 }

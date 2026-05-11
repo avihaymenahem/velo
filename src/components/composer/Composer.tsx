@@ -56,14 +56,15 @@ import { interpolateVariables } from "@/utils/templateVariables";
 import { sanitizeHtml } from "@/utils/sanitize";
 
 const COMPOSER_FONT_MAP: Record<ComposerFontFamily, string> = {
-  system: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif",
-  arial: "Arial, sans-serif",
-  calibri: "Calibri, sans-serif",
-  times: "Times New Roman, serif",
-  courier: "Courier New, monospace",
-  georgia: "Georgia, serif",
-  verdana: "Verdana, sans-serif",
-  avenir: "Avenir, sans-serif",
+  system: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+  arial: "Arial, Helvetica, sans-serif",
+  calibri: "Calibri, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+  times: "Times New Roman, Times, serif",
+  courier: "Courier New, Courier, monospace",
+  georgia: "Georgia, Times, serif",
+  verdana: "Verdana, Geneva, sans-serif",
+  avenir: "Avenir, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+  inter: "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
 };
 
 export function Composer() {
@@ -100,7 +101,7 @@ export function Composer() {
   const effectiveAccountId = composerAccountId ?? activeAccountId;
   const activeAccount = accounts.find((a) => a.id === effectiveAccountId);
   const sendingRef = useRef(false);
-  const [isDiscardingDraft, setIsDiscardingDraft] = useState(false);
+  const isDiscardingRef = useRef(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [aliases, setAliases] = useState<SendAsAlias[]>([]);
@@ -170,7 +171,6 @@ export function Composer() {
       attributes: {
         class:
           "prose prose-sm max-w-none px-4 py-3 min-h-[200px] focus:outline-none text-text-primary",
-        style: `font-family: ${COMPOSER_FONT_MAP[composerFontFamily]}; font-size: ${composerFontSize}`,
       },
       handleDrop: (_view, event) => {
         if (event.dataTransfer?.files?.length) return true;
@@ -179,12 +179,6 @@ export function Composer() {
     },
   });
 
-  useEffect(() => {
-    if (!editor || !isOpen) return;
-    const el = editor.view.dom as HTMLElement;
-    el.style.fontFamily = COMPOSER_FONT_MAP[composerFontFamily];
-    el.style.fontSize = composerFontSize;
-  }, [editor, isOpen, composerFontFamily, composerFontSize]);
 
   useEffect(() => {
     if (!isOpen || !effectiveAccountId) return;
@@ -347,7 +341,11 @@ const getFullHtml = useCallback(() => {
     if (state.to.length === 0) return;
     sendingRef.current = true;
     state.setIsSending(true);
-    stopAutoSave();
+    // Use startDiscard+waitForSave (not stopAutoSave) so any in-flight IMAP autosave
+    // completes before we capture currentDraftId — stopAutoSave nullifies savePromise,
+    // causing waitForSave to return early and leaving the new UID uncleaned.
+    startDiscard();
+    await waitForSave();
     const html = getFullHtml();
     const senderEmail = state.fromEmail ?? activeAccount.email;
     const raw = buildRawEmail({
@@ -370,7 +368,7 @@ const getFullHtml = useCallback(() => {
     });
     const delaySetting = await getSetting("undo_send_delay_seconds");
     const delay = parseInt(delaySetting ?? "5", 10) * 1000;
-    const currentDraftId = state.draftId;
+    const currentDraftId = useComposerStore.getState().draftId;
     state.setUndoSendVisible(true);
     const timer = setTimeout(async () => {
       try {
@@ -466,41 +464,52 @@ const getFullHtml = useCallback(() => {
     [effectiveAccountId, activeAccount, closeComposer, getFullHtml],
   );
 
-  const handleDiscard = useCallback(async () => {
-    setIsDiscardingDraft(true); // Start loading state
+  const handleDiscard = useCallback(() => {
+    // Guard against double-clicks
+    if (isDiscardingRef.current) return;
+    isDiscardingRef.current = true;
 
-    // Signal discard immediately so any in-flight saveDraft() bails before touching IMAP
+    // 1. Signal discard — cancels the debounce timer and marks isDiscarding=true so that
+    //    any in-flight saveDraft() won't write to localStorage or update lastSavedAt.
+    //    If the IMAP call is already in-flight it will still complete (can't abort it),
+    //    but it will call state.setDraftId() with the new UID so we can delete it below.
     startDiscard();
-    // Wait for the in-flight save to finish (it will abort due to isDiscarding flag)
-    await waitForSave();
-    // Read draftId now — an in-flight create may have set it after we called startDiscard
-    const currentDraftId = useComposerStore.getState().draftId;
-    const currentThreadId = useComposerStore.getState().threadId;
-    if (effectiveAccountId) {
-      if (currentThreadId) {
-        // Se c'è un threadId, usa deleteDraftThread per rimuovere tutti i draft associati a quel thread
-        try {
-          await deleteDraftThread(effectiveAccountId, currentThreadId);
-        } catch {
-          /* ignore */
-        }
-      } else if (currentDraftId) {
-        // Se è un nuovo draft (senza threadId), elimina il draft specifico tramite il suo ID
-        try {
-          await deleteDraftAction(
-            effectiveAccountId,
-            currentDraftId,
-            currentThreadId ?? undefined,
-          );
-        } catch {
-          /* ignore */
-        }
-      }
-    }
+
+    // 2. Clear the "Saving..." indicator immediately so it never overlaps with the close.
+    useComposerStore.getState().setIsSaving(false);
+
+    // 3. Snapshot IDs before closeComposer() resets the store to null.
+    const accountId = effectiveAccountId;
+    const preDraftId = useComposerStore.getState().draftId;
+    const preThreadId = useComposerStore.getState().threadId;
+
+    // 4. Close the composer right away — user sees the window disappear instantly.
     closeComposer();
-    // Call stopAutoSave AFTER closeComposer so isOpen=false → localStorage key is cleared
+    // stopAutoSave() is also called by the useEffect cleanup triggered by isOpen→false,
+    // but we call it explicitly here for determinism. It no longer clears isDiscarding,
+    // so the in-flight save guard remains intact until startAutoSave() resets it.
     stopAutoSave();
-    setIsDiscardingDraft(false); // End loading state
+
+    isDiscardingRef.current = false;
+
+    if (!accountId) return;
+
+    // 5. Background cleanup: once any in-flight IMAP save completes (and possibly updates
+    //    draftId with a new UID), delete the draft from IMAP and write the tombstone.
+    void waitForSave().then(async () => {
+      // An in-flight updateDraft may have set a new draftId even after closeComposer()
+      const postDraftId = useComposerStore.getState().draftId;
+      const draftId = postDraftId ?? preDraftId;
+      const threadId = postDraftId
+        ? (useComposerStore.getState().threadId ?? preThreadId)
+        : preThreadId;
+
+      if (draftId) {
+        await deleteDraftAction(accountId, draftId, threadId ?? undefined).catch(() => {});
+      } else if (threadId) {
+        await deleteDraftThread(accountId, threadId).catch(() => {});
+      }
+    });
   }, [effectiveAccountId, closeComposer]);
 
   const isFullpage = viewMode === "fullpage";
@@ -620,7 +629,14 @@ const getFullHtml = useCallback(() => {
 {/* Scrollable area — editor, signature, and quote */}
         <div className="flex-1 flex flex-row overflow-hidden min-h-0">
           <div className="flex-1 overflow-y-auto min-w-0 flex flex-col">
-            <EditorContent editor={editor} />
+            <div
+              style={{
+                "--composer-font": COMPOSER_FONT_MAP[composerFontFamily],
+                "--composer-size": composerFontSize,
+              } as React.CSSProperties}
+            >
+              <EditorContent editor={editor} />
+            </div>
             {signatureHtml && (
               <div className="px-4 py-2 border-t border-border-secondary text-xs text-text-tertiary">
                 <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }} />
@@ -663,21 +679,21 @@ const getFullHtml = useCallback(() => {
             <Button
               variant="secondary"
               onClick={handleDiscard}
-              disabled={isDiscardingDraft || isSending}
+              disabled={isSending}
             >
-              {isDiscardingDraft ? "Discarding..." : "Discard"}
+              Discard
             </Button>
             <div className="flex items-center">
               <button
                 onClick={handleSend}
-                disabled={to.length === 0 || isDiscardingDraft || isSending}
+                disabled={to.length === 0 || isSending}
                 className="px-4 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-l-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSending ? "Sending..." : "Send"}
               </button>
               <button
                 onClick={() => setShowSchedule(true)}
-                disabled={to.length === 0 || isDiscardingDraft || isSending}
+                disabled={to.length === 0 || isSending}
                 className="px-2 py-1.5 text-white bg-accent hover:bg-accent-hover border-l border-white/20 rounded-r-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Schedule send"
               >

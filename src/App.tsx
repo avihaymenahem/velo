@@ -308,7 +308,8 @@ export default function App() {
           savedComposerFont === "courier" ||
           savedComposerFont === "georgia" ||
           savedComposerFont === "verdana" ||
-          savedComposerFont === "avenir"
+          savedComposerFont === "avenir" ||
+          savedComposerFont === "inter"
         ) {
           ui.setComposerFontFamily(savedComposerFont);
         }

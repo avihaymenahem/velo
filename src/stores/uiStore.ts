@@ -17,7 +17,8 @@ export type ComposerFontFamily =
   | "courier"
   | "georgia"
   | "verdana"
-  | "avenir";
+  | "avenir"
+  | "inter";
 export type ComposerFontSize =
   | "10px"
   | "12px"

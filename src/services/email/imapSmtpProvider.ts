@@ -361,15 +361,17 @@ export class ImapSmtpProvider implements EmailProvider {
       try {
         await imapDeleteMessages(config, folder, uids);
         console.log(`[imap_] permanentDelete ${folder} uids=${uids} OK`);
-        for (const uid of uids) {
-          await recordDeletedImapUid(this.accountId, folder, uid).catch(() => {});
-        }
       } catch (err) {
         // Stale UIDs from moved messages are silently ignored — only log
         console.warn(
           `[imap_] permanentDelete ${folder} uids=${uids} failed (stale?):`,
           err,
         );
+      } finally {
+        // Always write tombstone so UIDs are never re-imported, even if IMAP delete failed
+        for (const uid of uids) {
+          await recordDeletedImapUid(this.accountId, folder, uid).catch(() => {});
+        }
       }
     }
   }
@@ -773,10 +775,13 @@ export class ImapSmtpProvider implements EmailProvider {
 
     if (uid !== null && folder) {
       const config = await this.getImapConfig();
-      await imapDeleteMessages(config, folder, [uid]);
-      // Record tombstone so the deleted UID is never re-imported during delta sync.
       const { recordDeletedImapUid } = await import("@/services/db/deletedImapUids");
-      await recordDeletedImapUid(this.accountId, folder, uid).catch(() => {});
+      try {
+        await imapDeleteMessages(config, folder, [uid]);
+      } finally {
+        // Always write tombstone so the UID is never re-imported even if IMAP delete failed
+        await recordDeletedImapUid(this.accountId, folder, uid).catch(() => {});
+      }
     } else {
       // Generated draft IDs (imap-draft-...) can't be mapped back to a server UID
       console.warn(

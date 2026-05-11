@@ -25,6 +25,7 @@ const FONT_FAMILIES = [
   { label: "System", value: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" },
   { label: "Arial", value: "Arial, sans-serif" },
   { label: "Calibri", value: "Calibri, sans-serif" },
+  { label: "Inter", value: "Inter, sans-serif" },
   { label: "Times", value: "Times New Roman, serif" },
   { label: "Courier", value: "Courier New, monospace" },
   { label: "Georgia", value: "Georgia, serif" },

@@ -14,7 +14,7 @@ import type { ColorThemeId } from "./constants/themes";
 import type { ComposerMode } from "./stores/composerStore";
 
 export default function ComposerWindow() {
-  const { setTheme, setFontScale, setColorTheme } = useUIStore();
+  const { setTheme, setFontScale, setColorTheme, setComposerFontFamily, setComposerFontSize } = useUIStore();
   const { setAccounts } = useAccountStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +52,36 @@ export default function ComposerWindow() {
           COLOR_THEMES.some((t) => t.id === savedColorTheme)
         ) {
           setColorTheme(savedColorTheme as ColorThemeId);
+        }
+
+        // Restore composer font family
+        const savedComposerFont = await getSetting("composer_font_family");
+        if (
+          savedComposerFont === "system" ||
+          savedComposerFont === "arial" ||
+          savedComposerFont === "calibri" ||
+          savedComposerFont === "times" ||
+          savedComposerFont === "courier" ||
+          savedComposerFont === "georgia" ||
+          savedComposerFont === "verdana" ||
+          savedComposerFont === "avenir" ||
+          savedComposerFont === "inter"
+        ) {
+          setComposerFontFamily(savedComposerFont);
+        }
+
+        // Restore composer font size
+        const savedComposerSize = await getSetting("composer_font_size");
+        if (
+          savedComposerSize === "10px" ||
+          savedComposerSize === "12px" ||
+          savedComposerSize === "14px" ||
+          savedComposerSize === "16px" ||
+          savedComposerSize === "18px" ||
+          savedComposerSize === "20px" ||
+          savedComposerSize === "24px"
+        ) {
+          setComposerFontSize(savedComposerSize);
         }
 
         // Load accounts into store

@@ -299,6 +299,7 @@ export function stopAutoSave(): void {
     localStorage.removeItem(getPersistenceKey(currentAccountId));
   }
   currentAccountId = null;
-  isDiscarding = false;
-  isSaveInFlight = false;
+  // Do NOT clear isDiscarding or isSaveInFlight here — a discard may have an in-flight
+  // IMAP save that still needs to complete before the background cleanup reads the new draftId.
+  // isDiscarding is only reset by startAutoSave() when a fresh composer session begins.
 }
