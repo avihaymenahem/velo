@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { setSetting } from "@/services/db/settings";
 import type { ColorThemeId } from "@/constants/themes";
+import type { SupportedLocale } from "@/locales";
+import { LOCALE_DIRS } from "@/locales";
 
 type Theme = "light" | "dark" | "system";
 type ReadingPanePosition = "right" | "bottom" | "hidden";
@@ -36,6 +38,9 @@ interface UIState {
   isOnline: boolean;
   pendingOpsCount: number;
   isSyncingFolder: string | null;
+  locale: SupportedLocale;
+  textDirection: "ltr" | "rtl";
+  setLocale: (locale: SupportedLocale) => void;
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -81,7 +86,14 @@ export const useUIStore = create<UIState>((set) => ({
   isOnline: true,
   pendingOpsCount: 0,
   isSyncingFolder: null,
+  locale: "en",
+  textDirection: "ltr",
 
+  setLocale: (locale) => {
+    setSetting("locale", locale).catch(() => {});
+    const textDirection = LOCALE_DIRS[locale];
+    set({ locale, textDirection });
+  },
   setTheme: (theme) => set({ theme }),
   toggleSidebar: () =>
     set((state) => {
