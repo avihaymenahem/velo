@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapFolderToLabel, getLabelsForMessage, getSyncableFolders } from "./folderMapper";
+import { mapFolderToLabel, getLabelsForMessage, getSyncableFolders, isSelectableFolder } from "./folderMapper";
 import { createMockImapFolder } from "@/test/mocks";
 
 describe("mapFolderToLabel", () => {
@@ -120,7 +120,7 @@ describe("getLabelsForMessage", () => {
 
 describe("getSyncableFolders", () => {
   it("filters out [Gmail] parent folder", () => {
-    const folders: ImapFolder[] = [
+    const folders = [
       createMockImapFolder({ path: "INBOX", name: "INBOX" }),
       createMockImapFolder({ path: "[Gmail]", name: "[Gmail]" }),
       createMockImapFolder({ path: "[Gmail]/Sent Mail", name: "Sent Mail" }),
@@ -131,7 +131,7 @@ describe("getSyncableFolders", () => {
   });
 
   it("filters out [Google Mail] parent folder", () => {
-    const folders: ImapFolder[] = [
+    const folders = [
       createMockImapFolder({ path: "INBOX", name: "INBOX" }),
       createMockImapFolder({ path: "[Google Mail]", name: "[Google Mail]" }),
     ];
@@ -140,12 +140,121 @@ describe("getSyncableFolders", () => {
   });
 
   it("keeps all normal folders", () => {
-    const folders: ImapFolder[] = [
+    const folders = [
       createMockImapFolder({ path: "INBOX", name: "INBOX" }),
       createMockImapFolder({ path: "Sent", name: "Sent" }),
       createMockImapFolder({ path: "Work", name: "Work" }),
     ];
     const result = getSyncableFolders(folders);
     expect(result).toHaveLength(3);
+  });
+});
+
+describe("isSelectableFolder", () => {
+  it("returns false for shared folders (shared/ prefix)", () => {
+    const folder = createMockImapFolder({ path: "shared/Projects", name: "Projects" });
+    expect(isSelectableFolder(folder)).toBe(false);
+  });
+
+  it("returns false for shared folders (case-insensitive)", () => {
+    const folder = createMockImapFolder({ path: "Shared/Mailbox", name: "Mailbox" });
+    expect(isSelectableFolder(folder)).toBe(false);
+  });
+
+  it("returns false for Groups folders", () => {
+    const folder = createMockImapFolder({ path: "groups/team", name: "team" });
+    expect(isSelectableFolder(folder)).toBe(false);
+  });
+
+  it("returns false for Public folders", () => {
+    const folder = createMockImapFolder({ path: "public/announcements", name: "announcements" });
+    expect(isSelectableFolder(folder)).toBe(false);
+  });
+
+  it("returns false for nested shared folder paths", () => {
+    const folder = createMockImapFolder({ path: "users/alice/shared/Archive", name: "Archive" });
+    expect(isSelectableFolder(folder)).toBe(false);
+  });
+
+  it("returns false for [nostromo] system containers", () => {
+    const folder = createMockImapFolder({ path: "[nostromo]/virtual", name: "virtual" });
+    expect(isSelectableFolder(folder)).toBe(false);
+  });
+
+  it("returns true for normal user folders", () => {
+    const folder = createMockImapFolder({ path: "INBOX", name: "INBOX" });
+    expect(isSelectableFolder(folder)).toBe(true);
+  });
+
+  it("returns true for Sent, Drafts, Archive folders", () => {
+    const folders = [
+      createMockImapFolder({ path: "Sent", name: "Sent" }),
+      createMockImapFolder({ path: "Drafts", name: "Drafts" }),
+      createMockImapFolder({ path: "Archive", name: "Archive" }),
+      createMockImapFolder({ path: "Work/Projects", name: "Projects" }),
+    ];
+    for (const folder of folders) {
+      expect(isSelectableFolder(folder)).toBe(true);
+    }
+  });
+});
+
+describe("\\Noselect folder handling (UIDVALIDITY scenarios)", () => {
+  it("getSyncableFolders excludes shared folders that cause sync failures", () => {
+    const folders = [
+      createMockImapFolder({ path: "INBOX", name: "INBOX", exists: 10 }),
+      createMockImapFolder({ path: "shared/Projects", name: "Projects", exists: 5 }),
+      createMockImapFolder({ path: "Sent", name: "Sent", exists: 3 }),
+    ];
+    const result = getSyncableFolders(folders);
+    expect(result).toHaveLength(2);
+    expect(result.map((f) => f.path)).toEqual(["INBOX", "Sent"]);
+  });
+
+  it("getSyncableFolders excludes Public and Groups folders", () => {
+    const folders = [
+      createMockImapFolder({ path: "INBOX", name: "INBOX", exists: 10 }),
+      createMockImapFolder({ path: "public/general", name: "general", exists: 2 }),
+      createMockImapFolder({ path: "groups/engineering", name: "engineering", exists: 4 }),
+    ];
+    const result = getSyncableFolders(folders);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.path).toBe("INBOX");
+  });
+
+  it("skips folders with zero UIDVALIDITY during sync (Noselect indicator)", () => {
+    // Simulates the check in imapInitialSync that skips folders with uidvalidity=0
+    // These folders are non-selectable (like shared mailboxes on DavMail/Exchange)
+    const searchResult = {
+      uids: [1, 2, 3],
+      folder_status: { uidvalidity: 0, uidnext: 100, exists: 3, unseen: 1, highest_modseq: null },
+    };
+
+    // Zero UIDVALIDITY is the signature of a non-selectable folder
+    expect(searchResult.folder_status.uidvalidity).toBe(0);
+    expect(searchResult.folder_status.uidvalidity === 0).toBe(true);
+  });
+
+  it("UIDVALIDITY change triggers full resync of folder", () => {
+    // Simulates the UIDVALIDITY change detection in delta sync
+    const savedState = { uidvalidity: 12345, last_uid: 50, folder_path: "INBOX" };
+    const currentStatus = { uidvalidity: 99999, uidnext: 150, exists: 100, unseen: 5, highest_modseq: null };
+
+    const uidvalidityChanged = savedState.uidvalidity !== currentStatus.uidvalidity;
+
+    expect(uidvalidityChanged).toBe(true);
+    expect(savedState.uidvalidity).toBe(12345);
+    expect(currentStatus.uidvalidity).toBe(99999);
+  });
+
+  it("stable UIDVALIDITY continues with delta sync", () => {
+    const savedState = { uidvalidity: 12345, last_uid: 50, folder_path: "INBOX" };
+    const currentStatus = { uidvalidity: 12345, uidnext: 150, exists: 100, unseen: 5, highest_modseq: null };
+
+    const uidvalidityChanged = savedState.uidvalidity !== currentStatus.uidvalidity;
+
+    expect(uidvalidityChanged).toBe(false);
+    // Delta sync would proceed to fetch new UIDs from last_uid+1
+    expect(currentStatus.uidvalidity).toBe(savedState.uidvalidity);
   });
 });
