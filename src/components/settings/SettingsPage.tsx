@@ -51,6 +51,7 @@ import { QuickStepEditor } from "./QuickStepEditor";
 import { SmartLabelEditor } from "./SmartLabelEditor";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { SoulEditorDialog } from "./SoulEditorDialog";
+import { EditImapAccount } from "@/components/accounts/EditImapAccount";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
 import {
@@ -155,6 +156,7 @@ export function SettingsPage() {
   const [newVipEmail, setNewVipEmail] = useState("");
   const [aiLanguage, setAiLanguage] = useState("English");
   const [soulEditorOpen, setSoulEditorOpen] = useState(false);
+  const [editingImapAccountId, setEditingImapAccountId] = useState<string | null>(null);
   const [taskRetentionDeleted, setTaskRetentionDeleted] = useState("7");
   const [taskAutoArchiveHours, setTaskAutoArchiveHours] = useState("24");
   const [taskRetentionCompleted, setTaskRetentionCompleted] = useState("30");
@@ -1064,16 +1066,26 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
-                                <button
-                                  onClick={() => handleReauthorizeAccount(account.id, account.email)}
-                                  disabled={reauthStatus[account.id] === "authorizing"}
-                                  className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
-                                >
-                                  {reauthStatus[account.id] === "authorizing" && "Waiting..."}
-                                  {reauthStatus[account.id] === "done" && "Done!"}
-                                  {reauthStatus[account.id] === "error" && "Failed"}
-                                  {(!reauthStatus[account.id] || reauthStatus[account.id] === "idle") && "Re-authorize"}
-                                </button>
+                                {account.provider === "imap" && (
+                                  <button
+                                    onClick={() => setEditingImapAccountId(account.id)}
+                                    className="text-xs text-accent hover:text-accent-hover transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                                {account.provider !== "imap" && (
+                                  <button
+                                    onClick={() => handleReauthorizeAccount(account.id, account.email)}
+                                    disabled={reauthStatus[account.id] === "authorizing"}
+                                    className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                                  >
+                                    {reauthStatus[account.id] === "authorizing" && "Waiting..."}
+                                    {reauthStatus[account.id] === "done" && "Done!"}
+                                    {reauthStatus[account.id] === "error" && "Failed"}
+                                    {(!reauthStatus[account.id] || reauthStatus[account.id] === "idle") && "Re-authorize"}
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleResyncAccount(account.id)}
                                   disabled={resyncStatus[account.id] === "syncing"}
@@ -2293,6 +2305,14 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
           </div>
         </div>
       </div>
+
+      {editingImapAccountId && (
+        <EditImapAccount
+          accountId={editingImapAccountId}
+          onClose={() => setEditingImapAccountId(null)}
+          onSaved={() => setEditingImapAccountId(null)}
+        />
+      )}
     </div>
   );
 }

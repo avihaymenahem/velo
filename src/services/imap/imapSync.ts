@@ -310,20 +310,22 @@ async function storeThreadsAndMessages(
         // Collect all label IDs across messages in this thread.
         // Also include labels from duplicate folder copies (same RFC Message-ID
         // in multiple folders) that the threading algorithm may have deduplicated.
+        // SENT takes precedence over INBOX: suppress INBOX for any RFC Message-ID
+        // that also has SENT (server put copies in both folders).
         const allLabelIds = new Set<string>();
         for (const msg of messages) {
-          for (const lid of msg.labelIds) {
-            allLabelIds.add(lid);
-          }
-          // Merge labels from all folder copies of this message
           const imapMsg = imapMsgByLocalId.get(msg.id);
           const rfcId = imapMsg?.message_id;
-          if (rfcId && labelsByRfcId) {
-            const extraLabels = labelsByRfcId.get(rfcId);
-            if (extraLabels) {
-              for (const lid of extraLabels) {
-                allLabelIds.add(lid);
-              }
+          const extraLabels = rfcId && labelsByRfcId ? labelsByRfcId.get(rfcId) : undefined;
+          const rfcHasSent = extraLabels?.has("SENT") ?? false;
+          for (const lid of msg.labelIds) {
+            if (lid === "INBOX" && rfcHasSent) continue;
+            allLabelIds.add(lid);
+          }
+          if (extraLabels) {
+            for (const lid of extraLabels) {
+              if (lid === "INBOX" && rfcHasSent) continue;
+              allLabelIds.add(lid);
             }
           }
         }
@@ -428,7 +430,48 @@ async function storeThreadsAndMessages(
 // ---------------------------------------------------------------------------
 
 /**
+/**
+ * Fetch a batch of UIDs, splitting once in half on timeout/connection errors.
+ * Non-recursive: sub-batches that also fail are skipped (retried on the next sync cycle).
+ * This avoids triggering server-side auth lockouts from too many rapid connections.
+ */
+async function fetchUidsWithRetry(
+  config: ImapConfig,
+  folder: string,
+  uids: number[],
+): Promise<{ messages: ImapMessage[]; uidvalidity: number }> {
+  try {
+    const result = await imapFetchMessages(config, folder, uids);
+    return { messages: result.messages, uidvalidity: result.folder_status.uidvalidity };
+  } catch (err) {
+    if (!isConnectionError(err) || uids.length <= 1) throw err;
+
+    const half = Math.ceil(uids.length / 2);
+    console.warn(
+      `[imapSync] FETCH failed for ${uids.length} UIDs in ${folder} — retrying as ${half}+${uids.length - half}`,
+    );
+    await delay(2_000);
+
+    const messages: ImapMessage[] = [];
+    let uidvalidity = 0;
+
+    for (const sub of [uids.slice(0, half), uids.slice(half)]) {
+      try {
+        const result = await imapFetchMessages(config, folder, sub);
+        messages.push(...result.messages);
+        if (result.folder_status.uidvalidity) uidvalidity = result.folder_status.uidvalidity;
+      } catch (subErr) {
+        console.warn(`[imapSync] Sub-batch FETCH failed for ${sub.length} UIDs in ${folder}, will retry next sync`);
+      }
+    }
+
+    return { messages, uidvalidity };
+  }
+}
+
+/**
  * Fetch messages from a folder in batches of BATCH_SIZE.
+ * Automatically splits batches in half on FETCH timeout (slow servers).
  */
 async function fetchMessagesInBatches(
   config: ImapConfig,
@@ -442,12 +485,12 @@ async function fetchMessagesInBatches(
 
   for (let i = 0; i < uids.length; i += BATCH_SIZE) {
     const batch = uids.slice(i, i + BATCH_SIZE);
-    const result = await imapFetchMessages(config, folder, batch);
+    const { messages, uidvalidity: batchUidvalidity } = await fetchUidsWithRetry(config, folder, batch);
 
-    allMessages.push(...result.messages);
-    uidvalidity = result.folder_status.uidvalidity;
+    allMessages.push(...messages);
+    if (batchUidvalidity) uidvalidity = batchUidvalidity;
 
-    for (const msg of result.messages) {
+    for (const msg of messages) {
       if (msg.uid > lastUid) lastUid = msg.uid;
     }
 
@@ -609,31 +652,29 @@ export async function imapInitialSync(
 
       // Phase 2b: Fetch messages in small IPC-friendly chunks
       for (let chunkStart = 0; chunkStart < uidsToFetch.length; chunkStart += CHUNK_SIZE) {
+        // Report progress at the start of each chunk so the UI stays responsive
+        // even when fetches are slow or retrying (split-retry on timeout).
+        onProgress?.({
+          phase: "messages",
+          current: fetchedTotal + chunkStart,
+          total: totalEstimate,
+          folder: folder.path,
+        });
+
         const chunkUids = uidsToFetch.slice(chunkStart, chunkStart + CHUNK_SIZE);
-        let chunkResult;
+        let chunkMessages: ImapMessage[];
         try {
-          chunkResult = await imapFetchMessages(config, folder.raw_path, chunkUids);
+          const { messages } = await fetchUidsWithRetry(config, folder.raw_path, chunkUids);
+          chunkMessages = messages;
         } catch (chunkErr) {
-          // Retry once for transient connection errors
-          if (isConnectionError(chunkErr)) {
-            console.warn(`[imapSync] Chunk fetch failed in ${folder.path}, retrying in 2s:`, chunkErr);
-            await delay(2_000);
-            try {
-              chunkResult = await imapFetchMessages(config, folder.raw_path, chunkUids);
-            } catch (retryErr) {
-              console.error(`[imapSync] Chunk retry failed in ${folder.path}:`, retryErr);
-              continue;
-            }
-          } else {
-            console.error(`[imapSync] Failed to fetch chunk ${chunkStart}-${chunkStart + chunkUids.length} in ${folder.path}:`, chunkErr);
-            continue;
-          }
+          console.error(`[imapSync] Failed to fetch chunk ${chunkStart}-${chunkStart + chunkUids.length} in ${folder.path}:`, chunkErr);
+          continue;
         }
 
         // Collect parsed data for this chunk to write in a single transaction
         const chunkParsed: { parsed: ParsedMessage; msg: ImapMessage; threadable: ThreadableMessage }[] = [];
 
-        for (const msg of chunkResult.messages) {
+        for (const msg of chunkMessages) {
           if (msg.uid > lastUid) lastUid = msg.uid;
           folderFetchedCount++;
 
@@ -645,12 +686,15 @@ export async function imapInitialSync(
           if (msg.date < cutoffDate) continue;
 
           // Skip duplicate messages: same RFC Message-ID already seen from the SAME folder type.
-          // (Cross-folder duplicates like INBOX+Sent are fine — labels get merged via labelsByRfcId)
+          // Also skip the INBOX copy when the same message was already imported from Sent
+          // (some servers store a copy of sent messages in both Sent and INBOX).
           const rfcId = msg.message_id;
           if (rfcId) {
             const existingLabels = labelsByRfcId.get(rfcId);
             if (existingLabels && existingLabels.has(folderMapping.labelId)) {
-              // Same RFC Message-ID already stored for this label — skip duplicate
+              continue;
+            }
+            if (folderMapping.labelId === "INBOX" && existingLabels?.has("SENT")) {
               continue;
             }
           }
@@ -761,7 +805,6 @@ export async function imapInitialSync(
         folderStoredCount += chunkParsed.length;
         storedCount += chunkParsed.length;
 
-        // Report progress after each chunk (not just each folder)
         onProgress?.({
           phase: "messages",
           current: fetchedTotal + Math.min(chunkStart + CHUNK_SIZE, uidsToFetch.length),
@@ -852,15 +895,20 @@ export async function imapInitialSync(
         const firstMessage = messages[0]!;
         const lastMessage = messages[messages.length - 1]!;
 
-        // Collect all label IDs including cross-folder copies
+        // Collect all label IDs including cross-folder copies.
+        // SENT takes precedence over INBOX: if the same RFC Message-ID exists in both
+        // Sent and INBOX (server stored copies in both folders), suppress INBOX.
         const allLabelIds = new Set<string>();
         for (const msg of messages) {
+          const extraLabels = labelsByRfcId.get(msg.rfcMessageId);
+          const rfcHasSent = extraLabels?.has("SENT") ?? false;
           for (const lid of msg.labelIds) {
+            if (lid === "INBOX" && rfcHasSent) continue;
             allLabelIds.add(lid);
           }
-          const extraLabels = labelsByRfcId.get(msg.rfcMessageId);
           if (extraLabels) {
             for (const lid of extraLabels) {
+              if (lid === "INBOX" && rfcHasSent) continue;
               allLabelIds.add(lid);
             }
           }
@@ -1051,6 +1099,7 @@ const folderMapping = mapFolderToLabel(folder);
          if (rfcId) {
            const seen = seenRfcIds.get(rfcId);
            if (seen?.has(folderMapping.labelId)) continue;
+           if (folderMapping.labelId === "INBOX" && seen?.has("SENT")) continue;
            if (!seen) seenRfcIds.set(rfcId, new Set([folderMapping.labelId]));
            else seen.add(folderMapping.labelId);
          }
@@ -1227,12 +1276,13 @@ const folderMapping = mapFolderToLabel(folder);
           const sinceFallback = formatImapDate(new Date((savedState.last_sync_at - 86_400) * 1000));
           try {
             const searchResult = await imapSearchFolder(config, folder.raw_path, sinceFallback);
-            // Pass all UIDs from SINCE — upsert handles duplicates gracefully
-            if (searchResult.uids.length > 0) {
+            // Only keep UIDs we haven't seen yet — avoids re-fetching known messages every cycle.
+            const newFromSince = searchResult.uids.filter((uid) => uid > savedState.last_uid);
+            if (newFromSince.length > 0) {
               console.log(
-                `[imapSync] Delta fallback SINCE ${sinceFallback} found ${searchResult.uids.length} UIDs in ${folder.path}`,
+                `[imapSync] Delta fallback SINCE ${sinceFallback} found ${newFromSince.length} new UIDs in ${folder.path}`,
               );
-              uidsToFetch = searchResult.uids;
+              uidsToFetch = newFromSince;
             }
           } catch (sinceErr) {
             console.warn(`[imapSync] Delta fallback SINCE search failed for ${folder.path}:`, sinceErr);
@@ -1250,6 +1300,10 @@ const folderMapping = mapFolderToLabel(folder);
             modseq: null,
             last_sync_at: Math.floor(Date.now() / 1000),
           });
+          // Reconcile even when there are no new messages: the server may have
+          // had deletions without any new arrivals, in which case the block below
+          // (which calls reconcileDeletedMessages) is never reached.
+          await reconcileDeletedMessages(config, accountId, folder.raw_path);
           continue;
         }
 
@@ -1266,6 +1320,7 @@ const folderMapping = mapFolderToLabel(folder);
           if (rfcId) {
             const seen = seenRfcIds.get(rfcId);
             if (seen?.has(folderMapping.labelId)) continue;
+            if (folderMapping.labelId === "INBOX" && seen?.has("SENT")) continue;
             if (!seen) seenRfcIds.set(rfcId, new Set([folderMapping.labelId]));
             else seen.add(folderMapping.labelId);
           }

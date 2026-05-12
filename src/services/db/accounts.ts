@@ -347,6 +347,81 @@ export async function insertOAuthImapAccount(account: {
   );
 }
 
+export async function updateImapAccount(
+  accountId: string,
+  fields: {
+    displayName: string | null;
+    imapHost: string;
+    imapPort: number;
+    imapSecurity: string;
+    smtpHost: string;
+    smtpPort: number;
+    smtpSecurity: string;
+    imapUsername: string | null;
+    /** If null, keep the existing password unchanged */
+    newPassword: string | null;
+    /** If null, keep the existing SMTP password unchanged */
+    newSmtpPassword: string | null;
+    /** True = use same password as IMAP (set smtp_password to NULL) */
+    smtpSameAsImap: boolean;
+    acceptInvalidCerts: boolean;
+  },
+): Promise<void> {
+  const db = await getDb();
+  const encPassword = fields.newPassword != null
+    ? await encryptValue(fields.newPassword)
+    : null;
+  const encSmtpPassword = fields.smtpSameAsImap
+    ? null
+    : fields.newSmtpPassword != null
+      ? await encryptValue(fields.newSmtpPassword)
+      : null;
+
+  const params: unknown[] = [
+    fields.displayName,
+    fields.imapHost,
+    fields.imapPort,
+    fields.imapSecurity,
+    fields.smtpHost,
+    fields.smtpPort,
+    fields.smtpSecurity,
+    fields.imapUsername || null,
+    fields.acceptInvalidCerts ? 1 : 0,
+  ];
+
+  let passwordClauses = "";
+  if (fields.newPassword != null) {
+    params.push(encPassword);
+    passwordClauses += `, imap_password = $${params.length}`;
+  }
+  if (fields.smtpSameAsImap) {
+    passwordClauses += ", smtp_password = NULL";
+  } else if (fields.newSmtpPassword != null) {
+    params.push(encSmtpPassword);
+    passwordClauses += `, smtp_password = $${params.length}`;
+  }
+
+  params.push(accountId);
+  const idParam = `$${params.length}`;
+
+  await db.execute(
+    `UPDATE accounts SET
+       display_name = $1,
+       imap_host = $2,
+       imap_port = $3,
+       imap_security = $4,
+       smtp_host = $5,
+       smtp_port = $6,
+       smtp_security = $7,
+       imap_username = $8,
+       accept_invalid_certs = $9
+       ${passwordClauses},
+       updated_at = unixepoch()
+     WHERE id = ${idParam}`,
+    params,
+  );
+}
+
 export async function getAccountRagEnabled(accountId: string): Promise<boolean> {
   const db = await getDb();
   type Row = { rag_enabled: number };
