@@ -1171,4 +1171,41 @@ export async function runMigrations(): Promise<void> {
       "INSERT OR REPLACE INTO settings (key, value) VALUES ('imap_attachment_repair_v1', '1')",
     );
   }
+
+  // One-time repair: ensure migration 14 schema changes persisted.
+  // If migration 14 ran but ALTER TABLE columns didn't survive a crash,
+  // re-add them idempotently.
+  const colCheck = await db.select<{ name: string }[]>(
+    "PRAGMA table_info(labels)",
+  );
+  const hasImapFolder = colCheck.some((c) => c.name === "imap_folder_path");
+  if (!hasImapFolder) {
+    console.log("[repair] Migration 14 schema changes missing — re-applying ALTER TABLE statements...");
+    const repairSqls = [
+      "ALTER TABLE accounts ADD COLUMN provider TEXT DEFAULT 'gmail_api'",
+      "ALTER TABLE accounts ADD COLUMN imap_host TEXT",
+      "ALTER TABLE accounts ADD COLUMN imap_port INTEGER",
+      "ALTER TABLE accounts ADD COLUMN imap_security TEXT",
+      "ALTER TABLE accounts ADD COLUMN smtp_host TEXT",
+      "ALTER TABLE accounts ADD COLUMN smtp_port INTEGER",
+      "ALTER TABLE accounts ADD COLUMN smtp_security TEXT",
+      "ALTER TABLE accounts ADD COLUMN auth_method TEXT DEFAULT 'oauth'",
+      "ALTER TABLE accounts ADD COLUMN imap_password TEXT",
+      "ALTER TABLE messages ADD COLUMN message_id_header TEXT",
+      "ALTER TABLE messages ADD COLUMN references_header TEXT",
+      "ALTER TABLE messages ADD COLUMN in_reply_to_header TEXT",
+      "ALTER TABLE messages ADD COLUMN imap_uid INTEGER",
+      "ALTER TABLE messages ADD COLUMN imap_folder TEXT",
+      "ALTER TABLE labels ADD COLUMN imap_folder_path TEXT",
+      "ALTER TABLE labels ADD COLUMN imap_special_use TEXT",
+      "ALTER TABLE attachments ADD COLUMN imap_part_id TEXT",
+    ];
+    for (const sql of repairSqls) {
+      try {
+        await db.execute(sql);
+      } catch {
+        // Column already exists — idempotent
+      }
+    }
+  }
 }
