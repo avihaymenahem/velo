@@ -46,3 +46,19 @@ pub struct BackupSchedule {
     pub next_run_at: Option<i64>,
     pub created_at: Option<i64>,
 }
+
+#[tauri::command]
+pub fn get_export_formats() -> Vec<String> {
+    vec!["mbox".into(), "eml".into(), "pdf".into(), "zip".into()]
+}
+
+#[tauri::command]
+pub fn validate_export_config(format: String, destination: String) -> Result<bool, String> {
+    if destination.is_empty() {
+        return Err("Destination path cannot be empty".to_string());
+    }
+    if !["mbox", "eml", "pdf", "zip"].contains(&format.as_str()) {
+        return Err(format!("Unknown export format: {}", format));
+    }
+    Ok(true)
+}

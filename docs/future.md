@@ -20,18 +20,32 @@
 | **P8** | Advanced Filter Engine | ✅ | `FilterEditor.tsx`, `FilterTestDialog.tsx`, filter_conditions table, 5 operator types, AND/OR group_operator |
 | **P9** | Advanced Filter Engine UI | ✅ | `FilterTestDialog.tsx`, `FilterEditor.tsx` (condition rows, group operator toggle) |
 | **P10** | Quick Reply Templates | ✅ | `QuickReplyList.tsx`, `QuickReplyEditor.tsx`, `quickReplies.ts` DB service, `EditorToolbar.tsx` (quick reply button), `InlineReply.tsx` (integration) |
+| **S1** | Stabilization Sprint | ✅ | 14 upstream PRs merged (bug fixes, security, IMAP reliability, custom AI provider, i18n ja/it, SMTP v35) |
 
 ### Previously Built
 
 | Area | Key Files |
 |------|-----------|
-| **i18n** (3 locales en/fr/ar, RTL) | `src/locales/i18n.ts`, `src/locales/{en,fr,ar}/translation.json` |
+| **i18n** (5 locales en/fr/ar/ja/it, RTL) | `src/locales/i18n.ts`, `src/locales/{en,fr,ar,ja,it}/translation.json` |
 | **Contact Intelligence** (tags, groups, segments, merge, CSV import) | `src/services/contacts/{tags,groups,segments,activity,merge,gravatar}.ts`, `src-tauri/src/contacts/csv.rs` |
 | **Campaigns** (CRUD, variables, send queue) | `src/services/campaigns/{campaignService,templateVariables,trackingService}.ts`, `src/stores/campaignStore.ts` |
 | **Workflow Engine** (triggers, cron, 7 action types) | `src/services/workflows/{workflowEngine,workflowScheduler}.ts`, `WorkflowEditor.tsx` |
 | **Smart Labels** (AI auto-labeling, backfill) | `src/services/smartLabels/{smartLabelService,smartLabelManager,backfillService}.ts` |
 | **Rust Backend** (IMAP, SMTP, OAuth, tray, PGP, vault, export) | `src-tauri/src/{commands,imap,smtp,oauth,pgp,contacts,vault,export}.rs` |
 | **Database** (SQLite, 34 migrations, 45+ tables, FTS5) | `src/services/db/{connection,migrations,complianceProfiles,contactFiles,search,...}.ts` |
+
+### Stabilization Merged from Upstream
+
+| Area | Key Files |
+|------|-----------|
+| **6 critical bug fixes** (migration repair, iCal UTC, iframe links, CSP, HTTP ports, shortcuts) | Various — `migrations.ts`, `icalHelper.ts`, `EmailRenderer.tsx`, CSP config, capabilities, `useKeyboardShortcuts.ts` |
+| **Security hardening** (7 fixes) | `unsubscribeManager.ts`, DB services, CSP, crypto usage |
+| **IMAP reliability** (SQLite BUSY, shared folders, password quoting, DavMail) | `connection.ts`, `imapSync.ts`, `folderMapper.ts`, `imapConfigBuilder.ts`, Rust IMAP client |
+| **Custom AI provider** (OpenAI-compatible) | `src/services/ai/providers/customProvider.ts`, `providerFactory.ts`, settings UI |
+| **Separate SMTP credentials** (migration v35) | `AddImapAccount.tsx`, `accounts` table migration, `imapConfigBuilder.ts`, Rust SMTP client |
+| **2 new locales** (ja, it) | `src/locales/{ja,it}/translation.json`, locale registration |
+| **Export scheduler wiring** | `src-tauri/src/lib.rs` (scheduler initialized in `setup()`) |
+| **Dependency updates** (openssl, webpki, dompurify, vite) | Various `Cargo.toml` and `package.json` files |
 
 ### Architecture Reference
 
@@ -60,7 +74,6 @@
 
 1. **Push to remote** — SSL cert error (`ca-bundle.crt`). Fix Git SSL configuration or switch to SSH.
 2. **Rust `cargo build`** — Local MinGW/dlltool issues on this machine. Code is structurally correct (passes `tsc --noEmit` + `vitest`). Fix by installing proper MSVC toolchain.
-3. **Rust export scheduler** — `tokio::spawn` scheduler not started from `setup()` yet. Need to wire in `lib.rs` `Builder::default().setup()`.
 
 ---
 
@@ -70,7 +83,7 @@
 
 1. **Fix SSL cert** → push to remote → CI/CD pipeline setup
 2. **Fix Rust build** → install MSVC toolchain, verify `cargo build`
-3. **Email Snooze Presets** — Custom snooze durations with recurring snooze. New `snooze_presets` table (migration v35), SnoozePresetsEditor in settings, preset picker in SnoozeDialog.
+3. **Email Snooze Presets** — Custom snooze durations with recurring snooze. New `snooze_presets` table, SnoozePresetsEditor in settings, preset picker in SnoozeDialog.
 
 ### Medium-term (new features)
 
@@ -79,7 +92,7 @@
 | **JMAP Email Provider** | Alternate provider for Apple iCloud, FastMail, etc. | JMAP fetch/auth parsing | Existing provider abstraction handles this |
 | **Local AI (Ollama/LM Studio)** | Run AI features entirely offline via local LLM | — | New provider in `src/services/ai/providers/`, model picker UI |
 | **Campaign A/B Testing** | Subject line + body variants with statistical analysis | — | Variant editor, results dashboard with recharts |
-| **Email Snooze Presets** | Custom snooze durations with recurring snooze | — | Snooze presets UI, extends existing SnoozeDialog |
+| **Email Snooze Presets** | Custom snooze durations with recurring snooze | — | SnoozePresetsEditor in settings, preset picker in SnoozeDialog |
 | **Thread Attachments View** | Grid view of all attachments in a thread | — | Thread-level attachment grid component |
 
 ### Long-term (v1.0 vision)
@@ -105,6 +118,7 @@
 | 32 | P6 | FTS5 index on contact files |
 | 33 | P8 | Advanced filter engine: filter_conditions table, group_operator on filter_rules |
 | 34 | P10 | Quick reply templates: quick_replies table |
+| 35 | S1 | Separate SMTP credentials: smtp_username, smtp_password on accounts table |
 
 ---
 
@@ -114,9 +128,9 @@ Every feature works offline except AI-enhanced compliance (skipped gracefully) a
 
 ---
 
-## Testing Strategy (Remaining)
+## Testing Strategy
 
-All planned tests are written — 142 test files pass (84 TS + 7 Rust). New features should follow the colocated `*.test.ts` pattern with `vitest` + `@testing-library/jest-dom/vitest`.
+**142 test files, 1,645 tests** passing (84 TS + 7 Rust), TypeScript 0 errors. New features should follow the colocated `*.test.ts` pattern with `vitest` + `@testing-library/jest-dom/vitest`.
 
 ---
 

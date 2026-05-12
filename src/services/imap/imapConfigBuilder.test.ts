@@ -11,8 +11,8 @@ describe("buildImapConfig", () => {
       host: "imap.example.com",
       port: 993,
       security: "tls",
-      username: "user@example.com",
-      password: "secret123",
+      username: '"user@example.com"',
+      password: '"secret123"',
       auth_method: "password",
       accept_invalid_certs: false,
     });
@@ -64,7 +64,7 @@ describe("buildImapConfig", () => {
   it("ignores accessToken override for password accounts", () => {
     const account = createMockDbAccount({ auth_method: "password" });
     const config = buildImapConfig(account, "should-not-use");
-    expect(config.password).toBe("secret123");
+    expect(config.password).toBe('"secret123"');
   });
 
   it("throws when imap_host is missing", () => {
@@ -75,7 +75,7 @@ describe("buildImapConfig", () => {
   it("handles empty password gracefully", () => {
     const account = createMockDbAccount({ imap_password: null });
     const config = buildImapConfig(account);
-    expect(config.password).toBe("");
+    expect(config.password).toBe('""');
   });
 });
 
@@ -124,7 +124,7 @@ describe("imap_username override", () => {
   it("uses imap_username when set for IMAP config", () => {
     const account = createMockDbAccount({ imap_username: "custom-user" });
     const config = buildImapConfig(account);
-    expect(config.username).toBe("custom-user");
+    expect(config.username).toBe('"custom-user"');
   });
 
   it("uses imap_username when set for SMTP config", () => {
@@ -136,13 +136,13 @@ describe("imap_username override", () => {
   it("falls back to email when imap_username is null", () => {
     const account = createMockDbAccount({ imap_username: null });
     const config = buildImapConfig(account);
-    expect(config.username).toBe("user@example.com");
+    expect(config.username).toBe('"user@example.com"');
   });
 
   it("falls back to email when imap_username is empty string", () => {
     const account = createMockDbAccount({ imap_username: "" as string | null });
     const config = buildImapConfig(account);
-    expect(config.username).toBe("user@example.com");
+    expect(config.username).toBe('"user@example.com"');
   });
 });
 

@@ -52,6 +52,27 @@ The plan is organized into four merge tiers based on risk, impact, and dependenc
 
 Additionally, the plan catalogs all open issues, identifies which ones are already addressed by existing PRs, and proposes solutions for issues that lack community contributions. A detailed execution timeline with dependency ordering ensures that merges happen in the correct sequence, minimizing integration conflicts and regression risk.
 
+## Status: All PRs Merged ✅
+
+All 14 upstream pull requests from this stabilization plan have been successfully integrated into the Zakarialabib/velo fork as of May 2026. See the commit log below for details.
+
+### Merge Commits
+
+| Tier | Commit | Description |
+|------|--------|-------------|
+| Tier 1 | `e3cd5c1` | 6 critical bug fixes (migration repair, iCal UTC, iframe links, CSP, HTTP ports, shortcuts) |
+| Tier 2 | `75b937d` | Security hardening (7 fixes), separate SMTP credentials (v35), Ollama/AI language |
+| Tier 3 | `44cd072` | PR #262 IMAP reliability (SQLite BUSY, shared folders, password quoting, DavMail fallback) |
+| Tier 4 | `0092f97` | Custom OpenAI-compatible provider, Japanese locale (ja), Italian locale (it) |
+| Post | `9f82fef` | Export scheduler wiring, dependency updates (openssl, webpki, dompurify, vite) |
+
+### What was delivered
+- **38 files** changed, **2,372 insertions**, 104 deletions
+- **2 new locales**: Japanese (ja/translation.json) and Italian (it/translation.json)
+- **1 new provider**: Custom (OpenAI Compatible) via customProvider.ts
+- **1 new migration**: v35 (smtp_username, smtp_password on accounts table)
+- **142 test files, 1,645 tests** passing, **TypeScript 0 errors**
+
 # **2. Current State Analysis**
 
 ## **2.1 Fork Divergence**
@@ -479,3 +500,5 @@ There is no continuous integration or deployment pipeline. Setting up GitHub Act
 ### **10.5 Flatpak Build Fix**
 
 As noted in Issue #233, the Flatpak release artifact is malformed. The com.velomail.app.yml manifest needs to be updated to correctly reference the GNOME runtime and generate a valid .flatpak file. This should be addressed as part of the CI/CD pipeline setup once the build environment is working correctly.Not a feature roadmap — a stabilization sprint
+
+> **Note:** This document was a pre-execution plan. All items are now merged. For the current active roadmap, see [docs/future.md](./future.md).

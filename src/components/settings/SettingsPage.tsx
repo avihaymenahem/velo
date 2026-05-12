@@ -54,6 +54,7 @@ import { QuickReplyEditor } from "./QuickReplyEditor";
 import { SmartLabelEditor } from "./SmartLabelEditor";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { WorkflowEditor } from "./WorkflowEditor";
+import { TemplateManager } from "./TemplateManager";
 import { PgpKeyManager } from "./PgpKeyManager";
 import { ComplianceProfileManager } from "./ComplianceProfileManager";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
@@ -869,6 +870,12 @@ export function SettingsPage() {
                     <QuickStepEditor />
                   </Section>
                 </>
+              )}
+
+              {activeTab === "templates" && (
+                <Section title="Templates">
+                  <TemplateManager />
+                </Section>
               )}
 
               {activeTab === "workflows" && (

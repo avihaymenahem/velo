@@ -23,7 +23,10 @@ describe("withTransaction", () => {
   it("executes BEGIN, callback, COMMIT in order", async () => {
     const callOrder: string[] = [];
     mockExecute.mockImplementation(async (sql: string) => {
-      callOrder.push(sql);
+      // Only track SQL statements, not PRAGMA calls from getDb()
+      if (!sql.startsWith("PRAGMA")) {
+        callOrder.push(sql);
+      }
     });
 
     await withTransaction(async () => {
@@ -36,7 +39,9 @@ describe("withTransaction", () => {
   it("rolls back on callback error", async () => {
     const callOrder: string[] = [];
     mockExecute.mockImplementation(async (sql: string) => {
-      callOrder.push(sql);
+      if (!sql.startsWith("PRAGMA")) {
+        callOrder.push(sql);
+      }
     });
 
     await expect(
@@ -67,7 +72,9 @@ describe("withTransaction", () => {
     const executionLog: string[] = [];
 
     mockExecute.mockImplementation(async (sql: string) => {
-      executionLog.push(sql);
+      if (!sql.startsWith("PRAGMA")) {
+        executionLog.push(sql);
+      }
     });
 
     // Launch two transactions concurrently
