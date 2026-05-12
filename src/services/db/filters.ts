@@ -1,11 +1,38 @@
 import { getDb, buildDynamicUpdate, boolToInt } from "./connection";
 
+export type FilterOperator = 'contains' | 'matches' | 'starts_with' | 'ends_with' | 'not_contains';
+
+export type FilterField = 'from' | 'to' | 'subject' | 'body' | 'hasAttachment';
+
+export interface FilterCondition {
+  id: string;
+  filterId: string;
+  field: FilterField;
+  operator: FilterOperator;
+  value: string;
+}
+
+export interface FilterGroup {
+  id: string;
+  ruleId: string;
+  operator: 'AND' | 'OR';
+  parentGroupId?: string;
+}
+
+export interface FilterConditionInput {
+  field: FilterField;
+  operator: FilterOperator;
+  value: string;
+}
+
 export interface FilterCriteria {
   from?: string;
   to?: string;
   subject?: string;
   body?: string;
   hasAttachment?: boolean;
+  conditions?: FilterConditionInput[];
+  matchType?: "all" | "any";
 }
 
 export interface FilterActions {
@@ -25,6 +52,7 @@ export interface DbFilterRule {
   actions_json: string;
   sort_order: number;
   created_at: number;
+  group_operator?: string;
 }
 
 export async function getFiltersForAccount(
@@ -95,4 +123,67 @@ export async function updateFilter(
 export async function deleteFilter(id: string): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM filter_rules WHERE id = $1", [id]);
+}
+
+export async function getFilterRuleById(id: string): Promise<DbFilterRule | null> {
+  const db = await getDb();
+  const rows = await db.select<DbFilterRule[]>(
+    "SELECT * FROM filter_rules WHERE id = $1",
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+export async function getFilterGroups(ruleId: string): Promise<FilterGroup[]> {
+  const db = await getDb();
+  const rows = await db.select<Pick<DbFilterRule, 'group_operator'>[]>(
+    "SELECT group_operator FROM filter_rules WHERE id = $1",
+    [ruleId],
+  );
+  if (rows.length === 0) return [];
+  return [{
+    id: ruleId,
+    ruleId,
+    operator: (rows[0]!.group_operator as 'AND' | 'OR') ?? 'AND',
+  }];
+}
+
+export async function upsertFilterGroup(group: FilterGroup): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE filter_rules SET group_operator = $1 WHERE id = $2",
+    [group.operator, group.ruleId],
+  );
+}
+
+export async function deleteFilterGroup(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM filter_conditions WHERE filter_id = $1", [id]);
+}
+
+export async function getFilterConditions(groupId: string): Promise<FilterCondition[]> {
+  const db = await getDb();
+  return db.select<FilterCondition[]>(
+    `SELECT id, filter_id AS filterId, field, operator, value
+     FROM filter_conditions WHERE filter_id = $1 ORDER BY rowid`,
+    [groupId],
+  );
+}
+
+export async function getFilterConditionsForRule(ruleId: string): Promise<FilterCondition[]> {
+  return getFilterConditions(ruleId);
+}
+
+export async function upsertFilterCondition(condition: FilterCondition): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `INSERT OR REPLACE INTO filter_conditions (id, filter_id, field, operator, value)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [condition.id, condition.filterId, condition.field, condition.operator, condition.value],
+  );
+}
+
+export async function deleteFilterCondition(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM filter_conditions WHERE id = $1", [id]);
 }

@@ -993,6 +993,38 @@ const MIGRATIONS = [
       END;
     `,
   },
+  {
+    version: 33,
+    description: "Advanced filter engine: conditions table and group operator",
+    sql: `
+      CREATE TABLE IF NOT EXISTS filter_conditions (
+        id TEXT PRIMARY KEY,
+        filter_id TEXT NOT NULL REFERENCES filter_rules(id) ON DELETE CASCADE,
+        field TEXT NOT NULL,
+        operator TEXT NOT NULL DEFAULT 'contains',
+        value TEXT NOT NULL
+      );
+
+      ALTER TABLE filter_rules ADD COLUMN group_operator TEXT NOT NULL DEFAULT 'AND';
+    `,
+  },
+  {
+    version: 34,
+    description: "Quick replies",
+    sql: `
+      CREATE TABLE IF NOT EXISTS quick_replies (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        body_html TEXT NOT NULL,
+        shortcut TEXT,
+        sort_order INTEGER DEFAULT 0,
+        usage_count INTEGER DEFAULT 0,
+        created_at INTEGER DEFAULT (unixepoch())
+      );
+      CREATE INDEX IF NOT EXISTS idx_quick_replies_account ON quick_replies(account_id);
+    `,
+  },
 ];
 
 /**
