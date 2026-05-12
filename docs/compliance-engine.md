@@ -1,6 +1,6 @@
 # Compliance Engine
 
-Jurisdiction-aware compliance checking for email composition. A local rule engine evaluates outgoing drafts against region-specific regulatory profiles (GDPR, CAN-SPAM, LGPD, Morocco Law 31-08, etc.) and surfaces violations in real time via the composer UI.
+Jurisdiction-aware compliance checking for email composition. A local rule engine evaluates outgoing drafts against region-specific regulatory profiles (GDPR, CAN-SPAM, LGPD, Morocco Law 31-08, etc.) and surfaces violations in real time via the composer UI. Rules are fully AI-enhanceable for tone and suggestion analysis.
 
 ---
 

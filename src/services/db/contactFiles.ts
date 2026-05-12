@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { getDb, queryWithRetry } from "./connection";
 
 export interface ContactFile {
   id: string;
@@ -28,109 +28,119 @@ export async function saveContactFile(file: {
   messageId: string | null;
   localPath: string;
 }): Promise<void> {
-  const db = await getDb();
-  const id = crypto.randomUUID();
-  await db.execute(
-    `INSERT INTO contact_files (id, account_id, contact_id, filename, original_name, mime_type, size, category, sender_email, message_id, local_path)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-    [
-      id,
-      file.accountId,
-      file.contactId,
-      file.filename,
-      file.originalName,
-      file.mimeType,
-      file.size,
-      file.category,
-      file.senderEmail,
-      file.messageId,
-      file.localPath,
-    ],
-  );
+  return queryWithRetry(async (db) => {
+    const id = crypto.randomUUID();
+    await db.execute(
+      `INSERT INTO contact_files (id, account_id, contact_id, filename, original_name, mime_type, size, category, sender_email, message_id, local_path)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [
+        id,
+        file.accountId,
+        file.contactId,
+        file.filename,
+        file.originalName,
+        file.mimeType,
+        file.size,
+        file.category,
+        file.senderEmail,
+        file.messageId,
+        file.localPath,
+      ],
+    );
+  });
 }
 
 export async function getContactFilesByContact(contactId: string): Promise<ContactFile[]> {
-  const db = await getDb();
-  return db.select<ContactFile[]>(
-    `SELECT * FROM contact_files WHERE contact_id = $1 ORDER BY created_at DESC`,
-    [contactId],
-  );
+  return queryWithRetry(async (db) => {
+    return db.select<ContactFile[]>(
+      `SELECT * FROM contact_files WHERE contact_id = $1 ORDER BY created_at DESC`,
+      [contactId],
+    );
+  });
 }
 
 export async function getContactFilesBySender(senderEmail: string): Promise<ContactFile[]> {
-  const db = await getDb();
-  return db.select<ContactFile[]>(
-    `SELECT * FROM contact_files WHERE sender_email = $1 ORDER BY created_at DESC`,
-    [senderEmail],
-  );
+  return queryWithRetry(async (db) => {
+    return db.select<ContactFile[]>(
+      `SELECT * FROM contact_files WHERE sender_email = $1 ORDER BY created_at DESC`,
+      [senderEmail],
+    );
+  });
 }
 
 export async function getContactFilesByAccount(accountId: string): Promise<ContactFile[]> {
-  const db = await getDb();
-  return db.select<ContactFile[]>(
-    `SELECT * FROM contact_files WHERE account_id = $1 ORDER BY created_at DESC`,
-    [accountId],
-  );
+  return queryWithRetry(async (db) => {
+    return db.select<ContactFile[]>(
+      `SELECT * FROM contact_files WHERE account_id = $1 ORDER BY created_at DESC`,
+      [accountId],
+    );
+  });
 }
 
 export async function searchContactFiles(query: string): Promise<ContactFile[]> {
-  const db = await getDb();
   const pattern = `%${query}%`;
-  return db.select<ContactFile[]>(
-    `SELECT * FROM contact_files
-     WHERE original_name LIKE $1 OR filename LIKE $1
-     ORDER BY created_at DESC`,
-    [pattern],
-  );
+  return queryWithRetry(async (db) => {
+    return db.select<ContactFile[]>(
+      `SELECT * FROM contact_files
+       WHERE original_name LIKE $1 OR filename LIKE $1
+       ORDER BY created_at DESC`,
+      [pattern],
+    );
+  });
 }
 
 export async function getContactFilesByCategory(accountId: string, category: string): Promise<ContactFile[]> {
-  const db = await getDb();
-  return db.select<ContactFile[]>(
-    `SELECT * FROM contact_files WHERE account_id = $1 AND category = $2 ORDER BY created_at DESC`,
-    [accountId, category],
-  );
+  return queryWithRetry(async (db) => {
+    return db.select<ContactFile[]>(
+      `SELECT * FROM contact_files WHERE account_id = $1 AND category = $2 ORDER BY created_at DESC`,
+      [accountId, category],
+    );
+  });
 }
 
 export async function getContactFileCategories(accountId: string): Promise<string[]> {
-  const db = await getDb();
-  const rows = await db.select<{ category: string }[]>(
-    `SELECT DISTINCT category FROM contact_files WHERE account_id = $1 ORDER BY category`,
-    [accountId],
-  );
-  return rows.map((r) => r.category);
+  return queryWithRetry(async (db) => {
+    const rows = await db.select<{ category: string }[]>(
+      `SELECT DISTINCT category FROM contact_files WHERE account_id = $1 ORDER BY category`,
+      [accountId],
+    );
+    return rows.map((r) => r.category);
+  });
 }
 
 export async function updateFileCategory(id: string, category: string): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    "UPDATE contact_files SET category = $1 WHERE id = $2",
-    [category, id],
-  );
+  return queryWithRetry(async (db) => {
+    await db.execute(
+      "UPDATE contact_files SET category = $1 WHERE id = $2",
+      [category, id],
+    );
+  });
 }
 
 export async function toggleFileStarred(id: string): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    "UPDATE contact_files SET starred = CASE WHEN starred = 1 THEN 0 ELSE 1 END WHERE id = $1",
-    [id],
-  );
+  return queryWithRetry(async (db) => {
+    await db.execute(
+      "UPDATE contact_files SET starred = CASE WHEN starred = 1 THEN 0 ELSE 1 END WHERE id = $1",
+      [id],
+    );
+  });
 }
 
 export async function deleteContactFile(id: string): Promise<void> {
-  const db = await getDb();
-  const file = await db.select<{ local_path: string | null }[]>(
-    "SELECT local_path FROM contact_files WHERE id = $1",
-    [id],
-  );
-  const localPath = file[0]?.local_path;
-  await db.execute("DELETE FROM contact_files WHERE id = $1", [id]);
-  if (localPath) {
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("delete_from_vault", { vaultPath: localPath });
-    } catch {
-      // file may already be deleted
+  await queryWithRetry(async (db) => {
+    const file = await db.select<{ local_path: string | null }[]>(
+      "SELECT local_path FROM contact_files WHERE id = $1",
+      [id],
+    );
+    const localPath = file[0]?.local_path;
+    await db.execute("DELETE FROM contact_files WHERE id = $1", [id]);
+    if (localPath) {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("delete_from_vault", { vaultPath: localPath });
+      } catch {
+        // file may already be deleted
+      }
     }
-  }
+  });
 }

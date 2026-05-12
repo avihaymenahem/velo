@@ -341,19 +341,22 @@ export function Composer() {
     if (attachmentData) {
       // The insertScheduledEmail doesn't have an attachmentPaths param,
       // so we update it separately via the existing column
-      const { getDb } = await import("@/services/db/connection");
-      const db = await getDb();
-      // Get the most recently inserted scheduled email for this account
-      const rows = await db.select<{ id: string }[]>(
-        "SELECT id FROM scheduled_emails WHERE account_id = $1 ORDER BY created_at DESC LIMIT 1",
-        [activeAccountId],
-      );
-      if (rows[0]) {
-        await db.execute(
-          "UPDATE scheduled_emails SET attachment_paths = $1 WHERE id = $2",
-          [attachmentData, rows[0].id],
-        );
-      }
+const { queryWithRetry } = await import("@/services/db/connection");
+       const rows = await queryWithRetry(async (db) => {
+         // Get the most recently inserted scheduled email for this account
+         return db.select<{ id: string }[]>(
+           "SELECT id FROM scheduled_emails WHERE account_id = $1 ORDER BY created_at DESC LIMIT 1",
+           [activeAccountId],
+         );
+       });
+       if (rows[0]) {
+         await queryWithRetry(async (db) => {
+           await db.execute(
+             "UPDATE scheduled_emails SET attachment_paths = $1 WHERE id = $2",
+             [attachmentData, rows[0].id],
+           );
+         });
+       }
     }
 
     stopAutoSave();

@@ -1,4 +1,4 @@
-import { getDb } from "../db/connection";
+import { queryWithRetry } from "../db/connection";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { fetch } from "@tauri-apps/plugin-http";
 import { getCurrentUnixTimestamp } from "@/utils/timestamp";
@@ -168,16 +168,51 @@ async function recordUnsubscribeAction(
   url: string,
   status: string,
 ): Promise<void> {
-  const db = await getDb();
   const id = crypto.randomUUID();
   const now = getCurrentUnixTimestamp();
-  await db.execute(
-    `INSERT INTO unsubscribe_actions (id, account_id, thread_id, from_address, from_name, method, unsubscribe_url, status, unsubscribed_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     ON CONFLICT(account_id, from_address) DO UPDATE SET
-       status = $8, unsubscribed_at = $9, method = $6, thread_id = $3`,
-    [id, accountId, threadId, normalizeEmail(fromAddress), fromName, method, url, status, now],
-  );
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      `INSERT INTO unsubscribe_actions (id, account_id, thread_id, from_address, from_name, method, unsubscribe_url, status, unsubscribed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT(account_id, from_address) DO UPDATE SET
+         status = $8, unsubscribed_at = $9, method = $6, thread_id = $3`,
+      [id, accountId, threadId, normalizeEmail(fromAddress), fromName, method, url, status, now],
+    );
+  });
+}
+
+export async function getSubscriptions(accountId: string): Promise<SubscriptionEntry[]> {
+  return queryWithRetry(async (db) => {
+    return db.select<SubscriptionEntry[]>(
+      `SELECT
+         m.from_address,
+         MAX(m.from_name) as from_name,
+         MAX(m.list_unsubscribe) as latest_unsubscribe_header,
+         MAX(m.list_unsubscribe_post) as latest_unsubscribe_post,
+         COUNT(*) as message_count,
+         MAX(m.date) as latest_date,
+         ua.status
+       FROM messages m
+       LEFT JOIN unsubscribe_actions ua ON ua.account_id = m.account_id AND ua.from_address = LOWER(m.from_address)
+       WHERE m.account_id = $1 AND m.list_unsubscribe IS NOT NULL
+       GROUP BY LOWER(m.from_address)
+       ORDER BY MAX(m.date) DESC`,
+      [accountId],
+    );
+  });
+}
+
+export async function getUnsubscribeStatus(
+  accountId: string,
+  fromAddress: string,
+): Promise<string | null> {
+  return queryWithRetry(async (db) => {
+    const rows = await db.select<{ status: string }[]>(
+      "SELECT status FROM unsubscribe_actions WHERE account_id = $1 AND from_address = $2",
+      [accountId, normalizeEmail(fromAddress)],
+    );
+    return rows[0]?.status ?? null;
+  });
 }
 
 /**

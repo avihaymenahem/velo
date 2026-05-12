@@ -3,7 +3,7 @@ import { useThreadStore } from "@/stores/threadStore";
 import { getEmailProvider } from "@/services/email/providerFactory";
 import { enqueuePendingOperation } from "@/services/db/pendingOperations";
 import { classifyError } from "@/utils/networkErrors";
-import { getDb } from "@/services/db/connection";
+import { queryWithRetry } from "@/services/db/connection";
 import { navigateToThread, getSelectedThreadId } from "@/router/navigate";
 
 // ---------------------------------------------------------------------------
@@ -144,89 +144,106 @@ async function applyLocalDbUpdate(
   accountId: string,
   action: EmailAction,
 ): Promise<void> {
-  const db = await getDb();
   switch (action.type) {
-case "markRead":
-       await db.execute(
-         "UPDATE threads SET is_read = $1 WHERE account_id = $2 AND id = $3",
-         [action.read ? 1 : 0, accountId, action.threadId],
-       );
-       window.dispatchEvent(new Event("velo-sync-done"));
+ case "markRead":
+       await queryWithRetry(async (db) => {
+         await db.execute(
+           "UPDATE threads SET is_read = $1 WHERE account_id = $2 AND id = $3",
+           [action.read ? 1 : 0, accountId, action.threadId],
+         );
+         window.dispatchEvent(new Event("velo-sync-done"));
+       });
        break;
-    case "star":
-      await db.execute(
-        "UPDATE threads SET is_starred = $1 WHERE account_id = $2 AND id = $3",
-        [action.starred ? 1 : 0, accountId, action.threadId],
-      );
-      if (action.starred) {
-        await db.execute(
-          "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, 'STARRED')",
-          [accountId, action.threadId],
-        );
-      } else {
-        await db.execute(
-          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'STARRED'",
-          [accountId, action.threadId],
-        );
-      }
-      break;
-    case "archive":
-      await db.execute(
-        "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'INBOX'",
-        [accountId, action.threadId],
-      );
-      break;
-    case "trash":
-      await db.execute(
-        "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'INBOX'",
-        [accountId, action.threadId],
-      );
-      await db.execute(
-        "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, 'TRASH')",
-        [accountId, action.threadId],
-      );
-      break;
-    case "permanentDelete":
-      await db.execute(
-        "DELETE FROM threads WHERE account_id = $1 AND id = $2",
-        [accountId, action.threadId],
-      );
-      break;
-    case "spam":
-      if (action.isSpam) {
-        await db.execute(
-          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'INBOX'",
-          [accountId, action.threadId],
-        );
-        await db.execute(
-          "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, 'SPAM')",
-          [accountId, action.threadId],
-        );
-      } else {
-        await db.execute(
-          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'SPAM'",
-          [accountId, action.threadId],
-        );
-        await db.execute(
-          "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, 'INBOX')",
-          [accountId, action.threadId],
-        );
-      }
-      break;
-    case "addLabel":
-      await db.execute(
-        "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, $3)",
-        [accountId, action.threadId, action.labelId],
-      );
-      break;
-    case "removeLabel":
-      await db.execute(
-        "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = $3",
-        [accountId, action.threadId, action.labelId],
-      );
-      break;
-    default:
-      break;
+     case "star":
+       await queryWithRetry(async (db) => {
+         await db.execute(
+           "UPDATE threads SET is_starred = $1 WHERE account_id = $2 AND id = $3",
+           [action.starred ? 1 : 0, accountId, action.threadId],
+         );
+         if (action.starred) {
+           await db.execute(
+             "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, 'STARRED')",
+             [accountId, action.threadId],
+           );
+         } else {
+           await db.execute(
+             "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'STARRED'",
+             [accountId, action.threadId],
+           );
+         }
+       });
+       break;
+     case "archive":
+       await queryWithRetry(async (db) => {
+         await db.execute(
+           "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'INBOX'",
+           [accountId, action.threadId],
+         );
+       });
+       break;
+     case "trash":
+       await queryWithRetry(async (db) => {
+         await db.execute(
+           "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'INBOX'",
+           [accountId, action.threadId],
+         );
+         await db.execute(
+           "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, 'TRASH')",
+           [accountId, action.threadId],
+         );
+       });
+       break;
+     case "permanentDelete":
+       await queryWithRetry(async (db) => {
+         await db.execute(
+           "DELETE FROM threads WHERE account_id = $1 AND id = $2",
+           [accountId, action.threadId],
+         );
+       });
+       break;
+     case "spam":
+       if (action.isSpam) {
+         await queryWithRetry(async (db) => {
+           await db.execute(
+             "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'INBOX'",
+             [accountId, action.threadId],
+           );
+           await db.execute(
+             "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, 'SPAM')",
+             [accountId, action.threadId],
+           );
+         });
+       } else {
+         await queryWithRetry(async (db) => {
+           await db.execute(
+             "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'SPAM'",
+             [accountId, action.threadId],
+           );
+           await db.execute(
+             "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, 'INBOX')",
+             [accountId, action.threadId],
+           );
+         });
+       }
+       break;
+     case "addLabel":
+       await queryWithRetry(async (db) => {
+         await db.execute(
+           "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, $3)",
+           [accountId, action.threadId, action.labelId],
+         );
+       });
+       break;
+     case "removeLabel":
+       await queryWithRetry(async (db) => {
+         await db.execute(
+           "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = $3",
+           [accountId, action.threadId, action.labelId],
+         );
+       });
+       break;
+     default:
+       break;
   }
 }
 

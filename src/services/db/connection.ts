@@ -5,15 +5,31 @@ let db: Database | null = null;
 export async function getDb(): Promise<Database> {
   if (!db) {
     db = await Database.load("sqlite:velo.db");
-    try {
-      await db.execute("PRAGMA journal_mode=WAL");
-    } catch {
-      // WAL mode not supported by the Tauri SQL plugin — safe to ignore
+    // Enable WAL mode for better concurrent read/write performance
+    for (let i = 0; i < 3; i++) {
+      try {
+        await db.execute("PRAGMA journal_mode=WAL");
+        break;
+      } catch {
+        if (i === 2) throw new Error("Failed to enable WAL journal mode");
+        await new Promise((r) => setTimeout(r, 100 * (i + 1)));
+      }
     }
+    // Set busy timeout to 5 seconds so SQLite waits before returning BUSY
+    for (let i = 0; i < 3; i++) {
+      try {
+        await db.execute("PRAGMA busy_timeout=5000");
+        break;
+      } catch {
+        if (i === 2) throw new Error("Failed to set busy_timeout");
+        await new Promise((r) => setTimeout(r, 100 * (i + 1)));
+      }
+    }
+    // Enable foreign keys
     try {
-      await db.execute("PRAGMA busy_timeout=5000");
+      await db.execute("PRAGMA foreign_keys=ON");
     } catch {
-      // busy_timeout not supported — safe to ignore
+      // Some builds may not support foreign keys — non-fatal
     }
   }
   return db;
@@ -142,15 +158,45 @@ export async function withTransaction(fn: (db: Database) => Promise<void>): Prom
 }
 
 /**
+ * Execute a query with retry logic for BUSY errors.
+ * Use this for single queries outside of transactions, or pass a callback
+ * for multi-statement operations that should be retried as a unit.
+ */
+export async function queryWithRetry<T>(
+  fn: (db: Database) => Promise<T>,
+  maxRetries: number = 5,
+): Promise<T> {
+  const database = await getDb();
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn(database);
+    } catch (err) {
+      lastError = err;
+      if (isBusyError(err) && attempt < maxRetries) {
+        const delayMs = Math.min(50 * 2 ** attempt, 1000);
+        await new Promise((r) => setTimeout(r, delayMs));
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw lastError;
+}
+
+/**
  * Execute a SELECT query and return the first result or null.
  */
 export async function selectFirstBy<T>(
   query: string,
   params: unknown[] = [],
 ): Promise<T | null> {
-  const db = await getDb();
-  const rows = await db.select<T[]>(query, params);
-  return rows[0] ?? null;
+  return queryWithRetry(async (db) => {
+    const rows = await db.select<T[]>(query, params);
+    return rows[0] ?? null;
+  });
 }
 
 /**
@@ -160,9 +206,10 @@ export async function existsBy(
   query: string,
   params: unknown[] = [],
 ): Promise<boolean> {
-  const db = await getDb();
-  const rows = await db.select<{ count: number }[]>(query, params);
-  return (rows[0]?.count ?? 0) > 0;
+  return queryWithRetry(async (db) => {
+    const rows = await db.select<{ count: number }[]>(query, params);
+    return (rows[0]?.count ?? 0) > 0;
+  });
 }
 
 /**

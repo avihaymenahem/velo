@@ -23,19 +23,6 @@ function mapAuthMethod(method: string | null): "password" | "oauth2" {
 }
 
 /**
- * Escape a value for use in an IMAP quoted string (RFC 3501 §4.3).
- * Backslash and double-quote are escaped, and the result is wrapped in
- * double quotes so it can be safely used in IMAP LOGIN commands.
- *
- * Async-imap 0.10's `login()` does not escape internally, so this must
- * be applied before passing passwords to the Rust backend.
- */
-function quoteForImap(value: string): string {
-  const escaped = value.replace(/[\\"]/g, (c) => `\\${c}`);
-  return `"${escaped}"`;
-}
-
-/**
  * Build an ImapConfig from a DbAccount's IMAP fields.
  * Assumes the account's imap_password has already been decrypted.
  *
@@ -54,14 +41,14 @@ export function buildImapConfig(
   const isOAuth2 = authMethod === "oauth2" && !!accessToken;
   const rawPassword = isOAuth2
     ? accessToken!
-    : account.imap_password ?? "";
+: account.imap_password ?? "";
 
   return {
     host: account.imap_host,
     port: account.imap_port ?? 993,
     security: mapSecurity(account.imap_security),
-    username: quoteForImap(account.imap_username || account.email),
-    password: isOAuth2 ? rawPassword : quoteForImap(rawPassword),
+    username: account.imap_username || account.email,
+    password: isOAuth2 ? rawPassword : rawPassword,
     auth_method: authMethod,
     accept_invalid_certs: !!account.accept_invalid_certs,
   };

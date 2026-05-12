@@ -1,6 +1,6 @@
 import { escapeHtml } from "@/utils/sanitize";
 import { getContactById } from "@/services/db/contacts";
-import { getDb } from "@/services/db/connection";
+import { queryWithRetry } from "@/services/db/connection";
 
 export interface CampaignVariableSource {
   contactId: string;
@@ -26,38 +26,47 @@ function getGreetings(locale: string): string[] {
 }
 
 async function getMyName(accountId: string): Promise<string> {
-  const db = await getDb();
-  const row = await db.select<{ display_name: string | null }[]>(
-    "SELECT display_name FROM accounts WHERE id = $1",
-    [accountId],
-  );
-  return row[0]?.display_name ?? "";
+  return queryWithRetry(async (db) => {
+    const row = await db.select<{ display_name: string | null }[]>(
+      "SELECT display_name FROM accounts WHERE id = $1",
+      [accountId],
+    );
+    return row[0]?.display_name ?? "";
+  });
 }
 
 async function getMyTitle(accountId: string): Promise<string> {
-  const db = await getDb();
-  const row = await db.select<{ value: string | null }[]>(
-    "SELECT value FROM settings WHERE key = 'my_title'",
-  );
-  if (row[0]?.value) return row[0].value;
-  const acc = await db.select<{ my_title: string | null }[]>(
-    "SELECT my_title FROM accounts WHERE id = $1",
-    [accountId],
-  );
-  return acc[0]?.my_title ?? "";
+  const settingsRow = await queryWithRetry(async (db) => {
+    return db.select<{ value: string | null }[]>(
+      "SELECT value FROM settings WHERE key = 'my_title'",
+    );
+  });
+  if (settingsRow[0]?.value) return settingsRow[0].value;
+
+  return queryWithRetry(async (db) => {
+    const acc = await db.select<{ my_title: string | null }[]>(
+      "SELECT my_title FROM accounts WHERE id = $1",
+      [accountId],
+    );
+    return acc[0]?.my_title ?? "";
+  });
 }
 
 async function getMyPhone(accountId: string): Promise<string> {
-  const db = await getDb();
-  const row = await db.select<{ value: string | null }[]>(
-    "SELECT value FROM settings WHERE key = 'my_phone'",
-  );
-  if (row[0]?.value) return row[0].value;
-  const acc = await db.select<{ my_phone: string | null }[]>(
-    "SELECT my_phone FROM accounts WHERE id = $1",
-    [accountId],
-  );
-  return acc[0]?.my_phone ?? "";
+  const settingsRow = await queryWithRetry(async (db) => {
+    return db.select<{ value: string | null }[]>(
+      "SELECT value FROM settings WHERE key = 'my_phone'",
+    );
+  });
+  if (settingsRow[0]?.value) return settingsRow[0].value;
+
+  return queryWithRetry(async (db) => {
+    const acc = await db.select<{ my_phone: string | null }[]>(
+      "SELECT my_phone FROM accounts WHERE id = $1",
+      [accountId],
+    );
+    return acc[0]?.my_phone ?? "";
+  });
 }
 
 function getDateShort(locale: string): string {

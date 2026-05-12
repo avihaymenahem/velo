@@ -7,6 +7,10 @@
 | English | `en` | LTR |
 | French | `fr` | LTR |
 | Arabic | `ar` | RTL |
+| Japanese | `ja` | LTR |
+| Italian | `it` | LTR |
+| Japanese | `ja` | LTR | ✅ |
+| Italian | `it` | LTR | ✅ |
 
 ## Locale Directory Structure
 

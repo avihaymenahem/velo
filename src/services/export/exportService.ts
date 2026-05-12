@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { getDb } from "@/services/db/connection";
+import { queryWithRetry } from "@/services/db/connection";
 
 export type ExportFormat = "mbox" | "eml" | "pdf" | "zip";
 
@@ -41,8 +41,6 @@ export async function validateExportConfig(
 export async function exportMessages(options: ExportOptions): Promise<void> {
   await validateExportConfig(options.format, options.destinationPath);
 
-  const db = await getDb();
-
   let dateFilter = "";
   const params: unknown[] = [options.accountId];
   let idx = 2;
@@ -56,22 +54,24 @@ export async function exportMessages(options: ExportOptions): Promise<void> {
     params.push(options.dateTo);
   }
 
-  const messages = await db.select<{
-    id: string;
-    from_address: string | null;
-    date: number;
-    subject: string | null;
-    to_addresses: string | null;
-    cc_addresses: string | null;
-    body_text: string | null;
-    body_html: string | null;
-  }[]>(
-    `SELECT m.id, m.from_address, m.date, m.subject, m.to_addresses,
-            m.cc_addresses, m.body_text, m.body_html
-     FROM messages m
-     WHERE m.account_id = $1${dateFilter}
-     ORDER BY m.date ASC`,
-    params,
+  const messages = await queryWithRetry(async (db) =>
+    db.select<{
+      id: string;
+      from_address: string | null;
+      date: number;
+      subject: string | null;
+      to_addresses: string | null;
+      cc_addresses: string | null;
+      body_text: string | null;
+      body_html: string | null;
+    }[]>(
+      `SELECT m.id, m.from_address, m.date, m.subject, m.to_addresses,
+              m.cc_addresses, m.body_text, m.body_html
+       FROM messages m
+       WHERE m.account_id = $1${dateFilter}
+       ORDER BY m.date ASC`,
+      params,
+    ),
   );
 
   if (messages.length === 0) return;
@@ -126,38 +126,41 @@ export async function scheduleBackup(schedule: {
   destinationPath: string;
   encrypt: boolean;
 }): Promise<void> {
-  const db = await getDb();
   const id = crypto.randomUUID();
 
-  await db.execute(
-    `INSERT INTO backup_schedules (id, account_id, name, format, cron_expression, destination_path, encrypt)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [
-      id,
-      schedule.accountId,
-      schedule.name,
-      schedule.format,
-      schedule.cronExpression,
-      schedule.destinationPath,
-      schedule.encrypt ? 1 : 0,
-    ],
-  );
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      `INSERT INTO backup_schedules (id, account_id, name, format, cron_expression, destination_path, encrypt)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        id,
+        schedule.accountId,
+        schedule.name,
+        schedule.format,
+        schedule.cronExpression,
+        schedule.destinationPath,
+        schedule.encrypt ? 1 : 0,
+      ],
+    );
+  });
 }
 
 export async function getSchedules(accountId: string): Promise<BackupSchedule[]> {
-  const db = await getDb();
-  return db.select<BackupSchedule[]>(
-    `SELECT * FROM backup_schedules WHERE account_id = $1 ORDER BY created_at DESC`,
-    [accountId],
-  );
+  return queryWithRetry(async (db) => {
+    return db.select<BackupSchedule[]>(
+      `SELECT * FROM backup_schedules WHERE account_id = $1 ORDER BY created_at DESC`,
+      [accountId],
+    );
+  });
 }
 
 export async function toggleSchedule(id: string, enabled: boolean): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    "UPDATE backup_schedules SET is_enabled = $1 WHERE id = $2",
-    [enabled ? 1 : 0, id],
-  );
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      "UPDATE backup_schedules SET is_enabled = $1 WHERE id = $2",
+      [enabled ? 1 : 0, id],
+    );
+  });
 }
 
 export async function updateSchedule(
@@ -170,7 +173,6 @@ export async function updateSchedule(
     encrypt?: boolean;
   },
 ): Promise<void> {
-  const db = await getDb();
   const sets: string[] = [];
   const params: unknown[] = [];
   let idx = 1;
@@ -198,24 +200,29 @@ export async function updateSchedule(
   if (sets.length === 0) return;
 
   params.push(id);
-  await db.execute(
-    `UPDATE backup_schedules SET ${sets.join(", ")} WHERE id = $${idx}`,
-    params,
-  );
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      `UPDATE backup_schedules SET ${sets.join(", ")} WHERE id = $${idx}`,
+      params,
+    );
+  });
 }
 
 export async function deleteSchedule(id: string): Promise<void> {
-  const db = await getDb();
-  await db.execute("DELETE FROM backup_schedules WHERE id = $1", [id]);
+  await queryWithRetry(async (db) => {
+    await db.execute("DELETE FROM backup_schedules WHERE id = $1", [id]);
+  });
 }
 
 export async function runBackupNow(scheduleId: string): Promise<void> {
-  const db = await getDb();
-  const schedules = await db.select<BackupSchedule[]>(
-    "SELECT * FROM backup_schedules WHERE id = $1",
-    [scheduleId],
-  );
-  const schedule = schedules[0];
+  const schedule = await queryWithRetry(async (db) => {
+    const rows = await db.select<BackupSchedule[]>(
+      "SELECT * FROM backup_schedules WHERE id = $1",
+      [scheduleId],
+    );
+    return rows[0];
+  });
+
   if (!schedule) throw new Error("Schedule not found");
 
   await exportMessages({
@@ -227,8 +234,10 @@ export async function runBackupNow(scheduleId: string): Promise<void> {
   });
 
   const now = Math.floor(Date.now() / 1000);
-  await db.execute(
-    "UPDATE backup_schedules SET last_run_at = $1 WHERE id = $2",
-    [now, scheduleId],
-  );
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      "UPDATE backup_schedules SET last_run_at = $1 WHERE id = $2",
+      [now, scheduleId],
+    );
+  });
 }

@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { queryWithRetry } from "./connection";
 
 export interface DbComplianceCheck {
   id: string;
@@ -15,17 +15,19 @@ export async function getRecentChecks(
   accountId: string,
   limit: number = 10,
 ): Promise<DbComplianceCheck[]> {
-  const db = await getDb();
-  return db.select<DbComplianceCheck[]>(
-    "SELECT * FROM compliance_checks WHERE account_id = $1 ORDER BY checked_at DESC LIMIT $2",
-    [accountId, limit],
-  );
+  return queryWithRetry(async (db) => {
+    return db.select<DbComplianceCheck[]>(
+      "SELECT * FROM compliance_checks WHERE account_id = $1 ORDER BY checked_at DESC LIMIT $2",
+      [accountId, limit],
+    );
+  });
 }
 
 export async function deleteOldChecks(before: number): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    "DELETE FROM compliance_checks WHERE checked_at < $1",
-    [before],
-  );
+  return queryWithRetry(async (db) => {
+    await db.execute(
+      "DELETE FROM compliance_checks WHERE checked_at < $1",
+      [before],
+    );
+  });
 }

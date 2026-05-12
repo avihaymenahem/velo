@@ -44,7 +44,7 @@ Test pattern: `useStore.setState()` in `beforeEach`, assert via `.getState()`.
 ## i18n Approach
 
 - `i18next` + `react-i18next` with JSON locale files
-- 3 locales: `en`, `fr`, `ar` (LTR + RTL)
+- 5 locales: `en`, `fr`, `ar`, `ja`, `it` (LTR + RTL support)
 - `uiStore.locale` + `uiStore.textDirection` persisted to SQLite settings
 - Browser locale auto-detected on first launch
 - Components use `useTranslation()` hook with dot-notation keys

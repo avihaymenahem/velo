@@ -40,7 +40,7 @@ cd src-tauri && cargo build
 - **Setup:** `src/test/setup.ts` (imports `@testing-library/jest-dom/vitest`)
 - **Config:** `globals: true` -- no imports needed for `describe`, `it`, `expect`
 - **Location:** Tests are colocated with source files (e.g., `uiStore.test.ts` next to `uiStore.ts`)
-- **Count:** 130 test files across stores (8), services (70), utils (14), components (31), constants (3), router (1), hooks (2), and config (1)
+- **Count:** 142 test files, 1,645 tests passing (84 TS + 7 Rust). Organized across stores (8), services (70), utils (14), components (32), constants (3), router (1), hooks (2), and config (1)
 
 ### Zustand test pattern
 
@@ -79,7 +79,7 @@ Velo connects directly to Gmail via OAuth. You need your own Google Cloud creden
 4. Create OAuth 2.0 credentials (Desktop application)
 5. In Velo's Settings, enter your Client ID
 
-> Velo uses PKCE flow -- no client secret is required.
+> Velo uses PKCE flow -- no client secret is required. **Note:** If using a custom OAuth app, ensure your Client ID is saved in Settings.
 
 ### IMAP/SMTP
 
@@ -100,5 +100,12 @@ To enable AI features, add your API key for one or more providers in Settings:
 - **Anthropic Claude** -- [Get API key](https://console.anthropic.com/) -- Haiku 4.5 (default), Sonnet 4, Opus 4
 - **OpenAI** -- [Get API key](https://platform.openai.com/) -- GPT-4o Mini (default), GPT-4o, GPT-4.1 series
 - **Google Gemini** -- [Get API key](https://aistudio.google.com/) -- 2.5 Flash (default), 2.5 Pro
+- **Custom (OpenAI-compatible)** -- Any OpenAI-compatible API (e.g., local Ollama, LM Studio)
 
 After adding an API key, select which model to use for each provider in Settings > AI.
+
+## Known Issues (v0.4.22)
+
+- **Git SSL cert error** — If you get `ca-bundle.crt` errors when pushing, fix Git SSL config or switch to SSH.
+- **Rust `cargo build` failure** — MinGW/dlltool issues on Windows. Code is structurally correct (passes `tsc --noEmit` + `vitest`). Fix by installing proper MSVC toolchain.
+  - **Workaround:** Use `npm run tauri dev` for development; use WSL or a Linux VM for production builds.

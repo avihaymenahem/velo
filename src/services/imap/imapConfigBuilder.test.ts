@@ -3,20 +3,20 @@ import { buildImapConfig, buildSmtpConfig } from "./imapConfigBuilder";
 import { createMockDbAccount } from "@/test/mocks";
 
 describe("buildImapConfig", () => {
-  it("builds config from account with ssl security mapped to tls", () => {
-    const account = createMockDbAccount();
-    const config = buildImapConfig(account);
+it("builds config from account with ssl security mapped to tls", () => {
+     const account = createMockDbAccount();
+     const config = buildImapConfig(account);
 
-    expect(config).toEqual({
-      host: "imap.example.com",
-      port: 993,
-      security: "tls",
-      username: '"user@example.com"',
-      password: '"secret123"',
-      auth_method: "password",
-      accept_invalid_certs: false,
-    });
-  });
+     expect(config).toEqual({
+       host: "imap.example.com",
+       port: 993,
+       security: "tls",
+       username: "user@example.com",
+       password: "secret123",
+       auth_method: "password",
+       accept_invalid_certs: false,
+     });
+   });
 
   it("maps tls security to tls", () => {
     const account = createMockDbAccount({ imap_security: "tls" });
@@ -61,22 +61,36 @@ describe("buildImapConfig", () => {
     expect(config.auth_method).toBe("oauth2");
   });
 
-  it("ignores accessToken override for password accounts", () => {
-    const account = createMockDbAccount({ auth_method: "password" });
-    const config = buildImapConfig(account, "should-not-use");
-    expect(config.password).toBe('"secret123"');
-  });
+it("ignores accessToken override for password accounts", () => {
+     const account = createMockDbAccount({ auth_method: "password" });
+     const config = buildImapConfig(account, "should-not-use");
+     expect(config.password).toBe("secret123");
+   });
 
   it("throws when imap_host is missing", () => {
     const account = createMockDbAccount({ imap_host: null });
     expect(() => buildImapConfig(account)).toThrow("no IMAP host configured");
   });
 
-  it("handles empty password gracefully", () => {
-    const account = createMockDbAccount({ imap_password: null });
-    const config = buildImapConfig(account);
-    expect(config.password).toBe('""');
-  });
+it("handles empty password gracefully", () => {
+     const account = createMockDbAccount({ imap_password: null });
+     const config = buildImapConfig(account);
+     expect(config.password).toBe("");
+   });
+
+   it("preserves special characters in password (quotes, backslashes, percent)", () => {
+     const password = `'my"pass\\word%`;
+     const account = createMockDbAccount({ imap_password: password });
+     const config = buildImapConfig(account);
+     // Password should pass through unmodified — quoting happens in Rust layer
+     expect(config.password).toBe(password);
+   });
+
+   it("preserves special characters in username", () => {
+     const account = createMockDbAccount({ imap_username: 'user"name\\domain' });
+     const config = buildImapConfig(account);
+     expect(config.username).toBe('user"name\\domain');
+   });
 });
 
 describe("buildSmtpConfig", () => {
@@ -121,11 +135,11 @@ describe("buildSmtpConfig", () => {
 });
 
 describe("imap_username override", () => {
-  it("uses imap_username when set for IMAP config", () => {
-    const account = createMockDbAccount({ imap_username: "custom-user" });
-    const config = buildImapConfig(account);
-    expect(config.username).toBe('"custom-user"');
-  });
+it("uses imap_username when set for IMAP config", () => {
+     const account = createMockDbAccount({ imap_username: "custom-user" });
+     const config = buildImapConfig(account);
+     expect(config.username).toBe("custom-user");
+   });
 
   it("uses imap_username when set for SMTP config", () => {
     const account = createMockDbAccount({ imap_username: "custom-user" });
@@ -133,17 +147,17 @@ describe("imap_username override", () => {
     expect(config.username).toBe("custom-user");
   });
 
-  it("falls back to email when imap_username is null", () => {
-    const account = createMockDbAccount({ imap_username: null });
-    const config = buildImapConfig(account);
-    expect(config.username).toBe('"user@example.com"');
-  });
+it("falls back to email when imap_username is null", () => {
+     const account = createMockDbAccount({ imap_username: null });
+     const config = buildImapConfig(account);
+     expect(config.username).toBe("user@example.com");
+   });
 
-  it("falls back to email when imap_username is empty string", () => {
-    const account = createMockDbAccount({ imap_username: "" as string | null });
-    const config = buildImapConfig(account);
-    expect(config.username).toBe('"user@example.com"');
-  });
+   it("falls back to email when imap_username is empty string", () => {
+     const account = createMockDbAccount({ imap_username: "" as string | null });
+     const config = buildImapConfig(account);
+     expect(config.username).toBe("user@example.com");
+   });
 });
 
 describe("accept_invalid_certs", () => {

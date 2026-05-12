@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, CheckCircle, XCircle, Play } from "lucide-react";
-import { getDb } from "@/services/db/connection";
+import { queryWithRetry } from "@/services/db/connection";
 import { testFilterOnMessage, type FilterTestResult } from "@/services/filters/filterTester";
 
 interface FilterTestDialogProps {
@@ -27,13 +27,14 @@ export function FilterTestDialog({ isOpen, onClose, ruleId }: FilterTestDialogPr
     setSelectedMessageId("");
     setTesting(false);
 
-    async function loadMessages() {
-      const db = await getDb();
-      const rows = await db.select<MessageOption[]>(
-        "SELECT id, subject, from_address FROM messages ORDER BY date DESC LIMIT 50",
-      );
-      setMessages(rows);
-    }
+async function loadMessages() {
+       const rows = await queryWithRetry(async (db) => {
+         return db.select<MessageOption[]>(
+           "SELECT id, subject, from_address FROM messages ORDER BY date DESC LIMIT 50",
+         );
+       });
+       setMessages(rows);
+     }
     loadMessages();
   }, [isOpen]);
 

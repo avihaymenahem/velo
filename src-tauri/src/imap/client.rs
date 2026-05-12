@@ -9,6 +9,13 @@ use tokio_native_tls::TlsStream;
 
 use super::types::*;
 
+/// Quote a string as an IMAP quoted-string (RFC 3501 §4.3).
+/// Wraps in double-quotes and escapes backslash and double-quote.
+fn quote_imap_string(s: &str) -> String {
+    let escaped = s.replace('\\', "\\\\").replace('"', "\\\"");
+    format!("\"{escaped}\"")
+}
+
 // ---------- Timeout constants ----------
 
 const TCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -1079,10 +1086,10 @@ pub async fn raw_fetch_messages(
         let xoauth2 = format!("user={}\x01auth=Bearer {}\x01\x01", config.username, config.password);
         let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, xoauth2.as_bytes());
         format!("a1 AUTHENTICATE XOAUTH2 {b64}\r\n")
-    } else {
-        format!("a1 LOGIN {} {}\r\n", config.username, config.password)
-    };
-    raw_send_and_wait(&mut reader, login_cmd.as_bytes(), "a1").await?;
+} else {
+         format!("a1 LOGIN {} {}\r\n", quote_imap_string(&config.username), quote_imap_string(&config.password))
+     };
+     raw_send_and_wait(&mut reader, login_cmd.as_bytes(), "a1").await?;
 
     // SELECT
     let select_cmd = format!("a2 SELECT \"{folder}\"\r\n");
@@ -1177,9 +1184,9 @@ pub async fn raw_fetch_diagnostic(
         output.push_str(&format!("S: {}", String::from_utf8_lossy(&buf[..n])));
     }
 
-    // LOGIN
-    let login_cmd = format!("a1 LOGIN {} {}\r\n", config.username, config.password);
-    stream.write_all(login_cmd.as_bytes()).await.map_err(|e| format!("LOGIN: {e}"))?;
+// LOGIN
+     let login_cmd = format!("a1 LOGIN {} {}\r\n", quote_imap_string(&config.username), quote_imap_string(&config.password));
+     stream.write_all(login_cmd.as_bytes()).await.map_err(|e| format!("LOGIN: {e}"))?;
     let n = stream.read(&mut buf).await.map_err(|e| format!("LOGIN read: {e}"))?;
     output.push_str(&format!("S: {}", String::from_utf8_lossy(&buf[..n])));
 
