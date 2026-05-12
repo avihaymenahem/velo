@@ -1,80 +1,350 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { FileText, ChevronDown } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { FileText, Star, Search, Plus, X } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
 import { useComposerStore } from "@/stores/composerStore";
-import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
+import { Modal } from "@/components/ui/Modal";
+import {
+  getTemplatesForAccount,
+  getFavorites,
+  getMostUsed,
+  getCategories,
+  upsertCategory,
+  incrementTemplateUsage,
+  type DbTemplate,
+  type DbTemplateCategory,
+} from "@/services/db/templates";
 import type { Editor } from "@tiptap/react";
 
 interface TemplatePickerProps {
   editor: Editor | null;
 }
 
+const SYSTEM_CATEGORIES = ["All", "Sales", "Support", "Legal", "Marketing", "Internal"];
+
+const CATEGORY_ICONS: Record<string, string> = {
+  Sales: "💰",
+  Support: "🎧",
+  Legal: "⚖️",
+  Marketing: "📣",
+  Internal: "🏢",
+};
+
+function fuzzyMatch(text: string, query: string): boolean {
+  const lower = text.toLowerCase();
+  const q = query.toLowerCase();
+  let qi = 0;
+  for (let i = 0; i < lower.length && qi < q.length; i++) {
+    if (lower[i] === q[qi]) qi++;
+  }
+  return qi === q.length;
+}
+
 export function TemplatePicker({ editor }: TemplatePickerProps) {
+  const { t } = useTranslation();
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const { mode, subject, setSubject } = useComposerStore();
-  const [templates, setTemplates] = useState<DbTemplate[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [templates, setTemplates] = useState<DbTemplate[]>([]);
+  const [categories, setCategories] = useState<DbTemplateCategory[]>([]);
+  const [favorites, setFavorites] = useState<DbTemplate[]>([]);
+  const [mostUsed, setMostUsed] = useState<DbTemplate[]>([]);
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!activeAccountId) return;
-    getTemplatesForAccount(activeAccountId).then(setTemplates);
+    const [tmpls, cats, favs, used] = await Promise.all([
+      getTemplatesForAccount(activeAccountId),
+      getCategories(activeAccountId),
+      getFavorites(activeAccountId),
+      getMostUsed(activeAccountId, 5),
+    ]);
+    setTemplates(tmpls);
+    setCategories(cats);
+    setFavorites(favs);
+    setMostUsed(used);
   }, [activeAccountId]);
 
-  // Close dropdown on outside click
   useEffect(() => {
-    if (!isOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [isOpen]);
+    if (isOpen) loadData();
+  }, [isOpen, loadData]);
 
-  const handleSelect = useCallback((tmpl: DbTemplate) => {
+  const categoryMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of categories) {
+      map[c.id] = c.name;
+    }
+    return map;
+  }, [categories]);
+
+  const allCategoryNames = useMemo(() => {
+    const names = [...SYSTEM_CATEGORIES];
+    for (const c of categories) {
+      if (!names.includes(c.name)) names.push(c.name);
+    }
+    return names;
+  }, [categories]);
+
+  const filteredTemplates = useMemo(() => {
+    let list = templates;
+
+    if (activeCategory !== "All") {
+      const cat = categories.find((c) => c.name === activeCategory);
+      if (cat) {
+        list = list.filter((t) => t.category_id === cat.id);
+      }
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim();
+      list = list.filter(
+        (t) => fuzzyMatch(t.name, q) || fuzzyMatch(t.body_html, q) || (t.subject ? fuzzyMatch(t.subject, q) : false),
+      );
+    }
+
+    return list;
+  }, [templates, activeCategory, searchQuery, categories]);
+
+  const handleSelect = useCallback(async (tmpl: DbTemplate) => {
     if (!editor) return;
 
-    // If new message and subject is empty, use template subject
     if (mode === "new" && !subject && tmpl.subject) {
       setSubject(tmpl.subject);
     }
 
-    // Insert template body at cursor
     editor.commands.insertContent(tmpl.body_html);
-    setIsOpen(false);
-  }, [editor, mode, subject, setSubject]);
 
-  if (templates.length === 0) return null;
+    if (activeAccountId) {
+      await incrementTemplateUsage(tmpl.id);
+    }
+
+    setIsOpen(false);
+  }, [editor, mode, subject, setSubject, activeAccountId]);
+
+  const handleAddCategory = useCallback(async () => {
+    if (!activeAccountId || !newCategoryName.trim()) return;
+    await upsertCategory({
+      accountId: activeAccountId,
+      name: newCategoryName.trim(),
+    });
+    setNewCategoryName("");
+    setShowAddCategory(false);
+    await loadData();
+  }, [activeAccountId, newCategoryName, loadData]);
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(true)}
         className="flex items-center gap-1 text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+        title={t("composer.insertTemplate") + " (Ctrl+Shift+T)"}
       >
         <FileText size={12} />
-        Templates
-        <ChevronDown size={10} />
+        {t("composer.templates")}
       </button>
 
-      {isOpen && (
-        <div className="absolute bottom-full mb-1 left-0 bg-bg-primary border border-border-primary rounded-md shadow-lg glass-modal w-56 max-h-48 overflow-y-auto z-10">
-          {templates.map((tmpl) => (
-            <button
-              key={tmpl.id}
-              onClick={() => handleSelect(tmpl)}
-              className="w-full text-left px-3 py-2 hover:bg-bg-hover text-sm transition-colors"
-            >
-              <div className="text-text-primary text-xs font-medium">{tmpl.name}</div>
-              {tmpl.subject && (
-                <div className="text-text-tertiary text-[0.625rem] truncate">{tmpl.subject}</div>
-              )}
-            </button>
-          ))}
+      <Modal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        title={t("composer.insertTemplate")}
+        width="w-[520px]"
+        panelClassName="max-h-[80vh] flex flex-col"
+      >
+        {/* Search */}
+        <div className="px-4 py-2 border-b border-border-primary">
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("composer.searchTemplates")}
+              className="w-full pl-7 pr-3 py-1.5 bg-bg-tertiary border border-border-primary rounded-md text-xs text-text-primary outline-none focus:border-accent"
+              autoFocus
+            />
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* Category tabs */}
+        <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-border-secondary overflow-x-auto shrink-0">
+          {allCategoryNames.map((name) => {
+            const isActive = activeCategory === name;
+            return (
+              <button
+                key={name}
+                onClick={() => setActiveCategory(name)}
+                className={`shrink-0 flex items-center gap-1 px-2.5 py-1 text-[0.625rem] rounded-full transition-colors ${
+                  isActive
+                    ? "bg-accent/15 text-accent font-medium"
+                    : "text-text-tertiary hover:text-text-secondary hover:bg-bg-hover"
+                }`}
+              >
+                {CATEGORY_ICONS[name] && <span className="text-[0.625rem]">{CATEGORY_ICONS[name]}</span>}
+                {name}
+              </button>
+            );
+          })}
+          <button
+            onClick={() => setShowAddCategory(!showAddCategory)}
+            className="shrink-0 p-1 text-text-tertiary hover:text-text-secondary"
+            title={t("composer.addCategory")}
+          >
+            <Plus size={12} />
+          </button>
+        </div>
+
+        {showAddCategory && (
+          <div className="px-3 py-2 border-b border-border-secondary flex items-center gap-1.5">
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder={t("composer.categoryName")}
+              className="flex-1 px-2 py-1 text-xs bg-bg-tertiary border border-border-primary rounded text-text-primary outline-none focus:border-accent"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAddCategory();
+                if (e.key === "Escape") setShowAddCategory(false);
+              }}
+              autoFocus
+            />
+            <button
+              onClick={handleAddCategory}
+              disabled={!newCategoryName.trim()}
+              className="px-2 py-1 text-xs text-white bg-accent rounded hover:bg-accent-hover disabled:opacity-50"
+            >
+              {t("common.add")}
+            </button>
+            <button
+              onClick={() => { setShowAddCategory(false); setNewCategoryName(""); }}
+              className="p-1 text-text-tertiary hover:text-text-primary"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
+        {/* Template list */}
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
+          {/* Favorites section */}
+          {activeCategory === "All" && !searchQuery && favorites.length > 0 && (
+            <div>
+              <h4 className="text-[0.625rem] font-semibold uppercase tracking-wider text-text-tertiary mb-1.5 px-1">
+                {t("composer.favorites")}
+              </h4>
+              {favorites.map((tmpl) => (
+                <TemplateCard
+                  key={tmpl.id}
+                  template={tmpl}
+                  categoryName={tmpl.category_id ? categoryMap[tmpl.category_id] ?? null : null}
+                  onSelect={handleSelect}
+                />
+              ))}
+              <div className="border-t border-border-secondary my-2" />
+            </div>
+          )}
+
+          {/* Most used section */}
+          {activeCategory === "All" && !searchQuery && mostUsed.length > 0 && (
+            <div>
+              <h4 className="text-[0.625rem] font-semibold uppercase tracking-wider text-text-tertiary mb-1.5 px-1">
+                {t("composer.mostUsed")}
+              </h4>
+              {mostUsed.map((tmpl) => (
+                <TemplateCard
+                  key={tmpl.id}
+                  template={tmpl}
+                  categoryName={tmpl.category_id ? categoryMap[tmpl.category_id] ?? null : null}
+                  onSelect={handleSelect}
+                />
+              ))}
+              <div className="border-t border-border-secondary my-2" />
+            </div>
+          )}
+
+          {/* All templates */}
+          <h4 className="text-[0.625rem] font-semibold uppercase tracking-wider text-text-tertiary mb-1.5 px-1">
+            {searchQuery
+              ? t("composer.searchResults")
+              : activeCategory === "All"
+                ? t("composer.allTemplates")
+                : activeCategory}
+          </h4>
+          {filteredTemplates.length === 0 ? (
+            <p className="text-xs text-text-tertiary px-1 py-4 text-center">
+              {searchQuery ? t("composer.noTemplatesFound") : t("composer.noTemplates")}
+            </p>
+          ) : (
+            filteredTemplates.map((tmpl) => (
+              <TemplateCard
+                key={tmpl.id}
+                template={tmpl}
+                categoryName={tmpl.category_id ? categoryMap[tmpl.category_id] ?? null : null}
+                onSelect={handleSelect}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Footer hint */}
+        <div className="px-4 py-2 border-t border-border-primary text-[0.625rem] text-text-tertiary flex items-center gap-2">
+          <kbd className="bg-bg-tertiary px-1 rounded text-[0.5rem] border border-border-primary">Ctrl+Shift+T</kbd>
+          {t("composer.openTemplatePicker")}
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+function TemplateCard({
+  template,
+  categoryName,
+  onSelect,
+}: {
+  template: DbTemplate;
+  categoryName: string | null;
+  onSelect: (tmpl: DbTemplate) => void;
+}) {
+  const { t } = useTranslation();
+  const bodyText = template.body_html.replace(/<[^>]*>/g, "").trim();
+
+  return (
+    <button
+      onClick={() => onSelect(template)}
+      className="w-full text-left px-3 py-2 rounded-lg bg-bg-secondary hover:bg-bg-hover transition-colors border border-transparent hover:border-border-secondary group"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-text-primary truncate">{template.name}</span>
+            {template.is_favorite === 1 && (
+              <Star size={10} className="text-warning fill-warning shrink-0" />
+            )}
+          </div>
+          {template.subject && (
+            <div className="text-[0.625rem] text-text-tertiary truncate mt-0.5">
+              {template.subject}
+            </div>
+          )}
+          <div className="text-[0.625rem] text-text-tertiary/60 truncate mt-0.5 line-clamp-1">
+            {bodyText.slice(0, 120)}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+          {template.usage_count > 0 && (
+            <span className="text-[0.5rem] text-text-tertiary/50" title={t("composer.usedCount")}>
+              {template.usage_count}
+            </span>
+          )}
+          {categoryName && (
+            <span className="text-[0.5rem] px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-tertiary">
+              {categoryName}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
   );
 }

@@ -10,6 +10,8 @@ import { useAccountStore } from "@/stores/accountStore";
 import { WorkflowRuleCard } from "./WorkflowRuleCard";
 import { WorkflowTriggerPicker } from "./WorkflowTriggerPicker";
 import { WorkflowActionPicker } from "./WorkflowActionPicker";
+import { WorkflowPresetList } from "./WorkflowPresetList";
+import type { WorkflowPreset } from "@/constants/workflowPresets";
 
 interface WorkflowAction {
   type: string;
@@ -26,6 +28,23 @@ export function WorkflowEditor() {
   const [triggerEvent, setTriggerEvent] = useState("email_received");
   const [triggerConditions, setTriggerConditions] = useState("");
   const [actions, setActions] = useState<WorkflowAction[]>([]);
+  const [showPresets, setShowPresets] = useState(false);
+
+  const handleApplyPreset = useCallback((preset: WorkflowPreset) => {
+    setName(preset.name);
+    setTriggerEvent(preset.trigger_event);
+    setTriggerConditions(preset.trigger_conditions);
+    let parsedActions: WorkflowAction[] = [];
+    try {
+      parsedActions = JSON.parse(preset.actions) as WorkflowAction[];
+    } catch {
+      parsedActions = [];
+    }
+    setActions(parsedActions);
+    setEditingId(null);
+    setShowForm(true);
+    setShowPresets(false);
+  }, []);
 
   const loadRules = useCallback(async () => {
     if (!activeAccountId) return;
@@ -97,6 +116,23 @@ export function WorkflowEditor() {
 
   return (
     <div className="space-y-3">
+      <div className="border border-border-primary rounded-md">
+        <button
+          onClick={() => setShowPresets((p) => !p)}
+          className="flex items-center gap-2 w-full px-3 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
+        >
+          <span className={`transition-transform ${showPresets ? "rotate-90" : ""}`}>
+            &#9654;
+          </span>
+          Browse Presets
+        </button>
+        {showPresets && (
+          <div className="px-3 pb-3">
+            <WorkflowPresetList onApply={handleApplyPreset} />
+          </div>
+        )}
+      </div>
+
       {rules.map((rule) => (
         <WorkflowRuleCard
           key={rule.id}

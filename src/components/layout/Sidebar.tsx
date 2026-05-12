@@ -41,6 +41,7 @@ import {
   Paperclip,
   FolderSearch,
   Loader2,
+  BarChart3,
   type LucideIcon,
 } from "lucide-react";
 import { useTaskStore } from "@/stores/taskStore";
@@ -63,6 +64,7 @@ export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = 
   { id: "calendar", label: "nav.calendar", icon: Calendar },
   { id: "attachments", label: "nav.attachments", icon: Paperclip },
   { id: "campaigns", label: "nav.campaigns", icon: Send },
+  { id: "business", label: "nav.business", icon: BarChart3 },
   { id: "smart-folders", label: "nav.smartFolders", icon: FolderSearch },
   { id: "labels", label: "nav.labels", icon: Tag },
 ];

@@ -12,6 +12,7 @@ import {
 } from "@/services/db/contacts";
 import { isVipSender, addVipSender, removeVipSender } from "@/services/db/notificationVips";
 import { fetchAndCacheGravatarUrl } from "@/services/contacts/gravatar";
+import { getContactActivity, type ActivityEvent } from "@/services/contacts/activity";
 import { useThreadStore } from "@/stores/threadStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { getThreadById, getThreadLabelIds } from "@/services/db/threads";
@@ -20,6 +21,7 @@ import { formatRelativeDate } from "@/utils/date";
 import { formatFileSize, getFileIcon } from "@/utils/fileTypeHelpers";
 import { AuthBadge } from "./AuthBadge";
 import { TagCloud } from "@/components/contacts/TagCloud";
+import { ContactTimeline } from "@/components/contacts/ContactTimeline";
 import { useContactStore } from "@/stores/contactStore";
 
 interface ContactSidebarProps {
@@ -42,6 +44,8 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
   const [sameDomainContacts, setSameDomainContacts] = useState<SameDomainContact[]>([]);
   const [authResults, setAuthResults] = useState<string | null>(null);
   const [tagIds, setTagIds] = useState<string[]>([]);
+  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [addedFeedback, setAddedFeedback] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -117,6 +121,13 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
     // Load auth results
     getLatestAuthResult(email).then((r) => { if (!cancelled) setAuthResults(r); });
 
+    // Load activity timeline
+    setActivityLoading(true);
+    getContactActivity(accountId, email).then((events) => {
+      if (!cancelled) setActivityEvents(events);
+      setActivityLoading(false);
+    });
+
     // Load tags for this contact once contact exists
     getContactByEmail(email).then((c) => {
       if (cancelled || !c) return;
@@ -126,6 +137,8 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
         });
       });
     });
+
+    // Load vault files (wired in Phase 4 — vault tab pending)
 
     return () => { cancelled = true; };
   }, [email, accountId]);
@@ -476,6 +489,14 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
             </div>
           </div>
         )}
+
+        {/* Activity Timeline */}
+        <div className="mt-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2">
+            {t('contact.recentActivity')}
+          </h4>
+          <ContactTimeline events={activityEvents} isLoading={activityLoading} />
+        </div>
       </div>
     </div>
   );

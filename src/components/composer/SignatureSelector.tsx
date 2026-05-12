@@ -13,6 +13,7 @@ export function SignatureSelector() {
   const setSignatureHtml = useComposerStore((s) => s.setSignatureHtml);
   const setSignatureId = useComposerStore((s) => s.setSignatureId);
   const [signatures, setSignatures] = useState<DbSignature[]>([]);
+  const [previewSig, setPreviewSig] = useState<DbSignature | null>(null);
 
   useEffect(() => {
     if (!isOpen || !activeAccountId) return;
@@ -29,27 +30,49 @@ export function SignatureSelector() {
     if (id === "") {
       setSignatureId(null);
       setSignatureHtml("");
+      setPreviewSig(null);
       return;
     }
     const sig = signatures.find((s) => s.id === id);
     if (sig) {
       setSignatureId(sig.id);
       setSignatureHtml(sig.body_html);
+      setPreviewSig(sig);
     }
   };
 
   return (
-    <select
-      value={signatureId ?? ""}
-      onChange={(e) => handleChange(e.target.value)}
-      className="text-[0.625rem] bg-bg-tertiary text-text-secondary border border-border-primary rounded px-1.5 py-0.5"
-    >
-      <option value="">No signature</option>
-      {signatures.map((sig) => (
-        <option key={sig.id} value={sig.id}>
-          {sig.name}
-        </option>
-      ))}
-    </select>
+    <div className="space-y-1">
+      <select
+        value={signatureId ?? ""}
+        onChange={(e) => handleChange(e.target.value)}
+        onMouseEnter={(e) => {
+          const id = e.currentTarget.value;
+          if (id) {
+            const sig = signatures.find((s) => s.id === id);
+            if (sig) setPreviewSig(sig);
+          }
+        }}
+        className="text-[0.625rem] bg-bg-tertiary text-text-secondary border border-border-primary rounded px-1.5 py-0.5 w-full"
+      >
+        <option value="">No signature</option>
+        {signatures.map((sig) => (
+          <option key={sig.id} value={sig.id}>
+            {sig.name}
+          </option>
+        ))}
+      </select>
+      {previewSig && (
+        <div className="border border-border-primary rounded-md bg-white shadow-sm">
+          <iframe
+            srcDoc={previewSig.body_html}
+            sandbox="allow-same-origin"
+            className="w-full border-0 rounded"
+            style={{ height: 80 }}
+            title="Signature preview"
+          />
+        </div>
+      )}
+    </div>
   );
 }

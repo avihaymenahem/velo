@@ -2,10 +2,12 @@ import { withTransaction } from "@/services/db/connection";
 import { getAllContacts, deleteContact } from "@/services/db/contacts";
 
 export interface MergeCandidate {
-  contactId: string;
-  email: string;
-  displayName: string | null;
-  matchScore: number;
+  keepId: string;
+  keepEmail: string;
+  keepName: string | null;
+  mergeId: string;
+  mergeEmail: string;
+  mergeName: string | null;
 }
 
 export async function findMergeCandidates(): Promise<MergeCandidate[]> {
@@ -23,13 +25,16 @@ export async function findMergeCandidates(): Promise<MergeCandidate[]> {
   for (const [, group] of emailMap) {
     if (group.length > 1) {
       const sorted = group.sort((a, b) => b.frequency - a.frequency);
+      const keeper = sorted[0]!;
       for (let i = 1; i < sorted.length; i++) {
         const dup = sorted[i]!;
         candidates.push({
-          contactId: dup.id,
-          email: dup.email,
-          displayName: dup.display_name,
-          matchScore: 100,
+          keepId: keeper.id,
+          keepEmail: keeper.email,
+          keepName: keeper.display_name,
+          mergeId: dup.id,
+          mergeEmail: dup.email,
+          mergeName: dup.display_name,
         });
       }
     }

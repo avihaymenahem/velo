@@ -857,6 +857,142 @@ const MIGRATIONS = [
       );
     `,
   },
+  {
+    version: 28,
+    description: "Account-level flags for display_name/title/phone in signature settings",
+    sql: `
+      ALTER TABLE accounts ADD COLUMN my_title TEXT;
+      ALTER TABLE accounts ADD COLUMN my_phone TEXT;
+    `,
+  },
+  {
+    version: 29,
+    description: "Advanced template library: categories, favorites, usage tracking, conditional blocks",
+    sql: `
+      CREATE TABLE IF NOT EXISTS template_categories (
+        id TEXT PRIMARY KEY,
+        account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        icon TEXT,
+        sort_order INTEGER DEFAULT 0,
+        is_system INTEGER DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_template_categories_account ON template_categories(account_id);
+
+      ALTER TABLE templates ADD COLUMN category_id TEXT REFERENCES template_categories(id);
+      ALTER TABLE templates ADD COLUMN is_favorite INTEGER DEFAULT 0;
+      ALTER TABLE templates ADD COLUMN usage_count INTEGER DEFAULT 0;
+      ALTER TABLE templates ADD COLUMN last_used_at INTEGER;
+      ALTER TABLE templates ADD COLUMN conditional_blocks_json TEXT;
+    `,
+  },
+  {
+    version: 30,
+    description: "Compliance profiles and checks",
+    sql: `
+      CREATE TABLE IF NOT EXISTS compliance_profiles (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        description TEXT,
+        region_hint TEXT,
+        rules_json TEXT NOT NULL,
+        is_active INTEGER DEFAULT 1,
+        is_default INTEGER DEFAULT 0,
+        created_at INTEGER DEFAULT (unixepoch())
+      );
+
+      CREATE TABLE IF NOT EXISTS compliance_checks (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        email_draft_id TEXT REFERENCES local_drafts(id),
+        campaign_id TEXT REFERENCES campaigns(id),
+        profile_ids TEXT NOT NULL,
+        score INTEGER NOT NULL DEFAULT 100,
+        violations_json TEXT,
+        checked_at INTEGER DEFAULT (unixepoch())
+      );
+      CREATE INDEX IF NOT EXISTS idx_compliance_checks_account ON compliance_checks(account_id, checked_at DESC);
+
+      INSERT OR IGNORE INTO compliance_profiles (id, code, name, description, region_hint, rules_json, is_active, is_default) VALUES
+      ('cp-ma', 'ma', 'Morocco Business', 'Morocco regulatory compliance (Law 31-08). Requires RC/IF/ICE/CNSS identifiers in signature and formal French tone.', '.ma', '[{"id":"ma-sig-1","type":"signature_required","severity":"error","messageKey":"compliance.ma.signatureRequired","config":{"field":"rc_if_ice_cnss","minWords":30}},{"id":"ma-tone-1","type":"tone_check","severity":"warning","messageKey":"compliance.ma.formalTone"},{"id":"ma-unsub-1","type":"unsubscribe_required","severity":"info","messageKey":"compliance.ma.unsubscribeRecommended","config":{"domains":[".ma"]}}]', 1, 0),
+      ('cp-gdpr', 'gdpr', 'GDPR (EU)', 'GDPR compliance for EU recipients. Requires unsubscribe link, data retention notice, and lawful basis mention.', '.fr,.de,.es,.it,.nl,.be,.at,.eu,.lu,.fi,.se,.dk,.ie,.pt,.gr,.pl,.cz,.hu,.ro,.bg,.hr,.sk,.si,.lt,.lv,.ee', '[{"id":"gdpr-unsub-1","type":"unsubscribe_required","severity":"error","messageKey":"compliance.gdpr.unsubscribeRequired"},{"id":"gdpr-sig-1","type":"signature_required","severity":"warning","messageKey":"compliance.gdpr.retentionNotice","config":{"field":"retention_notice","minWords":20}},{"id":"gdpr-disc-1","type":"disclaimer_required","severity":"warning","messageKey":"compliance.gdpr.lawfulBasis"}]', 1, 1),
+      ('cp-can-spam', 'can-spam', 'CAN-SPAM (US)', 'CAN-SPAM Act compliance for US recipients. Requires physical address in signature, clear subject, and 10-day opt-out.', '.us,.com,.org,.net', '[{"id":"canspam-sig-1","type":"signature_required","severity":"error","messageKey":"compliance.canSpam.physicalAddress","config":{"field":"physical_address"}},{"id":"canspam-subj-1","type":"tone_check","severity":"warning","messageKey":"compliance.canSpam.clearSubject"},{"id":"canspam-unsub-1","type":"unsubscribe_required","severity":"error","messageKey":"compliance.canSpam.optOutRequired"}]', 1, 0),
+      ('cp-lgpd', 'lgpd', 'LGPD (Brazil)', 'Brazilian LGPD compliance. Requires Portuguese-language requirements and data subject rights notice.', '.br', '[{"id":"lgpd-sig-1","type":"signature_required","severity":"error","messageKey":"compliance.lgpd.portugueseNotice","config":{"field":"data_subject_rights"}},{"id":"lgpd-unsub-1","type":"unsubscribe_required","severity":"warning","messageKey":"compliance.lgpd.optOutRequired"}]', 1, 0),
+      ('cp-generic', 'generic', 'Professional', 'General professional email compliance. No ALL-CAPS subject, attachment mentioned in body, signature present.', '', '[{"id":"gen-subj-1","type":"tone_check","severity":"warning","messageKey":"compliance.generic.noAllCaps"},{"id":"gen-attach-1","type":"attachment_mentioned","severity":"info","messageKey":"compliance.generic.attachmentMentioned"},{"id":"gen-sig-1","type":"signature_required","severity":"warning","messageKey":"compliance.generic.signatureRequired"}]', 1, 0);
+
+      INSERT OR IGNORE INTO settings (key, value) VALUES ('compliance_enabled', 'true');
+    `,
+  },
+  {
+    version: 31,
+    description: "Contact files vault and backup schedules",
+    sql: `
+      CREATE TABLE IF NOT EXISTS contact_files (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+        filename TEXT NOT NULL,
+        original_name TEXT NOT NULL,
+        mime_type TEXT,
+        size INTEGER,
+        category TEXT DEFAULT 'general',
+        starred INTEGER DEFAULT 0,
+        sender_email TEXT,
+        message_id TEXT,
+        local_path TEXT,
+        created_at INTEGER DEFAULT (unixepoch())
+      );
+      CREATE INDEX IF NOT EXISTS idx_contact_files_account ON contact_files(account_id);
+      CREATE INDEX IF NOT EXISTS idx_contact_files_contact ON contact_files(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_contact_files_category ON contact_files(account_id, category);
+
+      CREATE TABLE IF NOT EXISTS backup_schedules (
+        id TEXT PRIMARY KEY,
+        account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        format TEXT NOT NULL DEFAULT 'mbox',
+        cron_expression TEXT NOT NULL,
+        destination_path TEXT,
+        encrypt INTEGER DEFAULT 0,
+        is_enabled INTEGER DEFAULT 1,
+        last_run_at INTEGER,
+        next_run_at INTEGER,
+        created_at INTEGER DEFAULT (unixepoch())
+      );
+      CREATE INDEX IF NOT EXISTS idx_backup_schedules_account ON backup_schedules(account_id);
+    `,
+  },
+  {
+    version: 32,
+    description: "FTS5 index for contact files vault",
+    sql: `
+      CREATE VIRTUAL TABLE IF NOT EXISTS contact_files_fts USING fts5(
+        filename,
+        original_name,
+        content='contact_files',
+        content_rowid='rowid',
+        tokenize='trigram'
+      );
+
+      CREATE TRIGGER IF NOT EXISTS contact_files_ai AFTER INSERT ON contact_files BEGIN
+        INSERT INTO contact_files_fts(rowid, filename, original_name)
+        VALUES (new.rowid, new.filename, new.original_name);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS contact_files_ad AFTER DELETE ON contact_files BEGIN
+        INSERT INTO contact_files_fts(contact_files_fts, rowid, filename, original_name)
+        VALUES ('delete', old.rowid, old.filename, old.original_name);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS contact_files_au AFTER UPDATE ON contact_files BEGIN
+        INSERT INTO contact_files_fts(contact_files_fts, rowid, filename, original_name)
+        VALUES ('delete', old.rowid, old.filename, old.original_name);
+        INSERT INTO contact_files_fts(rowid, filename, original_name)
+        VALUES (new.rowid, new.filename, new.original_name);
+      END;
+    `,
+  },
 ];
 
 /**

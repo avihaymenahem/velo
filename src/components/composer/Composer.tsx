@@ -33,6 +33,7 @@ import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates
 import { readFileAsBase64 } from "@/utils/fileUtils";
 import { interpolateVariables } from "@/utils/templateVariables";
 import { sanitizeHtml } from "@/utils/sanitize";
+import { CompliancePanel } from "./CompliancePanel";
 
 export function Composer() {
   const { t } = useTranslation();
@@ -555,6 +556,16 @@ export function Composer() {
             />
           )}
         </div>
+
+        {activeAccountId && mode !== "reply" && mode !== "replyAll" && (
+          <CompliancePanel
+            editor={editor}
+            accountId={activeAccountId}
+            subject={subject}
+            bodyHtml={editor?.getHTML() ?? ""}
+            recipients={[...to, ...cc, ...bcc]}
+          />
+        )}
 
         {/* Attachments */}
         <div className="border-t border-border-secondary">

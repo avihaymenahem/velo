@@ -1,13 +1,10 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/ui/Modal";
 import { CampaignRecipientPicker } from "./CampaignRecipientPicker";
+import { CampaignTemplatePicker } from "./CampaignTemplatePicker";
 import { useCampaignStore } from "@/stores/campaignStore";
-import { getDb } from "@/services/db/connection";
-
-interface Template {
-  id: string;
-  name: string;
-}
+import { campaignTemplates } from "@/constants/campaignTemplates";
 
 interface CampaignComposerProps {
   isOpen: boolean;
@@ -18,12 +15,12 @@ interface CampaignComposerProps {
 type Step = "name" | "template" | "recipients" | "preview";
 
 export function CampaignComposer({ isOpen, onClose, accountId }: CampaignComposerProps) {
+  const { t } = useTranslation();
   const createCampaign = useCampaignStore((s) => s.createCampaign);
 
   const [step, setStep] = useState<Step>("name");
   const [name, setName] = useState("");
   const [templateId, setTemplateId] = useState("");
-  const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
 
@@ -34,20 +31,7 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
     setSelectedContactIds([]);
     setStep("name");
     setCreating(false);
-    async function load() {
-      try {
-        const db = await getDb();
-        const rows = await db.select<Template[]>(
-          "SELECT id, name FROM templates WHERE account_id = $1 ORDER BY name ASC",
-          [accountId],
-        );
-        setTemplates(rows);
-      } catch {
-        setTemplates([]);
-      }
-    }
-    load();
-  }, [isOpen, accountId]);
+  }, [isOpen]);
 
   async function handleCreate() {
     if (!name.trim()) return;
@@ -76,7 +60,7 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="New Campaign" width="w-[32rem]">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('campaign.newCampaign')} width="w-[32rem]">
       <div className="p-4 space-y-4">
         {/* Step indicator */}
         <div className="flex items-center gap-2 text-xs text-text-tertiary">
@@ -94,7 +78,7 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
                 {i + 1}
               </span>
               <span className={step === s ? "text-text-primary font-medium" : ""}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
+                {t(`campaign.step${s.charAt(0).toUpperCase() + s.slice(1)}`)}
               </span>
               {i < 3 && <span className="text-text-tertiary/40 mx-0.5">—</span>}
             </span>
@@ -104,12 +88,12 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
         {/* Step 1: Name */}
         {step === "name" && (
           <div className="space-y-2">
-            <label className="text-sm text-text-primary font-medium">Campaign Name</label>
+            <label className="text-sm text-text-primary font-medium">{t('campaign.campaignName')}</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. March Newsletter"
+              placeholder={t('campaign.campaignNamePlaceholder')}
               className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:ring-1 focus:ring-accent"
               autoFocus
             />
@@ -119,27 +103,19 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
         {/* Step 2: Template */}
         {step === "template" && (
           <div className="space-y-2">
-            <label className="text-sm text-text-primary font-medium">Template</label>
-            <select
-              value={templateId}
-              onChange={(e) => setTemplateId(e.target.value)}
-              className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm text-text-primary outline-none focus:ring-1 focus:ring-accent"
-            >
-              <option value="">No template (plain text)</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-            {templates.length === 0 && (
-              <p className="text-xs text-text-tertiary">No templates available. The campaign will use plain text.</p>
-            )}
+            <label className="text-sm text-text-primary font-medium">{t('campaign.selectTemplate')}</label>
+            <CampaignTemplatePicker
+              templates={campaignTemplates}
+              selectedTemplateId={templateId}
+              onSelect={(id) => setTemplateId(id ?? "")}
+            />
           </div>
         )}
 
         {/* Step 3: Recipients */}
         {step === "recipients" && (
           <div className="space-y-2">
-            <label className="text-sm text-text-primary font-medium">Select Recipients</label>
+            <label className="text-sm text-text-primary font-medium">{t('campaign.selectRecipients')}</label>
             <CampaignRecipientPicker
               accountId={accountId}
               selectedIds={selectedContactIds}
@@ -151,25 +127,25 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
         {/* Step 4: Preview */}
         {step === "preview" && (
           <div className="space-y-3">
-            <div className="text-sm text-text-primary font-medium">Campaign Summary</div>
+            <div className="text-sm text-text-primary font-medium">{t('campaign.campaignSummary')}</div>
             <div className="glass-panel rounded-lg p-3 space-y-1.5 text-sm">
               <div className="flex justify-between">
-                <span className="text-text-tertiary">Name</span>
+                <span className="text-text-tertiary">{t('campaign.campaignName')}</span>
                 <span className="text-text-primary">{name.trim()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-tertiary">Template</span>
+                <span className="text-text-tertiary">{t('campaign.selectTemplate')}</span>
                 <span className="text-text-primary">
-                  {templateId ? templates.find((t) => t.id === templateId)?.name ?? "Unknown" : "None (plain text)"}
+                  {templateId ? campaignTemplates.find((t) => t.id === templateId)?.name ?? "Unknown" : t('campaign.noTemplate')}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-tertiary">Recipients</span>
+                <span className="text-text-tertiary">{t('campaign.recipients')}</span>
                 <span className="text-text-primary">{selectedContactIds.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-tertiary">Status</span>
-                <span className="text-text-tertiary">Draft</span>
+                <span className="text-text-tertiary">{t('campaign.status')}</span>
+                <span className="text-text-tertiary">{t('campaign.statusDraft')}</span>
               </div>
             </div>
           </div>
@@ -181,7 +157,7 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
             onClick={step === "name" ? onClose : prevStep}
             className="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
           >
-            {step === "name" ? "Cancel" : "Back"}
+            {step === "name" ? t('common.cancel') : t('common.back')}
           </button>
           {step === "preview" ? (
             <button
@@ -189,7 +165,7 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
               disabled={creating}
               className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm rounded-lg transition-colors disabled:opacity-50"
             >
-              {creating ? "Creating..." : "Create Campaign"}
+              {creating ? t('campaign.creating') : t('campaign.createCampaign')}
             </button>
           ) : (
             <button
@@ -197,7 +173,7 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
               disabled={!canNext}
               className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm rounded-lg transition-colors disabled:opacity-50"
             >
-              Next
+              {t('campaign.next')}
             </button>
           )}
         </div>

@@ -37,6 +37,9 @@ export function useActiveLabel(): string {
     if (match.routeId === "/help/$topic" || match.routeId === "/help") {
       return "help";
     }
+    if (match.routeId === "/business") {
+      return "business";
+    }
   }
   return "inbox";
 }

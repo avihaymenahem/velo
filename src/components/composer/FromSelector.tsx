@@ -13,6 +13,8 @@ interface FromSelectorProps {
 export function FromSelector({ aliases, selectedEmail, onChange }: FromSelectorProps) {
   if (aliases.length <= 1) return null;
 
+  const selectedAlias = aliases.find((a) => a.email === selectedEmail) ?? null;
+
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-text-tertiary w-8 shrink-0">
@@ -34,6 +36,11 @@ export function FromSelector({ aliases, selectedEmail, onChange }: FromSelectorP
           </option>
         ))}
       </select>
+      {selectedAlias?.displayName && (
+        <span className="text-[0.625rem] bg-accent/10 text-accent px-1.5 py-0.5 rounded whitespace-nowrap">
+          {selectedAlias.displayName}
+        </span>
+      )}
     </div>
   );
 }

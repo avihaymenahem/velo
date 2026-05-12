@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams } from "@tanstack/react-router";
 import { useUIStore } from "@/stores/uiStore";
 import { navigateToLabel, navigateToSettings } from "@/router/navigate";
@@ -37,6 +38,8 @@ import {
   RotateCcw,
   Repeat,
   Shield,
+  ShieldCheck,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 import { SignatureEditor } from "./SignatureEditor";
@@ -51,6 +54,7 @@ import { SmartLabelEditor } from "./SmartLabelEditor";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { WorkflowEditor } from "./WorkflowEditor";
 import { PgpKeyManager } from "./PgpKeyManager";
+import { ComplianceProfileManager } from "./ComplianceProfileManager";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
@@ -66,15 +70,17 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
 
-type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "workflows" | "pgp" | "people" | "accounts" | "shortcuts" | "ai" | "about";
+type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "templates" | "workflows" | "pgp" | "compliance" | "people" | "accounts" | "shortcuts" | "ai" | "about";
 
 const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "general", label: "General", icon: Settings },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "composing", label: "Composing", icon: PenLine },
   { id: "mail-rules", label: "Mail Rules", icon: Filter },
+  { id: "templates", label: "Templates", icon: FileText },
   { id: "workflows", label: "Workflows", icon: Repeat },
   { id: "pgp", label: "PGP", icon: Shield },
+  { id: "compliance", label: "Compliance", icon: ShieldCheck },
   { id: "people", label: "People", icon: Users },
   { id: "accounts", label: "Accounts", icon: UserCircle },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
@@ -83,6 +89,7 @@ const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
 ];
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
   const readingPanePosition = useUIStore((s) => s.readingPanePosition);
@@ -577,7 +584,7 @@ export function SettingsPage() {
                       <div>
                         <span className="text-sm text-text-secondary">Attachment cache</span>
                         <p className="text-xs text-text-tertiary mt-0.5">
-                          {cacheSizeMb !== null ? `${cacheSizeMb} MB used` : "Calculating..."}
+                          {cacheSizeMb !== null ? t('settings.nMbUsed', { n: cacheSizeMb }) : t('settings.calculating')}
                         </p>
                       </div>
                       <Button
@@ -597,7 +604,7 @@ export function SettingsPage() {
                         disabled={clearingCache}
                         className="bg-bg-tertiary text-text-primary border border-border-primary"
                       >
-                        {clearingCache ? "Clearing..." : "Clear Cache"}
+                        {clearingCache ? t('settings.clearing') : t('settings.clearCache')}
                       </Button>
                     </div>
                     <SettingRow label="Max cache size">
@@ -846,6 +853,12 @@ export function SettingsPage() {
               {activeTab === "pgp" && (
                 <Section title="PGP Encryption">
                   <PgpKeyManager />
+                </Section>
+              )}
+
+              {activeTab === "compliance" && (
+                <Section title="Compliance Profiles">
+                  <ComplianceProfileManager />
                 </Section>
               )}
 

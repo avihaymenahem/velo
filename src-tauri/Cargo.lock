@@ -7519,6 +7519,7 @@ dependencies = [
  "anyhow",
  "async-imap",
  "base64 0.22.1",
+ "chrono",
  "csv",
  "futures",
  "lettre",

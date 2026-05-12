@@ -3,7 +3,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
-import { Trash2, Pencil, ChevronDown } from "lucide-react";
+import { Trash2, Pencil, ChevronDown, Eye, Edit3, Copy, Check } from "lucide-react";
 import { EditorToolbar } from "@/components/composer/EditorToolbar";
 import { useAccountStore } from "@/stores/accountStore";
 import {
@@ -23,6 +23,8 @@ export function TemplateEditor() {
   const [subject, setSubject] = useState("");
   const [shortcut, setShortcut] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -55,6 +57,8 @@ export function TemplateEditor() {
     setShortcut("");
     setEditingId(null);
     setShowForm(false);
+    setPreviewMode(false);
+    setCopied(false);
     editor?.commands.setContent("");
   }, [editor]);
 
@@ -90,6 +94,8 @@ export function TemplateEditor() {
     setSubject(tmpl.subject ?? "");
     setShortcut(tmpl.shortcut ?? "");
     setShowForm(true);
+    setPreviewMode(false);
+    setCopied(false);
     editor?.commands.setContent(tmpl.body_html);
   }, [editor]);
 
@@ -98,6 +104,15 @@ export function TemplateEditor() {
     if (editingId === id) resetForm();
     await loadTemplates();
   }, [editingId, resetForm, loadTemplates]);
+
+  const handleCopyHtml = useCallback(async () => {
+    const html = editor?.getHTML() ?? "";
+    await navigator.clipboard.writeText(html);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [editor]);
+
+  const templateHtml = editor?.getHTML() ?? "";
 
   return (
     <div className="space-y-3">
@@ -153,8 +168,42 @@ export function TemplateEditor() {
             className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
           />
           <div className="border border-border-primary rounded overflow-hidden bg-bg-tertiary">
-            <EditorToolbar editor={editor} />
-            <EditorContent editor={editor} />
+            <div className="flex items-center justify-between">
+              {previewMode ? (
+                <span className="px-2 py-1 text-xs text-text-secondary">Preview</span>
+              ) : (
+                <EditorToolbar editor={editor} />
+              )}
+              <button
+                type="button"
+                onClick={() => setPreviewMode(!previewMode)}
+                className={`p-1.5 mr-1 rounded transition-colors ${previewMode ? "text-accent bg-accent/10" : "text-text-tertiary hover:text-text-primary"}`}
+                title={previewMode ? "Edit template" : "Preview template"}
+              >
+                {previewMode ? <Edit3 size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+            {previewMode ? (
+              <div className="space-y-2 p-2">
+                <iframe
+                  srcDoc={templateHtml}
+                  sandbox="allow-same-origin"
+                  className="w-full border-0 rounded bg-white"
+                  style={{ height: 400 }}
+                  title="Template preview"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyHtml}
+                  className="flex items-center gap-1.5 text-xs text-accent hover:text-accent-hover transition-colors"
+                >
+                  {copied ? <Check size={12} /> : <Copy size={12} />}
+                  {copied ? "Copied!" : `Use "${name || "Untitled"}" template — copy HTML`}
+                </button>
+              </div>
+            ) : (
+              <EditorContent editor={editor} />
+            )}
           </div>
           <InsertVariableDropdown
             onInsert={(variable) => {

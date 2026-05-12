@@ -49,3 +49,14 @@ export async function deletePgpKey(id: string): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM pgp_keys WHERE id = $1", [id]);
 }
+
+export async function getPgpKey(
+  accountId: string,
+): Promise<{ private_key_encrypted: string } | null> {
+  const db = await getDb();
+  const rows = await db.select<{ private_key_encrypted: string }[]>(
+    "SELECT private_key_encrypted FROM pgp_keys WHERE account_id = $1 AND private_key_encrypted IS NOT NULL LIMIT 1",
+    [accountId],
+  );
+  return rows[0] ?? null;
+}
