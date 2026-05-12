@@ -9,6 +9,7 @@ export async function getDb(): Promise<Database> {
     for (let i = 0; i < 3; i++) {
       try {
         await db.execute("PRAGMA journal_mode=WAL");
+        console.log("[DB] WAL mode: enabled");
         break;
       } catch {
         if (i === 2) throw new Error("Failed to enable WAL journal mode");
@@ -19,6 +20,7 @@ export async function getDb(): Promise<Database> {
     for (let i = 0; i < 3; i++) {
       try {
         await db.execute("PRAGMA busy_timeout=5000");
+        console.log("[DB] busy_timeout: 5000ms");
         break;
       } catch {
         if (i === 2) throw new Error("Failed to set busy_timeout");
@@ -28,6 +30,7 @@ export async function getDb(): Promise<Database> {
     // Enable foreign keys
     try {
       await db.execute("PRAGMA foreign_keys=ON");
+      console.log("[DB] foreign_keys: ON");
     } catch {
       // Some builds may not support foreign keys — non-fatal
     }
