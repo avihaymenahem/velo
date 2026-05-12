@@ -616,6 +616,16 @@
   "titleBar": {
     "appName": "Velo"
   },
+  "quickReply": {
+    "title": "Quick Replies",
+    "insert": "Insert quick reply",
+    "noReplies": "No quick replies yet",
+    "createInSettings": "Create one in Settings",
+    "manageReplies": "Manage quick replies",
+    "shortcut": "Shortcut key",
+    "body": "Message body",
+    "sortOrder": "Sort order"
+  },
   "compliance": {
     "title": "Compliance",
     "score": "Compliance Score",

@@ -45,8 +45,9 @@ pub fn decrypt_message(
     private_key_armored: &str,
     passphrase: &str,
 ) -> Result<String, String> {
+    use openpgp::crypto::Password;
     use openpgp::parse::stream::{
-        DecryptionHelper, DecryptorBuilder, MessageLayer, MessageStructure, VerificationHelper,
+        DecryptionHelper, DecryptorBuilder, MessageStructure, VerificationHelper,
     };
     use openpgp::parse::Parse;
     use openpgp::policy::StandardPolicy;
@@ -68,19 +69,19 @@ pub fn decrypt_message(
         .revoked(false)
         .for_transport_encryption()
     {
-        let mut key = ka.key().clone();
-        key.decrypt_secret(passphrase)
-            .map_err(|e| format!("Failed to decrypt secret key: {}", e))?;
-        let keypair = key
-            .into_keypair()
-            .map_err(|e| format!("Failed to create keypair: {}", e))?;
-        keypairs.push(keypair);
+        let key = ka.key().clone();
+        let password = Password::from(passphrase);
+        if let Ok(decrypted) = key.decrypt_secret(&password) {
+            if let Ok(keypair) = decrypted.into_keypair() {
+                keypairs.push(keypair);
+            }
+        }
     }
 
     if keypairs.is_empty() {
-        let mut key = cert.primary_key().key().clone();
-        if key.decrypt_secret(passphrase).is_ok() {
-            if let Ok(keypair) = key.into_keypair() {
+        let password = Password::from(passphrase);
+        if let Ok(primary) = cert.primary_key().key().clone().decrypt_secret(&password) {
+            if let Ok(keypair) = primary.into_keypair() {
                 keypairs.push(keypair);
             }
         }
@@ -101,24 +102,40 @@ pub fn decrypt_message(
         keypairs: Vec<openpgp::crypto::KeyPair>,
     }
 
-    impl DecryptionHelper for Helper {
-        fn decrypt<D>(
+    impl VerificationHelper for Helper {
+        fn get_certs(
             &mut self,
-            _pkesks: &[openpgp::packet::PKESK],
-            _skesks: &[openpgp::packet::SKESK],
-            _sym_algo: Option<SymmetricAlgorithm>,
-            _mut_decrypt: D,
-        ) -> openpgp::Result<Option<openpgp::Fingerprint>>
-        where
-            D: FnMut(SymmetricAlgorithm, &openpgp::crypto::SessionKey) -> bool,
-        {
-            Ok(None)
+            _ids: &[openpgp::KeyHandle],
+        ) -> openpgp::Result<Vec<openpgp::Cert>> {
+            Ok(Vec::new())
+        }
+
+        fn check(&mut self, _structure: MessageStructure) -> openpgp::Result<()> {
+            Ok(())
         }
     }
 
-    impl VerificationHelper for Helper {
-        fn verify(&mut self, _structure: MessageStructure) -> openpgp::Result<()> {
-            Ok(())
+    impl DecryptionHelper for Helper {
+        fn decrypt(
+            &mut self,
+            pkesks: &[openpgp::packet::PKESK],
+            _skesks: &[openpgp::packet::SKESK],
+            sym_algo: Option<SymmetricAlgorithm>,
+            decrypt: &mut dyn FnMut(
+                Option<SymmetricAlgorithm>,
+                &openpgp::crypto::SessionKey,
+            ) -> bool,
+        ) -> openpgp::Result<Option<openpgp::Cert>> {
+            for keypair in &mut self.keypairs {
+                for pkesk in pkesks {
+                    if let Some((algo, session_key)) = pkesk.decrypt(keypair, sym_algo) {
+                        if decrypt(algo, &session_key) {
+                            return Ok(None);
+                        }
+                    }
+                }
+            }
+            Ok(None)
         }
     }
 
@@ -145,4 +162,31 @@ fn base64_encode_simple(data: &[u8]) -> String {
 #[tauri::command]
 pub fn encrypt(plaintext: String, public_key_armored: String) -> Result<String, String> {
     encrypt_message(&plaintext, &public_key_armored)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pgp::keyring::generate_key_pair;
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip() {
+        let (public, private) = generate_key_pair("test@example.com", "").unwrap();
+        let plaintext = "Hello, this is a secret message!";
+        let ciphertext = encrypt_message(plaintext, &public).unwrap();
+        let decrypted = decrypt_message(&ciphertext, &private, "any-passphrase").unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_decrypt_wrong_key_fails() {
+        let (public_alice, _private_alice) = generate_key_pair("alice@example.com", "").unwrap();
+        let (_public_bob, private_bob) = generate_key_pair("bob@example.com", "").unwrap();
+
+        let plaintext = "Secret for Alice only";
+        let ciphertext = encrypt_message(plaintext, &public_alice).unwrap();
+        let result = decrypt_message(&ciphertext, &private_bob, "anything");
+
+        assert!(result.is_err(), "Decrypt with wrong key should fail");
+    }
 }

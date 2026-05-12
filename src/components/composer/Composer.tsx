@@ -69,6 +69,7 @@ export function Composer() {
   const sendingRef = useRef(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showAiAssist, setShowAiAssist] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [aliases, setAliases] = useState<SendAsAlias[]>([]);
   const templateShortcutsRef = useRef<DbTemplate[]>([]);
@@ -536,6 +537,7 @@ export function Composer() {
           editor={editor}
           onToggleAiAssist={() => setShowAiAssist(!showAiAssist)}
           aiAssistOpen={showAiAssist}
+          onToggleTemplatePicker={() => setTemplatePickerOpen((prev) => !prev)}
         />
 
         {/* AI Assist Panel */}
@@ -543,6 +545,19 @@ export function Composer() {
           <AiAssistPanel
             editor={editor}
             isReplyMode={mode === "reply" || mode === "replyAll"}
+          />
+        )}
+
+        {/* Template Picker */}
+        {templatePickerOpen && (
+          <TemplatePicker
+            editor={editor}
+            isOpen={templatePickerOpen}
+            onClose={() => setTemplatePickerOpen(false)}
+            onSelect={(t) => {
+              editor?.chain().focus().setContent(t.body_html).run();
+              setTemplatePickerOpen(false);
+            }}
           />
         )}
 

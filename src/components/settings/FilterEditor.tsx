@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Trash2, Pencil } from "lucide-react";
+import { Trash2, Pencil, Plus, Minus, FlaskConical, Check, X } from "lucide-react";
 import { TextField } from "@/components/ui/TextField";
 import { useAccountStore } from "@/stores/accountStore";
 import { getLabelsForAccount, type DbLabel } from "@/services/db/labels";
@@ -11,7 +11,34 @@ import {
   type DbFilterRule,
   type FilterCriteria,
   type FilterActions,
+  type FilterConditionInput,
 } from "@/services/db/filters";
+import { FilterTestDialog } from "./FilterTestDialog";
+
+const FIELDS: { value: FilterConditionInput["field"]; label: string }[] = [
+  { value: "from", label: "From" },
+  { value: "to", label: "To" },
+  { value: "subject", label: "Subject" },
+  { value: "body", label: "Body" },
+];
+
+const OPERATORS: { value: FilterConditionInput["operator"]; label: string }[] = [
+  { value: "contains", label: "Contains" },
+  { value: "matches", label: "Matches regex" },
+  { value: "starts_with", label: "Starts with" },
+  { value: "ends_with", label: "Ends with" },
+  { value: "not_contains", label: "Does not contain" },
+];
+
+function isValidRegex(pattern: string): boolean {
+  if (!pattern) return true;
+  try {
+    new RegExp(pattern);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function FilterEditor() {
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
@@ -20,18 +47,16 @@ export function FilterEditor() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  // Form state
   const [name, setName] = useState("");
-  const [criteriaFrom, setCriteriaFrom] = useState("");
-  const [criteriaTo, setCriteriaTo] = useState("");
-  const [criteriaSubject, setCriteriaSubject] = useState("");
-  const [criteriaBody, setCriteriaBody] = useState("");
-  const [criteriaHasAttachment, setCriteriaHasAttachment] = useState(false);
+  const [conditions, setConditions] = useState<FilterConditionInput[]>([{ field: "from", operator: "contains", value: "" }]);
+  const [matchType, setMatchType] = useState<"all" | "any">("all");
   const [actionLabel, setActionLabel] = useState("");
   const [actionArchive, setActionArchive] = useState(false);
   const [actionStar, setActionStar] = useState(false);
   const [actionMarkRead, setActionMarkRead] = useState(false);
   const [actionTrash, setActionTrash] = useState(false);
+
+  const [testRuleId, setTestRuleId] = useState<string | null>(null);
 
   const loadFilters = useCallback(async () => {
     if (!activeAccountId) return;
@@ -45,16 +70,12 @@ export function FilterEditor() {
     getLabelsForAccount(activeAccountId).then((l) =>
       setLabels(l.filter((lb) => lb.type === "user")),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadFilters is stable, only re-run on activeAccountId change
-  }, [activeAccountId]);
+  }, [activeAccountId, loadFilters]);
 
   const resetForm = useCallback(() => {
     setName("");
-    setCriteriaFrom("");
-    setCriteriaTo("");
-    setCriteriaSubject("");
-    setCriteriaBody("");
-    setCriteriaHasAttachment(false);
+    setConditions([{ field: "from", operator: "contains", value: "" }]);
+    setMatchType("all");
     setActionLabel("");
     setActionArchive(false);
     setActionStar(false);
@@ -65,13 +86,11 @@ export function FilterEditor() {
   }, []);
 
   const buildCriteria = (): FilterCriteria => {
-    const c: FilterCriteria = {};
-    if (criteriaFrom.trim()) c.from = criteriaFrom.trim();
-    if (criteriaTo.trim()) c.to = criteriaTo.trim();
-    if (criteriaSubject.trim()) c.subject = criteriaSubject.trim();
-    if (criteriaBody.trim()) c.body = criteriaBody.trim();
-    if (criteriaHasAttachment) c.hasAttachment = true;
-    return c;
+    const validConds = conditions.filter((c) => c.value.trim());
+    return {
+      conditions: validConds.length > 0 ? validConds : undefined,
+      matchType: validConds.length > 1 ? matchType : undefined,
+    };
   };
 
   const buildActions = (): FilterActions => {
@@ -102,7 +121,7 @@ export function FilterEditor() {
 
     resetForm();
     await loadFilters();
-  }, [activeAccountId, name, editingId, resetForm, loadFilters, criteriaFrom, criteriaTo, criteriaSubject, criteriaBody, criteriaHasAttachment, actionLabel, actionArchive, actionStar, actionMarkRead, actionTrash]);
+  }, [activeAccountId, name, editingId, resetForm, loadFilters, conditions, matchType, actionLabel, actionArchive, actionStar, actionMarkRead, actionTrash]);
 
   const handleEdit = useCallback((filter: DbFilterRule) => {
     setEditingId(filter.id);
@@ -113,11 +132,19 @@ export function FilterEditor() {
     try { criteria = JSON.parse(filter.criteria_json); } catch { /* empty */ }
     try { actions = JSON.parse(filter.actions_json); } catch { /* empty */ }
 
-    setCriteriaFrom(criteria.from ?? "");
-    setCriteriaTo(criteria.to ?? "");
-    setCriteriaSubject(criteria.subject ?? "");
-    setCriteriaBody(criteria.body ?? "");
-    setCriteriaHasAttachment(criteria.hasAttachment ?? false);
+    if (criteria.conditions && criteria.conditions.length > 0) {
+      setConditions(criteria.conditions.map((c) => ({ ...c })));
+      setMatchType(criteria.matchType ?? "all");
+    } else {
+      const conds: FilterConditionInput[] = [];
+      if (criteria.from) conds.push({ field: "from", operator: "contains", value: criteria.from });
+      if (criteria.to) conds.push({ field: "to", operator: "contains", value: criteria.to });
+      if (criteria.subject) conds.push({ field: "subject", operator: "contains", value: criteria.subject });
+      if (criteria.body) conds.push({ field: "body", operator: "contains", value: criteria.body });
+      setConditions(conds.length > 0 ? conds : [{ field: "from", operator: "contains", value: "" }]);
+      setMatchType("all");
+    }
+
     setActionLabel(actions.applyLabel ?? "");
     setActionArchive(actions.archive ?? false);
     setActionStar(actions.star ?? false);
@@ -142,19 +169,38 @@ export function FilterEditor() {
     for (const filter of filters) {
       try {
         const c = JSON.parse(filter.criteria_json) as FilterCriteria;
-        const parts: string[] = [];
-        if (c.from) parts.push(`from: ${c.from}`);
-        if (c.to) parts.push(`to: ${c.to}`);
-        if (c.subject) parts.push(`subject: ${c.subject}`);
-        if (c.body) parts.push(`body: ${c.body}`);
-        if (c.hasAttachment) parts.push("has attachment");
-        map.set(filter.id, parts.join(", ") || "No criteria");
+        if (c.conditions && c.conditions.length > 0) {
+          const parts = c.conditions.map((cond) => `${cond.field} ${cond.operator} "${cond.value}"`);
+          map.set(filter.id, parts.join(c.matchType === "any" ? " OR " : " AND ") || "No criteria");
+        } else {
+          const parts: string[] = [];
+          if (c.from) parts.push(`from: ${c.from}`);
+          if (c.to) parts.push(`to: ${c.to}`);
+          if (c.subject) parts.push(`subject: ${c.subject}`);
+          if (c.body) parts.push(`body: ${c.body}`);
+          if (c.hasAttachment) parts.push("has attachment");
+          map.set(filter.id, parts.join(", ") || "No criteria");
+        }
       } catch {
         map.set(filter.id, "Invalid criteria");
       }
     }
     return map;
   }, [filters]);
+
+  const updateCondition = (index: number, updates: Partial<FilterConditionInput>) => {
+    setConditions((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, ...updates } : c)),
+    );
+  };
+
+  const addCondition = () => {
+    setConditions((prev) => [...prev, { field: "from", operator: "contains", value: "" }]);
+  };
+
+  const removeCondition = (index: number) => {
+    setConditions((prev) => prev.filter((_, i) => i !== index));
+  };
 
   return (
     <div className="space-y-3">
@@ -177,6 +223,13 @@ export function FilterEditor() {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setTestRuleId(filter.id)}
+              className="p-1 text-text-tertiary hover:text-accent"
+              title="Test filter"
+            >
+              <FlaskConical size={13} />
+            </button>
             <button
               onClick={() => handleToggleEnabled(filter)}
               className={`w-8 h-4 rounded-full transition-colors relative ${
@@ -216,41 +269,93 @@ export function FilterEditor() {
           />
 
           <div>
-            <div className="text-xs font-medium text-text-secondary mb-1.5">Match criteria</div>
+            <div className="text-xs font-medium text-text-secondary mb-1.5">
+              Match criteria
+              {conditions.length > 1 && (
+                <span className="ml-2 inline-flex items-center gap-1">
+                  <button
+                    onClick={() => setMatchType("all")}
+                    className={`px-1.5 py-0.5 text-[0.625rem] rounded ${
+                      matchType === "all"
+                        ? "bg-accent/15 text-accent font-medium"
+                        : "text-text-tertiary hover:text-text-primary"
+                    }`}
+                  >
+                    AND
+                  </button>
+                  <button
+                    onClick={() => setMatchType("any")}
+                    className={`px-1.5 py-0.5 text-[0.625rem] rounded ${
+                      matchType === "any"
+                        ? "bg-accent/15 text-accent font-medium"
+                        : "text-text-tertiary hover:text-text-primary"
+                    }`}
+                  >
+                    OR
+                  </button>
+                </span>
+              )}
+            </div>
             <div className="space-y-1.5">
-              <TextField
-                type="text"
-                value={criteriaFrom}
-                onChange={(e) => setCriteriaFrom(e.target.value)}
-                placeholder="From contains..."
-              />
-              <TextField
-                type="text"
-                value={criteriaTo}
-                onChange={(e) => setCriteriaTo(e.target.value)}
-                placeholder="To contains..."
-              />
-              <TextField
-                type="text"
-                value={criteriaSubject}
-                onChange={(e) => setCriteriaSubject(e.target.value)}
-                placeholder="Subject contains..."
-              />
-              <TextField
-                type="text"
-                value={criteriaBody}
-                onChange={(e) => setCriteriaBody(e.target.value)}
-                placeholder="Body contains..."
-              />
-              <label className="flex items-center gap-1.5 text-xs text-text-secondary">
-                <input
-                  type="checkbox"
-                  checked={criteriaHasAttachment}
-                  onChange={(e) => setCriteriaHasAttachment(e.target.checked)}
-                  className="rounded"
-                />
-                Has attachment
-              </label>
+              {conditions.map((cond, idx) => {
+                const isRegex = cond.operator === "matches";
+                const regexValid = isRegex && cond.value ? isValidRegex(cond.value) : true;
+                return (
+                  <div key={idx} className="flex items-center gap-1.5">
+                    <select
+                      value={cond.field}
+                      onChange={(e) => updateCondition(idx, { field: e.target.value as FilterConditionInput["field"] })}
+                      className="bg-bg-tertiary text-text-primary text-xs px-2 py-1.5 rounded border border-border-primary outline-none focus:border-accent w-20"
+                    >
+                      {FIELDS.map((f) => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={cond.operator}
+                      onChange={(e) => updateCondition(idx, { operator: e.target.value as FilterConditionInput["operator"] })}
+                      className="bg-bg-tertiary text-text-primary text-xs px-2 py-1.5 rounded border border-border-primary outline-none focus:border-accent w-32"
+                    >
+                      {OPERATORS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={cond.value}
+                        onChange={(e) => updateCondition(idx, { value: e.target.value })}
+                        placeholder="Value..."
+                        className="w-full bg-bg-tertiary text-text-primary text-xs px-2 py-1.5 rounded border border-border-primary outline-none focus:border-accent pr-6"
+                      />
+                      {isRegex && cond.value && (
+                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2">
+                          {regexValid ? (
+                            <Check size={14} className="text-success" />
+                          ) : (
+                            <X size={14} className="text-danger" />
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => removeCondition(idx)}
+                      disabled={conditions.length <= 1}
+                      className="p-1 text-text-tertiary hover:text-danger disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    {idx === conditions.length - 1 && (
+                      <button
+                        onClick={addCondition}
+                        className="p-1 text-text-tertiary hover:text-accent"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -316,6 +421,14 @@ export function FilterEditor() {
         >
           + Add filter
         </button>
+      )}
+
+      {testRuleId && (
+        <FilterTestDialog
+          isOpen={true}
+          onClose={() => setTestRuleId(null)}
+          ruleId={testRuleId}
+        />
       )}
     </div>
   );

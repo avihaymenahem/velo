@@ -35,3 +35,47 @@ pub fn append_to_mbox(
     writeln!(file).map_err(|e| e.to_string())?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_append_to_mbox_format() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("test.mbox");
+        let path_str = path.to_str().unwrap().to_string();
+
+        append_to_mbox(
+            path_str.clone(),
+            "Subject: Hello\n\nThis is the body.".to_string(),
+            "alice@example.com".to_string(),
+            1700000000,
+        )
+        .unwrap();
+
+        append_to_mbox(
+            path_str.clone(),
+            "Subject: World\n\nFrom somewhere far away.".to_string(),
+            "bob@example.com".to_string(),
+            1700000001,
+        )
+        .unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+
+        assert!(
+            content.starts_with("From alice@example.com"),
+            "Should start with From separator for first message"
+        );
+        assert!(
+            content.contains("From bob@example.com"),
+            "Should contain From separator for second message"
+        );
+        assert!(
+            content.contains(">From somewhere far away."),
+            "Should escape 'From ' in body to '>From '"
+        );
+    }
+}
