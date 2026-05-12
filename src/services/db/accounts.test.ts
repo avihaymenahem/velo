@@ -19,6 +19,10 @@ vi.mock("./connection", () => ({
     select: (...args: unknown[]) => mockSelect(...args),
   })),
   selectFirstBy: vi.fn(),
+  queryWithRetry: vi.fn(async (fn) => fn({
+    execute: (...args: unknown[]) => mockExecute(...args),
+    select: (...args: unknown[]) => mockSelect(...args),
+  })),
 }));
 
 vi.mock("@/utils/crypto", () => ({

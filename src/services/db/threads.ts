@@ -1,4 +1,4 @@
-import { getDb, queryWithRetry } from "./connection";
+import { queryWithRetry } from "./connection";
 
 export interface DbThread {
   id: string;

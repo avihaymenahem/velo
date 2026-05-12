@@ -1,4 +1,4 @@
-import { getDb, queryWithRetry, buildDynamicUpdate, boolToInt } from "./connection";
+import { queryWithRetry, buildDynamicUpdate, boolToInt } from "./connection";
 import type { FilterCriteria } from "./filters";
 
 export interface DbSmartLabelRule {

@@ -1,4 +1,4 @@
-import { getDb, queryWithRetry, selectFirstBy, boolToInt } from "./connection";
+import { queryWithRetry, selectFirstBy, boolToInt } from "./connection";
 
 export interface DbSendAsAlias {
   id: string;

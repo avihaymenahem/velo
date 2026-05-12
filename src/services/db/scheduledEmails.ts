@@ -1,4 +1,4 @@
-import { getDb, queryWithRetry } from "./connection";
+import { queryWithRetry } from "./connection";
 import { getCurrentUnixTimestamp } from "@/utils/timestamp";
 
 export interface DbScheduledEmail {

@@ -1,4 +1,4 @@
-import { getDb, queryWithRetry } from "./connection";
+import { queryWithRetry } from "./connection";
 import { encryptValue, decryptValue, isEncrypted } from "@/utils/crypto";
 
 export async function getSetting(key: string): Promise<string | null> {

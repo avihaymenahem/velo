@@ -1,4 +1,4 @@
-import { getDb, buildDynamicUpdate, boolToInt, queryWithRetry } from "./connection";
+import { buildDynamicUpdate, boolToInt, queryWithRetry } from "./connection";
 
 export type FilterOperator = 'contains' | 'matches' | 'starts_with' | 'ends_with' | 'not_contains';
 

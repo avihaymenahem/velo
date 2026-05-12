@@ -1,4 +1,4 @@
-import { getDb, queryWithRetry, selectFirstBy, buildDynamicUpdate } from "./connection";
+import { queryWithRetry, selectFirstBy, buildDynamicUpdate } from "./connection";
 import type { ComplianceProfile, ComplianceRule } from "@/services/compliance/types";
 
 function mapRow(row: {

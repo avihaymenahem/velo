@@ -10,8 +10,8 @@ const mockExecute = vi.fn();
 const mockSelect = vi.fn();
 
 const mockDb = {
-  execute: vi.fn(),
-  select: vi.fn(),
+  execute: mockExecute,
+  select: mockSelect,
 };
 
 vi.mock("./connection", async (importOriginal) => {

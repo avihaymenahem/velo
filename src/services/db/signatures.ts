@@ -1,4 +1,4 @@
-import { getDb, queryWithRetry, buildDynamicUpdate, selectFirstBy, boolToInt } from "./connection";
+import { queryWithRetry, buildDynamicUpdate, selectFirstBy, boolToInt } from "./connection";
 
 export interface DbSignature {
   id: string;

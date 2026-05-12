@@ -5,6 +5,10 @@ vi.mock("@/services/db/connection", async (importOriginal) => {
   return {
     ...actual,
     getDb: vi.fn(),
+    queryWithRetry: vi.fn(async (fn) => {
+      const db = await getDb();
+      return fn(db);
+    }),
   };
 });
 

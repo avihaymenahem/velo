@@ -1,4 +1,4 @@
-import { getDb, queryWithRetry, buildDynamicUpdate } from "./connection";
+import { queryWithRetry, buildDynamicUpdate } from "./connection";
 
 export interface DbTemplate {
   id: string;

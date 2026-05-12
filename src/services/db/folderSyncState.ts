@@ -1,4 +1,4 @@
-import { getDb, selectFirstBy, queryWithRetry } from "./connection";
+import { selectFirstBy, queryWithRetry } from "./connection";
 
 export interface FolderSyncState {
   account_id: string;

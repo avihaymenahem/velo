@@ -1,4 +1,4 @@
-import { getDb, queryWithRetry, buildDynamicUpdate, selectFirstBy } from "./connection";
+import { queryWithRetry, buildDynamicUpdate, selectFirstBy } from "./connection";
 
 export interface DbSmartFolder {
   id: string;

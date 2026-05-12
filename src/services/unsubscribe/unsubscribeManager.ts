@@ -1,4 +1,4 @@
-import { queryWithRetry, getDb } from "../db/connection";
+import { queryWithRetry } from "../db/connection";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { fetch } from "@tauri-apps/plugin-http";
 import { getCurrentUnixTimestamp } from "@/utils/timestamp";

@@ -14,6 +14,10 @@ vi.mock("@/services/db/connection", async (importOriginal) => {
       const rows = await db.select(query, params);
       return rows[0] ?? null;
     },
+    queryWithRetry: vi.fn(async (fn) => {
+      const db = await mockGetDb();
+      return fn(db);
+    }),
   };
 });
 

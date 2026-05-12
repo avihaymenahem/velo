@@ -1,4 +1,4 @@
-import { getDb, selectFirstBy, queryWithRetry } from "./connection";
+import { selectFirstBy, queryWithRetry } from "./connection";
 import { encryptValue, decryptValue, isEncrypted } from "@/utils/crypto";
 
 export interface DbAccount {
@@ -353,4 +353,5 @@ export async function getAccountByEmail(
     "SELECT * FROM accounts WHERE email = $1",
     [email],
   );
+  return account ? decryptAccountTokens(account) : null;
 }
