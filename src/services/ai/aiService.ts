@@ -16,6 +16,65 @@ import {
   EXTRACT_TASK_PROMPT,
 } from "./prompts";
 
+// AI Feature Toggles - persisted to local storage
+export interface AiFeatureToggles {
+  summarize: boolean;      // Summarize Thread
+  compose: boolean;       // Compose from Prompt
+  generateReply: boolean; // Generate Reply
+  transform: boolean;     // Transform Text (improve/shorten/formalize)
+  smartReplies: boolean;  // Generate Smart Replies
+  categorize: boolean;    // Categorize Threads
+  smartLabels: boolean;   // Classify by Smart Labels
+  extractTask: boolean;   // Extract Task
+}
+
+const AI_TOGGLES_STORAGE_KEY = "ai_feature_toggles";
+
+const DEFAULT_TOGGLES: AiFeatureToggles = {
+  summarize: true,
+  compose: true,
+  generateReply: true,
+  transform: true,
+  smartReplies: true,
+  categorize: true,
+  smartLabels: true,
+  extractTask: true,
+};
+
+function loadToggles(): AiFeatureToggles {
+  try {
+    const stored = localStorage.getItem(AI_TOGGLES_STORAGE_KEY);
+    if (stored) {
+      return { ...DEFAULT_TOGGLES, ...JSON.parse(stored) };
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return { ...DEFAULT_TOGGLES };
+}
+
+function saveToggles(toggles: AiFeatureToggles): void {
+  try {
+    localStorage.setItem(AI_TOGGLES_STORAGE_KEY, JSON.stringify(toggles));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function getAiFeatureToggles(): AiFeatureToggles {
+  return loadToggles();
+}
+
+export function setAiFeatureToggle<K extends keyof AiFeatureToggles>(
+  key: K,
+  value: boolean
+): AiFeatureToggles {
+  const toggles = loadToggles();
+  toggles[key] = value;
+  saveToggles(toggles);
+  return toggles;
+}
+
 function sanitizeErrorMessage(raw: string): string {
   const apiKeyPatterns = [
     /sk-[a-zA-Z0-9]{20,}/g,
@@ -67,6 +126,11 @@ export async function summarizeThread(
   accountId: string,
   messages: DbMessage[],
 ): Promise<string> {
+  const toggles = loadToggles();
+  if (!toggles.summarize) {
+    return "AI summarization is disabled. Enable it in Settings > AI.";
+  }
+
   // Check cache first
   const cached = await getAiCache(accountId, threadId, "summary");
   if (cached) return cached;
@@ -82,6 +146,11 @@ export async function summarizeThread(
 }
 
 export async function composeFromPrompt(instructions: string): Promise<string> {
+  const toggles = loadToggles();
+  if (!toggles.compose) {
+    return "AI compose is disabled. Enable it in Settings > AI.";
+  }
+
   return callAi(COMPOSE_PROMPT, instructions);
 }
 
@@ -89,6 +158,11 @@ export async function generateReply(
   messagesText: string[],
   instructions?: string,
 ): Promise<string> {
+  const toggles = loadToggles();
+  if (!toggles.generateReply) {
+    return "AI reply generation is disabled. Enable it in Settings > AI.";
+  }
+
   const combined = messagesText.join("\n---\n").slice(0, 4000);
   const userContent = instructions
     ? `<email_content>${combined}</email_content>\n\nInstructions: ${instructions}`
@@ -102,6 +176,11 @@ export async function transformText(
   text: string,
   type: TransformType,
 ): Promise<string> {
+  const toggles = loadToggles();
+  if (!toggles.transform) {
+    return "AI text transformation is disabled. Enable it in Settings > AI.";
+  }
+
   const prompts: Record<TransformType, string> = {
     improve: IMPROVE_PROMPT,
     shorten: SHORTEN_PROMPT,
@@ -115,6 +194,11 @@ export async function generateSmartReplies(
   accountId: string,
   messages: DbMessage[],
 ): Promise<string[]> {
+  const toggles = loadToggles();
+  if (!toggles.smartReplies) {
+    return ["AI smart replies are disabled. Enable them in Settings > AI."];
+  }
+
   // Check cache first
   const cached = await getAiCache(accountId, threadId, "smart_replies");
   if (cached) {
@@ -173,6 +257,11 @@ const VALID_CATEGORIES = new Set(["Primary", "Updates", "Promotions", "Social", 
 export async function categorizeThreads(
   threads: { id: string; subject: string; snippet: string; fromAddress: string }[],
 ): Promise<Map<string, string>> {
+  const toggles = loadToggles();
+  if (!toggles.categorize) {
+    return new Map();
+  }
+
   const input = threads
     .map((t) => `<email_content>ID:${t.id} | From:${t.fromAddress} | Subject:${t.subject} | ${t.snippet}</email_content>`)
     .join("\n");
@@ -202,6 +291,11 @@ export async function classifyThreadsBySmartLabels(
   threads: { id: string; subject: string; snippet: string; fromAddress: string }[],
   labelRules: { labelId: string; description: string }[],
 ): Promise<Map<string, string[]>> {
+  const toggles = loadToggles();
+  if (!toggles.smartLabels) {
+    return new Map();
+  }
+
   const labelDefs = labelRules
     .map((r) => `LABEL_ID:${r.labelId} — ${r.description}`)
     .join("\n");
@@ -245,6 +339,11 @@ export async function extractTaskFromThread(
   _accountId: string,
   messages: DbMessage[],
 ): Promise<string> {
+  const toggles = loadToggles();
+  if (!toggles.extractTask) {
+    return "AI task extraction is disabled. Enable it in Settings > AI.";
+  }
+
   const subject = messages[0]?.subject ?? "No subject";
   const formatted = messages.map(formatMessageForSummary).join("\n---\n");
   const combined = `<email_content>Subject: ${subject}\n\n${formatted}</email_content>`.slice(0, 6000);
