@@ -16,6 +16,22 @@ import {
   EXTRACT_TASK_PROMPT,
 } from "./prompts";
 
+function sanitizeErrorMessage(raw: string): string {
+  const apiKeyPatterns = [
+    /sk-[a-zA-Z0-9]{20,}/g,
+    /sk-ant-[a-zA-Z0-9]{20,}/g,
+    /ghp_[a-zA-Z0-9]{36,}/g,
+    /gho_[a-zA-Z0-9]{36,}/g,
+    /AIza[0-9A-Za-z_-]{35,}/g,
+    /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----/g,
+  ];
+  let sanitized = raw;
+  for (const pattern of apiKeyPatterns) {
+    sanitized = sanitized.replace(pattern, "[REDACTED]");
+  }
+  return sanitized;
+}
+
 async function callAi(systemPrompt: string, userContent: string): Promise<string> {
   try {
     const provider = await getActiveProvider();
@@ -29,7 +45,7 @@ async function callAi(systemPrompt: string, userContent: string): Promise<string
     if (message.includes("429") || message.includes("rate")) {
       throw new AiError("RATE_LIMITED", "Rate limited — please try again shortly");
     }
-    throw new AiError("NETWORK_ERROR", message);
+    throw new AiError("NETWORK_ERROR", sanitizeErrorMessage(message));
   }
 }
 

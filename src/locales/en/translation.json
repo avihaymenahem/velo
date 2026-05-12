@@ -357,7 +357,12 @@
     "autoArchive": "Auto-archive {{cat}}",
     "skipInbox": "Skip inbox for {{cat}} emails",
     "categories": "Categories",
-    "features": "Features"
+    "features": "Features",
+    "aiLanguage": "AI Response Language",
+    "aiLanguageAuto": "Auto (use app language)",
+    "aiLanguageEn": "English",
+    "aiLanguageFr": "French",
+    "aiLanguageAr": "Arabic"
   },
   "search": {
     "placeholder": "Search emails...",

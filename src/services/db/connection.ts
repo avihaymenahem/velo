@@ -13,6 +13,14 @@ export async function getDb(): Promise<Database> {
  * Build a dynamic SQL UPDATE statement from a set of field updates.
  * Returns null if no fields to update.
  */
+const SAFE_IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+function validateIdentifier(name: string): void {
+  if (!SAFE_IDENTIFIER_RE.test(name)) {
+    throw new Error(`Invalid SQL identifier: ${name}`);
+  }
+}
+
 export function buildDynamicUpdate(
   table: string,
   idColumn: string,
@@ -21,11 +29,15 @@ export function buildDynamicUpdate(
 ): { sql: string; params: unknown[] } | null {
   if (fields.length === 0) return null;
 
+  validateIdentifier(table);
+  validateIdentifier(idColumn);
+
   const sets: string[] = [];
   const params: unknown[] = [];
   let idx = 1;
 
   for (const [column, value] of fields) {
+    validateIdentifier(column);
     sets.push(`${column} = $${idx++}`);
     params.push(value);
   }

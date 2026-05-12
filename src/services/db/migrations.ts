@@ -1025,6 +1025,14 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_quick_replies_account ON quick_replies(account_id);
     `,
   },
+  {
+    version: 35,
+    description: "Separate SMTP credentials",
+    sql: `
+      ALTER TABLE accounts ADD COLUMN smtp_username TEXT;
+      ALTER TABLE accounts ADD COLUMN smtp_password TEXT;
+    `,
+  },
 ];
 
 /**

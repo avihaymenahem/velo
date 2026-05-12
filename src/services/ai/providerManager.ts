@@ -25,17 +25,18 @@ export async function getActiveProviderName(): Promise<AiProvider> {
 
 export async function getActiveProvider(): Promise<AiProviderClient> {
   const providerName = await getActiveProviderName();
+  const aiLanguage = (await getSetting("ai_language")) ?? "auto";
 
   if (providerName === "ollama") {
     const serverUrl = (await getSetting("ollama_server_url")) ?? "http://localhost:11434";
     const model = (await getSetting("ollama_model")) ?? "llama3.2";
-    const cacheKey = `${serverUrl}|${model}`;
+    const cacheKey = `${serverUrl}|${model}|${aiLanguage}`;
 
     if (cachedProvider && cachedProvider.name === "ollama" && cachedProvider.key === cacheKey) {
       return cachedProvider.client;
     }
 
-    const client = createOllamaProvider(serverUrl, model);
+    const client = createOllamaProvider(serverUrl, model, aiLanguage);
     cachedProvider = { name: "ollama", key: cacheKey, client };
     return client;
   }
@@ -48,7 +49,7 @@ export async function getActiveProvider(): Promise<AiProviderClient> {
   }
 
   const model = (await getSetting(MODEL_SETTINGS[providerName])) ?? DEFAULT_MODELS[providerName];
-  const cacheKey = `${apiKey}|${model}`;
+  const cacheKey = `${apiKey}|${model}|${aiLanguage}`;
 
   if (cachedProvider && cachedProvider.name === providerName && cachedProvider.key === cacheKey) {
     return cachedProvider.client;
@@ -57,16 +58,16 @@ export async function getActiveProvider(): Promise<AiProviderClient> {
   let client: AiProviderClient;
   switch (providerName) {
     case "claude":
-      client = createClaudeProvider(apiKey, model);
+      client = createClaudeProvider(apiKey, model, aiLanguage);
       break;
     case "openai":
-      client = createOpenAIProvider(apiKey, model);
+      client = createOpenAIProvider(apiKey, model, aiLanguage);
       break;
     case "gemini":
-      client = createGeminiProvider(apiKey, model);
+      client = createGeminiProvider(apiKey, model, aiLanguage);
       break;
     case "copilot":
-      client = createCopilotProvider(apiKey, model);
+      client = createCopilotProvider(apiKey, model, aiLanguage);
       break;
   }
 
