@@ -361,7 +361,11 @@
     "aiLanguageAuto": "تلقائي (لغة التطبيق)",
     "aiLanguageEn": "الإنجليزية",
     "aiLanguageFr": "الفرنسية",
-    "aiLanguageAr": "العربية"
+    "aiLanguageAr": "العربية",
+    "customBaseUrl": "الرابط الأساسي",
+    "customApiKey": "مفتاح API",
+    "customModel": "النموذج",
+    "customProvider": "مخصص (متوافق مع OpenAI)"
   },
   "search": {
     "placeholder": "بحث في البريد...",

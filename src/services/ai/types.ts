@@ -1,4 +1,4 @@
-export type AiProvider = "claude" | "openai" | "gemini" | "ollama" | "copilot";
+export type AiProvider = "claude" | "openai" | "gemini" | "ollama" | "copilot" | "custom";
 
 export interface AiCompletionRequest {
   systemPrompt: string;
@@ -17,6 +17,7 @@ export const DEFAULT_MODELS: Record<AiProvider, string> = {
   gemini: "gemini-2.5-flash-preview-05-20",
   ollama: "llama3.2",
   copilot: "openai/gpt-4o-mini",
+  custom: "gpt-4o-mini",
 };
 
 export interface ModelOption {
@@ -24,7 +25,7 @@ export interface ModelOption {
   label: string;
 }
 
-export const PROVIDER_MODELS: Record<Exclude<AiProvider, "ollama">, ModelOption[]> = {
+export const PROVIDER_MODELS: Record<Exclude<AiProvider, "ollama" | "custom">, ModelOption[]> = {
   claude: [
     { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
     { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
@@ -50,7 +51,7 @@ export const PROVIDER_MODELS: Record<Exclude<AiProvider, "ollama">, ModelOption[
   ],
 };
 
-export const MODEL_SETTINGS: Record<Exclude<AiProvider, "ollama">, string> = {
+export const MODEL_SETTINGS: Record<Exclude<AiProvider, "ollama" | "custom">, string> = {
   claude: "claude_model",
   openai: "openai_model",
   gemini: "gemini_model",

@@ -3,20 +3,26 @@ import { initReactI18next } from "react-i18next";
 import en from "./en/translation.json";
 import fr from "./fr/translation.json";
 import ar from "./ar/translation.json";
+import ja from "./ja/translation.json";
+import it from "./it/translation.json";
 
-export const SUPPORTED_LOCALES = ["en", "fr", "ar"] as const;
+export const SUPPORTED_LOCALES = ["en", "fr", "ar", "ja", "it"] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const LOCALE_NAMES: Record<SupportedLocale, string> = {
   en: "English",
   fr: "Français",
   ar: "العربية",
+  ja: "日本語",
+  it: "Italiano",
 };
 
 export const LOCALE_DIRS: Record<SupportedLocale, "ltr" | "rtl"> = {
   en: "ltr",
   fr: "ltr",
   ar: "rtl",
+  ja: "ltr",
+  it: "ltr",
 };
 
 export function getBrowserLocale(): SupportedLocale {
@@ -40,6 +46,8 @@ export async function initI18n(language?: string): Promise<typeof i18n> {
       en: { translation: en },
       fr: { translation: fr },
       ar: { translation: ar },
+      ja: { translation: ja },
+      it: { translation: it },
     },
     lng,
     fallbackLng: "en",

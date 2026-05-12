@@ -7,8 +7,9 @@ import { createOpenAIProvider, clearOpenAIProvider } from "./providers/openaiPro
 import { createGeminiProvider, clearGeminiProvider } from "./providers/geminiProvider";
 import { createOllamaProvider, clearOllamaProvider } from "./providers/ollamaProvider";
 import { createCopilotProvider, clearCopilotProvider } from "./providers/copilotProvider";
+import { createCustomProvider } from "./providers/customProvider";
 
-const API_KEY_SETTINGS: Record<Exclude<AiProvider, "ollama">, string> = {
+const API_KEY_SETTINGS: Record<Exclude<AiProvider, "ollama" | "custom">, string> = {
   claude: "claude_api_key",
   openai: "openai_api_key",
   gemini: "gemini_api_key",
@@ -20,6 +21,10 @@ let cachedProvider: { name: AiProvider; key: string; client: AiProviderClient } 
 export async function getActiveProviderName(): Promise<AiProvider> {
   const setting = await getSetting("ai_provider");
   if (setting === "openai" || setting === "gemini" || setting === "ollama" || setting === "copilot") return setting;
+  if (setting === "custom") {
+    const apiKey = await getSecureSetting("custom_api_key");
+    if (apiKey) return "custom";
+  }
   return "claude";
 }
 
@@ -38,6 +43,24 @@ export async function getActiveProvider(): Promise<AiProviderClient> {
 
     const client = createOllamaProvider(serverUrl, model, aiLanguage);
     cachedProvider = { name: "ollama", key: cacheKey, client };
+    return client;
+  }
+
+  if (providerName === "custom") {
+    const baseUrl = (await getSetting("custom_base_url")) ?? "https://api.openai.com/v1";
+    const apiKey = await getSecureSetting("custom_api_key");
+    if (!apiKey) {
+      throw new AiError("NOT_CONFIGURED", "Custom AI provider API key not configured");
+    }
+    const model = (await getSetting("custom_model")) ?? "gpt-4o-mini";
+    const cacheKey = `${baseUrl}|${apiKey}|${model}|${aiLanguage}`;
+
+    if (cachedProvider && cachedProvider.name === "custom" && cachedProvider.key === cacheKey) {
+      return cachedProvider.client;
+    }
+
+    const client = createCustomProvider(baseUrl, apiKey, model, aiLanguage);
+    cachedProvider = { name: "custom", key: cacheKey, client };
     return client;
   }
 
@@ -84,6 +107,11 @@ export async function isAiAvailable(): Promise<boolean> {
     if (providerName === "ollama") {
       const serverUrl = await getSetting("ollama_server_url");
       return !!serverUrl;
+    }
+
+    if (providerName === "custom") {
+      const key = await getSecureSetting("custom_api_key");
+      return !!key;
     }
 
     const keySetting = API_KEY_SETTINGS[providerName];

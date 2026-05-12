@@ -361,7 +361,11 @@
     "aiLanguageAuto": "Auto (langue de l'app)",
     "aiLanguageEn": "Anglais",
     "aiLanguageFr": "Français",
-    "aiLanguageAr": "Arabe"
+    "aiLanguageAr": "Arabe",
+    "customBaseUrl": "URL de base",
+    "customApiKey": "Clé API",
+    "customModel": "Modèle",
+    "customProvider": "Personnalisé (compatible OpenAI)"
   },
   "search": {
     "placeholder": "Rechercher des emails...",
