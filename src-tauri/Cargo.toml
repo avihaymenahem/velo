@@ -51,6 +51,10 @@ socket2 = "0.5"
 reqwest = { version = "0.12", default-features = false, features = ["native-tls", "json"] }
 lopdf = "0.34"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+openssl = "0.10.79"
+rustls-webpki = "0.103.13"
+tar = "0.4.45"
+quinn-proto = "0.11.14"
 
 [dev-dependencies]
 tempfile = "3"
