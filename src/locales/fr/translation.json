@@ -178,6 +178,8 @@
     "describeWhatToWrite": "Décrivez ce qu'il faut écrire...",
     "generateReply": "Générer la réponse",
     "transform": "Transformer :",
+    "aiGenerationFailed": "Échec de la génération IA",
+    "aiTransformFailed": "Échec de la transformation IA",
     "sendingEmail": "Envoi de l'email...",
     "attach": "Joindre",
     "from": "De",
@@ -381,7 +383,12 @@
     "askAiAboutInbox": "Demander à l'IA au sujet de votre boîte",
     "toggleSidebar": "Afficher/Masquer la barre latérale",
     "switchToTheme": "Passer au thème {{theme}}",
-    "insertTemplate": "Insérer : {{name}}"
+    "insertTemplate": "Insérer : {{name}}",
+    "nav": "Navigation",
+    "actions": "Actions",
+    "ai": "IA",
+    "settings": "Paramètres",
+    "templates": "Modèles"
   },
   "empty": {
     "selectEmail": "Sélectionnez un email",
@@ -443,7 +450,8 @@
     "noMatchingContacts": "Aucun contact correspondant",
     "contactsTotal": "{{n}} contacts au total",
     "tagsAndGroups": "Étiquettes & Groupes",
-    "allTags": "Toutes les étiquettes"
+    "allTags": "Toutes les étiquettes",
+    "recentActivity": "Activité récente"
   },
   "calendar": {
     "gregorian": "Grégorien",
@@ -491,7 +499,37 @@
     "clicked": "Cliqués",
     "bounced": "Rebondis",
     "openRate": "Taux d'ouverture",
-    "clickRate": "Taux de clics"
+    "clickRate": "Taux de clics",
+    "searchTemplates": "Rechercher des modèles...",
+    "noTemplates": "Aucun modèle trouvé",
+    "templatePreview": "Aperçu du modèle",
+    "templatePreviewContent": "Votre contenu d'email apparaîtra ici",
+    "campaignName": "Nom de la campagne",
+    "campaignNamePlaceholder": "ex: Newsletter Mars",
+    "selectTemplate": "Sélectionner un modèle",
+    "selectRecipients": "Sélectionner les destinataires",
+    "campaignSummary": "Résumé de la campagne",
+    "noTemplate": "Aucun (texte brut)",
+    "recipients": "Destinataires",
+    "status": "Statut",
+    "creating": "Création...",
+    "next": "Suivant",
+    "stepName": "Nom",
+    "stepTemplate": "Modèle",
+    "stepRecipients": "Destinataires",
+    "stepPreview": "Aperçu",
+    "category": {
+      "announcement": "Annonce",
+      "newsletter": "Newsletter",
+      "promotion": "Promotion",
+      "follow-up": "Relance",
+      "event": "Événement",
+      "welcome": "Bienvenue",
+      "feedback": "Avis",
+      "invoice": "Facture",
+      "meeting": "Réunion",
+      "holiday": "Fête"
+    }
   },
   "workflow": {
     "addRule": "Ajouter une règle",
@@ -568,7 +606,9 @@
     "create": "Créer",
     "rename": "Renommer",
     "offline": "Vous êtes hors ligne — les changements seront synchronisés à la reconnexion",
-    "nTotal": "{{n}} au total"
+    "nTotal": "{{n}} au total",
+    "preview": "Aperçu",
+    "select": "Sélectionner"
   },
   "titleBar": {
     "appName": "Velo"

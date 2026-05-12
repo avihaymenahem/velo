@@ -178,6 +178,8 @@
     "describeWhatToWrite": "Describe what to write...",
     "generateReply": "Generate Reply",
     "transform": "Transform:",
+    "aiGenerationFailed": "AI generation failed",
+    "aiTransformFailed": "AI transform failed",
     "sendingEmail": "Sending email...",
     "undo": "Undo",
     "attach": "Attach",
@@ -382,7 +384,12 @@
     "askAiAboutInbox": "Ask AI about your inbox",
     "toggleSidebar": "Toggle Sidebar",
     "switchToTheme": "Switch to {{theme}} Theme",
-    "insertTemplate": "Insert: {{name}}"
+    "insertTemplate": "Insert: {{name}}",
+    "nav": "Navigation",
+    "actions": "Actions",
+    "ai": "AI",
+    "settings": "Settings",
+    "templates": "Templates"
   },
   "empty": {
     "selectEmail": "Select an email to read",
@@ -444,7 +451,8 @@
     "noMatchingContacts": "No matching contacts",
     "contactsTotal": "{{n}} contacts total",
     "tagsAndGroups": "Tags & Groups",
-    "allTags": "All Tags"
+    "allTags": "All Tags",
+    "recentActivity": "Recent Activity"
   },
   "calendar": {
     "gregorian": "Gregorian",
@@ -492,7 +500,37 @@
     "clicked": "Clicked",
     "bounced": "Bounced",
     "openRate": "Open rate",
-    "clickRate": "Click rate"
+    "clickRate": "Click rate",
+    "searchTemplates": "Search templates...",
+    "noTemplates": "No templates found",
+    "templatePreview": "Template preview",
+    "templatePreviewContent": "Your email content will appear here",
+    "campaignName": "Campaign Name",
+    "campaignNamePlaceholder": "e.g. March Newsletter",
+    "selectTemplate": "Select Template",
+    "selectRecipients": "Select Recipients",
+    "campaignSummary": "Campaign Summary",
+    "noTemplate": "None (plain text)",
+    "recipients": "Recipients",
+    "status": "Status",
+    "creating": "Creating...",
+    "next": "Next",
+    "stepName": "Name",
+    "stepTemplate": "Template",
+    "stepRecipients": "Recipients",
+    "stepPreview": "Preview",
+    "category": {
+      "announcement": "Announcement",
+      "newsletter": "Newsletter",
+      "promotion": "Promotion",
+      "follow-up": "Follow-up",
+      "event": "Event",
+      "welcome": "Welcome",
+      "feedback": "Feedback",
+      "invoice": "Invoice",
+      "meeting": "Meeting",
+      "holiday": "Holiday"
+    }
   },
   "workflow": {
     "addRule": "Add Rule",
@@ -568,8 +606,11 @@
     "add": "Add",
     "create": "Create",
     "rename": "Rename",
-    "offline": "You're offline — changes will sync when you reconnect",
-    "nTotal": "{{n}} total"
+    "back": "Back",
+    "offline": "You are offline — changes will sync when reconnected",
+    "nTotal": "{{n}} total",
+    "preview": "Preview",
+    "select": "Select"
   },
   "titleBar": {
     "appName": "Velo"

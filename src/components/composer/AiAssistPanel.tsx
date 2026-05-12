@@ -48,7 +48,7 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
       applyToEditor(result);
       setPrompt("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "AI generation failed");
+      setError(err instanceof Error ? err.message : t('composer.aiGenerationFailed'));
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
       applyToEditor(result);
       setPrompt("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "AI generation failed");
+      setError(err instanceof Error ? err.message : t('composer.aiGenerationFailed'));
     } finally {
       setLoading(false);
     }
@@ -79,7 +79,7 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
       const result = await transformText(html, type);
       applyToEditor(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "AI transform failed");
+      setError(err instanceof Error ? err.message : t('composer.aiTransformFailed'));
     } finally {
       setLoading(false);
     }
@@ -115,7 +115,7 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
             disabled={loading || !threadMessages?.length}
             className="px-2 py-1 text-xs bg-accent text-white rounded hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center gap-1"
           >
-            {loading ? "..." : "Generate Reply"}
+            {loading ? "..." : t('composer.generateReply')}
           </button>
         ) : (
           <button
@@ -123,29 +123,29 @@ export function AiAssistPanel({ editor, isReplyMode, threadMessages }: AiAssistP
             disabled={loading || !prompt.trim()}
             className="px-2 py-1 text-xs bg-accent text-white rounded hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center gap-1"
           >
-            {loading ? "..." : "Generate"}
+            {loading ? "..." : t('composer.generate')}
           </button>
         )}
       </div>
 
       {/* Quick actions */}
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-text-tertiary mr-1">Transform:</span>
+        <span className="text-xs text-text-tertiary mr-1">{t('composer.transform')}</span>
         <QuickAction
           icon={<Wand2 size={11} />}
-          label="Improve"
+          label={t('composer.improve')}
           onClick={() => handleTransform("improve")}
           disabled={loading}
         />
         <QuickAction
           icon={<ArrowDown size={11} />}
-          label="Shorter"
+          label={t('composer.shorter')}
           onClick={() => handleTransform("shorten")}
           disabled={loading}
         />
         <QuickAction
           icon={<Briefcase size={11} />}
-          label="Formal"
+          label={t('composer.formal')}
           onClick={() => handleTransform("formalize")}
           disabled={loading}
         />

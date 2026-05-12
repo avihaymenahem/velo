@@ -148,7 +148,7 @@ export function SignatureEditor() {
             onChange={(e) => setName(e.target.value)}
             placeholder="Signature name"
           />
-          <div className="border border-border-primary rounded overflow-hidden bg-bg-tertiary">
+          <div className="border border-border-primary rounded overflow-hidden bg-bg-tertiary flex flex-col">
             <div className="flex items-center justify-between">
               {isHtmlMode ? (
                 <span className="px-2 py-1 text-xs text-text-secondary">HTML source</span>
@@ -164,16 +164,29 @@ export function SignatureEditor() {
                 <Code size={14} />
               </button>
             </div>
-            {isHtmlMode ? (
-              <textarea
-                value={rawHtml}
-                onChange={(e) => setRawHtml(e.target.value)}
-                className="w-full px-3 py-2 min-h-[80px] bg-bg-tertiary text-text-primary text-xs font-mono focus:outline-none resize-y"
-                spellCheck={false}
-              />
-            ) : (
-              <EditorContent editor={editor} />
-            )}
+            <div className="flex flex-col lg:flex-row">
+              <div className="w-full lg:w-1/2 border-r border-border-primary">
+                {isHtmlMode ? (
+                  <textarea
+                    value={rawHtml}
+                    onChange={(e) => setRawHtml(e.target.value)}
+                    className="w-full px-3 py-2 min-h-[80px] bg-bg-tertiary text-text-primary text-xs font-mono focus:outline-none resize-y lg:min-h-[200px]"
+                    spellCheck={false}
+                  />
+                ) : (
+                  <EditorContent editor={editor} />
+                )}
+              </div>
+              <div className="w-full lg:w-1/2 bg-white">
+                <iframe
+                  srcDoc={isHtmlMode ? rawHtml : editor?.getHTML() ?? ""}
+                  sandbox="allow-same-origin"
+                  className="w-full border-0"
+                  style={{ height: 200 }}
+                  title="Signature preview"
+                />
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1.5 text-xs text-text-secondary">

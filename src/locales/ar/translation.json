@@ -178,6 +178,8 @@
     "describeWhatToWrite": "صف ما تريد كتابته...",
     "generateReply": "توليد الرد",
     "transform": "تحويل:",
+    "aiGenerationFailed": "فشل توليد الذكاء الاصطناعي",
+    "aiTransformFailed": "فشل تحويل الذكاء الاصطناعي",
     "sendingEmail": "جارٍ إرسال البريد...",
     "attach": "إرفاق",
     "from": "من",
@@ -381,7 +383,12 @@
     "askAiAboutInbox": "اسأل الذكاء الاصطناعي عن صندوق الوارد",
     "toggleSidebar": "إظهار/إخفاء الشريط الجانبي",
     "switchToTheme": "التبديل إلى سمة {{theme}}",
-    "insertTemplate": "إدراج: {{name}}"
+    "insertTemplate": "إدراج: {{name}}",
+    "nav": "التنقل",
+    "actions": "الإجراءات",
+    "ai": "الذكاء الاصطناعي",
+    "settings": "الإعدادات",
+    "templates": "القوالب"
   },
   "empty": {
     "selectEmail": "اختر بريداً إلكترونياً للقراءة",
@@ -443,7 +450,8 @@
     "noMatchingContacts": "لا توجد جهات اتصال مطابقة",
     "contactsTotal": "{{n}} جهة اتصال إجمالاً",
     "tagsAndGroups": "الوسوم والمجموعات",
-    "allTags": "كل الوسوم"
+    "allTags": "كل الوسوم",
+    "recentActivity": "النشاط الأخير"
   },
   "calendar": {
     "gregorian": "ميلادي",
@@ -491,7 +499,37 @@
     "clicked": "تم النقر",
     "bounced": "مرتجع",
     "openRate": "معدل الفتح",
-    "clickRate": "معدل النقر"
+    "clickRate": "معدل النقر",
+    "searchTemplates": "بحث في القوالب...",
+    "noTemplates": "لم يتم العثور على قوالب",
+    "templatePreview": "معاينة القالب",
+    "templatePreviewContent": "سيظهر محتوى بريدك هنا",
+    "campaignName": "اسم الحملة",
+    "campaignNamePlaceholder": "مثال: النشرة الإخبارية لشهر مارس",
+    "selectTemplate": "اختيار قالب",
+    "selectRecipients": "اختيار المستلمين",
+    "campaignSummary": "ملخص الحملة",
+    "noTemplate": "لا شيء (نص عادي)",
+    "recipients": "المستلمون",
+    "status": "الحالة",
+    "creating": "جارٍ الإنشاء...",
+    "next": "التالي",
+    "stepName": "الاسم",
+    "stepTemplate": "القالب",
+    "stepRecipients": "المستلمون",
+    "stepPreview": "المعاينة",
+    "category": {
+      "announcement": "إعلان",
+      "newsletter": "نشرة إخبارية",
+      "promotion": "ترويج",
+      "follow-up": "متابعة",
+      "event": "حدث",
+      "welcome": "ترحيب",
+      "feedback": "تقييم",
+      "invoice": "فاتورة",
+      "meeting": "اجتماع",
+      "holiday": "عطلة"
+    }
   },
   "workflow": {
     "addRule": "إضافة قاعدة",
@@ -568,7 +606,9 @@
     "create": "إنشاء",
     "rename": "إعادة تسمية",
     "offline": "أنت غير متصل — سيتم المزامنة عند إعادة الاتصال",
-    "nTotal": "{{n}} إجمالاً"
+    "nTotal": "{{n}} إجمالاً",
+    "preview": "معاينة",
+    "select": "اختيار"
   },
   "titleBar": {
     "appName": "Velo"

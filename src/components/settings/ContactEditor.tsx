@@ -13,6 +13,7 @@ import { ContactMergeDialog } from "@/components/contacts/ContactMergeDialog";
 import { Modal } from "@/components/ui/Modal";
 import { useContactStore } from "@/stores/contactStore";
 import { useAccountStore } from "@/stores/accountStore";
+import { findMergeCandidates, mergeContacts, type MergeCandidate } from "@/services/contacts/merge";
 
 export function ContactEditor() {
   const { t } = useTranslation();
@@ -23,6 +24,8 @@ export function ContactEditor() {
   const [tab, setTab] = useState<"contacts" | "tags">("contacts");
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [mergeCandidates, setMergeCandidates] = useState<MergeCandidate[]>([]);
+  const [merging, setMerging] = useState(false);
   const primaryAccountId = useAccountStore((s) =>
     s.accounts.find((a) => a.isActive)?.id ?? "",
   );
@@ -44,6 +47,27 @@ export function ContactEditor() {
       loadTags(primaryAccountId);
     }
   }, [tab, primaryAccountId, loadTags]);
+
+  const handleFindDuplicates = useCallback(async () => {
+    const candidates = await findMergeCandidates();
+    setMergeCandidates(candidates);
+    if (candidates.length > 0) {
+      setShowMergeDialog(true);
+    }
+  }, []);
+
+  const handleMerge = useCallback(async (keepId: string, mergeId: string) => {
+    setMerging(true);
+    try {
+      await mergeContacts(keepId, mergeId);
+      setMergeCandidates((prev) => prev.filter((c) => c.mergeId !== mergeId));
+      await loadContacts();
+    } catch (err) {
+      console.error("Failed to merge contacts:", err);
+    } finally {
+      setMerging(false);
+    }
+  }, [loadContacts]);
 
   const filtered = useMemo(() => {
     if (!search) return contacts;
@@ -204,9 +228,10 @@ export function ContactEditor() {
               className="px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-md hover:bg-accent-hover transition-colors">
               {t('contact.importContacts')}
             </button>
-            <button onClick={() => setShowMergeDialog(true)}
+            <button onClick={handleFindDuplicates}
+              disabled={merging}
               className="px-3 py-1.5 text-xs font-medium border border-border-primary text-text-secondary rounded-md hover:bg-bg-hover transition-colors">
-              {t('contact.mergeDuplicates')}
+              {merging ? t('common.loading') : t('contact.mergeDuplicates')}
             </button>
           </div>
           <div>
@@ -249,8 +274,8 @@ export function ContactEditor() {
         <ContactMergeDialog
           isOpen={true}
           onClose={() => setShowMergeDialog(false)}
-          candidates={[]}
-          onMerge={(_keepId, _mergeId) => {}}
+          candidates={mergeCandidates}
+          onMerge={handleMerge}
         />
       )}
     </>
