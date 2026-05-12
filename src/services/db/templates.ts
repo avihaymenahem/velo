@@ -9,11 +9,22 @@ export interface DbTemplate {
   shortcut: string | null;
   sort_order: number;
   created_at: number;
+  category_id: string | null;
+  is_favorite: number;
+  usage_count: number;
+  last_used_at: number | null;
+  conditional_blocks_json: string | null;
 }
 
-/**
- * Get all templates for an account (includes global templates where account_id IS NULL).
- */
+export interface DbTemplateCategory {
+  id: string;
+  account_id: string | null;
+  name: string;
+  icon: string | null;
+  sort_order: number;
+  is_system: number;
+}
+
 export async function getTemplatesForAccount(
   accountId: string,
 ): Promise<DbTemplate[]> {
@@ -30,19 +41,21 @@ export async function insertTemplate(tmpl: {
   subject: string | null;
   bodyHtml: string;
   shortcut: string | null;
+  categoryId?: string | null;
+  conditionalBlocksJson?: string | null;
 }): Promise<string> {
   const db = await getDb();
   const id = crypto.randomUUID();
   await db.execute(
-    "INSERT INTO templates (id, account_id, name, subject, body_html, shortcut) VALUES ($1, $2, $3, $4, $5, $6)",
-    [id, tmpl.accountId, tmpl.name, tmpl.subject, tmpl.bodyHtml, tmpl.shortcut],
+    "INSERT INTO templates (id, account_id, name, subject, body_html, shortcut, category_id, conditional_blocks_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+    [id, tmpl.accountId, tmpl.name, tmpl.subject, tmpl.bodyHtml, tmpl.shortcut, tmpl.categoryId ?? null, tmpl.conditionalBlocksJson ?? null],
   );
   return id;
 }
 
 export async function updateTemplate(
   id: string,
-  updates: { name?: string; subject?: string | null; bodyHtml?: string; shortcut?: string | null },
+  updates: { name?: string; subject?: string | null; bodyHtml?: string; shortcut?: string | null; categoryId?: string | null; isFavorite?: boolean; conditionalBlocksJson?: string | null },
 ): Promise<void> {
   const db = await getDb();
   const fields: [string, unknown][] = [];
@@ -50,6 +63,9 @@ export async function updateTemplate(
   if (updates.subject !== undefined) fields.push(["subject", updates.subject]);
   if (updates.bodyHtml !== undefined) fields.push(["body_html", updates.bodyHtml]);
   if (updates.shortcut !== undefined) fields.push(["shortcut", updates.shortcut]);
+  if (updates.categoryId !== undefined) fields.push(["category_id", updates.categoryId]);
+  if (updates.isFavorite !== undefined) fields.push(["is_favorite", updates.isFavorite ? 1 : 0]);
+  if (updates.conditionalBlocksJson !== undefined) fields.push(["conditional_blocks_json", updates.conditionalBlocksJson]);
 
   const query = buildDynamicUpdate("templates", "id", id, fields);
   if (query) {
@@ -60,4 +76,59 @@ export async function updateTemplate(
 export async function deleteTemplate(id: string): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM templates WHERE id = $1", [id]);
+}
+
+export async function incrementTemplateUsage(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE templates SET usage_count = usage_count + 1, last_used_at = unixepoch() WHERE id = $1",
+    [id],
+  );
+}
+
+export async function getFavorites(accountId: string): Promise<DbTemplate[]> {
+  const db = await getDb();
+  return db.select<DbTemplate[]>(
+    "SELECT * FROM templates WHERE (account_id = $1 OR account_id IS NULL) AND is_favorite = 1 ORDER BY last_used_at DESC, name",
+    [accountId],
+  );
+}
+
+export async function getMostUsed(accountId: string, limit = 5): Promise<DbTemplate[]> {
+  const db = await getDb();
+  return db.select<DbTemplate[]>(
+    "SELECT * FROM templates WHERE (account_id = $1 OR account_id IS NULL) AND usage_count > 0 ORDER BY usage_count DESC, last_used_at DESC LIMIT $2",
+    [accountId, limit],
+  );
+}
+
+export async function getCategories(accountId: string): Promise<DbTemplateCategory[]> {
+  const db = await getDb();
+  return db.select<DbTemplateCategory[]>(
+    "SELECT * FROM template_categories WHERE account_id = $1 OR account_id IS NULL ORDER BY sort_order, name",
+    [accountId],
+  );
+}
+
+export async function upsertCategory(cat: {
+  id?: string;
+  accountId: string | null;
+  name: string;
+  icon?: string | null;
+}): Promise<string> {
+  const db = await getDb();
+  const id = cat.id ?? crypto.randomUUID();
+  await db.execute(
+    `INSERT INTO template_categories (id, account_id, name, icon)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT(id) DO UPDATE SET name = $3, icon = COALESCE($4, icon)`,
+    [id, cat.accountId, cat.name, cat.icon ?? null],
+  );
+  return id;
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM template_categories WHERE id = $1", [id]);
+  await db.execute("UPDATE templates SET category_id = NULL WHERE category_id = $1", [id]);
 }
