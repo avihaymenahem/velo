@@ -21,6 +21,9 @@ vi.mock("@/services/db/connection", () => ({
       select: vi.fn(() => Promise.resolve([{ count: 5 }])),
     }),
   ),
+  queryWithRetry: vi.fn(async (fn) => fn({
+    select: vi.fn(() => Promise.resolve([{ count: 5 }])),
+  })),
 }));
 
 import {

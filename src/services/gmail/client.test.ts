@@ -7,8 +7,11 @@ vi.mock("./auth", () => ({
   refreshAccessToken: vi.fn(),
 }));
 
+const { mockClientDb } = vi.hoisted(() => ({ mockClientDb: { execute: vi.fn(), select: vi.fn() } as any }));
+
 vi.mock("../db/connection", () => ({
-  getDb: vi.fn().mockResolvedValue({ execute: vi.fn(), select: vi.fn() }),
+  getDb: vi.fn().mockResolvedValue(mockClientDb),
+  queryWithRetry: vi.fn(async (fn) => fn(mockClientDb)),
 }));
 
 vi.mock("@/utils/crypto", () => ({

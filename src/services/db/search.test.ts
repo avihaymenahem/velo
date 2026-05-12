@@ -2,20 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { unifiedSearch } from "./search";
 import type { UnifiedSearchResult } from "./search";
 
+const { mockSelect } = vi.hoisted(() => ({ mockSelect: vi.fn() }));
+
 vi.mock("@/services/db/connection", () => ({
   getDb: vi.fn(),
+  queryWithRetry: vi.fn(async (fn) => fn({ select: mockSelect, execute: vi.fn() })),
 }));
 
 describe("unifiedSearch", () => {
-  const mockSelect = vi.fn();
-
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    const { getDb } = await import("@/services/db/connection");
-    vi.mocked(getDb).mockResolvedValue({
-      select: mockSelect,
-      execute: vi.fn(),
-    });
   });
 
   it("returns empty array for empty query", async () => {

@@ -9,6 +9,7 @@ vi.mock("@/stores/uiStore", () => ({
 const mockSelect = vi.fn();
 vi.mock("../db/connection", () => ({
   getDb: vi.fn(() => Promise.resolve({ select: mockSelect })),
+  queryWithRetry: vi.fn(async (fn) => fn({ select: mockSelect })),
 }));
 
 vi.mock("../db/settings", () => ({

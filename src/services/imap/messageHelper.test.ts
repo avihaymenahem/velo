@@ -5,9 +5,11 @@ import {
   type ImapMessageInfo,
 } from "./messageHelper";
 
-// Mock the DB module
+const { mockDbForQuery } = vi.hoisted(() => ({ mockDbForQuery: {} as any }));
+
 vi.mock("../db/connection", () => ({
   getDb: vi.fn(),
+  queryWithRetry: vi.fn(async (fn) => fn(mockDbForQuery)),
 }));
 
 describe("messageHelper", () => {
@@ -78,11 +80,8 @@ describe("messageHelper", () => {
 
   describe("findSpecialFolder", () => {
     it("returns null when no matching folder exists", async () => {
-      const { getDb } = await import("../db/connection");
-      const mockDb = {
-        select: vi.fn().mockResolvedValue([]),
-      };
-      vi.mocked(getDb).mockResolvedValue(mockDb as never);
+      const mockDb = mockDbForQuery;
+      mockDb.select = vi.fn().mockResolvedValue([]);
 
       const { findSpecialFolder } = await import("./messageHelper");
       const result = await findSpecialFolder("acc1", "\\Trash");
@@ -90,13 +89,10 @@ describe("messageHelper", () => {
     });
 
     it("falls back to label ID lookup when imap_special_use not found", async () => {
-      const { getDb } = await import("../db/connection");
-      const mockDb = {
-        select: vi.fn()
-          .mockResolvedValueOnce([]) // first query: imap_special_use lookup → empty
-          .mockResolvedValueOnce([{ imap_folder_path: "unsolbox", name: "Trash" }]), // fallback: label ID lookup
-      };
-      vi.mocked(getDb).mockResolvedValue(mockDb as never);
+      const mockDb = mockDbForQuery;
+      mockDb.select = vi.fn()
+        .mockResolvedValueOnce([]) // first query: imap_special_use lookup → empty
+        .mockResolvedValueOnce([{ imap_folder_path: "unsolbox", name: "Trash" }]); // fallback: label ID lookup
 
       const { findSpecialFolder } = await import("./messageHelper");
       const result = await findSpecialFolder("acc1", "\\Trash");
@@ -105,13 +101,10 @@ describe("messageHelper", () => {
     });
 
     it("returns imap_folder_path when available", async () => {
-      const { getDb } = await import("../db/connection");
-      const mockDb = {
-        select: vi.fn().mockResolvedValue([
-          { imap_folder_path: "INBOX.Trash", name: "Trash" },
-        ]),
-      };
-      vi.mocked(getDb).mockResolvedValue(mockDb as never);
+      const mockDb = mockDbForQuery;
+      mockDb.select = vi.fn().mockResolvedValue([
+        { imap_folder_path: "INBOX.Trash", name: "Trash" },
+      ]);
 
       const { findSpecialFolder } = await import("./messageHelper");
       const result = await findSpecialFolder("acc1", "\\Trash");
@@ -119,13 +112,10 @@ describe("messageHelper", () => {
     });
 
     it("falls back to name when imap_folder_path is null", async () => {
-      const { getDb } = await import("../db/connection");
-      const mockDb = {
-        select: vi.fn().mockResolvedValue([
-          { imap_folder_path: null, name: "Trash" },
-        ]),
-      };
-      vi.mocked(getDb).mockResolvedValue(mockDb as never);
+      const mockDb = mockDbForQuery;
+      mockDb.select = vi.fn().mockResolvedValue([
+        { imap_folder_path: null, name: "Trash" },
+      ]);
 
       const { findSpecialFolder } = await import("./messageHelper");
       const result = await findSpecialFolder("acc1", "\\Trash");
@@ -135,9 +125,8 @@ describe("messageHelper", () => {
 
   describe("updateMessageImapFolder", () => {
     it("does nothing for empty message list", async () => {
-      const { getDb } = await import("../db/connection");
-      const mockDb = { execute: vi.fn() };
-      vi.mocked(getDb).mockResolvedValue(mockDb as never);
+      const mockDb = mockDbForQuery;
+      mockDb.execute = vi.fn();
 
       const { updateMessageImapFolder } = await import("./messageHelper");
       await updateMessageImapFolder("acc1", [], "INBOX");
@@ -145,9 +134,8 @@ describe("messageHelper", () => {
     });
 
     it("updates folder for given messages", async () => {
-      const { getDb } = await import("../db/connection");
-      const mockDb = { execute: vi.fn().mockResolvedValue(undefined) };
-      vi.mocked(getDb).mockResolvedValue(mockDb as never);
+      const mockDb = mockDbForQuery;
+      mockDb.execute = vi.fn().mockResolvedValue(undefined);
 
       const { updateMessageImapFolder } = await import("./messageHelper");
       await updateMessageImapFolder("acc1", ["msg1", "msg2"], "Trash");

@@ -6,6 +6,7 @@ vi.mock("@/services/db/connection", async (importOriginal) => {
     ...actual,
     getDb: vi.fn(),
     buildDynamicUpdate: vi.fn(),
+    queryWithRetry: vi.fn(async (fn) => fn(mockDb)),
   };
 });
 

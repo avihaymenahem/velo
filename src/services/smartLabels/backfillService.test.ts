@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const mockSelect = vi.fn();
-const { mockGetDb } = vi.hoisted(() => ({
+const { mockGetDb, mockBackfillDb } = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
+  mockBackfillDb: {} as any,
 }));
 
 vi.mock("@/services/db/connection", () => ({
   getDb: mockGetDb,
+  queryWithRetry: vi.fn(async (fn) => fn(mockBackfillDb)),
 }));
 
 vi.mock("./smartLabelService", () => ({
@@ -24,7 +26,9 @@ import { backfillSmartLabels } from "./backfillService";
 describe("backfillSmartLabels", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetDb.mockResolvedValue({ select: mockSelect, execute: vi.fn() });
+    mockBackfillDb.select = mockSelect;
+    mockBackfillDb.execute = vi.fn();
+    mockGetDb.mockResolvedValue(mockBackfillDb);
   });
 
   it("processes inbox threads in batches", async () => {

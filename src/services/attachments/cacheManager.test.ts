@@ -11,6 +11,7 @@ const mockExecute = vi.fn();
 const mockSelect = vi.fn();
 vi.mock("@/services/db/connection", () => ({
   getDb: vi.fn(() => Promise.resolve({ execute: mockExecute, select: mockSelect })),
+  queryWithRetry: vi.fn(async (fn) => fn({ execute: mockExecute, select: mockSelect })),
 }));
 
 vi.mock("@/services/db/settings", () => ({
