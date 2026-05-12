@@ -482,12 +482,13 @@ const selectThread = useThreadStore((s) => s.selectThread);
   const clearSearch = useThreadStore((s) => s.clearSearch);
 
   const handleCitationClick = useCallback((threadId: string, messageId?: string) => {
-     selectThread(threadId);
-     clearMultiSelect();
-     if (messageId) {
-       setSelectedMessageId(messageId);
-     }
-   }, [selectThread, clearMultiSelect, setSelectedMessageId]);
+    selectThread(threadId);
+    clearMultiSelect();
+    navigateToThread(threadId);
+    if (messageId) {
+      setSelectedMessageId(messageId);
+    }
+  }, [selectThread, clearMultiSelect, setSelectedMessageId]);
 
   const loadThreads = useCallback(async (keepSearch = false) => {
     if (!activeAccountId) {

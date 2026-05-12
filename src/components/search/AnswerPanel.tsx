@@ -7,12 +7,22 @@ import {
   type SearchAnswerResult,
   type Citation,
 } from "@/services/ai/searchAnswer";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 interface AnswerPanelProps {
    query: string;
    accountId: string | null;
    onCitationClick: (threadId: string, messageId?: string) => void;
  }
+
+function getThreadIdFromUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    return u.searchParams.get('threadId') || u.pathname.match(/\/thread\/([^\/]+)/)?.[1] || null;
+  } catch {
+    return null;
+  }
+}
 
 function CitationChip({
   citation,
@@ -37,6 +47,32 @@ function CitationChip({
   );
 }
 
+function renderTextWithLinks(
+  text: string,
+  onLinkClick: (href: string) => void,
+): React.ReactNode[] {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (urlRegex.test(part)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          onClick={(e) => {
+            e.preventDefault();
+            onLinkClick(part);
+          }}
+          className="text-accent hover:underline"
+        >
+          {part}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 function renderAnswer(
    answer: string,
    citations: Citation[],
@@ -57,7 +93,14 @@ function renderAnswer(
         );
       }
     }
-    return <span key={i}>{part}</span>;
+    return renderTextWithLinks(part, (href) => {
+      const threadId = getThreadIdFromUrl(href);
+      if (threadId) {
+        onCitationClick(threadId);
+      } else {
+        openUrl(href).catch(() => {});
+      }
+    });
   });
 }
 
@@ -126,9 +169,30 @@ export function AnswerPanel({
         )}
 
         {result && (
-          <p className="text-xs text-text-primary leading-relaxed">
-            {renderAnswer(result.answer, result.citations, onCitationClick)}
-          </p>
+          <>
+            <p className="text-xs text-text-primary leading-relaxed">
+              {renderAnswer(result.answer, result.citations, onCitationClick)}
+            </p>
+            {result.citations.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-accent/10">
+                <span className="text-[0.65rem] font-semibold text-accent uppercase tracking-wider mb-2 block">
+                  Sources
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {result.citations.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => onCitationClick(c.threadId, c.messageId)}
+                      className="inline-flex items-center gap-1.5 px-2 py-1 text-[0.65rem] rounded-md bg-accent/5 text-text-secondary hover:bg-accent/15 hover:text-accent transition-all border border-transparent hover:border-accent/20"
+                    >
+                      <Sparkles size={10} className="shrink-0" />
+                      <span className="truncate max-w-[200px]">{c.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </CSSTransition>
