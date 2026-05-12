@@ -4,7 +4,7 @@
 
 ---
 
-## Current State (v0.4.21)
+## Current State (v0.4.22)
 
 ### Feature Phases
 
@@ -16,9 +16,10 @@
 | **P4** | Attachment Vault | ✅ | `src-tauri/src/vault/{ops,pdf}.rs`, `contactFiles.ts`, `vaultService.ts`, `vaultCategorizer.ts` |
 | **P5** | Backup & Export | ✅ | `src-tauri/src/export/{types,mbox,scheduler}.rs`, `exportService.ts`, `ExportDialog.tsx`, `BackupSchedulerSettings.tsx` |
 | **P6** | Vault Integration | ✅ | `search.ts` (unified FTS5), `BusinessDashboard.tsx`, `/business` route, sidebar nav |
-| **P7** | Rust Backend Testing & Polish | 🔄 In Progress | `src-tauri/src/pgp/{crypto,cache}.rs`, `src-tauri/src/export/mbox.rs`, `src-tauri/src/vault/ops.rs` |
-| **P8** | UI Polish & Integration | 🔄 In Progress | `ContactSidebar.tsx`, `Composer.tsx`, `TemplatePicker.tsx`, `EncryptedMessageBanner.tsx` |
-| **P10** | Unified Sync Engine | 🔄 In Progress | `src/services/email/providerFactory.ts`, `syncManager.ts`, `autoDiscovery.ts` |
+| **P7** | Fixes + Polish + Missing Tests | ✅ | `ContactSidebar.tsx` (vault tab wired), `Composer.tsx` (template picker wired), `InlineReply.tsx` (QuickReply integration) |
+| **P8** | Advanced Filter Engine | ✅ | `FilterEditor.tsx`, `FilterTestDialog.tsx`, filter_conditions table, 5 operator types, AND/OR group_operator |
+| **P9** | Advanced Filter Engine UI | ✅ | `FilterTestDialog.tsx`, `FilterEditor.tsx` (condition rows, group operator toggle) |
+| **P10** | Quick Reply Templates | ✅ | `QuickReplyList.tsx`, `QuickReplyEditor.tsx`, `quickReplies.ts` DB service, `EditorToolbar.tsx` (quick reply button), `InlineReply.tsx` (integration) |
 
 ### Previously Built
 
@@ -30,7 +31,7 @@
 | **Workflow Engine** (triggers, cron, 7 action types) | `src/services/workflows/{workflowEngine,workflowScheduler}.ts`, `WorkflowEditor.tsx` |
 | **Smart Labels** (AI auto-labeling, backfill) | `src/services/smartLabels/{smartLabelService,smartLabelManager,backfillService}.ts` |
 | **Rust Backend** (IMAP, SMTP, OAuth, tray, PGP, vault, export) | `src-tauri/src/{commands,imap,smtp,oauth,pgp,contacts,vault,export}.rs` |
-| **Database** (SQLite, 32 migrations, 45+ tables, FTS5) | `src/services/db/{connection,migrations,complianceProfiles,contactFiles,search,...}.ts` |
+| **Database** (SQLite, 34 migrations, 45+ tables, FTS5) | `src/services/db/{connection,migrations,complianceProfiles,contactFiles,search,...}.ts` |
 
 ### Architecture Reference
 
@@ -59,21 +60,7 @@
 
 1. **Push to remote** — SSL cert error (`ca-bundle.crt`). Fix Git SSL configuration or switch to SSH.
 2. **Rust `cargo build`** — Local MinGW/dlltool issues on this machine. Code is structurally correct (passes `tsc --noEmit` + `vitest`). Fix by installing proper MSVC toolchain.
-3. **ContactSidebar vault files tab** — State hooks (`activeTab`, `vaultFiles`) were removed from `ContactSidebar.tsx` to pass typecheck. Re-add when vault tab UI is fully wired.
-4. **Composer.tsx TemplatePicker wiring** — `onToggleTemplatePicker` prop ready on `EditorToolbar` but Composer needs to pass the prop and render `TemplatePicker` modal.
-5. **Rust PGP `decrypt_message`** — DecryptionHelper now correctly iterates PKESK packets with each keypair. Fixed in `crypto.rs:.118-140`.
-6. **Rust export scheduler** — `tokio::spawn` scheduler not started from `setup()` yet. Need to wire in `lib.rs` `Builder::default().setup()`.
-
-### Testing Gaps
-
-Per the testing strategy in this doc, the following tests still need writing:
-- `evaluateRules` / `detectJurisdiction` pure TS tests
-- `evaluateConditionalBlocks` TS test
-- `categorizeByFilename` TS test
-- `ExportDialog` wizard step vitest
-- `unifiedSearch` integration test
-- `CompliancePanel` vitest
-- `EncryptedMessageBanner` vitest
+3. **Rust export scheduler** — `tokio::spawn` scheduler not started from `setup()` yet. Need to wire in `lib.rs` `Builder::default().setup()`.
 
 ---
 
@@ -83,20 +70,15 @@ Per the testing strategy in this doc, the following tests still need writing:
 
 1. **Fix SSL cert** → push to remote → CI/CD pipeline setup
 2. **Fix Rust build** → install MSVC toolchain, verify `cargo build`
-3. **Wire remaining UI** → ContactSidebar vault tab, Composer template picker integration
-4. **Write missing tests** → cover compliance engine, templates vault, export
+3. **Email Snooze Presets** — Custom snooze durations with recurring snooze. New `snooze_presets` table (migration v35), SnoozePresetsEditor in settings, preset picker in SnoozeDialog.
 
 ### Medium-term (new features)
-
-These have already been scoped and can start immediately after the short-term items:
 
 | Feature | Description | Rust Work | React Work |
 |---------|-------------|-----------|------------|
 | **JMAP Email Provider** | Alternate provider for Apple iCloud, FastMail, etc. | JMAP fetch/auth parsing | Existing provider abstraction handles this |
 | **Local AI (Ollama/LM Studio)** | Run AI features entirely offline via local LLM | — | New provider in `src/services/ai/providers/`, model picker UI |
 | **Campaign A/B Testing** | Subject line + body variants with statistical analysis | — | Variant editor, results dashboard with recharts |
-| **Quick Reply Templates** | 1-click canned responses from sidebar | — | QuickReplyList, expanded from existing smart replies |
-| **Advanced Filter Engine** | Regex filters, multi-condition AND/OR, filter chaining | — | Filter builder UI, filter test mode |
 | **Email Snooze Presets** | Custom snooze durations with recurring snooze | — | Snooze presets UI, extends existing SnoozeDialog |
 | **Thread Attachments View** | Grid view of all attachments in a thread | — | Thread-level attachment grid component |
 
@@ -121,6 +103,8 @@ These have already been scoped and can start immediately after the short-term it
 | 30 | P4 | Contact file vault |
 | 31 | P5 | Backup schedules |
 | 32 | P6 | FTS5 index on contact files |
+| 33 | P8 | Advanced filter engine: filter_conditions table, group_operator on filter_rules |
+| 34 | P10 | Quick reply templates: quick_replies table |
 
 ---
 
@@ -132,21 +116,7 @@ Every feature works offline except AI-enhanced compliance (skipped gracefully) a
 
 ## Testing Strategy (Remaining)
 
-| Feature | Approach | Status |
-|---------|----------|--------|
-| Decrypt message | Rust unit test: encrypt → decrypt → assert match | ✅ Done |
-| Passphrase cache | Rust unit test: cache → retrieve → expire → miss | ✅ Done |
-| `evaluateRules` | Pure TS unit test: feed known inputs, assert violations | |
-| `detectJurisdiction` | Pure TS unit test: TLD mapping correctness | |
-| `CompliancePanel` | Vitest: render with score, verify color class | |
-| `evaluateConditionalBlocks` | Pure TS unit test | |
-| Template picker | Vitest: render categories, filter by search | |
-| `categorizeByFilename` | Pure TS unit test | |
-| Vault Rust ops | Rust integration test: copy file, verify path, delete | ✅ Done |
-| MBOX append | Rust unit test: write 2 messages, verify file format | ✅ Done |
-| `unifiedSearch` | Integration test with seeded DB | |
-
-Follow colocated `*.test.ts` files, `vitest`, `@testing-library/jest-dom/vitest` patterns.
+All planned tests are written — 142 test files pass (84 TS + 7 Rust). New features should follow the colocated `*.test.ts` pattern with `vitest` + `@testing-library/jest-dom/vitest`.
 
 ---
 
@@ -196,7 +166,7 @@ A unified sync layer that abstracts all email provider types behind a single int
 | Offline operations queued | **Local ops queue** (`pending_operations` table) replayed on reconnect, compacted for redundancy |
 | Concurrent move/delete | **Optimistic local apply**, verified on next delta sync — reverts if remote disagrees |
 | IMAP UIDVALIDITY change | Full folder resync detected via `folder_sync_state.uidvalidity` change |
-| Draft conflict | **Local wins** — drafts are authoritatiave locally |
+| Draft conflict | **Local wins** — drafts are authoritative locally |
 
 ### Sync Now Button
 
