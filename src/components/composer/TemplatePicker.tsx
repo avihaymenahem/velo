@@ -18,6 +18,9 @@ import type { Editor } from "@tiptap/react";
 
 interface TemplatePickerProps {
   editor: Editor | null;
+  isOpen?: boolean;
+  onClose?: () => void;
+  onSelect?: (template: DbTemplate) => void;
 }
 
 const SYSTEM_CATEGORIES = ["All", "Sales", "Support", "Legal", "Marketing", "Internal"];
@@ -40,11 +43,21 @@ function fuzzyMatch(text: string, query: string): boolean {
   return qi === q.length;
 }
 
-export function TemplatePicker({ editor }: TemplatePickerProps) {
+export function TemplatePicker({ editor, isOpen: controlledOpen, onClose: controlledOnClose, onSelect: controlledOnSelect }: TemplatePickerProps) {
   const { t } = useTranslation();
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const { mode, subject, setSubject } = useComposerStore();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const isOpen = isControlled ? controlledOpen : internalOpen;
+
+  const handleClose = useCallback(() => {
+    if (isControlled) {
+      controlledOnClose?.();
+    } else {
+      setInternalOpen(false);
+    }
+  }, [isControlled, controlledOnClose]);
   const [templates, setTemplates] = useState<DbTemplate[]>([]);
   const [categories, setCategories] = useState<DbTemplateCategory[]>([]);
   const [favorites, setFavorites] = useState<DbTemplate[]>([]);
@@ -109,6 +122,11 @@ export function TemplatePicker({ editor }: TemplatePickerProps) {
   }, [templates, activeCategory, searchQuery, categories]);
 
   const handleSelect = useCallback(async (tmpl: DbTemplate) => {
+    if (controlledOnSelect) {
+      controlledOnSelect(tmpl);
+      return;
+    }
+
     if (!editor) return;
 
     if (mode === "new" && !subject && tmpl.subject) {
@@ -121,8 +139,10 @@ export function TemplatePicker({ editor }: TemplatePickerProps) {
       await incrementTemplateUsage(tmpl.id);
     }
 
-    setIsOpen(false);
-  }, [editor, mode, subject, setSubject, activeAccountId]);
+    if (!isControlled) {
+      setInternalOpen(false);
+    }
+  }, [editor, mode, subject, setSubject, activeAccountId, controlledOnSelect, isControlled]);
 
   const handleAddCategory = useCallback(async () => {
     if (!activeAccountId || !newCategoryName.trim()) return;
@@ -137,18 +157,20 @@ export function TemplatePicker({ editor }: TemplatePickerProps) {
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1 text-xs text-text-tertiary hover:text-text-secondary transition-colors"
-        title={t("composer.insertTemplate") + " (Ctrl+Shift+T)"}
-      >
-        <FileText size={12} />
-        {t("composer.templates")}
-      </button>
+      {!isControlled && (
+        <button
+          onClick={() => setInternalOpen(true)}
+          className="flex items-center gap-1 text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+          title={t("composer.insertTemplate") + " (Ctrl+Shift+T)"}
+        >
+          <FileText size={12} />
+          {t("composer.templates")}
+        </button>
+      )}
 
       <Modal
         isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
+        onClose={handleClose}
         title={t("composer.insertTemplate")}
         width="w-[520px]"
         panelClassName="max-h-[80vh] flex flex-col"

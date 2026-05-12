@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Mail, Clock, X, Send, Copy, Star, UserPlus, Check, PenLine,
-  Paperclip, Building2, ChevronDown, ChevronRight,
+  Paperclip, Building2, ChevronDown, ChevronRight, Info, Activity, FolderOpen, ChevronDownSquare, ChevronRightSquare,
 } from "lucide-react";
+import { getContactFilesBySender, type ContactFile } from "@/services/db/contactFiles";
 import {
   getContactByEmail, getContactStats, getRecentThreadsWithContact,
   upsertContact, updateContact, updateContactNotes,
@@ -50,6 +51,9 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
   const [addedFeedback, setAddedFeedback] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
+
+  const [activeTab, setActiveTab] = useState<"info" | "activity" | "files">("info");
+  const [vaultFiles, setVaultFiles] = useState<ContactFile[]>([]);
 
   const loadedRef = useRef<string | null>(null);
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -138,7 +142,8 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
       });
     });
 
-    // Load vault files (wired in Phase 4 — vault tab pending)
+    // Load vault files
+    getContactFilesBySender(email).then((files) => { if (!cancelled) setVaultFiles(files); });
 
     return () => { cancelled = true; };
   }, [email, accountId]);
@@ -336,8 +341,46 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
           </button>
         ) : null}
 
-        {/* Stats */}
-        {stats && (
+        {/* Tab Bar */}
+        <div className="flex border-b border-border-primary mb-3">
+          {([
+            { id: "info" as const, icon: Info, label: t('contact.info') },
+            { id: "activity" as const, icon: Activity, label: t('contact.activity') },
+            { id: "files" as const, icon: FolderOpen, label: t('contact.files') },
+          ]).map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+                  isActive
+                    ? "border-accent text-accent"
+                    : "border-transparent text-text-tertiary hover:text-text-secondary"
+                }`}
+              >
+                <Icon size={13} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === "files" ? (
+          <VaultFilesSection vaultFiles={vaultFiles} />
+        ) : activeTab === "activity" ? (
+          <div className="mt-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2">
+              {t('contact.recentActivity')}
+            </h4>
+            <ContactTimeline events={activityEvents} isLoading={activityLoading} />
+          </div>
+        ) : (
+          <>
+            {/* Stats */}
+            {stats && (
           <div className="space-y-2 mb-4">
             <div className="flex items-center gap-2 text-xs text-text-secondary">
               <Mail size={12} className="text-text-tertiary shrink-0" />
@@ -490,14 +533,81 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
           </div>
         )}
 
-        {/* Activity Timeline */}
-        <div className="mt-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2">
-            {t('contact.recentActivity')}
-          </h4>
-          <ContactTimeline events={activityEvents} isLoading={activityLoading} />
-        </div>
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+function VaultFilesSection({ vaultFiles }: { vaultFiles: ContactFile[] }) {
+  const { t } = useTranslation();
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const CATEGORY_FOLDERS = ["Invoices", "Contracts", "Receipts", "General"];
+
+  const toggleCategory = (cat: string) => {
+    setExpandedCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
+  };
+
+  const getCategoryCount = (cat: string): number => {
+    const catLower = cat.toLowerCase();
+    return vaultFiles.filter((f) => f.category === catLower || f.category === cat).length;
+  };
+
+  const getFilesForCategory = (cat: string) => {
+    const catLower = cat.toLowerCase();
+    return vaultFiles.filter((f) => f.category === catLower || f.category === cat);
+  };
+
+  if (vaultFiles.length === 0) {
+    return (
+      <div className="text-xs text-text-tertiary text-center py-6">
+        {t('contact.noVaultFiles')}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      {CATEGORY_FOLDERS.map((cat) => {
+        const count = getCategoryCount(cat);
+        if (count === 0) return null;
+        const isExpanded = expandedCategories[cat] ?? false;
+        const files = getFilesForCategory(cat);
+        return (
+          <div key={cat}>
+            <button
+              onClick={() => toggleCategory(cat)}
+              className="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded hover:bg-bg-hover transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                {isExpanded ? <ChevronDownSquare size={12} /> : <ChevronRightSquare size={12} />}
+                <span className="text-text-primary">{cat}</span>
+              </div>
+              <span className="text-text-tertiary bg-bg-tertiary px-1.5 py-0.5 rounded-full text-[0.625rem]">
+                {count}
+              </span>
+            </button>
+            {isExpanded && (
+              <div className="ml-4 space-y-0.5">
+                {files.map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center gap-2 px-2 py-1 text-xs rounded hover:bg-bg-hover transition-colors"
+                  >
+                    <span className="text-text-tertiary truncate flex-1">{file.original_name}</span>
+                    {file.size != null && (
+                      <span className="text-text-tertiary text-[0.625rem] shrink-0">
+                        {formatFileSize(file.size)}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
