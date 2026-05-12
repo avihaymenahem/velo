@@ -1,4 +1,4 @@
-import { getDb } from "@/services/db/connection";
+import { queryWithRetry } from "@/services/db/connection";
 import type { WorkflowAction } from "./workflowEngine";
 
 export interface TimeBasedRule {
@@ -40,19 +40,20 @@ export function startWorkflowScheduler(): () => void {
 
   schedulerInterval = setInterval(async () => {
     try {
-      const db = await getDb();
       const now = new Date();
-      const rules = await db.select<{
-        id: string;
-        account_id: string;
-        name: string;
-        trigger_event: string;
-        trigger_conditions: string | null;
-        actions: string;
-        is_active: number;
-        created_at: number;
-      }[]>(
-        "SELECT * FROM workflow_rules WHERE trigger_event = 'time_based' AND is_active = 1",
+      const rules = await queryWithRetry(async (db) =>
+        db.select<{
+          id: string;
+          account_id: string;
+          name: string;
+          trigger_event: string;
+          trigger_conditions: string | null;
+          actions: string;
+          is_active: number;
+          created_at: number;
+        }[]>(
+          "SELECT * FROM workflow_rules WHERE trigger_event = 'time_based' AND is_active = 1",
+        ),
       );
 
       for (const rule of rules) {

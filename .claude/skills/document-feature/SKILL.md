@@ -1,7 +1,6 @@
 ---
 name: document-feature
 description: Add help documentation for a new or changed feature. Updates the Help page content, project docs (docs/, CLAUDE.md), and keeps counts accurate.
-argument-hint: [feature description]
 ---
 
 # Document Feature

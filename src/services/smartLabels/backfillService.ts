@@ -1,4 +1,4 @@
-import { getDb } from "@/services/db/connection";
+import { queryWithRetry } from "@/services/db/connection";
 import { matchSmartLabels } from "./smartLabelService";
 import { addThreadLabel } from "@/services/emailActions";
 import type { ParsedMessage } from "@/services/gmail/messageParser";
@@ -24,13 +24,12 @@ export async function backfillSmartLabels(
   accountId: string,
   batchSize = 50,
 ): Promise<number> {
-  const db = await getDb();
   let totalLabeled = 0;
   let offset = 0;
 
   while (true) {
     // Fetch inbox threads with their latest message data
-    const rows = await db.select<BackfillRow[]>(
+    const rows = await queryWithRetry(async (db) => db.select<BackfillRow[]>(
       `SELECT t.id AS thread_id, t.subject, t.snippet,
               m.from_address, m.from_name, m.body_text, m.body_html,
               m.to_addresses, m.has_attachments, m.id
@@ -42,7 +41,7 @@ export async function backfillSmartLabels(
        ORDER BY t.last_message_at DESC
        LIMIT $2 OFFSET $3`,
       [accountId, batchSize, offset],
-    );
+    ));
 
     if (rows.length === 0) break;
 

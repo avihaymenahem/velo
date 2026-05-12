@@ -1,4 +1,4 @@
-import { getDb } from "../db/connection";
+import { queryWithRetry } from "../db/connection";
 import {
   getPendingFollowUpReminders,
   updateFollowUpStatus,
@@ -15,17 +15,17 @@ async function checkFollowUpReminders(): Promise<void> {
   const reminders = await getPendingFollowUpReminders();
   if (reminders.length === 0) return;
 
-  const db = await getDb();
-
   for (const reminder of reminders) {
     // Check if a reply has arrived: any message in the thread from someone
     // other than the account owner, dated after the tracked message
-    const replies = await db.select<{ count: number }[]>(
-      `SELECT COUNT(*) as count FROM messages m
-       WHERE m.account_id = $1 AND m.thread_id = $2
-         AND m.date > (SELECT date FROM messages WHERE id = $3 AND account_id = $1)
-         AND m.from_address != (SELECT email FROM accounts WHERE id = $1)`,
-      [reminder.account_id, reminder.thread_id, reminder.message_id],
+    const replies = await queryWithRetry(async (db) =>
+      db.select<{ count: number }[]>(
+        `SELECT COUNT(*) as count FROM messages m
+         WHERE m.account_id = $1 AND m.thread_id = $2
+           AND m.date > (SELECT date FROM messages WHERE id = $3 AND account_id = $1)
+           AND m.from_address != (SELECT email FROM accounts WHERE id = $1)`,
+        [reminder.account_id, reminder.thread_id, reminder.message_id],
+      ),
     );
 
     if ((replies[0]?.count ?? 0) > 0) {
@@ -36,9 +36,11 @@ async function checkFollowUpReminders(): Promise<void> {
       await updateFollowUpStatus(reminder.id, "triggered");
 
       // Get thread subject for notification
-      const threads = await db.select<{ subject: string | null }[]>(
-        "SELECT subject FROM threads WHERE account_id = $1 AND id = $2",
-        [reminder.account_id, reminder.thread_id],
+      const threads = await queryWithRetry(async (db) =>
+        db.select<{ subject: string | null }[]>(
+          "SELECT subject FROM threads WHERE account_id = $1 AND id = $2",
+          [reminder.account_id, reminder.thread_id],
+        ),
       );
       const subject = threads[0]?.subject ?? "";
 

@@ -1,4 +1,4 @@
-import { getDb, buildDynamicUpdate, selectFirstBy } from "./connection";
+import { getDb, queryWithRetry, buildDynamicUpdate, selectFirstBy } from "./connection";
 
 export interface DbSmartFolder {
   id: string;
@@ -18,16 +18,17 @@ export interface DbSmartFolder {
 export async function getSmartFolders(
   accountId?: string,
 ): Promise<DbSmartFolder[]> {
-  const db = await getDb();
-  if (accountId) {
+  return queryWithRetry(async (db) => {
+    if (accountId) {
+      return db.select<DbSmartFolder[]>(
+        "SELECT * FROM smart_folders WHERE account_id IS NULL OR account_id = $1 ORDER BY sort_order, created_at",
+        [accountId],
+      );
+    }
     return db.select<DbSmartFolder[]>(
-      "SELECT * FROM smart_folders WHERE account_id IS NULL OR account_id = $1 ORDER BY sort_order, created_at",
-      [accountId],
+      "SELECT * FROM smart_folders WHERE account_id IS NULL ORDER BY sort_order, created_at",
     );
-  }
-  return db.select<DbSmartFolder[]>(
-    "SELECT * FROM smart_folders WHERE account_id IS NULL ORDER BY sort_order, created_at",
-  );
+  });
 }
 
 export async function getSmartFolderById(
@@ -46,18 +47,19 @@ export async function insertSmartFolder(folder: {
   icon?: string;
   color?: string;
 }): Promise<string> {
-  const db = await getDb();
   const id = crypto.randomUUID();
-  await db.execute(
-    "INSERT INTO smart_folders (id, account_id, name, query, icon, color) VALUES ($1, $2, $3, $4, $5, $6)",
-    [
-      id,
-      folder.accountId ?? null,
-      folder.name,
-      folder.query,
-      folder.icon ?? "Search",
-      folder.color ?? null,
-    ],
+  await queryWithRetry(async (db) =>
+    db.execute(
+      "INSERT INTO smart_folders (id, account_id, name, query, icon, color) VALUES ($1, $2, $3, $4, $5, $6)",
+      [
+        id,
+        folder.accountId ?? null,
+        folder.name,
+        folder.query,
+        folder.icon ?? "Search",
+        folder.color ?? null,
+      ],
+    ),
   );
   return id;
 }
@@ -75,23 +77,26 @@ export async function updateSmartFolder(
   const built = buildDynamicUpdate("smart_folders", "id", id, fields);
   if (!built) return;
 
-  const db = await getDb();
-  await db.execute(built.sql, built.params);
+  await queryWithRetry(async (db) =>
+    db.execute(built.sql, built.params),
+  );
 }
 
 export async function deleteSmartFolder(id: string): Promise<void> {
-  const db = await getDb();
-  await db.execute("DELETE FROM smart_folders WHERE id = $1", [id]);
+  await queryWithRetry(async (db) =>
+    db.execute("DELETE FROM smart_folders WHERE id = $1", [id]),
+  );
 }
 
 export async function updateSmartFolderSortOrder(
   orders: { id: string; sortOrder: number }[],
 ): Promise<void> {
-  const db = await getDb();
-  for (const { id, sortOrder } of orders) {
-    await db.execute(
-      "UPDATE smart_folders SET sort_order = $1 WHERE id = $2",
-      [sortOrder, id],
-    );
-  }
+  await queryWithRetry(async (db) => {
+    for (const { id, sortOrder } of orders) {
+      await db.execute(
+        "UPDATE smart_folders SET sort_order = $1 WHERE id = $2",
+        [sortOrder, id],
+      );
+    }
+  });
 }

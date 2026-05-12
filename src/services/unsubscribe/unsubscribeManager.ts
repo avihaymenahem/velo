@@ -1,4 +1,4 @@
-import { queryWithRetry } from "../db/connection";
+import { queryWithRetry, getDb } from "../db/connection";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { fetch } from "@tauri-apps/plugin-http";
 import { getCurrentUnixTimestamp } from "@/utils/timestamp";
@@ -215,40 +215,4 @@ export async function getUnsubscribeStatus(
   });
 }
 
-/**
- * Get all detectable newsletter/promo subscriptions for an account.
- */
-export async function getSubscriptions(accountId: string): Promise<SubscriptionEntry[]> {
-  const db = await getDb();
-  return db.select<SubscriptionEntry[]>(
-    `SELECT
-       m.from_address,
-       MAX(m.from_name) as from_name,
-       MAX(m.list_unsubscribe) as latest_unsubscribe_header,
-       MAX(m.list_unsubscribe_post) as latest_unsubscribe_post,
-       COUNT(*) as message_count,
-       MAX(m.date) as latest_date,
-       ua.status
-     FROM messages m
-     LEFT JOIN unsubscribe_actions ua ON ua.account_id = m.account_id AND ua.from_address = LOWER(m.from_address)
-     WHERE m.account_id = $1 AND m.list_unsubscribe IS NOT NULL
-     GROUP BY LOWER(m.from_address)
-     ORDER BY MAX(m.date) DESC`,
-    [accountId],
-  );
-}
 
-/**
- * Get unsubscribe status for a specific sender.
- */
-export async function getUnsubscribeStatus(
-  accountId: string,
-  fromAddress: string,
-): Promise<string | null> {
-  const db = await getDb();
-  const rows = await db.select<{ status: string }[]>(
-    "SELECT status FROM unsubscribe_actions WHERE account_id = $1 AND from_address = $2",
-    [accountId, normalizeEmail(fromAddress)],
-  );
-  return rows[0]?.status ?? null;
-}

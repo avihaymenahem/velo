@@ -11,7 +11,7 @@ import {
 import { executeQueuedAction } from "../emailActions";
 import { getEmailProvider } from "@/services/email/providerFactory";
 import { getContactById } from "@/services/db/contacts";
-import { getDb } from "@/services/db/connection";
+import { queryWithRetry } from "@/services/db/connection";
 import { interpolateVariables } from "@/utils/templateVariables";
 import { classifyError } from "@/utils/networkErrors";
 
@@ -43,10 +43,11 @@ async function processSendCampaignEmail(
   let subject = "";
   let bodyHtml = "";
   if (templateId) {
-    const db = await getDb();
-    const rows = await db.select<{ subject: string | null; body_html: string }[]>(
-      "SELECT subject, body_html FROM templates WHERE id = $1",
-      [templateId],
+    const rows = await queryWithRetry(async (db) =>
+      db.select<{ subject: string | null; body_html: string }[]>(
+        "SELECT subject, body_html FROM templates WHERE id = $1",
+        [templateId],
+      ),
     );
     const tmpl = rows[0];
     if (tmpl) {

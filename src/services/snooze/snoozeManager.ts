@@ -1,4 +1,4 @@
-import { getDb } from "../db/connection";
+import { queryWithRetry } from "../db/connection";
 import { withTransaction } from "../db/connection";
 import { getCurrentUnixTimestamp } from "@/utils/timestamp";
 import { createBackgroundChecker } from "../backgroundCheckers";
@@ -8,15 +8,14 @@ import { createBackgroundChecker } from "../backgroundCheckers";
  * Moves them back to INBOX.
  */
 async function checkSnoozedThreads(): Promise<void> {
-  const db = await getDb();
   const now = getCurrentUnixTimestamp();
 
   // Find threads where snooze time has passed
-  const snoozed = await db.select<
-    { id: string; account_id: string }[]
-  >(
-    "SELECT id, account_id FROM threads WHERE is_snoozed = 1 AND snooze_until <= $1",
-    [now],
+  const snoozed = await queryWithRetry(async (db) =>
+    db.select<{ id: string; account_id: string }[]>(
+      "SELECT id, account_id FROM threads WHERE is_snoozed = 1 AND snooze_until <= $1",
+      [now],
+    ),
   );
 
   if (snoozed.length > 0) {

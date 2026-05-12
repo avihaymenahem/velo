@@ -31,6 +31,12 @@ vi.mock("@/services/db/connection", () => ({
       select: vi.fn(() => Promise.resolve([])),
     }),
   ),
+  queryWithRetry: vi.fn((fn) =>
+    fn({
+      execute: vi.fn(() => Promise.resolve()),
+      select: vi.fn(() => Promise.resolve([])),
+    }),
+  ),
 }));
 
 vi.mock("@/router/navigate", () => ({

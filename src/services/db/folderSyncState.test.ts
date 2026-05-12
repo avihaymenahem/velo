@@ -9,13 +9,20 @@ import {
 const mockExecute = vi.fn();
 const mockSelect = vi.fn();
 
-vi.mock("./connection", () => ({
-  getDb: vi.fn(() => ({
-    execute: (...args: unknown[]) => mockExecute(...args),
-    select: (...args: unknown[]) => mockSelect(...args),
-  })),
-  selectFirstBy: vi.fn(),
-}));
+const mockDb = {
+  execute: vi.fn(),
+  select: vi.fn(),
+};
+
+vi.mock("./connection", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./connection")>();
+  return {
+    ...actual,
+    getDb: vi.fn(() => Promise.resolve(mockDb)),
+    selectFirstBy: vi.fn(),
+    queryWithRetry: vi.fn((fn: (db: typeof mockDb) => unknown) => fn(mockDb)),
+  };
+});
 
 import { selectFirstBy } from "./connection";
 

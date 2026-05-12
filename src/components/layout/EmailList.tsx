@@ -21,7 +21,7 @@ import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { getMessagesForThread } from "@/services/db/messages";
 import { getSmartFolderSearchQuery, mapSmartFolderRows, type SmartFolderRow } from "@/services/search/smartFolderQuery";
-import { getDb } from "@/services/db/connection";
+
 import { Archive, Trash2, X, Ban, Filter, ChevronRight, Package, FolderSearch } from "lucide-react";
 import { EmptyState } from "../ui/EmptyState";
 import {
@@ -277,8 +277,10 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
           activeAccountId,
           PAGE_SIZE,
         );
-        const db = await getDb();
-        const rows = await db.select<SmartFolderRow[]>(sql, params);
+        const rows = await (async () => {
+          const { queryWithRetry } = await import("@/services/db/connection");
+          return queryWithRetry(async (db) => db.select<SmartFolderRow[]>(sql, params));
+        })();
         const mapped = await mapSmartFolderRows(rows);
         setThreads(mapped);
         setHasMore(false); // Smart folders load all at once

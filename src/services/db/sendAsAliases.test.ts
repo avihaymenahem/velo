@@ -9,6 +9,7 @@ vi.mock("@/services/db/connection", async (importOriginal) => {
   return {
     ...actual,
     getDb: mockGetDb,
+    queryWithRetry: vi.fn((fn: (db: typeof mockDb) => unknown) => fn(mockDb)),
     selectFirstBy: async (query: string, params: unknown[] = []) => {
       const db = await mockGetDb();
       const rows = await db.select(query, params);

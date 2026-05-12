@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import { Search, CheckSquare, Square, Users } from "lucide-react";
-import { getDb } from "@/services/db/connection";
 
 interface Contact {
   id: string;
@@ -23,10 +22,12 @@ export function CampaignRecipientPicker({ accountId, selectedIds, onChange }: Ca
     let cancelled = false;
     async function load() {
       try {
-        const db = await getDb();
-        const rows = await db.select<Contact[]>(
-          "SELECT id, name, email FROM contacts WHERE account_id = $1 ORDER BY name ASC",
-          [accountId],
+        const { queryWithRetry } = await import("@/services/db/connection");
+        const rows = await queryWithRetry(async (db) =>
+          db.select<Contact[]>(
+            "SELECT id, name, email FROM contacts WHERE account_id = $1 ORDER BY name ASC",
+            [accountId],
+          ),
         );
         if (!cancelled) setContacts(rows);
       } catch (err) {

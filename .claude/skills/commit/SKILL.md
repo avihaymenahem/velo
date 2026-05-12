@@ -1,7 +1,6 @@
 ---
 name: commit
 description: Create a conventional commit and push to the current branch. Ensures commit messages follow the Conventional Commits spec for automatic versioning with release-please.
-argument-hint: [optional commit description]
 ---
 
 # Conventional Commit

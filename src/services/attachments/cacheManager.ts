@@ -1,4 +1,4 @@
-import { getDb } from "@/services/db/connection";
+import { queryWithRetry } from "@/services/db/connection";
 import { getSetting } from "@/services/db/settings";
 
 const CACHE_DIR = "attachment_cache";
@@ -37,10 +37,11 @@ export async function cacheAttachment(
     await fsWriteFile(relPath, data, { baseDir });
 
     // Update DB — store relative path under AppData
-    const db = await getDb();
-    await db.execute(
-      "UPDATE attachments SET local_path = $1, cached_at = unixepoch(), cache_size = $2 WHERE id = $3",
-      [relPath, data.length, attachmentId],
+    await queryWithRetry(async (db) =>
+      db.execute(
+        "UPDATE attachments SET local_path = $1, cached_at = unixepoch(), cache_size = $2 WHERE id = $3",
+        [relPath, data.length, attachmentId],
+      ),
     );
 
     return relPath;
@@ -62,9 +63,10 @@ export async function loadCachedAttachment(
 }
 
 export async function getCacheSize(): Promise<number> {
-  const db = await getDb();
-  const rows = await db.select<{ total: number }[]>(
-    "SELECT COALESCE(SUM(cache_size), 0) as total FROM attachments WHERE cached_at IS NOT NULL",
+  const rows = await queryWithRetry(async (db) =>
+    db.select<{ total: number }[]>(
+      "SELECT COALESCE(SUM(cache_size), 0) as total FROM attachments WHERE cached_at IS NOT NULL",
+    ),
   );
   return rows[0]?.total ?? 0;
 }
@@ -76,13 +78,14 @@ export async function evictOldestCached(): Promise<void> {
 
   if (currentSize <= maxBytes) return;
 
-  const db = await getDb();
   const excess = currentSize - maxBytes;
   let freed = 0;
 
   // Get oldest cached attachments
-  const rows = await db.select<{ id: string; local_path: string; cache_size: number }[]>(
-    "SELECT id, local_path, cache_size FROM attachments WHERE cached_at IS NOT NULL ORDER BY cached_at ASC LIMIT 100",
+  const rows = await queryWithRetry(async (db) =>
+    db.select<{ id: string; local_path: string; cache_size: number }[]>(
+      "SELECT id, local_path, cache_size FROM attachments WHERE cached_at IS NOT NULL ORDER BY cached_at ASC LIMIT 100",
+    ),
   );
 
   for (const row of rows) {
@@ -95,9 +98,11 @@ export async function evictOldestCached(): Promise<void> {
       // file may not exist
     }
 
-    await db.execute(
-      "UPDATE attachments SET local_path = NULL, cached_at = NULL, cache_size = NULL WHERE id = $1",
-      [row.id],
+    await queryWithRetry(async (db) =>
+      db.execute(
+        "UPDATE attachments SET local_path = NULL, cached_at = NULL, cache_size = NULL WHERE id = $1",
+        [row.id],
+      ),
     );
 
     freed += row.cache_size;
@@ -116,8 +121,9 @@ export async function clearAllCache(): Promise<void> {
     // ignore
   }
 
-  const db = await getDb();
-  await db.execute(
-    "UPDATE attachments SET local_path = NULL, cached_at = NULL, cache_size = NULL WHERE cached_at IS NOT NULL",
+  await queryWithRetry(async (db) =>
+    db.execute(
+      "UPDATE attachments SET local_path = NULL, cached_at = NULL, cache_size = NULL WHERE cached_at IS NOT NULL",
+    ),
   );
 }

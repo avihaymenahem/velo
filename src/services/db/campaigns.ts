@@ -1,4 +1,4 @@
-import { getDb, selectFirstBy } from "./connection";
+import { queryWithRetry, selectFirstBy } from "./connection";
 
 export interface DbCampaign {
   id: string;
@@ -13,10 +13,11 @@ export interface DbCampaign {
 }
 
 export async function getCampaigns(accountId: string): Promise<DbCampaign[]> {
-  const db = await getDb();
-  return db.select<DbCampaign[]>(
-    "SELECT * FROM campaigns WHERE account_id = $1 ORDER BY created_at DESC",
-    [accountId],
+  return queryWithRetry(async (db) =>
+    db.select<DbCampaign[]>(
+      "SELECT * FROM campaigns WHERE account_id = $1 ORDER BY created_at DESC",
+      [accountId],
+    )
   );
 }
 
@@ -33,13 +34,14 @@ export async function createCampaign(
   templateId?: string,
   segmentId?: string,
 ): Promise<string> {
-  const db = await getDb();
   const id = crypto.randomUUID();
-  await db.execute(
-    `INSERT INTO campaigns (id, account_id, name, template_id, segment_id)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [id, accountId, name, templateId ?? null, segmentId ?? null],
-  );
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      `INSERT INTO campaigns (id, account_id, name, template_id, segment_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, accountId, name, templateId ?? null, segmentId ?? null],
+    );
+  });
   return id;
 }
 
@@ -47,23 +49,26 @@ export async function updateCampaignStatus(
   id: string,
   status: string,
 ): Promise<void> {
-  const db = await getDb();
-  const now = Math.floor(Date.now() / 1000);
-  await db.execute(
-    "UPDATE campaigns SET status = $1, sent_at = CASE WHEN $2 = 'sent' THEN $3 ELSE sent_at END WHERE id = $4",
-    [status, status, now, id],
-  );
+  await queryWithRetry(async (db) => {
+    const now = Math.floor(Date.now() / 1000);
+    await db.execute(
+      "UPDATE campaigns SET status = $1, sent_at = CASE WHEN $2 = 'sent' THEN $3 ELSE sent_at END WHERE id = $4",
+      [status, status, now, id],
+    );
+  });
 }
 
 export async function incrementSentCount(id: string): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    "UPDATE campaigns SET sent_count = sent_count + 1 WHERE id = $1",
-    [id],
-  );
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      "UPDATE campaigns SET sent_count = sent_count + 1 WHERE id = $1",
+      [id],
+    );
+  });
 }
 
 export async function deleteCampaign(id: string): Promise<void> {
-  const db = await getDb();
-  await db.execute("DELETE FROM campaigns WHERE id = $1", [id]);
+  await queryWithRetry(async (db) => {
+    await db.execute("DELETE FROM campaigns WHERE id = $1", [id]);
+  });
 }

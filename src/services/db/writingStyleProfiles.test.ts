@@ -5,18 +5,22 @@ import {
 } from "./writingStyleProfiles";
 import { getDb } from "./connection";
 
-vi.mock("./connection", () => ({
-  getDb: vi.fn(),
-}));
-
 const mockDb = {
   select: vi.fn(),
   execute: vi.fn(),
 };
 
+vi.mock("./connection", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./connection")>();
+  return {
+    ...actual,
+    getDb: vi.fn(() => Promise.resolve(mockDb)),
+    queryWithRetry: vi.fn((fn: (db: typeof mockDb) => unknown) => fn(mockDb)),
+  };
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getDb).mockResolvedValue(mockDb as never);
 });
 
 describe("writingStyleProfiles", () => {

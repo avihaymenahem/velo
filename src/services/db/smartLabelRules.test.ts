@@ -1,18 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { mockGetDb } = vi.hoisted(() => ({
-  mockGetDb: vi.fn(),
-}));
-
-vi.mock("@/services/db/connection", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/services/db/connection")>();
-  return {
-    ...actual,
-    getDb: mockGetDb,
-    buildDynamicUpdate: vi.fn(),
-  };
-});
-
 import { getDb, buildDynamicUpdate } from "@/services/db/connection";
 import {
   getSmartLabelRulesForAccount,
@@ -25,12 +12,19 @@ import { createMockDb } from "@/test/mocks";
 
 const mockDb = createMockDb();
 
+vi.mock("@/services/db/connection", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/db/connection")>();
+  return {
+    ...actual,
+    getDb: vi.fn(() => Promise.resolve(mockDb)),
+    buildDynamicUpdate: vi.fn(),
+    queryWithRetry: vi.fn((fn: (db: typeof mockDb) => unknown) => fn(mockDb)),
+  };
+});
+
 describe("smartLabelRules service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getDb).mockResolvedValue(
-      mockDb as unknown as Awaited<ReturnType<typeof getDb>>,
-    );
   });
 
   describe("getSmartLabelRulesForAccount", () => {

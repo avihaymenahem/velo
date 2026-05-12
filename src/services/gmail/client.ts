@@ -1,5 +1,5 @@
 import { refreshAccessToken, type TokenResponse } from "./auth";
-import { getDb } from "../db/connection";
+import { queryWithRetry } from "../db/connection";
 import { encryptValue } from "@/utils/crypto";
 import { getCurrentUnixTimestamp } from "@/utils/timestamp";
 
@@ -61,11 +61,12 @@ export class GmailClient {
     };
 
     // Persist the new token (encrypted)
-    const db = await getDb();
     const encAccessToken = await encryptValue(tokens.access_token);
-    await db.execute(
-      "UPDATE accounts SET access_token = $1, token_expires_at = $2, updated_at = unixepoch() WHERE id = $3",
-      [encAccessToken, expiresAt, this.accountId],
+    await queryWithRetry(async (db) =>
+      db.execute(
+        "UPDATE accounts SET access_token = $1, token_expires_at = $2, updated_at = unixepoch() WHERE id = $3",
+        [encAccessToken, expiresAt, this.accountId],
+      ),
     );
   }
 

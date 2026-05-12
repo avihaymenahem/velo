@@ -1,13 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-vi.mock("@/services/db/connection", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/services/db/connection")>();
-  return {
-    ...actual,
-    getDb: vi.fn(),
-  };
-});
-
 import { getDb } from "@/services/db/connection";
 import {
   upsertLocalDraft,
@@ -20,12 +12,18 @@ import { createMockDb } from "@/test/mocks";
 
 const mockDb = createMockDb();
 
+vi.mock("@/services/db/connection", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/db/connection")>();
+  return {
+    ...actual,
+    getDb: vi.fn(() => Promise.resolve(mockDb)),
+    queryWithRetry: vi.fn((fn: (db: typeof mockDb) => unknown) => fn(mockDb)),
+  };
+});
+
 describe("localDrafts DB service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getDb).mockResolvedValue(
-      mockDb as unknown as Awaited<ReturnType<typeof getDb>>,
-    );
   });
 
   describe("upsertLocalDraft", () => {

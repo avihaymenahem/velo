@@ -7,7 +7,6 @@ import {
   type DbSmartFolder,
 } from "@/services/db/smartFolders";
 import { getSmartFolderUnreadCount } from "@/services/search/smartFolderQuery";
-import { getDb } from "@/services/db/connection";
 
 export interface SmartFolder {
   id: string;
@@ -117,14 +116,16 @@ export const useSmartFolderStore = create<SmartFolderState>((set, get) => ({
     const counts: Record<string, number> = {};
 
     try {
-      const db = await getDb();
       for (const folder of folders) {
         try {
           const { sql, params } = getSmartFolderUnreadCount(
             folder.query,
             accountId,
           );
-          const rows = await db.select<{ count: number }[]>(sql, params);
+          const rows = await (async () => {
+            const { queryWithRetry } = await import("@/services/db/connection");
+            return queryWithRetry(async (db) => db.select<{ count: number }[]>(sql, params));
+          })();
           counts[folder.id] = rows[0]?.count ?? 0;
         } catch {
           counts[folder.id] = 0;

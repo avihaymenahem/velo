@@ -1,4 +1,4 @@
-import { getDb, buildDynamicUpdate, boolToInt } from "./connection";
+import { queryWithRetry, buildDynamicUpdate, boolToInt } from "./connection";
 import type { QuickStepAction } from "../quickSteps/types";
 
 export interface DbQuickStep {
@@ -18,20 +18,22 @@ export interface DbQuickStep {
 export async function getQuickStepsForAccount(
   accountId: string,
 ): Promise<DbQuickStep[]> {
-  const db = await getDb();
-  return db.select<DbQuickStep[]>(
-    "SELECT * FROM quick_steps WHERE account_id = $1 ORDER BY sort_order, created_at",
-    [accountId],
+  return queryWithRetry(async (db) =>
+    db.select<DbQuickStep[]>(
+      "SELECT * FROM quick_steps WHERE account_id = $1 ORDER BY sort_order, created_at",
+      [accountId],
+    ),
   );
 }
 
 export async function getEnabledQuickStepsForAccount(
   accountId: string,
 ): Promise<DbQuickStep[]> {
-  const db = await getDb();
-  return db.select<DbQuickStep[]>(
-    "SELECT * FROM quick_steps WHERE account_id = $1 AND is_enabled = 1 ORDER BY sort_order, created_at",
-    [accountId],
+  return queryWithRetry(async (db) =>
+    db.select<DbQuickStep[]>(
+      "SELECT * FROM quick_steps WHERE account_id = $1 AND is_enabled = 1 ORDER BY sort_order, created_at",
+      [accountId],
+    ),
   );
 }
 
@@ -45,23 +47,24 @@ export async function insertQuickStep(step: {
   isEnabled?: boolean;
   continueOnError?: boolean;
 }): Promise<string> {
-  const db = await getDb();
-  const id = crypto.randomUUID();
-  await db.execute(
-    "INSERT INTO quick_steps (id, account_id, name, description, shortcut, actions_json, icon, is_enabled, continue_on_error) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-    [
-      id,
-      step.accountId,
-      step.name,
-      step.description ?? null,
-      step.shortcut ?? null,
-      JSON.stringify(step.actions),
-      step.icon ?? null,
-      boolToInt(step.isEnabled !== false),
-      boolToInt(step.continueOnError),
-    ],
-  );
-  return id;
+  return queryWithRetry(async (db) => {
+    const id = crypto.randomUUID();
+    await db.execute(
+      "INSERT INTO quick_steps (id, account_id, name, description, shortcut, actions_json, icon, is_enabled, continue_on_error) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+      [
+        id,
+        step.accountId,
+        step.name,
+        step.description ?? null,
+        step.shortcut ?? null,
+        JSON.stringify(step.actions),
+        step.icon ?? null,
+        boolToInt(step.isEnabled !== false),
+        boolToInt(step.continueOnError),
+      ],
+    );
+    return id;
+  });
 }
 
 export async function updateQuickStep(
@@ -76,36 +79,39 @@ export async function updateQuickStep(
     continueOnError?: boolean;
   },
 ): Promise<void> {
-  const db = await getDb();
-  const fields: [string, unknown][] = [];
-  if (updates.name !== undefined) fields.push(["name", updates.name]);
-  if (updates.description !== undefined) fields.push(["description", updates.description]);
-  if (updates.shortcut !== undefined) fields.push(["shortcut", updates.shortcut]);
-  if (updates.actions !== undefined) fields.push(["actions_json", JSON.stringify(updates.actions)]);
-  if (updates.icon !== undefined) fields.push(["icon", updates.icon]);
-  if (updates.isEnabled !== undefined) fields.push(["is_enabled", boolToInt(updates.isEnabled)]);
-  if (updates.continueOnError !== undefined) fields.push(["continue_on_error", boolToInt(updates.continueOnError)]);
+  return queryWithRetry(async (db) => {
+    const fields: [string, unknown][] = [];
+    if (updates.name !== undefined) fields.push(["name", updates.name]);
+    if (updates.description !== undefined) fields.push(["description", updates.description]);
+    if (updates.shortcut !== undefined) fields.push(["shortcut", updates.shortcut]);
+    if (updates.actions !== undefined) fields.push(["actions_json", JSON.stringify(updates.actions)]);
+    if (updates.icon !== undefined) fields.push(["icon", updates.icon]);
+    if (updates.isEnabled !== undefined) fields.push(["is_enabled", boolToInt(updates.isEnabled)]);
+    if (updates.continueOnError !== undefined) fields.push(["continue_on_error", boolToInt(updates.continueOnError)]);
 
-  const query = buildDynamicUpdate("quick_steps", "id", id, fields);
-  if (query) {
-    await db.execute(query.sql, query.params);
-  }
+    const query = buildDynamicUpdate("quick_steps", "id", id, fields);
+    if (query) {
+      await db.execute(query.sql, query.params);
+    }
+  });
 }
 
 export async function deleteQuickStep(id: string): Promise<void> {
-  const db = await getDb();
-  await db.execute("DELETE FROM quick_steps WHERE id = $1", [id]);
+  await queryWithRetry(async (db) =>
+    db.execute("DELETE FROM quick_steps WHERE id = $1", [id]),
+  );
 }
 
 export async function reorderQuickSteps(
   accountId: string,
   orderedIds: string[],
 ): Promise<void> {
-  const db = await getDb();
-  for (let i = 0; i < orderedIds.length; i++) {
-    await db.execute(
-      "UPDATE quick_steps SET sort_order = $1 WHERE id = $2 AND account_id = $3",
-      [i, orderedIds[i], accountId],
-    );
-  }
+  return queryWithRetry(async (db) => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await db.execute(
+        "UPDATE quick_steps SET sort_order = $1 WHERE id = $2 AND account_id = $3",
+        [i, orderedIds[i], accountId],
+      );
+    }
+  });
 }

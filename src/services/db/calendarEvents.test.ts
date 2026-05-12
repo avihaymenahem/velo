@@ -1,14 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-vi.mock("@/services/db/connection", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/services/db/connection")>();
-  return {
-    ...actual,
-    getDb: vi.fn(),
-    selectFirstBy: vi.fn(),
-  };
-});
-
 import { getDb, selectFirstBy } from "@/services/db/connection";
 import {
   upsertCalendarEvent,
@@ -23,6 +14,16 @@ import {
 import { createMockDb } from "@/test/mocks";
 
 const mockDb = createMockDb();
+
+vi.mock("@/services/db/connection", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/db/connection")>();
+  return {
+    ...actual,
+    getDb: vi.fn(() => Promise.resolve(mockDb)),
+    selectFirstBy: vi.fn(),
+    queryWithRetry: vi.fn((fn: (db: typeof mockDb) => unknown) => fn(mockDb)),
+  };
+});
 
 const makeEvent = (overrides: Partial<DbCalendarEvent> = {}): DbCalendarEvent => ({
   id: "evt-1",

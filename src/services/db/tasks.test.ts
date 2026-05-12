@@ -16,18 +16,22 @@ import {
 } from "./tasks";
 import { getDb } from "./connection";
 
-vi.mock("./connection", () => ({
-  getDb: vi.fn(),
-}));
-
 const mockDb = {
-  select: vi.fn(),
-  execute: vi.fn(),
+  select: vi.fn(() => Promise.resolve([])),
+  execute: vi.fn(() => Promise.resolve({ rowsAffected: 1 })),
 };
+
+vi.mock("./connection", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./connection")>();
+  return {
+    ...actual,
+    getDb: vi.fn(() => Promise.resolve(mockDb)),
+    queryWithRetry: vi.fn((fn: (db: typeof mockDb) => unknown) => fn(mockDb)),
+  };
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getDb).mockResolvedValue(mockDb as never);
 });
 
 describe("tasks DB service", () => {
