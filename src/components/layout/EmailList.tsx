@@ -18,6 +18,7 @@ import { navigateToThread, navigateToLabel } from "@/router/navigate";
 import {
   getThreadsForAccount,
   getThreadsForCategory,
+  getThreadById,
   getThreadLabelIds,
   getThreadIdsForLabel,
   deleteThread as deleteThreadFromDb,
@@ -481,14 +482,51 @@ const selectThread = useThreadStore((s) => s.selectThread);
 
   const clearSearch = useThreadStore((s) => s.clearSearch);
 
-  const handleCitationClick = useCallback((threadId: string, messageId?: string) => {
+  const threadMap = useThreadStore((s) => s.threadMap);
+  const addThreads = useThreadStore((s) => s.addThreads);
+
+  const handleCitationClick = useCallback(async (threadId: string, messageId?: string) => {
+    if (!activeAccountId) return;
+
+    // Ensure thread is in store so it shows up in the list and can be highlighted
+    if (!threadMap.has(threadId)) {
+      try {
+        const dbThread = await getThreadById(activeAccountId, threadId);
+        if (dbThread) {
+          const labelIds = await getThreadLabelIds(activeAccountId, threadId);
+          const mapped: Thread = {
+            id: dbThread.id,
+            accountId: dbThread.account_id,
+            subject: dbThread.subject,
+            snippet: dbThread.snippet,
+            lastMessageAt: dbThread.last_message_at ?? 0,
+            messageCount: dbThread.message_count,
+            isRead: dbThread.is_read === 1,
+            isStarred: dbThread.is_starred === 1,
+            isPinned: dbThread.is_pinned === 1,
+            isMuted: dbThread.is_muted === 1,
+            hasAttachments: dbThread.has_attachments === 1,
+            labelIds,
+            fromName: dbThread.from_name,
+            fromAddress: dbThread.from_address,
+            urgencyScore: dbThread.urgency_score ?? 0,
+            sentimentScore: dbThread.sentiment_score ?? 0,
+            isHeatExtinguished: dbThread.is_heat_extinguished === 1,
+          };
+          addThreads([mapped]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch thread for citation click:", err);
+      }
+    }
+
     selectThread(threadId);
     clearMultiSelect();
     navigateToThread(threadId);
     if (messageId) {
       setSelectedMessageId(messageId);
     }
-  }, [selectThread, clearMultiSelect, setSelectedMessageId]);
+  }, [activeAccountId, threadMap, addThreads, selectThread, clearMultiSelect, setSelectedMessageId]);
 
   const loadThreads = useCallback(async (keepSearch = false) => {
     if (!activeAccountId) {

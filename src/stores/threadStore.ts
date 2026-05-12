@@ -43,6 +43,7 @@ interface ThreadState {
   removeThreads: (ids: string[]) => void;
   setSearch: (query: string, threadIds: Set<string> | null) => void;
   clearSearch: () => void;
+  addThreads: (newThreads: Thread[]) => void;
 }
 
 export const useThreadStore = create<ThreadState>((set, get) => ({
@@ -141,4 +142,21 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
     }),
   setSearch: (query, threadIds) => set({ searchQuery: query, searchThreadIds: threadIds }),
   clearSearch: () => set({ searchQuery: "", searchThreadIds: null }),
+  addThreads: (newThreads) =>
+    set((state) => {
+      const existingIds = new Set(state.threads.map((t) => t.id));
+      const filteredNew = newThreads.filter((t) => !existingIds.has(t.id));
+
+      const threads = [...filteredNew, ...state.threads];
+      const threadMap = new Map(state.threadMap);
+      for (const t of filteredNew) threadMap.set(t.id, t);
+
+      let searchThreadIds = state.searchThreadIds;
+      if (searchThreadIds) {
+        searchThreadIds = new Set(searchThreadIds);
+        for (const t of newThreads) searchThreadIds.add(t.id);
+      }
+
+      return { threads, threadMap, searchThreadIds };
+    }),
 }));
