@@ -41,3 +41,44 @@ pub fn clear(account_id: &str) {
         map.remove(account_id);
     }
 }
+
+#[cfg(test)]
+pub fn store_with_ttl(account_id: &str, passphrase: &str, ttl: Duration) {
+    if let Ok(mut map) = cache().lock() {
+        map.insert(
+            account_id.to_string(),
+            CacheEntry {
+                passphrase: passphrase.to_string(),
+                expiry: Instant::now() + ttl,
+            },
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_store_and_retrieve() {
+        store("test-account", "my-passphrase");
+        let result = get("test-account");
+        assert_eq!(result, Some("my-passphrase".to_string()));
+    }
+
+    #[test]
+    fn test_clear() {
+        store("test-account", "my-passphrase");
+        clear("test-account");
+        let result = get("test-account");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_expiry() {
+        store_with_ttl("test-account", "my-passphrase", Duration::from_secs(0));
+        let result = get("test-account");
+        assert_eq!(result, None);
+    }
+}

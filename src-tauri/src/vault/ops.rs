@@ -40,3 +40,26 @@ pub fn list_vault_dir(dir_path: String) -> Result<Vec<String>, String> {
     }
     Ok(files)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_copy_to_vault_and_delete() {
+        let dir = tempfile::TempDir::new().unwrap();
+
+        let source = dir.path().join("source.txt");
+        std::fs::write(&source, "hello world").unwrap();
+
+        let dest = dir.path().join("vault").join("file.txt");
+        let dest_str = dest.to_str().unwrap().to_string();
+
+        copy_to_vault(source.to_str().unwrap().to_string(), dest_str.clone()).unwrap();
+        assert!(dest.exists(), "File should exist in vault after copy");
+
+        delete_from_vault(dest_str).unwrap();
+        assert!(!dest.exists(), "File should be gone after delete");
+    }
+}

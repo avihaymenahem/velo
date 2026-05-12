@@ -6,7 +6,7 @@
 
 ## Current State (v0.4.21)
 
-### Completed Features — All 6 Phases
+### Feature Phases
 
 | Phase | Feature | Status | Key Files |
 |-------|---------|--------|-----------|
@@ -16,6 +16,9 @@
 | **P4** | Attachment Vault | ✅ | `src-tauri/src/vault/{ops,pdf}.rs`, `contactFiles.ts`, `vaultService.ts`, `vaultCategorizer.ts` |
 | **P5** | Backup & Export | ✅ | `src-tauri/src/export/{types,mbox,scheduler}.rs`, `exportService.ts`, `ExportDialog.tsx`, `BackupSchedulerSettings.tsx` |
 | **P6** | Vault Integration | ✅ | `search.ts` (unified FTS5), `BusinessDashboard.tsx`, `/business` route, sidebar nav |
+| **P7** | Rust Backend Testing & Polish | 🔄 In Progress | `src-tauri/src/pgp/{crypto,cache}.rs`, `src-tauri/src/export/mbox.rs`, `src-tauri/src/vault/ops.rs` |
+| **P8** | UI Polish & Integration | 🔄 In Progress | `ContactSidebar.tsx`, `Composer.tsx`, `TemplatePicker.tsx`, `EncryptedMessageBanner.tsx` |
+| **P10** | Unified Sync Engine | 🔄 In Progress | `src/services/email/providerFactory.ts`, `syncManager.ts`, `autoDiscovery.ts` |
 
 ### Previously Built
 
@@ -58,17 +61,15 @@
 2. **Rust `cargo build`** — Local MinGW/dlltool issues on this machine. Code is structurally correct (passes `tsc --noEmit` + `vitest`). Fix by installing proper MSVC toolchain.
 3. **ContactSidebar vault files tab** — State hooks (`activeTab`, `vaultFiles`) were removed from `ContactSidebar.tsx` to pass typecheck. Re-add when vault tab UI is fully wired.
 4. **Composer.tsx TemplatePicker wiring** — `onToggleTemplatePicker` prop ready on `EditorToolbar` but Composer needs to pass the prop and render `TemplatePicker` modal.
-5. **Rust PGP `decrypt_message`** — Uses `DecryptorBuilder` with `DecryptionHelper`/`VerificationHelper` trait impls. May need PKESK handling fixes for real-world PGP messages.
+5. **Rust PGP `decrypt_message`** — DecryptionHelper now correctly iterates PKESK packets with each keypair. Fixed in `crypto.rs:.118-140`.
 6. **Rust export scheduler** — `tokio::spawn` scheduler not started from `setup()` yet. Need to wire in `lib.rs` `Builder::default().setup()`.
 
 ### Testing Gaps
 
 Per the testing strategy in this doc, the following tests still need writing:
-- `decrypt_message` Rust unit test
 - `evaluateRules` / `detectJurisdiction` pure TS tests
 - `evaluateConditionalBlocks` TS test
 - `categorizeByFilename` TS test
-- `append_to_mbox` Rust test
 - `ExportDialog` wizard step vitest
 - `unifiedSearch` integration test
 - `CompliancePanel` vitest
@@ -131,18 +132,88 @@ Every feature works offline except AI-enhanced compliance (skipped gracefully) a
 
 ## Testing Strategy (Remaining)
 
-| Feature | Approach |
-|---------|----------|
-| Decrypt message | Rust unit test: encrypt → decrypt → assert match |
-| Passphrase cache | Rust unit test: cache → retrieve → expire → miss |
-| `evaluateRules` | Pure TS unit test: feed known inputs, assert violations |
-| `detectJurisdiction` | Pure TS unit test: TLD mapping correctness |
-| `CompliancePanel` | Vitest: render with score, verify color class |
-| `evaluateConditionalBlocks` | Pure TS unit test |
-| Template picker | Vitest: render categories, filter by search |
-| `categorizeByFilename` | Pure TS unit test |
-| Vault Rust ops | Rust integration test: copy file, verify path, delete |
-| MBOX append | Rust unit test: write 2 messages, verify file format |
-| `unifiedSearch` | Integration test with seeded DB |
+| Feature | Approach | Status |
+|---------|----------|--------|
+| Decrypt message | Rust unit test: encrypt → decrypt → assert match | ✅ Done |
+| Passphrase cache | Rust unit test: cache → retrieve → expire → miss | ✅ Done |
+| `evaluateRules` | Pure TS unit test: feed known inputs, assert violations | |
+| `detectJurisdiction` | Pure TS unit test: TLD mapping correctness | |
+| `CompliancePanel` | Vitest: render with score, verify color class | |
+| `evaluateConditionalBlocks` | Pure TS unit test | |
+| Template picker | Vitest: render categories, filter by search | |
+| `categorizeByFilename` | Pure TS unit test | |
+| Vault Rust ops | Rust integration test: copy file, verify path, delete | ✅ Done |
+| MBOX append | Rust unit test: write 2 messages, verify file format | ✅ Done |
+| `unifiedSearch` | Integration test with seeded DB | |
 
 Follow colocated `*.test.ts` files, `vitest`, `@testing-library/jest-dom/vitest` patterns.
+
+---
+
+## Future Vision: One-Click Sync
+
+A unified sync layer that abstracts all email provider types behind a single interface with consistent progress reporting, conflict resolution, and health monitoring.
+
+### Unified Sync Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│                    Sync Orchestrator                   │
+│  (syncManager.ts — manages all accounts & providers)  │
+├──────────┬──────────┬──────────┬──────────────────────┤
+│ Gmail    │ IMAP     │ JMAP     │ Local File /         │
+│ API      │ Provider │ (future) │ Maildir Import        │
+│ Provider │          │          │                       │
+└──────────┴──────────┴──────────┴──────────────────────┘
+         │          │          │
+    ┌────┘──────────┘──────────┘────┐
+    │         Progress Bus           │
+    │   (status, count, rate, ETA)   │
+    └───────────────────────────────┘
+```
+
+### One-Click Account Setup
+
+- Expand the existing `autoDiscovery.ts` to auto-detect provider type (Gmail API, IMAP, JMAP) from just an email address
+- Probe common ports/endpoints for IMAP (`imap.gmail.com`, `outlook.office365.com`, `imap.mail.me.com`) and JMAP endpoints (`/.well-known/jmap`)
+- Present a single unified "Add Account" flow — no need for the user to select "Gmail" vs "IMAP" manually
+- Store auto-discovery results in settings for re-use and manual override
+
+### Unified Progress Reporting
+
+- Sync progress channel emits structured events across ALL provider types:
+  - `progress`: `{ accountId, folder, current, total, phase: "connect"|"sync"|"process" }`
+  - `complete`: `{ accountId, folder, newMessages, updatedMessages }`
+  - `error`: `{ accountId, folder, error, retryable }`
+- UI subscribes via Tauri event system and shows a single unified progress bar / status widget
+- No more per-provider progress states scattered across components
+
+### Conflict Resolution Strategy
+
+| Scenario | Strategy |
+|----------|----------|
+| Local edit + remote change | **Last-write-wins** on a per-message basis (compare `modification_timestamp`) |
+| Offline operations queued | **Local ops queue** (`pending_operations` table) replayed on reconnect, compacted for redundancy |
+| Concurrent move/delete | **Optimistic local apply**, verified on next delta sync — reverts if remote disagrees |
+| IMAP UIDVALIDITY change | Full folder resync detected via `folder_sync_state.uidvalidity` change |
+| Draft conflict | **Local wins** — drafts are authoritatiave locally |
+
+### Sync Now Button
+
+- "Sync Now" button in the account list / settings panel that triggers a full sync across ALL providers
+- Skips the normal 60s interval cooldown
+- Runs sequentially per account (to avoid connection storms) but in parallel across accounts
+- Shows real-time progress via the unified progress bus
+- Disabled while a sync is already running for that account
+
+### Background Sync Health Dashboard
+
+- Table showing per-account and per-folder sync status:
+  - `last_sync_at` — last successful sync timestamp
+  - `last_sync_duration_ms` — how long the last sync took
+  - `last_error` — last error message (if any)
+  - `consecutive_failures` — error count before backing off
+  - `pending_local_ops` — count of queued offline operations
+- Stored in a new `folder_sync_state` table (existing table extended)
+- Visual health indicators: green (ok), yellow (delayed >15min), red (errors or >1hr stale)
+- Accessible from Settings → Sync Health
