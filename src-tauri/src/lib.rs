@@ -130,6 +130,8 @@ pub fn run() {
             vault::ops::list_vault_dir,
             vault::pdf::extract_pdf_text,
             export::mbox::append_to_mbox,
+            export::types::get_export_formats,
+            export::types::validate_export_config,
         ])
         .setup(|app| {
             {
@@ -266,8 +268,11 @@ pub fn run() {
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
                 let runtime = tokio::runtime::Runtime::new().unwrap();
+                let _running = export::scheduler::run_backup_scheduler(app_handle);
                 runtime.block_on(async {
-                    export::scheduler::run_backup_scheduler(app_handle).await;
+                    loop {
+                        tokio::time::sleep(tokio::time::Duration::from_secs(u64::MAX)).await;
+                    }
                 });
             });
 

@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getDb } from "@/services/db/connection";
 
-export type ExportFormat = "mbox" | "eml" | "zip";
+export type ExportFormat = "mbox" | "eml" | "pdf" | "zip";
 
 export interface ExportOptions {
   accountId: string;
@@ -27,7 +27,20 @@ export interface BackupSchedule {
   created_at: number;
 }
 
+export async function getExportFormats(): Promise<string[]> {
+  return invoke<string[]>("get_export_formats");
+}
+
+export async function validateExportConfig(
+  format: string,
+  destination: string,
+): Promise<boolean> {
+  return invoke<boolean>("validate_export_config", { format, destination });
+}
+
 export async function exportMessages(options: ExportOptions): Promise<void> {
+  await validateExportConfig(options.format, options.destinationPath);
+
   const db = await getDb();
 
   let dateFilter = "";
