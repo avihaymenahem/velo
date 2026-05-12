@@ -286,6 +286,7 @@ pub async fn fetch_messages(
 
     let parser = MessageParser::default();
     let mut messages = Vec::new();
+    let mut missing_body_uids: Vec<u32> = Vec::new();
     for fetch in &fetches {
         let uid = match fetch.uid {
             Some(u) => u,
@@ -294,7 +295,11 @@ pub async fn fetch_messages(
 
         let raw = match fetch.body() {
             Some(b) => b,
-            None => { log::warn!("IMAP FETCH {folder}: UID {uid} has no body"); continue; }
+            None => {
+                log::warn!("IMAP FETCH {folder}: UID {uid} has no body");
+                missing_body_uids.push(uid);
+                continue;
+            }
         };
 
         let raw_size = raw.len() as u32;
@@ -312,6 +317,64 @@ pub async fn fetch_messages(
             Ok(msg) => messages.push(msg),
             Err(e) => {
                 log::warn!("Failed to parse message UID {uid}: {e}");
+            }
+        }
+    }
+
+    // DavMail/Exchange fallback: retry messages with no body using BODY[] instead of BODY.PEEK[].
+    // Some servers (DavMail, Exchange) don't return body content with BODY.PEEK[] syntax.
+    if !missing_body_uids.is_empty() {
+        log::warn!(
+            "IMAP {folder}: {} messages had no body with BODY.PEEK[] — retrying with BODY[] (likely DavMail/Exchange server)",
+            missing_body_uids.len(),
+        );
+
+        let retry_set: String = missing_body_uids
+            .iter()
+            .map(|u| u.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let before = messages.len();
+        // Use BODY[] (sets \Seen flag) as fallback
+        match tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
+            let stream = session
+                .uid_fetch(&retry_set, "UID FLAGS INTERNALDATE BODY[]")
+                .await
+                .map_err(|e| format!("UID FETCH (BODY[] fallback) {folder} uids={retry_set} failed: {e}"));
+            Ok::<_, Result<String, String>>(stream?.collect::<Vec<_>>().await)
+        }).await {
+            Ok(Ok(retry_fetches)) => {
+                for r in retry_fetches {
+                    if let Ok(f) = r {
+                        let uid = match f.uid {
+                            Some(u) => u,
+                            None => continue,
+                        };
+                        if let Some(raw) = f.body() {
+                            let raw_size = raw.len() as u32;
+                            let flags: Vec<_> = f.flags().collect();
+                            let is_read = flags.iter().any(|fl| matches!(fl, Flag::Seen));
+                            let is_starred = flags.iter().any(|fl| matches!(fl, Flag::Flagged));
+                            let is_draft = flags.iter().any(|fl| matches!(fl, Flag::Draft));
+                            let internal_date = f.internal_date().map(|dt| dt.timestamp());
+                            if let Ok(msg) = parse_message(&parser, raw, uid, folder, raw_size, is_read, is_starred, is_draft, internal_date) {
+                                messages.push(msg);
+                            }
+                        }
+                    }
+                }
+                let recovered = messages.len() - before;
+                log::warn!(
+                    "IMAP {folder}: BODY[] fallback recovered {recovered}/{} messages from DavMail/Exchange server",
+                    missing_body_uids.len(),
+                );
+            }
+            Ok(Err(e)) => {
+                log::warn!("IMAP {folder}: BODY[] fallback also failed: {e}");
+            }
+            Err(_) => {
+                log::warn!("IMAP {folder}: BODY[] fallback timed out");
             }
         }
     }
@@ -850,6 +913,7 @@ pub async fn sync_folder(
     // Fetch in batches on the SAME session
     let parser = MessageParser::default();
     let mut all_messages = Vec::new();
+    let mut missing_body_uids: Vec<u32> = Vec::new();
     let bs = batch_size as usize;
 
     for chunk in uids.chunks(bs) {
@@ -879,7 +943,11 @@ pub async fn sync_folder(
                     };
                     let raw = match f.body() {
                         Some(b) => b,
-                        None => { log::warn!("IMAP sync_folder {folder}: UID {uid} has no body"); continue; }
+                        None => {
+                            log::warn!("IMAP sync_folder {folder}: UID {uid} has no body");
+                            missing_body_uids.push(uid);
+                            continue;
+                        }
                     };
                     let raw_size = raw.len() as u32;
                     let flags: Vec<_> = f.flags().collect();
@@ -895,6 +963,53 @@ pub async fn sync_folder(
                 }
                 Err(e) => log::warn!("IMAP sync_folder fetch stream error in {folder}: {e}"),
             }
+        }
+    }
+
+    // DavMail/Exchange fallback: retry messages with no body using BODY[]
+    if !missing_body_uids.is_empty() {
+        log::warn!(
+            "IMAP sync_folder {folder}: {} messages had no body with BODY.PEEK[] — retrying with BODY[] (likely DavMail/Exchange server)",
+            missing_body_uids.len(),
+        );
+        let retry_set: String = missing_body_uids
+            .iter()
+            .map(|u| u.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        let before = all_messages.len();
+        match tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
+            let stream = session
+                .uid_fetch(&retry_set, "UID FLAGS INTERNALDATE BODY[]")
+                .await
+                .map_err(|e| format!("UID FETCH (BODY[] fallback) {folder} uids={retry_set} failed: {e}"));
+            Ok::<_, Result<String, String>>(stream?.collect::<Vec<_>>().await)
+        }).await {
+            Ok(Ok(retry_fetches)) => {
+                for r in retry_fetches {
+                    if let Ok(f) = r {
+                        let uid = match f.uid {
+                            Some(u) => u,
+                            None => continue,
+                        };
+                        if let Some(raw) = f.body() {
+                            let raw_size = raw.len() as u32;
+                            let flags: Vec<_> = f.flags().collect();
+                            let is_read = flags.iter().any(|fl| matches!(fl, Flag::Seen));
+                            let is_starred = flags.iter().any(|fl| matches!(fl, Flag::Flagged));
+                            let is_draft = flags.iter().any(|fl| matches!(fl, Flag::Draft));
+                            let internal_date = f.internal_date().map(|dt| dt.timestamp());
+                            if let Ok(msg) = parse_message(&parser, raw, uid, folder, raw_size, is_read, is_starred, is_draft, internal_date) {
+                                all_messages.push(msg);
+                            }
+                        }
+                    }
+                }
+                let recovered = all_messages.len() - before;
+                log::warn!("IMAP sync_folder {folder}: BODY[] fallback recovered {recovered}/{} messages from DavMail/Exchange server", missing_body_uids.len());
+            }
+            Ok(Err(e)) => log::warn!("IMAP sync_folder {folder}: BODY[] fallback also failed: {e}"),
+            Err(_) => log::warn!("IMAP sync_folder {folder}: BODY[] fallback timed out"),
         }
     }
 
@@ -965,7 +1080,7 @@ pub async fn raw_fetch_messages(
         let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, xoauth2.as_bytes());
         format!("a1 AUTHENTICATE XOAUTH2 {b64}\r\n")
     } else {
-        format!("a1 LOGIN \"{}\" \"{}\"\r\n", config.username, config.password)
+        format!("a1 LOGIN {} {}\r\n", config.username, config.password)
     };
     raw_send_and_wait(&mut reader, login_cmd.as_bytes(), "a1").await?;
 
@@ -1063,7 +1178,7 @@ pub async fn raw_fetch_diagnostic(
     }
 
     // LOGIN
-    let login_cmd = format!("a1 LOGIN \"{}\" \"{}\"\r\n", config.username, config.password);
+    let login_cmd = format!("a1 LOGIN {} {}\r\n", config.username, config.password);
     stream.write_all(login_cmd.as_bytes()).await.map_err(|e| format!("LOGIN: {e}"))?;
     let n = stream.read(&mut buf).await.map_err(|e| format!("LOGIN read: {e}"))?;
     output.push_str(&format!("S: {}", String::from_utf8_lossy(&buf[..n])));

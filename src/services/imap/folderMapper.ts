@@ -2,6 +2,13 @@ import type { ImapFolder } from "./tauriCommands";
 import { upsertLabel } from "../db/labels";
 
 /**
+ * Regex patterns for folder names that are non-selectable or shared.
+ * These folders often cause sync failures on DavMail/Exchange.
+ * The patterns are checked case-insensitively against the folder path.
+ */
+const NON_SELECTABLE_PATTERNS = /(^|\/)(groups|shared|public)(\/|$)/i;
+
+/**
  * Mapping from IMAP special-use flags to Gmail-style label IDs.
  */
 const SPECIAL_USE_MAP: Record<string, { labelId: string; labelName: string; type: string }> = {
@@ -150,8 +157,22 @@ export async function syncFoldersToLabels(
 }
 
 /**
+ * Check whether an IMAP folder is selectable and safe to sync.
+ * Non-selectable folders (like shared mailboxes, Groups, Public folders)
+ * cause sync failures on DavMail/Exchange and other groupware servers.
+ */
+export function isSelectableFolder(folder: ImapFolder): boolean {
+  const lowerPath = folder.path.toLowerCase();
+  if (NON_SELECTABLE_PATTERNS.test(lowerPath)) return false;
+  // Skip folders that are clearly system containers
+  if (lowerPath.startsWith("[nostromo]")) return false;
+  return true;
+}
+
+/**
  * Determine which folders should be synced during initial sync.
- * Excludes special folders like [Gmail] parent folder.
+ * Excludes special folders like [Gmail] parent folder and non-selectable
+ * shared folders that cause sync failures.
  */
 export function getSyncableFolders(folders: ImapFolder[]): ImapFolder[] {
   return folders.filter((f) => {
@@ -160,6 +181,8 @@ export function getSyncableFolders(folders: ImapFolder[]): ImapFolder[] {
     if (lowerPath === "[gmail]" || lowerPath === "[google mail]") return false;
     // Skip Nostromo-style virtual folders
     if (lowerPath.startsWith("[nostromo]")) return false;
+    // Skip non-selectable/shared folders
+    if (!isSelectableFolder(f)) return false;
     return true;
   });
 }
