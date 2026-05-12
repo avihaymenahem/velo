@@ -44,6 +44,7 @@ interface FormState {
   smtpPort: number;
   smtpSecurity: SecurityType;
   password: string;
+  smtpUsername: string;
   smtpPassword: string;
   samePassword: boolean;
   acceptInvalidCerts: boolean;
@@ -69,6 +70,7 @@ const initialFormState: FormState = {
   smtpPort: 465,
   smtpSecurity: "ssl",
   password: "",
+  smtpUsername: "",
   smtpPassword: "",
   samePassword: true,
   acceptInvalidCerts: false,
@@ -308,6 +310,7 @@ export function AddImapAccount({
   const testSmtpConnection = async () => {
     setSmtpTest({ state: "testing" });
     try {
+      const smtpUsername = form.smtpUsername || form.imapUsername || (isOAuth ? (form.oauthEmail ?? form.email) : form.email);
       const smtpPassword = isOAuth
         ? (form.oauthAccessToken ?? "")
         : form.samePassword
@@ -320,7 +323,7 @@ export function AddImapAccount({
             host: form.smtpHost,
             port: form.smtpPort,
             security: mapSecurity(form.smtpSecurity),
-            username: form.imapUsername || (isOAuth ? (form.oauthEmail ?? form.email) : form.email),
+            username: smtpUsername,
             password: smtpPassword,
             auth_method: isOAuth ? "oauth2" : "password",
             accept_invalid_certs: form.acceptInvalidCerts,
@@ -384,7 +387,9 @@ export function AddImapAccount({
           smtpPort: form.smtpPort,
           smtpSecurity: form.smtpSecurity,
           authMethod: "password",
-          password: form.samePassword ? form.password : form.password,
+          password: form.password,
+          smtpUsername: form.smtpUsername.trim() || null,
+          smtpPassword: form.samePassword ? null : form.smtpPassword,
           imapUsername,
           acceptInvalidCerts: form.acceptInvalidCerts,
         });
@@ -799,19 +804,37 @@ export function AddImapAccount({
             </label>
           </div>
           {!form.samePassword && (
-            <div>
-              <label htmlFor="smtp-password" className={labelClass}>
-                SMTP Password
-              </label>
-              <input
-                id="smtp-password"
-                type="password"
-                value={form.smtpPassword}
-                onChange={(e) => updateForm("smtpPassword", e.target.value)}
-                placeholder="SMTP password"
-                className={inputClass}
-              />
-            </div>
+            <>
+              <div>
+                <label htmlFor="smtp-username" className={labelClass}>
+                  SMTP Username (optional)
+                </label>
+                <input
+                  id="smtp-username"
+                  type="text"
+                  value={form.smtpUsername}
+                  onChange={(e) => updateForm("smtpUsername", e.target.value)}
+                  placeholder="Leave blank to use IMAP username"
+                  className={inputClass}
+                />
+                <p className="text-xs text-text-tertiary mt-1">
+                  Only needed if SMTP login differs from IMAP.
+                </p>
+              </div>
+              <div>
+                <label htmlFor="smtp-password" className={labelClass}>
+                  SMTP Password
+                </label>
+                <input
+                  id="smtp-password"
+                  type="password"
+                  value={form.smtpPassword}
+                  onChange={(e) => updateForm("smtpPassword", e.target.value)}
+                  placeholder="SMTP password"
+                  className={inputClass}
+                />
+              </div>
+            </>
           )}
         </>
       )}

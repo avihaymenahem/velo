@@ -2,7 +2,6 @@ use tauri::{AppHandle, Emitter};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-#[allow(dead_code)]
 pub fn run_backup_scheduler(app: AppHandle) {
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -23,7 +22,6 @@ pub fn run_backup_scheduler(app: AppHandle) {
     });
 }
 
-#[allow(dead_code)]
 pub fn stop_backup_scheduler(running: &Arc<AtomicBool>) {
     running.store(false, Ordering::Relaxed);
 }

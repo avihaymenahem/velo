@@ -480,12 +480,30 @@ export async function imapInitialSync(
       // Phase 2a: Lightweight search — get UIDs only (no message bodies over IPC)
       const sinceDate = computeSinceDate(daysBack);
       const searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
+
+      // Skip folders with zero UIDVALIDITY (e.g., non-selectable shared folders)
+      if (!searchResult.folder_status.uidvalidity || searchResult.folder_status.uidvalidity === 0) {
+        console.warn(`[imapSync] Skipping folder ${folder.path}: zero UIDVALIDITY from search`);
+        continue;
+      }
+
       const uidsToFetch = searchResult.uids;
 
       // Reset circuit breaker on success
       consecutiveFailures = 0;
 
-      if (uidsToFetch.length === 0) continue;
+      if (uidsToFetch.length === 0) {
+        // Still update sync state so we don't re-check this empty folder every sync
+        await upsertFolderSyncState({
+          account_id: accountId,
+          folder_path: folder.raw_path,
+          uidvalidity: searchResult.folder_status.uidvalidity,
+          last_uid: 0,
+          modseq: null,
+          last_sync_at: Math.floor(Date.now() / 1000),
+        });
+        continue;
+      }
 
       // Date filter config
       const cutoffDate = Math.floor(Date.now() / 1000) - daysBack * 86400;
@@ -848,7 +866,16 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
 
   // Separate folders into new (no saved state) vs existing (have saved state)
   const newFolders = syncableFolders.filter((f) => !syncStateMap.has(f.raw_path));
-  const existingFolders = syncableFolders.filter((f) => syncStateMap.has(f.raw_path));
+  const existingFolders = syncableFolders.filter((f) => {
+    const state = syncStateMap.get(f.raw_path);
+    if (!state) return false;
+    // Skip folders with zero UIDVALIDITY — they were never successfully synced
+    if (!state.uidvalidity || state.uidvalidity === 0) {
+      console.warn(`[imapSync] Skipping folder ${f.path}: zero UIDVALIDITY in sync state`);
+      return false;
+    }
+    return true;
+  });
 
   // Handle new folders: search for UIDs then fetch in chunks
   let consecutiveFailures = 0;

@@ -5,6 +5,16 @@ let db: Database | null = null;
 export async function getDb(): Promise<Database> {
   if (!db) {
     db = await Database.load("sqlite:velo.db");
+    try {
+      await db.execute("PRAGMA journal_mode=WAL");
+    } catch {
+      // WAL mode not supported by the Tauri SQL plugin — safe to ignore
+    }
+    try {
+      await db.execute("PRAGMA busy_timeout=5000");
+    } catch {
+      // busy_timeout not supported — safe to ignore
+    }
   }
   return db;
 }
@@ -13,6 +23,14 @@ export async function getDb(): Promise<Database> {
  * Build a dynamic SQL UPDATE statement from a set of field updates.
  * Returns null if no fields to update.
  */
+const SAFE_IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+function validateIdentifier(name: string): void {
+  if (!SAFE_IDENTIFIER_RE.test(name)) {
+    throw new Error(`Invalid SQL identifier: ${name}`);
+  }
+}
+
 export function buildDynamicUpdate(
   table: string,
   idColumn: string,
@@ -21,11 +39,15 @@ export function buildDynamicUpdate(
 ): { sql: string; params: unknown[] } | null {
   if (fields.length === 0) return null;
 
+  validateIdentifier(table);
+  validateIdentifier(idColumn);
+
   const sets: string[] = [];
   const params: unknown[] = [];
   let idx = 1;
 
   for (const [column, value] of fields) {
+    validateIdentifier(column);
     sets.push(`${column} = $${idx++}`);
     params.push(value);
   }
@@ -45,6 +67,18 @@ export function buildDynamicUpdate(
  */
 let txQueue: Promise<void> = Promise.resolve();
 
+function isBusyError(err: unknown): boolean {
+  const msg = String(err).toLowerCase();
+  return (
+    msg.includes("sqlite_busy") ||
+    msg.includes("database is locked") ||
+    msg.includes("busy")
+  );
+}
+
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [100, 200, 400];
+
 export async function withTransaction(fn: (db: Database) => Promise<void>): Promise<void> {
   // Queue this transaction behind any currently-running one.
   // This serialises all transactions without blocking non-transactional reads.
@@ -61,21 +95,47 @@ export async function withTransaction(fn: (db: Database) => Promise<void>): Prom
   }
 
   const database = await getDb();
+
+  let lastError: unknown;
   try {
-    await database.execute("BEGIN TRANSACTION", []);
-    try {
-      await fn(database);
-      await database.execute("COMMIT", []);
-    } catch (err) {
-      // SQLite may auto-rollback on certain errors — guard against
-      // "cannot rollback - no transaction is active"
-      try {
-        await database.execute("ROLLBACK", []);
-      } catch {
-        // ROLLBACK failed (already rolled back) — safe to ignore
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        const delayMs = RETRY_DELAYS[attempt - 1] ?? 400;
+        await new Promise((r) => setTimeout(r, delayMs));
       }
-      throw err;
+
+      try {
+        await database.execute("BEGIN TRANSACTION", []);
+        try {
+          await fn(database);
+          await database.execute("COMMIT", []);
+          return; // success — exit retry loop
+        } catch (err) {
+          lastError = err;
+          // SQLite may auto-rollback on certain errors — guard against
+          // "cannot rollback - no transaction is active"
+          try {
+            await database.execute("ROLLBACK", []);
+          } catch {
+            // ROLLBACK failed (already rolled back) — safe to ignore
+          }
+
+          if (isBusyError(err) && attempt < MAX_RETRIES) {
+            continue;
+          }
+          throw err;
+        }
+      } catch (err) {
+        if (err === lastError) throw err;
+        lastError = err;
+        if (isBusyError(err) && attempt < MAX_RETRIES) {
+          continue;
+        }
+        throw err;
+      }
     }
+
+    throw lastError;
   } finally {
     resolve(); // always unblock the next queued transaction
   }

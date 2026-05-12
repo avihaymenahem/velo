@@ -4,6 +4,39 @@ import { fetch } from "@tauri-apps/plugin-http";
 import { getCurrentUnixTimestamp } from "@/utils/timestamp";
 import { normalizeEmail } from "@/utils/emailUtils";
 
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0" || hostname === "[::1]") {
+      return false;
+    }
+
+    if (hostname.startsWith("10.") || hostname.startsWith("192.168.")) {
+      return false;
+    }
+
+    if (hostname.startsWith("172.")) {
+      const parts = hostname.split(".");
+      if (parts.length >= 2) {
+        const second = parseInt(parts[1]!, 10);
+        if (second >= 16 && second <= 31) {
+          return false;
+        }
+      }
+    }
+
+    if (hostname.startsWith("169.254.")) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface ParsedUnsubscribe {
   httpUrl: string | null;
   mailtoAddress: string | null;
@@ -58,7 +91,7 @@ export async function executeUnsubscribe(
   let success = false;
 
   // Method 1: RFC 8058 one-click HTTP POST
-  if (parsed.hasOneClick && parsed.httpUrl) {
+  if (parsed.hasOneClick && parsed.httpUrl && isSafeUrl(parsed.httpUrl)) {
     try {
       const response = await fetch(parsed.httpUrl, {
         method: "POST",
@@ -102,7 +135,7 @@ export async function executeUnsubscribe(
   }
 
   // Method 3: open in browser
-  if (!success && parsed.httpUrl) {
+  if (!success && parsed.httpUrl && isSafeUrl(parsed.httpUrl)) {
     try {
       await openUrl(parsed.httpUrl);
       method = "browser";

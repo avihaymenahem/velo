@@ -97,7 +97,7 @@ describe("providerManager", () => {
       });
 
       await getActiveProvider();
-      expect(createClaudeProvider).toHaveBeenCalledWith("sk-ant-test", "claude-haiku-4-5-20251001");
+      expect(createClaudeProvider).toHaveBeenCalledWith("sk-ant-test", "claude-haiku-4-5-20251001", "auto");
     });
 
     it("creates openai provider with default model", async () => {
@@ -108,7 +108,7 @@ describe("providerManager", () => {
       });
 
       await getActiveProvider();
-      expect(createOpenAIProvider).toHaveBeenCalledWith("sk-test", "gpt-4o-mini");
+      expect(createOpenAIProvider).toHaveBeenCalledWith("sk-test", "gpt-4o-mini", "auto");
     });
 
     it("creates gemini provider with default model", async () => {
@@ -119,7 +119,7 @@ describe("providerManager", () => {
       });
 
       await getActiveProvider();
-      expect(createGeminiProvider).toHaveBeenCalledWith("AItest", "gemini-2.5-flash-preview-05-20");
+      expect(createGeminiProvider).toHaveBeenCalledWith("AItest", "gemini-2.5-flash-preview-05-20", "auto");
     });
 
     it("uses custom model from settings when configured", async () => {
@@ -131,7 +131,7 @@ describe("providerManager", () => {
       });
 
       await getActiveProvider();
-      expect(createClaudeProvider).toHaveBeenCalledWith("sk-ant-test", "claude-sonnet-4-20250514");
+      expect(createClaudeProvider).toHaveBeenCalledWith("sk-ant-test", "claude-sonnet-4-20250514", "auto");
     });
 
     it("invalidates cache when model changes", async () => {
@@ -155,7 +155,7 @@ describe("providerManager", () => {
 
       await getActiveProvider();
       expect(createOpenAIProvider).toHaveBeenCalledTimes(2);
-      expect(createOpenAIProvider).toHaveBeenLastCalledWith("sk-test", "gpt-4o");
+      expect(createOpenAIProvider).toHaveBeenLastCalledWith("sk-test", "gpt-4o", "auto");
     });
 
     it("creates copilot provider with default model", async () => {
@@ -166,7 +166,7 @@ describe("providerManager", () => {
       });
 
       await getActiveProvider();
-      expect(createCopilotProvider).toHaveBeenCalledWith("ghp_test123", "openai/gpt-4o-mini");
+      expect(createCopilotProvider).toHaveBeenCalledWith("ghp_test123", "openai/gpt-4o-mini", "auto");
     });
 
     it("creates ollama provider with server url and model", async () => {
@@ -178,7 +178,7 @@ describe("providerManager", () => {
       });
 
       await getActiveProvider();
-      expect(createOllamaProvider).toHaveBeenCalledWith("http://localhost:11434", "llama3.2");
+      expect(createOllamaProvider).toHaveBeenCalledWith("http://localhost:11434", "llama3.2", "auto");
     });
 
     it("uses default ollama url and model when not configured", async () => {
@@ -188,7 +188,17 @@ describe("providerManager", () => {
       });
 
       await getActiveProvider();
-      expect(createOllamaProvider).toHaveBeenCalledWith("http://localhost:11434", "llama3.2");
+      expect(createOllamaProvider).toHaveBeenCalledWith("http://localhost:11434", "llama3.2", "auto");
+    });
+
+    it("uses default ollama url and model when not configured", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_provider") return "ollama";
+        return null;
+      });
+
+      await getActiveProvider();
+      expect(createOllamaProvider).toHaveBeenCalledWith("http://localhost:11434", "llama3.2", "auto");
     });
 
     it("throws NOT_CONFIGURED when API key is missing", async () => {

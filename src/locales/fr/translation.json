@@ -356,7 +356,16 @@
     "autoArchive": "Archiver automatiquement {{cat}}",
     "skipInbox": "Sauter la boîte de réception pour {{cat}}",
     "categories": "Catégories",
-    "features": "Fonctionnalités"
+    "features": "Fonctionnalités",
+    "aiLanguage": "Langue de réponse IA",
+    "aiLanguageAuto": "Auto (langue de l'app)",
+    "aiLanguageEn": "Anglais",
+    "aiLanguageFr": "Français",
+    "aiLanguageAr": "Arabe",
+    "customBaseUrl": "URL de base",
+    "customApiKey": "Clé API",
+    "customModel": "Modèle",
+    "customProvider": "Personnalisé (compatible OpenAI)"
   },
   "search": {
     "placeholder": "Rechercher des emails...",

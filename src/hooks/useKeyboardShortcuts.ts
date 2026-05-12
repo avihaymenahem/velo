@@ -94,6 +94,15 @@ export function useKeyboardShortcuts() {
         return;
       }
 
+      // Allow native text-editing shortcuts when an input/textarea is focused
+      if (e.ctrlKey || e.metaKey) {
+        const tag = (e.target as HTMLElement)?.tagName;
+        const isEditable = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
+        if (isEditable && ["KeyA", "KeyC", "KeyX", "KeyV", "KeyZ"].includes(e.code)) {
+          return;
+        }
+      }
+
       const target = e.target as HTMLElement;
       const isInputFocused =
         target.tagName === "INPUT" ||

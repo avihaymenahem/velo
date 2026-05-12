@@ -169,9 +169,11 @@ describe("accounts", () => {
         465,
         "ssl",
         "password",
-        "enc:my-app-password", // encrypted
-        null, // imap_username
-        0, // accept_invalid_certs
+        "enc:my-app-password",
+        null,
+        0,
+        null,
+        null,
       ]);
     });
 

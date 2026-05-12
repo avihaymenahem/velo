@@ -34,6 +34,8 @@ export interface DbAccount {
   caldav_home_url: string | null;
   calendar_provider: string | null;
   accept_invalid_certs: number;
+  smtp_username: string | null;
+  smtp_password: string | null;
 }
 
 async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
@@ -70,6 +72,13 @@ async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
       account.caldav_password = await decryptValue(account.caldav_password);
     } catch (err) {
       console.warn("Failed to decrypt CalDAV password, using raw value:", err);
+    }
+  }
+  if (account.smtp_password && isEncrypted(account.smtp_password)) {
+    try {
+      account.smtp_password = await decryptValue(account.smtp_password);
+    } catch (err) {
+      console.warn("Failed to decrypt SMTP password, using raw value:", err);
     }
   }
   return account;
@@ -195,12 +204,17 @@ export async function insertImapAccount(account: {
   password: string;
   imapUsername?: string | null;
   acceptInvalidCerts?: boolean;
+  smtpUsername?: string | null;
+  smtpPassword?: string | null;
 }): Promise<void> {
   const db = await getDb();
   const encPassword = await encryptValue(account.password);
+  const encSmtpPassword = account.smtpPassword
+    ? await encryptValue(account.smtpPassword)
+    : null;
   await db.execute(
-    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password, imap_username, accept_invalid_certs)
-     VALUES ($1, $2, $3, $4, NULL, NULL, 'imap', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password, imap_username, accept_invalid_certs, smtp_username, smtp_password)
+     VALUES ($1, $2, $3, $4, NULL, NULL, 'imap', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
     [
       account.id,
       account.email,
@@ -216,6 +230,8 @@ export async function insertImapAccount(account: {
       encPassword,
       account.imapUsername || null,
       account.acceptInvalidCerts ? 1 : 0,
+      account.smtpUsername || null,
+      encSmtpPassword,
     ],
   );
 }

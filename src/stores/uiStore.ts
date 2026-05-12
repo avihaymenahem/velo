@@ -40,7 +40,9 @@ interface UIState {
   isSyncingFolder: string | null;
   locale: SupportedLocale;
   textDirection: "ltr" | "rtl";
+  aiLanguage: string;
   setLocale: (locale: SupportedLocale) => void;
+  setAiLanguage: (lang: string) => void;
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -88,11 +90,16 @@ export const useUIStore = create<UIState>((set) => ({
   isSyncingFolder: null,
   locale: "en",
   textDirection: "ltr",
+  aiLanguage: "auto",
 
   setLocale: (locale) => {
     setSetting("locale", locale).catch(() => {});
     const textDirection = LOCALE_DIRS[locale];
     set({ locale, textDirection });
+  },
+  setAiLanguage: (aiLanguage) => {
+    setSetting("ai_language", aiLanguage).catch(() => {});
+    set({ aiLanguage });
   },
   setTheme: (theme) => set({ theme }),
   toggleSidebar: () =>

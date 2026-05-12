@@ -262,6 +262,15 @@ pub fn run() {
                 }
             }
 
+            // Spawn background backup scheduler
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                let runtime = tokio::runtime::Runtime::new().unwrap();
+                runtime.block_on(async {
+                    export::scheduler::run_backup_scheduler(app_handle).await;
+                });
+            });
+
             Ok(())
         })
         .on_window_event(|window, event| {

@@ -356,7 +356,16 @@
     "autoArchive": "أرشفة تلقائية {{cat}}",
     "skipInbox": "تخطي صندوق الوارد لبريد {{cat}}",
     "categories": "الفئات",
-    "features": "الميزات"
+    "features": "الميزات",
+    "aiLanguage": "لغة الرد للذكاء الاصطناعي",
+    "aiLanguageAuto": "تلقائي (لغة التطبيق)",
+    "aiLanguageEn": "الإنجليزية",
+    "aiLanguageFr": "الفرنسية",
+    "aiLanguageAr": "العربية",
+    "customBaseUrl": "الرابط الأساسي",
+    "customApiKey": "مفتاح API",
+    "customModel": "النموذج",
+    "customProvider": "مخصص (متوافق مع OpenAI)"
   },
   "search": {
     "placeholder": "بحث في البريد...",

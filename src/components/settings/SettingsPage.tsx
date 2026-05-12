@@ -127,23 +127,28 @@ export function SettingsPage() {
   const [phishingDetectionEnabled, setPhishingDetectionEnabled] = useState(true);
   const [phishingSensitivity, setPhishingSensitivity] = useState<"low" | "default" | "high">("default");
   const [autostartEnabled, setAutostartEnabled] = useState(false);
-  const [aiProvider, setAiProvider] = useState<"claude" | "openai" | "gemini" | "ollama" | "copilot">("claude");
+  const [aiProvider, setAiProvider] = useState<"claude" | "openai" | "gemini" | "ollama" | "copilot" | "custom">("claude");
   const [claudeApiKey, setClaudeApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [copilotApiKey, setCopilotApiKey] = useState("");
   const [ollamaServerUrl, setOllamaServerUrl] = useState("http://localhost:11434");
   const [ollamaModel, setOllamaModel] = useState("llama3.2");
+  const [customBaseUrl, setCustomBaseUrl] = useState("https://api.openai.com/v1");
+  const [customApiKey, setCustomApiKey] = useState("");
+  const [customModel, setCustomModel] = useState("gpt-4o-mini");
   const [claudeModel, setClaudeModel] = useState("claude-haiku-4-5-20251001");
   const [openaiModel, setOpenaiModel] = useState("gpt-4o-mini");
   const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash-preview-05-20");
   const [copilotModel, setCopilotModel] = useState("openai/gpt-4o-mini");
   const [aiEnabled, setAiEnabled] = useState(true);
+  const [aiLanguage, setAiLanguage] = useState("auto");
   const [aiAutoCategorize, setAiAutoCategorize] = useState(true);
   const [aiAutoSummarize, setAiAutoSummarize] = useState(true);
   const [aiKeySaved, setAiKeySaved] = useState(false);
   const [aiTesting, setAiTesting] = useState(false);
   const [aiTestResult, setAiTestResult] = useState<"success" | "fail" | null>(null);
+  const [customTestError, setCustomTestError] = useState<string | null>(null);
   const [aiAutoDraftEnabled, setAiAutoDraftEnabled] = useState(true);
   const [aiWritingStyleEnabled, setAiWritingStyleEnabled] = useState(true);
   const [styleAnalyzing, setStyleAnalyzing] = useState(false);
@@ -194,6 +199,12 @@ export function SettingsPage() {
       if (ollamaUrl) setOllamaServerUrl(ollamaUrl);
       const ollamaModelVal = await getSetting("ollama_model");
       if (ollamaModelVal) setOllamaModel(ollamaModelVal);
+      const customBaseUrlVal = await getSetting("custom_base_url");
+      if (customBaseUrlVal) setCustomBaseUrl(customBaseUrlVal);
+      const customApiKeyVal = await getSecureSetting("custom_api_key");
+      if (customApiKeyVal) setCustomApiKey(customApiKeyVal);
+      const customModelVal = await getSetting("custom_model");
+      if (customModelVal) setCustomModel(customModelVal);
       const claudeModelVal = await getSetting("claude_model");
       if (claudeModelVal) setClaudeModel(claudeModelVal);
       const openaiModelVal = await getSetting("openai_model");
@@ -212,6 +223,8 @@ export function SettingsPage() {
       if (copilotModelVal) setCopilotModel(copilotModelVal);
       const aiEn = await getSetting("ai_enabled");
       setAiEnabled(aiEn !== "false");
+      const aiLang = await getSetting("ai_language");
+      if (aiLang) setAiLanguage(aiLang);
       const aiCat = await getSetting("ai_auto_categorize");
       setAiAutoCategorize(aiCat !== "false");
       const aiSum = await getSetting("ai_auto_summarize");
@@ -282,6 +295,15 @@ export function SettingsPage() {
     setApiSettingsSaved(true);
     setTimeout(() => setApiSettingsSaved(false), 2000);
   }, [clientId, clientSecret]);
+
+  function isValidUrl(str: string): boolean {
+    try {
+      const url = new URL(str);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
 
   const handleManualSync = useCallback(async () => {
     const activeIds = accounts.filter((a) => a.isActive).map((a) => a.id);
@@ -1091,7 +1113,7 @@ export function SettingsPage() {
                       <select
                         value={aiProvider}
                         onChange={async (e) => {
-                          const val = e.target.value as "claude" | "openai" | "gemini" | "ollama" | "copilot";
+                          const val = e.target.value as "claude" | "openai" | "gemini" | "ollama" | "copilot" | "custom";
                           setAiProvider(val);
                           setAiTestResult(null);
                           await setSetting("ai_provider", val);
@@ -1105,6 +1127,7 @@ export function SettingsPage() {
                         <option value="gemini">Gemini (Google)</option>
                         <option value="ollama">Local AI (Ollama / LMStudio)</option>
                         <option value="copilot">GitHub Copilot</option>
+                        <option value="custom">Custom (OpenAI Compatible)</option>
                       </select>
                     </SettingRow>
                     <p className="text-xs text-text-tertiary">
@@ -1113,6 +1136,7 @@ export function SettingsPage() {
                       {aiProvider === "gemini" && `Uses ${PROVIDER_MODELS.gemini.find((m) => m.id === geminiModel)?.label ?? geminiModel}.`}
                       {aiProvider === "ollama" && "Connect to a local Ollama or LMStudio server. No API key required."}
                       {aiProvider === "copilot" && `Uses ${PROVIDER_MODELS.copilot.find((m) => m.id === copilotModel)?.label ?? copilotModel}. Requires a GitHub PAT with models:read permission.`}
+                      {aiProvider === "custom" && `Connect to any OpenAI-compatible API endpoint.`}
                     </p>
                   </Section>
 
@@ -1138,14 +1162,18 @@ export function SettingsPage() {
                             variant="primary"
                             size="md"
                             onClick={async () => {
-                              await setSetting("ollama_server_url", ollamaServerUrl.trim());
+                              const trimmedUrl = ollamaServerUrl.trim();
+                              if (!isValidUrl(trimmedUrl)) {
+                                return;
+                              }
+                              await setSetting("ollama_server_url", trimmedUrl);
                               await setSetting("ollama_model", ollamaModel.trim());
                               const { clearProviderClients } = await import("@/services/ai/providerManager");
                               clearProviderClients();
                               setAiKeySaved(true);
                               setTimeout(() => setAiKeySaved(false), 2000);
                             }}
-                            disabled={!ollamaServerUrl.trim() || !ollamaModel.trim()}
+                            disabled={!ollamaServerUrl.trim() || !ollamaModel.trim() || !!(ollamaServerUrl.trim() && !isValidUrl(ollamaServerUrl.trim()))}
                           >
                             {aiKeySaved ? "Saved!" : "Save"}
                           </Button>
@@ -1153,6 +1181,11 @@ export function SettingsPage() {
                             variant="secondary"
                             size="md"
                             onClick={async () => {
+                              const trimmedUrl = ollamaServerUrl.trim();
+                              if (!isValidUrl(trimmedUrl)) {
+                                setAiTestResult("fail");
+                                return;
+                              }
                               setAiTesting(true);
                               setAiTestResult(null);
                               try {
@@ -1177,6 +1210,93 @@ export function SettingsPage() {
                             <span className="text-xs text-danger">Connection failed</span>
                           )}
                         </div>
+                      </div>
+                    </Section>
+                  ) : aiProvider === "custom" ? (
+                    <Section title={t('settings.customProvider')}>
+                      <div className="space-y-3">
+                        <TextField
+                          label={t('settings.customBaseUrl')}
+                          size="md"
+                          value={customBaseUrl}
+                          onChange={(e) => setCustomBaseUrl(e.target.value)}
+                          placeholder="https://api.openai.com/v1"
+                        />
+                        <TextField
+                          label={t('settings.customApiKey')}
+                          size="md"
+                          type="password"
+                          value={customApiKey}
+                          onChange={(e) => setCustomApiKey(e.target.value)}
+                          placeholder="sk-..."
+                        />
+                        <TextField
+                          label={t('settings.customModel')}
+                          size="md"
+                          value={customModel}
+                          onChange={(e) => setCustomModel(e.target.value)}
+                          placeholder="gpt-4o-mini"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="primary"
+                            size="md"
+                            onClick={async () => {
+                              const trimmedUrl = customBaseUrl.trim();
+                              if (!isValidUrl(trimmedUrl)) {
+                                return;
+                              }
+                              await setSetting("custom_base_url", trimmedUrl);
+                              await setSecureSetting("custom_api_key", customApiKey.trim());
+                              await setSetting("custom_model", customModel.trim());
+                              const { clearProviderClients } = await import("@/services/ai/providerManager");
+                              clearProviderClients();
+                              setAiKeySaved(true);
+                              setTimeout(() => setAiKeySaved(false), 2000);
+                            }}
+                            disabled={!customBaseUrl.trim() || !customApiKey.trim() || !customModel.trim() || !!(customBaseUrl.trim() && !isValidUrl(customBaseUrl.trim()))}
+                          >
+                            {aiKeySaved ? "Saved!" : "Save"}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="md"
+                            onClick={async () => {
+                              const trimmedUrl = customBaseUrl.trim();
+                              if (!isValidUrl(trimmedUrl)) {
+                                setAiTestResult("fail");
+                                return;
+                              }
+                              setAiTesting(true);
+                              setAiTestResult(null);
+                              setCustomTestError(null);
+                              try {
+                                const { testConnection } = await import("@/services/ai/aiService");
+                                const ok = await testConnection();
+                                setAiTestResult(ok ? "success" : "fail");
+                                if (!ok) setCustomTestError("Connection failed — check your URL, key, and model.");
+                              } catch (err) {
+                                setAiTestResult("fail");
+                                setCustomTestError(err instanceof Error ? err.message : "Connection failed");
+                              } finally {
+                                setAiTesting(false);
+                              }
+                            }}
+                            disabled={!customBaseUrl.trim() || !customApiKey.trim() || !customModel.trim() || aiTesting}
+                            className="bg-bg-tertiary text-text-primary border border-border-primary"
+                          >
+                            {aiTesting ? "Testing..." : "Test Connection"}
+                          </Button>
+                          {aiTestResult === "success" && (
+                            <span className="text-xs text-success">{t('settings.connected')}</span>
+                          )}
+                          {aiTestResult === "fail" && (
+                            <span className="text-xs text-danger">{t('settings.connectionFailed')}</span>
+                          )}
+                        </div>
+                        {customTestError && (
+                          <p className="text-xs text-danger mt-1">{customTestError}</p>
+                        )}
                       </div>
                     </Section>
                   ) : (
@@ -1342,6 +1462,22 @@ export function SettingsPage() {
                         await setSetting("ai_auto_summarize", newVal ? "true" : "false");
                       }}
                     />
+                    <SettingRow label={t('settings.aiLanguage')}>
+                      <select
+                        value={aiLanguage}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          setAiLanguage(val);
+                          await setSetting("ai_language", val);
+                        }}
+                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                      >
+                        <option value="auto">{t('settings.aiLanguageAuto')}</option>
+                        <option value="en">{t('settings.aiLanguageEn')}</option>
+                        <option value="fr">{t('settings.aiLanguageFr')}</option>
+                        <option value="ar">{t('settings.aiLanguageAr')}</option>
+                      </select>
+                    </SettingRow>
                   </Section>
 
                   <Section title="Auto-Draft Replies">
