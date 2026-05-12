@@ -553,6 +553,31 @@ body {
     transition: all var(--anim-fast) ease-in;
 }
 
+/* CSSTransition: answer-panel (fade + slide down from search bar) */
+.answer-panel-enter {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+}
+
+.answer-panel-enter-active {
+    opacity: 1;
+    max-height: 200px;
+    transition: opacity var(--anim-fast) ease-out, max-height var(--anim-fast) ease-out;
+}
+
+.answer-panel-exit {
+    opacity: 1;
+    max-height: 200px;
+}
+
+.answer-panel-exit-active {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity var(--anim-fast) ease-in, max-height var(--anim-fast) ease-in;
+}
+
 /* CSSTransition: toast (slide up from bottom + fade) */
 .toast-enter {
     opacity: 0;

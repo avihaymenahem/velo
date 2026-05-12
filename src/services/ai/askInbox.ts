@@ -6,6 +6,7 @@ import {
   generateEmbedding,
   semanticSearch,
   sanitizeForEmbedding,
+  getEmbeddingPrefixes,
   type SemanticResult,
 } from "./ollamaEmbeddings";
 
@@ -24,6 +25,17 @@ function extractSearchTerms(question: string): string {
     "very", "just", "also", "any", "each", "every", "all", "both", "few",
     "more", "most", "some", "such", "no", "only", "own", "same", "than",
     "too", "if", "tell", "know", "find", "get", "got",
+    // Italian
+    "il", "lo", "la", "le", "li", "gli", "un", "una", "uno", "dei", "del",
+    "della", "dello", "delle", "degli", "al", "allo", "alla", "alle", "agli",
+    "ai", "dal", "dalla", "dallo", "dalle", "dagli", "dai", "nel", "nella",
+    "nello", "nelle", "negli", "nei", "sul", "sulla", "sullo", "sulle",
+    "sugli", "sui", "per", "tra", "fra", "con", "su", "da", "di", "in",
+    "e", "o", "ma", "se", "che", "chi", "cui", "non", "si", "mi", "ti",
+    "ci", "vi", "lo", "li", "ne", "è", "sono", "era", "ho", "ha", "hai",
+    "quando", "dove", "come", "cosa", "quale", "quali", "perché", "anche",
+    "già", "ancora", "sempre", "mai", "fissata", "stato", "stata", "questo",
+    "questa", "questi", "queste", "loro", "mio", "mia", "tuo", "tua",
   ]);
 
   return question
@@ -73,10 +85,14 @@ export async function askMyInbox(
 
   if (accountRagEnabled && serverUrl) {
     // Hybrid retrieval: run FTS and embedding query in parallel
-    const cleanQuery = sanitizeForEmbedding(question, 128);
+    const cleanQuery = sanitizeForEmbedding(question, 256);
+    const { query: queryPrefix } = getEmbeddingPrefixes(embeddingModel);
+    const prefixedQuery = cleanQuery
+      ? queryPrefix ? `${queryPrefix}${cleanQuery}` : cleanQuery
+      : cleanQuery;
     const [ftsResults, queryEmbedding] = await Promise.all([
       searchMessages(terms, accountId, 20),
-      generateEmbedding(cleanQuery, serverUrl, embeddingModel),
+      generateEmbedding(prefixedQuery ?? "", serverUrl, embeddingModel),
     ]);
 
     if (queryEmbedding) {

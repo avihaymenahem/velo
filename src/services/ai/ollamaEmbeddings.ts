@@ -115,6 +115,38 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 // ---------------------------------------------------------------------------
+// Model-aware prefix selection
+// Each embedding model family uses different task-type prefixes for
+// asymmetric retrieval. Using the wrong prefix (or no prefix) degrades quality.
+// ---------------------------------------------------------------------------
+
+export interface EmbeddingPrefixes {
+  document: string;
+  query: string;
+}
+
+export function getEmbeddingPrefixes(model: string): EmbeddingPrefixes {
+  const m = model.toLowerCase();
+  if (m.includes("nomic")) {
+    // nomic-embed-text v1 / v1.5
+    return { document: "search_document: ", query: "search_query: " };
+  }
+  if (m.includes("e5")) {
+    // multilingual-e5-large, e5-large-v2, e5-small, etc.
+    return { document: "passage: ", query: "query: " };
+  }
+  if (m.includes("mxbai")) {
+    // mxbai-embed-large-v1
+    return {
+      document: "Represent this sentence for searching relevant passages: ",
+      query: "",
+    };
+  }
+  // bge-m3, bge-large, all-minilm, and unknown models: no prefix needed
+  return { document: "", query: "" };
+}
+
+// ---------------------------------------------------------------------------
 // Ollama API
 // ---------------------------------------------------------------------------
 

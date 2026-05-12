@@ -11,10 +11,15 @@ export function SearchBar() {
   const searchQuery = useThreadStore((s) => s.searchQuery);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const openComposer = useComposerStore((s) => s.openComposer);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [showSaveModal, setShowSaveModal] = useState(false);
+
+  const resizeTextarea = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
 
   const handleSaveAsSmartFolder = useCallback(() => {
     if (useThreadStore.getState().searchQuery.trim().length < 2) return;
@@ -52,13 +57,20 @@ export function SearchBar() {
 
   const handleClear = useCallback(() => {
     useThreadStore.getState().clearSearch();
-    inputRef.current?.focus();
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+    textareaRef.current?.focus();
   }, []);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Escape") {
       useThreadStore.getState().clearSearch();
-      inputRef.current?.blur();
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+      textareaRef.current?.blur();
+    } else if (e.key === "Enter" && !e.shiftKey) {
+      // Prevent newline on plain Enter; search already debounced
+      e.preventDefault();
     }
   };
 
@@ -67,19 +79,23 @@ export function SearchBar() {
       <div className="relative flex-1">
         <Search
           size={14}
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none"
+          className="absolute left-2.5 top-[0.625rem] text-text-tertiary pointer-events-none"
         />
-        <input
-          ref={inputRef}
-          type="text"
+        <textarea
+          ref={textareaRef}
+          rows={1}
           value={searchQuery}
-          onChange={(e) => handleChange(e.target.value)}
+          onChange={(e) => {
+            resizeTextarea(e.target);
+            handleChange(e.target.value);
+          }}
           onKeyDown={handleKeyDown}
           placeholder="Search... (from: to: has:attachment)"
-          className="w-full bg-bg-tertiary text-text-primary text-sm pl-8 pr-10 py-1.5 rounded-md border border-border-primary focus:border-accent focus:outline-none placeholder:text-text-tertiary"
+          className="w-full bg-bg-tertiary text-text-primary text-sm pl-8 pr-10 py-1.5 rounded-md border border-border-primary focus:border-accent focus:outline-none placeholder:text-text-tertiary resize-none leading-5 overflow-hidden"
+          style={{ minHeight: "2rem", maxHeight: "6rem" }}
         />
         {searchQuery && (
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <div className="absolute right-2 top-[0.375rem] flex items-center gap-1">
             {searchQuery.trim().length >= 2 && (
               <button
                 onClick={handleSaveAsSmartFolder}

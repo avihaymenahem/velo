@@ -4,6 +4,7 @@ import { ThreadCard } from "../email/ThreadCard";
 import { SwipeableThreadCard } from "../email/SwipeableThreadCard";
 import { CategoryTabs } from "../email/CategoryTabs";
 import { SearchBar } from "../search/SearchBar";
+import { AnswerPanel } from "../search/AnswerPanel";
 import { EmailListSkeleton } from "../ui/Skeleton";
 import { useThreadStore, type Thread } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
@@ -478,13 +479,24 @@ export function EmailList({
 
   const clearSearch = useThreadStore((s) => s.clearSearch);
 
-  const loadThreads = useCallback(async () => {
+  const [highlightedThreadId, setHighlightedThreadId] = useState<string | null>(null);
+
+  const handleCitationClick = useCallback((threadId: string) => {
+    setHighlightedThreadId(threadId);
+    setTimeout(() => setHighlightedThreadId(null), 2000);
+    const el = scrollContainerRef.current?.querySelector(
+      `[data-thread-id="${CSS.escape(threadId)}"]`,
+    );
+    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, []);
+
+  const loadThreads = useCallback(async (keepSearch = false) => {
     if (!activeAccountId) {
       setThreads([]);
       return;
     }
 
-    clearSearch();
+    if (!keepSearch) clearSearch();
     setLoading(true);
     setHasMore(true);
     try {
@@ -730,7 +742,7 @@ export function EmailList({
     let timer: ReturnType<typeof setTimeout> | null = null;
     const handler = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => loadThreads(), 500);
+      timer = setTimeout(() => loadThreads(true), 500);
     };
     window.addEventListener("velo-sync-done", handler);
     return () => {
@@ -771,6 +783,13 @@ useEffect(() => {
       <div className="px-3 py-2 border-b border-border-secondary">
         <SearchBar />
       </div>
+
+      {/* AI Answer Panel — shown only when search query looks like a question */}
+      <AnswerPanel
+        query={searchQuery}
+        accountId={activeAccountId}
+        onCitationClick={handleCitationClick}
+      />
 
       {/* Header */}
       <div className="px-4 py-2 border-b border-border-primary flex items-center justify-between">
@@ -1014,7 +1033,14 @@ useEffect(() => {
                 <div
                   key={thread.id}
                   data-thread-id={thread.id}
-                  className={idx < 15 ? "stagger-in" : undefined}
+                  className={[
+                    idx < 15 ? "stagger-in" : undefined,
+                    highlightedThreadId === thread.id
+                      ? "ring-1 ring-accent/50 ring-inset rounded transition-shadow duration-500"
+                      : undefined,
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined}
                   style={
                     idx < 15 ? { animationDelay: `${idx * 30}ms` } : undefined
                   }

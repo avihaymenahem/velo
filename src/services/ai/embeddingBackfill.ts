@@ -4,6 +4,7 @@ import {
   sanitizeForEmbedding,
   generateEmbedding,
   storeEmbedding,
+  getEmbeddingPrefixes,
 } from "./ollamaEmbeddings";
 
 let running = false;
@@ -67,6 +68,7 @@ export async function runEmbeddingBackfill(): Promise<void> {
                AND tl.thread_id = m.thread_id
                AND tl.label_id IN ('SPAM', 'TRASH')
            )
+         ORDER BY m.date DESC
          LIMIT $1`,
         [batchSize],
       );
@@ -97,7 +99,9 @@ export async function runEmbeddingBackfill(): Promise<void> {
           continue;
         }
 
-        const embedding = await generateEmbedding(text, serverUrl, model);
+        const { document: docPrefix } = getEmbeddingPrefixes(model);
+        const prefixedText = docPrefix ? `${docPrefix}${text}` : text;
+        const embedding = await generateEmbedding(prefixedText, serverUrl, model);
         if (embedding) {
           await storeEmbedding(msg.id, msg.account_id, embedding, model);
         } else {
@@ -120,6 +124,11 @@ export async function runEmbeddingBackfill(): Promise<void> {
 
 export function stopEmbeddingBackfill(): void {
   stopRequested = true;
+}
+
+export async function clearAllEmbeddings(): Promise<void> {
+  const db = await getDb();
+  await db.execute(`DELETE FROM message_embeddings`);
 }
 
 export function isEmbeddingBackfillRunning(): boolean {

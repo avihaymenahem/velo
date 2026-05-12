@@ -181,6 +181,8 @@ const [ragProgress, setRagProgress] = useState<{ indexed: number; total: number 
   const [ragDiagOpen, setRagDiagOpen] = useState(false);
   const [ragDiagData, setRagDiagData] = useState<any>(null);
   const [accountRagFlags, setAccountRagFlags] = useState<Record<string, boolean>>({});
+  const [ragReindexConfirm, setRagReindexConfirm] = useState(false);
+  const [ragClearing, setRagClearing] = useState(false);
 
   // Load settings from DB
   useEffect(() => {
@@ -2004,6 +2006,69 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                           {ragDiagOpen ? "Hide Diagnostics" : "Detailed Diagnostics"}
                         </Button>
                       </div>
+
+                      {/* Re-index from scratch */}
+                      {ragEnabled && ragProgress && ragProgress.total > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border-secondary">
+                          {!ragReindexConfirm ? (
+                            <Button
+                              variant="secondary"
+                              size="md"
+                              className="bg-bg-tertiary text-text-secondary border border-border-primary hover:border-danger hover:text-danger transition-colors"
+                              onClick={() => setRagReindexConfirm(true)}
+                            >
+                              Re-index from scratch
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              <p className="text-xs text-danger flex-1">
+                                This will delete all {ragProgress.indexed.toLocaleString()} embeddings and re-index from scratch. Continue?
+                              </p>
+                              <Button
+                                variant="secondary"
+                                size="md"
+                                className="bg-bg-tertiary text-text-secondary border border-border-primary shrink-0"
+                                onClick={() => setRagReindexConfirm(false)}
+                                disabled={ragClearing}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="md"
+                                className="bg-danger/10 text-danger border border-danger/30 shrink-0"
+                                disabled={ragClearing}
+                                onClick={async () => {
+                                  setRagClearing(true);
+                                  try {
+                                    const {
+                                      stopEmbeddingBackfill,
+                                      clearAllEmbeddings,
+                                      runEmbeddingBackfill,
+                                      isEmbeddingBackfillRunning,
+                                      getLastError,
+                                    } = await import("@/services/ai/embeddingBackfill");
+                                    stopEmbeddingBackfill();
+                                    // Brief pause to let the running batch finish cleanly
+                                    await new Promise((r) => setTimeout(r, 300));
+                                    await clearAllEmbeddings();
+                                    setRagProgress({ indexed: 0, total: ragProgress.total });
+                                    setRagDiagOpen(false);
+                                    runEmbeddingBackfill().catch(() => {});
+                                    setRagRunning(isEmbeddingBackfillRunning());
+                                    setRagError(getLastError());
+                                  } finally {
+                                    setRagClearing(false);
+                                    setRagReindexConfirm(false);
+                                  }
+                                }}
+                              >
+                                {ragClearing ? "Clearing…" : "Confirm"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {ragDiagOpen && ragDiagData && (
                         <div className="mt-4 p-4 rounded-lg bg-bg-secondary border border-border-primary space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
