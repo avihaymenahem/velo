@@ -118,6 +118,10 @@ pub fn run() {
             pgp::keyring::generate_key,
             pgp::keyring::get_key_info_cmd,
             pgp::crypto::encrypt,
+            pgp::decrypt_message,
+            pgp::cache_passphrase,
+            pgp::get_cached_passphrase,
+            pgp::clear_passphrase_cache,
         ])
         .setup(|app| {
             {

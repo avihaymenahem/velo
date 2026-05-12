@@ -3,11 +3,13 @@ import { formatFullDate } from "@/utils/date";
 import { EmailRenderer } from "./EmailRenderer";
 import { InlineAttachmentPreview } from "./InlineAttachmentPreview";
 import { AttachmentList, getAttachmentsForMessage } from "./AttachmentList";
+import { EncryptedMessageBanner } from "./EncryptedMessageBanner";
 import type { DbMessage } from "@/services/db/messages";
 import type { DbAttachment } from "@/services/db/attachments";
 import { MailMinus } from "lucide-react";
 import { AuthBadge } from "./AuthBadge";
 import { AuthWarningBanner } from "./AuthWarningBanner";
+import { isPgpMessage, extractPgpCiphertext } from "@/services/pgp/pgpService";
 
 interface MessageItemProps {
   message: DbMessage;
@@ -25,7 +27,13 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
   const [expanded, setExpanded] = useState(isLast);
   const [attachments, setAttachments] = useState<DbAttachment[]>([]);
   const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
+  const [decryptedContent, setDecryptedContent] = useState<string | null>(null);
   const attachmentsLoadedRef = useRef(false);
+
+  // Reset decrypted state when message changes
+  useEffect(() => {
+    setDecryptedContent(null);
+  }, [message.id]);
 
   const loadAttachments = async () => {
     if (attachmentsLoadedRef.current) return;
@@ -72,6 +80,14 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
     }
     return cids;
   }, [message.body_html]);
+
+  // Detect PGP encrypted messages
+  const pgpCiphertext = useMemo(() => {
+    if (decryptedContent) return null;
+    const text = message.body_text ?? message.body_html ?? "";
+    if (!isPgpMessage(text)) return null;
+    return extractPgpCiphertext(text);
+  }, [message.body_text, message.body_html, decryptedContent]);
 
   const fromDisplay = message.from_name ?? message.from_address ?? "Unknown";
 
@@ -134,10 +150,17 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
             />
           )}
 
-          {blockImages != null ? (
+          {pgpCiphertext ? (
+            <EncryptedMessageBanner
+              messageId={message.id}
+              accountId={message.account_id}
+              ciphertext={pgpCiphertext}
+              onDecrypted={(plaintext) => setDecryptedContent(plaintext)}
+            />
+          ) : blockImages != null ? (
             <EmailRenderer
-              html={message.body_html}
-              text={message.body_text}
+              html={decryptedContent ? null : message.body_html}
+              text={decryptedContent ?? message.body_text}
               blockImages={blockImages}
               senderAddress={message.from_address}
               accountId={message.account_id}
