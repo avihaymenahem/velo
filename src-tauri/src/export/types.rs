@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ExportFormat {
     Mbox,
     Eml,
@@ -34,12 +35,14 @@ pub struct ExportConfig {
 pub struct BackupSchedule {
     pub id: String,
     pub account_id: String,
+    pub name: String,
     pub format: ExportFormat,
-    pub enabled: bool,
-    pub interval_minutes: i64,
     pub destination_path: String,
-    pub include_attachments: bool,
-    pub encrypt_backup: bool,
+    pub cron_expression: String,
+    pub is_enabled: i64,
+    pub include_attachments: i64,
+    pub encrypt: i64,
     pub last_run_at: Option<i64>,
     pub next_run_at: Option<i64>,
+    pub created_at: Option<i64>,
 }

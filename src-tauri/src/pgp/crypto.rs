@@ -60,6 +60,7 @@ pub fn decrypt_message(
         .map_err(|e| format!("Failed to parse private key: {}", e))?;
 
     let mut keypairs: Vec<openpgp::crypto::KeyPair> = Vec::new();
+    let password = Password::from(passphrase);
     for ka in cert
         .keys()
         .secret()
@@ -69,21 +70,19 @@ pub fn decrypt_message(
         .revoked(false)
         .for_transport_encryption()
     {
-        let key = ka.key().clone();
-        let password = Password::from(passphrase);
-        if let Ok(decrypted) = key.decrypt_secret(&password) {
-            if let Ok(keypair) = decrypted.into_keypair() {
-                keypairs.push(keypair);
-            }
-        }
-    }
+        let mut key = ka.key().clone();
 
-    if keypairs.is_empty() {
-        let password = Password::from(passphrase);
-        if let Ok(primary) = cert.primary_key().key().clone().decrypt_secret(&password) {
-            if let Ok(keypair) = primary.into_keypair() {
-                keypairs.push(keypair);
-            }
+        if key.secret().is_encrypted()
+            && key
+                .secret_mut()
+                .decrypt_in_place(ka.key(), &password)
+                .is_err()
+        {
+            continue;
+        }
+
+        if let Ok(keypair) = key.into_keypair() {
+            keypairs.push(keypair);
         }
     }
 
