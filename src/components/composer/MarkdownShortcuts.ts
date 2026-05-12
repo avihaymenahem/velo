@@ -12,7 +12,7 @@ export const MarkdownShortcuts = Extension.create({
     rules.push(
       textblockTypeInputRule({
         find: /^(#{1,3})\s$/,
-        type: schema.nodes.heading,
+        type: schema.nodes.heading!,
         getAttributes: (match) => {
           const level = match[1]?.length ?? 1;
           return { level };
@@ -23,14 +23,14 @@ export const MarkdownShortcuts = Extension.create({
     rules.push(
       wrappingInputRule({
         find: /^\s*([-*])\s$/,
-        type: schema.nodes.bulletList,
+        type: schema.nodes.bulletList!,
       }),
     );
 
     rules.push(
       wrappingInputRule({
         find: /^(\d+)\.\s$/,
-        type: schema.nodes.orderedList,
+        type: schema.nodes.orderedList!,
         getAttributes: (match) => ({ start: Number(match[1]) }),
       }),
     );
@@ -38,7 +38,7 @@ export const MarkdownShortcuts = Extension.create({
     rules.push(
       wrappingInputRule({
         find: /^\s*>\s$/,
-        type: schema.nodes.blockquote,
+        type: schema.nodes.blockquote!,
       }),
     );
 

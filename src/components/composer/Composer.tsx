@@ -160,6 +160,7 @@ export function Composer() {
 
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
+          if (!item) continue;
           if (item.type.startsWith("image/")) {
             event.preventDefault();
             const file = item.getAsFile();
@@ -417,11 +418,12 @@ const { queryWithRetry } = await import("@/services/db/connection");
            [activeAccountId],
          );
        });
-       if (rows[0]) {
+       const row = rows?.[0];
+       if (row) {
          await queryWithRetry(async (db) => {
            await db.execute(
              "UPDATE scheduled_emails SET attachment_paths = $1 WHERE id = $2",
-             [attachmentData, rows[0].id],
+             [attachmentData, row.id],
            );
          });
        }

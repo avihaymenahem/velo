@@ -334,6 +334,33 @@ export async function classifyThreadsBySmartLabels(
   return assignments;
 }
 
+export interface ContentQualityResult {
+  score: number;
+  issues: string[];
+  suggestions: string[];
+}
+
+export async function checkContentQuality(
+  subject: string,
+  bodyHtml: string,
+  _options: { isBulk: boolean; recipientCount: number },
+): Promise<ContentQualityResult> {
+  const toggles = loadToggles();
+  if (!toggles.smartReplies) {
+    return { score: 100, issues: [], suggestions: [] };
+  }
+
+  const text = bodyHtml.replace(/<[^>]+>/g, "").slice(0, 2000);
+  const prompt = `Analyze this email for quality:\nSubject: ${subject}\n\n${text}`;
+
+  try {
+    const result = await callAi(`You are an email quality analyzer. Score 0-100, list issues and suggestions. JSON: {score, issues:[], suggestions:[]}`, prompt);
+    return JSON.parse(result);
+  } catch {
+    return { score: 100, issues: [], suggestions: [] };
+  }
+}
+
 export async function extractTaskFromThread(
   _threadId: string,
   _accountId: string,

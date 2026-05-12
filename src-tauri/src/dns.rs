@@ -9,7 +9,7 @@ pub struct DnsCheckResult {
     pub dmarc: Option<String>,
 }
 
-pub async fn check_dns_records(domain: String) -> Result<DnsCheckResult, String> {
+pub async fn check_dns(domain: String) -> Result<DnsCheckResult, String> {
     let resolver = TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
 
     let spf = check_spf(&resolver, &domain).await;
@@ -68,5 +68,5 @@ async fn check_dmarc(resolver: &TokioAsyncResolver, domain: &str) -> Option<Stri
 
 #[tauri::command]
 pub async fn check_dns_records(domain: String) -> Result<DnsCheckResult, String> {
-    check_dns_records(domain).await
+    check_dns(domain).await
 }

@@ -155,4 +155,5 @@ export const useComposerStore = create<ComposerState>((set) => ({
   setViewMode: (viewMode) => set({ viewMode }),
   setSignatureHtml: (signatureHtml) => set({ signatureHtml }),
   setSignatureId: (signatureId) => set({ signatureId }),
+  setPendingSendOpId: (id) => set({ pendingSendOpId: id }),
 }));

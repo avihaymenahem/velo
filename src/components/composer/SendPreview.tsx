@@ -26,7 +26,6 @@ export function SendPreview({ isOpen, onClose, onSend }: SendPreviewProps) {
   const attachments = useComposerStore((s) => s.attachments);
   const bodyHtml = useComposerStore((s) => s.bodyHtml);
   const signatureHtml = useComposerStore((s) => s.signatureHtml);
-  const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const activeAccount = useAccountStore((s) =>
     s.accounts.find((a) => a.id === s.activeAccountId),
   );

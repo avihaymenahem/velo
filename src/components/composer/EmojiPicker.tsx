@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { emojiCategories, recentEmojis, type EmojiCategory } from "./emojiData";
+import { emojiCategories, recentEmojis } from "./emojiData";
 
 interface EmojiPickerProps {
   onSelect: (emoji: string) => void;

@@ -260,7 +260,7 @@ export function PreSendChecklist({
       setAiQuality(qualityCheck);
       if (qualityCheck) {
         totalScore = Math.round((totalScore + qualityCheck.score) / 2);
-        allWarnings.push(...qualityCheck.warnings);
+        allWarnings.push(...qualityCheck.issues);
         updateItem("quality", {
           status: qualityCheck.score >= 70 ? "pass" : qualityCheck.score >= 40 ? "warn" : "fail",
           message: `Score: ${qualityCheck.score}/100`,
@@ -430,11 +430,11 @@ export function PreSendChecklist({
         )}
 
         {/* AI Quality Details */}
-        {aiQuality && aiQuality.warnings.length > 0 && (
+        {aiQuality && aiQuality.issues.length > 0 && (
           <div className="mx-5 mb-2 p-3 rounded-lg bg-warning/5 border border-warning/20">
             <div className="text-xs font-medium text-warning mb-1">AI Quality Warnings</div>
             <ul className="space-y-0.5">
-              {aiQuality.warnings.slice(0, 4).map((w, i) => (
+              {aiQuality.issues.slice(0, 4).map((w: string, i: number) => (
                 <li key={i} className="text-[11px] text-text-tertiary flex items-start gap-1.5">
                   <AlertTriangle size={10} className="text-warning mt-0.5 shrink-0" />
                   {w}

@@ -24,14 +24,14 @@ npm run test:watch
 # Run a specific test file
 npx vitest run src/stores/uiStore.test.ts
 
-# Type-check
+# Type-check (all TypeScript errors)
 npx tsc --noEmit
 
 # Build for production
 npm run tauri build
 
 # Rust only (from src-tauri/)
-cd src-tauri && cargo build
+cd src-tauri && cargo check
 ```
 
 ## Testing
@@ -66,6 +66,20 @@ Produces native installers:
 - **Windows** -- `.msi` / `.exe`
 - **macOS** -- `.dmg` / `.app`
 - **Linux** -- `.deb` / `.AppImage`
+
+## Demo/Mailtrap Testing
+
+The project includes pre-configured Mailtrap credentials for testing email functionality:
+
+```
+VITE_DEMO_EMAIL=demo@mailtrap.io
+VITE_DEMO_IMAP_HOST=sandbox.smtp.mailtrap.io
+VITE_DEMO_IMAP_PORT=993
+VITE_DEMO_SMTP_HOST=sandbox.smtp.mailtrap.io
+VITE_DEMO_SMTP_PORT=465
+```
+
+Copy `.env.example` to `.env` to enable demo mode with Mailtrap sandbox SMTP/IMAP for testing sends and receives without real email delivery.
 
 ## Email Account Setup
 

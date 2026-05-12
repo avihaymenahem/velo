@@ -73,8 +73,7 @@ import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { formatSyncError } from "./utils/networkErrors";
 import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
-import { useTranslation } from "react-i18next";
-import { initI18n, changeLanguage, SUPPORTED_LOCALES, LOCALE_DIRS } from "./locales";
+import { initI18n, changeLanguage, i18n, SUPPORTED_LOCALES, LOCALE_DIRS } from "./locales";
 import type { SupportedLocale } from "./locales";
 import { router } from "./router";
 import { getSelectedThreadId } from "./router/navigate";
@@ -512,7 +511,6 @@ export default function App() {
   }, []);
 
   // Sync i18n language changes back to the Zustand store
-  const { i18n } = useTranslation();
   const setLocale = useUIStore((s) => s.setLocale);
   useEffect(() => {
     const handleLanguageChanged = (lng: string) => {
@@ -523,7 +521,7 @@ export default function App() {
     return () => {
       i18n.off("languageChanged", handleLanguageChanged);
     };
-  }, [i18n, setLocale]);
+  }, [setLocale]);
 
   const handleAddAccountSuccess = useCallback(async () => {
     setShowAddAccount(false);

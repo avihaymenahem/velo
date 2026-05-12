@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import type { Editor } from "@tiptap/react";
 import { InputDialog } from "@/components/ui/InputDialog";
-import { Sparkles, FileText, MessageSquarePlus, Type, Table, Smile, Plus, Minus, Trash2, Columns3, Rows3 } from "lucide-react";
+import { Sparkles, FileText, MessageSquarePlus, Type, Smile } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
 import { getQuickReplies, incrementQuickReplyUsage, type QuickReply } from "@/services/db/quickReplies";
 import { EmojiPicker } from "./EmojiPicker";
@@ -20,11 +20,9 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, onToggle
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [quickReplyOpen, setQuickReplyOpen] = useState(false);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
-  const [tableMenuOpen, setTableMenuOpen] = useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
-  const qrMenuRef = useRef<HTMLDivElement>(null);
-  const tableMenuRef = useRef<HTMLDivElement>(null);
+  const qrMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!quickReplyOpen || !activeAccountId) return;
@@ -43,19 +41,8 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, onToggle
   }, [quickReplyOpen]);
 
   useEffect(() => {
-    if (!tableMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (tableMenuRef.current && !tableMenuRef.current.contains(e.target as Node)) {
-        setTableMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [tableMenuOpen]);
-
-  useEffect(() => {
     if (!emojiPickerOpen) return;
-    const handler = (e: MouseEvent) => {
+    const handler = (_e: MouseEvent) => {
       setEmojiPickerOpen(false);
     };
     document.addEventListener("mousedown", handler);
@@ -73,8 +60,6 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, onToggle
     if (!editor) return;
     editor.chain().focus().insertContent(emoji).run();
   }, [editor]);
-
-  const isInTable = editor?.isActive("table");
 
   if (!editor) return null;
 
@@ -149,7 +134,7 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, onToggle
 
       <div className="w-px h-4 bg-border-primary mx-1" />
 
-      {/* Table */}
+      {/* Table - requires @tiptap/extension-table
       <div className="relative">
         <button
           type="button"
@@ -264,6 +249,7 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, onToggle
           </div>
         )}
       </div>
+      */}
 
       {/* Emoji */}
       <div className="relative">

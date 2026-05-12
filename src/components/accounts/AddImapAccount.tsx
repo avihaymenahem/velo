@@ -590,6 +590,26 @@ export function AddImapAccount({
 
   const renderBasicStep = () => (
     <div className="space-y-4">
+      {import.meta.env.VITE_DEMO_EMAIL && (
+        <button
+          type="button"
+          onClick={() => {
+            updateForm("email", import.meta.env.VITE_DEMO_EMAIL as string);
+            updateForm("displayName", import.meta.env.VITE_DEMO_DISPLAY_NAME as string);
+            updateForm("imapHost", import.meta.env.VITE_DEMO_IMAP_HOST as string);
+            updateForm("imapPort", Number(import.meta.env.VITE_DEMO_IMAP_PORT));
+            updateForm("imapSecurity", import.meta.env.VITE_DEMO_IMAP_SECURITY as "ssl" | "starttls" | "none");
+            updateForm("smtpHost", import.meta.env.VITE_DEMO_SMTP_HOST as string);
+            updateForm("smtpPort", Number(import.meta.env.VITE_DEMO_SMTP_PORT));
+            updateForm("smtpSecurity", import.meta.env.VITE_DEMO_SMTP_SECURITY as "ssl" | "starttls" | "none");
+            updateForm("password", import.meta.env.VITE_DEMO_PASSWORD as string);
+            updateForm("samePassword", true);
+          }}
+          className="w-full px-4 py-2.5 text-sm border border-dashed border-accent/50 text-accent rounded-lg hover:bg-accent/5 transition-colors"
+        >
+          Use Demo Account (Mailtrap)
+        </button>
+      )}
       <div>
         <label htmlFor="imap-email" className={labelClass}>
           Email Address

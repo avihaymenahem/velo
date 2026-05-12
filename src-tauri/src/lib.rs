@@ -291,13 +291,7 @@ pub fn run() {
             // Spawn background backup scheduler
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
-                let runtime = tokio::runtime::Runtime::new().unwrap();
-                let _running = export::scheduler::run_backup_scheduler(app_handle);
-                runtime.block_on(async {
-                    loop {
-                        tokio::time::sleep(tokio::time::Duration::from_secs(u64::MAX)).await;
-                    }
-                });
+                export::scheduler::run_backup_scheduler(app_handle);
             });
 
             Ok(())

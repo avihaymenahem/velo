@@ -349,7 +349,7 @@ pub async fn fetch_messages(
                 .uid_fetch(&retry_set, "UID FLAGS INTERNALDATE BODY[]")
                 .await
                 .map_err(|e| format!("UID FETCH (BODY[] fallback) {folder} uids={retry_set} failed: {e}"));
-            Ok::<_, Result<String, String>>(stream?.collect::<Vec<_>>().await)
+            Ok::<Vec<Result<async_imap::types::Fetch, async_imap::error::Error>>, String>(stream?.collect::<Vec<_>>().await)
         }).await {
             Ok(Ok(retry_fetches)) => {
                 for r in retry_fetches {
@@ -990,7 +990,7 @@ pub async fn sync_folder(
                 .uid_fetch(&retry_set, "UID FLAGS INTERNALDATE BODY[]")
                 .await
                 .map_err(|e| format!("UID FETCH (BODY[] fallback) {folder} uids={retry_set} failed: {e}"));
-            Ok::<_, Result<String, String>>(stream?.collect::<Vec<_>>().await)
+            Ok::<Vec<Result<async_imap::types::Fetch, async_imap::error::Error>>, String>(stream?.collect::<Vec<_>>().await)
         }).await {
             Ok(Ok(retry_fetches)) => {
                 for r in retry_fetches {
