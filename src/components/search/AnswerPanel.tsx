@@ -9,10 +9,10 @@ import {
 } from "@/services/ai/searchAnswer";
 
 interface AnswerPanelProps {
-  query: string;
-  accountId: string | null;
-  onCitationClick: (threadId: string) => void;
-}
+   query: string;
+   accountId: string | null;
+   onCitationClick: (threadId: string, messageId?: string) => void;
+ }
 
 function CitationChip({
   citation,
@@ -38,10 +38,10 @@ function CitationChip({
 }
 
 function renderAnswer(
-  answer: string,
-  citations: Citation[],
-  onCitationClick: (threadId: string) => void,
-): React.ReactNode[] {
+   answer: string,
+   citations: Citation[],
+   onCitationClick: (threadId: string, messageId?: string) => void,
+ ): React.ReactNode[] {
   const citationMap = new Map(citations.map((c) => [c.id, c]));
   return answer.split(/(\[[^\]]+\])/).map((part, i) => {
     if (part.startsWith("[") && part.endsWith("]")) {
@@ -52,7 +52,7 @@ function renderAnswer(
           <CitationChip
             key={i}
             citation={citation}
-            onClick={() => onCitationClick(citation.threadId)}
+            onClick={() => onCitationClick(citation.threadId, citation.messageId)}
           />
         );
       }

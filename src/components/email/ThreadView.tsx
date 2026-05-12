@@ -67,14 +67,15 @@ export function ThreadView({ thread }: ThreadViewProps) {
   const toggleContactSidebar = useUIStore((s) => s.toggleContactSidebar);
   const taskSidebarVisible = useUIStore((s) => s.taskSidebarVisible);
   const [showTaskExtract, setShowTaskExtract] = useState(false);
-  const updateThread = useThreadStore((s) => s.updateThread);
-  const [messages, setMessages] = useState<DbMessage[]>([]);
-  const [selectedMessageId, setLocalSelectedMessageId] = useState<string | null>(null);
-  const storeSetSelectedMessageId = useThreadStore((s) => s.setSelectedMessageId);
-  const setSelectedMessageId = useCallback((id: string | null) => {
-    setLocalSelectedMessageId(id);
-    storeSetSelectedMessageId(id);
-  }, [storeSetSelectedMessageId]);
+const updateThread = useThreadStore((s) => s.updateThread);
+   const storeSelectedMessageId = useThreadStore((s) => s.selectedMessageId);
+   const [messages, setMessages] = useState<DbMessage[]>([]);
+   const [selectedMessageId, setLocalSelectedMessageId] = useState<string | null>(null);
+   const storeSetSelectedMessageId = useThreadStore((s) => s.setSelectedMessageId);
+   const setSelectedMessageId = useCallback((id: string | null) => {
+     setLocalSelectedMessageId(id);
+     storeSetSelectedMessageId(id);
+   }, [storeSetSelectedMessageId]);
   const [loading, setLoading] = useState(true);
   const markedReadRef = useRef<string | null>(null);
   // null = not yet loaded; defer iframe rendering until setting is known
@@ -86,33 +87,46 @@ export function ThreadView({ thread }: ThreadViewProps) {
     getSetting("block_remote_images").then((val) => setBlockImages(val !== "false"));
   }, []);
 
-  // Load messages
-  useEffect(() => {
-    if (!activeAccountId) return;
-    setLoading(true);
-    getMessagesForThread(activeAccountId, thread.id)
-      .then(setMessages)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [activeAccountId, thread.id]);
+// Load messages
+   useEffect(() => {
+     if (!activeAccountId) return;
+     setLoading(true);
+     getMessagesForThread(activeAccountId, thread.id)
+       .then((msgs) => {
+         setMessages(msgs);
+         // If a messageId was set from citation click, verify it exists
+         if (storeSelectedMessageId && msgs.some(m => m.id === storeSelectedMessageId)) {
+           setLocalSelectedMessageId(storeSelectedMessageId);
+         }
+       })
+       .catch(console.error)
+       .finally(() => setLoading(false));
+   }, [activeAccountId, thread.id, storeSelectedMessageId]);
 
-  // Check per-sender allowlist (single batch query instead of N queries)
-  useEffect(() => {
-    if (!activeAccountId || messages.length === 0) return;
-    let cancelled = false;
+// Check per-sender allowlist (single batch query instead of N queries)
+   useEffect(() => {
+     if (!activeAccountId || messages.length === 0) return;
+     let cancelled = false;
 
-    const senders: string[] = [];
-    for (const msg of messages) {
-      if (msg.from_address) senders.push(msg.from_address);
-    }
-    const uniqueSenders = [...new Set(senders)];
+     const senders: string[] = [];
+     for (const msg of messages) {
+       if (msg.from_address) senders.push(msg.from_address);
+     }
+     const uniqueSenders = [...new Set(senders)];
 
-    getAllowlistedSenders(activeAccountId, uniqueSenders).then((allowed) => {
-      if (!cancelled) setAllowlistedSenders(allowed);
-    });
+     getAllowlistedSenders(activeAccountId, uniqueSenders).then((allowed) => {
+       if (!cancelled) setAllowlistedSenders(allowed);
+     });
 
-    return () => { cancelled = true; };
-  }, [activeAccountId, messages]);
+     return () => { cancelled = true; };
+   }, [activeAccountId, messages]);
+
+   // Update selected message when store value changes (e.g., from citation click)
+   useEffect(() => {
+     if (storeSelectedMessageId && messages.some(m => m.id === storeSelectedMessageId)) {
+       setLocalSelectedMessageId(storeSelectedMessageId);
+     }
+   }, [storeSelectedMessageId, messages]);
 
   // Auto-mark unread threads as read when opened (respects mark-as-read setting)
   const markAsReadBehavior = useUIStore((s) => s.markAsReadBehavior);

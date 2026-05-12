@@ -960,6 +960,24 @@ const MIGRATIONS = [
       INSERT OR IGNORE INTO settings (key, value) VALUES ('app_icon_style', 'auto');
     `,
   },
+  {
+    version: 38,
+    description: "Migrate message_embeddings from Base64 TEXT to binary BLOB for native Rust vector search; clears existing data to force re-indexing",
+    sql: `
+      DROP TABLE IF EXISTS message_embeddings;
+      CREATE TABLE IF NOT EXISTS message_embeddings (
+        message_id TEXT NOT NULL,
+        account_id TEXT NOT NULL,
+        embedding BLOB,
+        model TEXT NOT NULL DEFAULT 'nomic-embed-text',
+        created_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (account_id, message_id),
+        FOREIGN KEY (account_id, message_id) REFERENCES messages(account_id, id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account ON message_embeddings(account_id);
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account_created ON message_embeddings(account_id, created_at);
+    `,
+  },
 ];
 
 /**
@@ -1074,6 +1092,19 @@ export async function runMigrations(): Promise<void> {
       console.warn("Migration v26 marked applied but deleted_imap_uids table missing — re-running v26");
       await db.execute("DELETE FROM _migrations WHERE version = 26");
       appliedVersions.delete(26);
+    }
+  }
+
+  // Repair: if migration 38 is marked applied but message_embeddings.embedding still has
+  // NOT NULL (meaning the DROP+CREATE in v38 did not fully persist), force re-run v38.
+  if (appliedVersions.has(38)) {
+    const cols = await db.select<{ notnull: number }[]>(
+      `SELECT "notnull" FROM pragma_table_info('message_embeddings') WHERE name = 'embedding'`,
+    );
+    if (cols.length === 0 || cols[0]?.notnull === 1) {
+      console.warn("Migration v38 marked applied but message_embeddings.embedding is NOT NULL — re-running v38");
+      await db.execute("DELETE FROM _migrations WHERE version = 38");
+      appliedVersions.delete(38);
     }
   }
 

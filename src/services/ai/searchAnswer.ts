@@ -2,10 +2,11 @@ import { askMyInbox } from "./askInbox";
 import type { SearchResult } from "@/services/db/search";
 
 export interface Citation {
-  id: string;
-  label: string;
-  threadId: string;
-}
+   id: string;
+   label: string;
+   threadId: string;
+   messageId?: string;
+ }
 
 export interface SearchAnswerResult {
   answer: string;
@@ -62,7 +63,7 @@ function buildCitations(answer: string, sources: SearchResult[]): Citation[] {
     const label = src.from_name
       ? `${src.from_name} — ${src.subject ?? "(no subject)"}`
       : (src.subject ?? "(no subject)");
-    cited.push({ id, label, threadId: src.thread_id });
+    cited.push({ id, label, threadId: src.thread_id, messageId: src.message_id });
   }
 
   return cited;

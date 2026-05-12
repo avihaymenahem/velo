@@ -4,11 +4,22 @@ import { getSetting } from "@/services/db/settings";
 import { getAccountRagEnabled } from "@/services/db/accounts";
 import {
   generateEmbedding,
-  semanticSearch,
   sanitizeForEmbedding,
   getEmbeddingPrefixes,
-  type SemanticResult,
 } from "./ollamaEmbeddings";
+import { invoke } from "@tauri-apps/api/core";
+
+interface RustSearchHit {
+  message_id: string;
+  account_id: string;
+  thread_id: string;
+  subject: string | null;
+  from_name: string | null;
+  from_address: string | null;
+  snippet: string | null;
+  date: number;
+  score: number;
+}
 
 function extractSearchTerms(question: string): string {
   const stopWords = new Set([
@@ -50,17 +61,17 @@ export interface AskInboxResult {
   sourceMessages: SearchResult[];
 }
 
-function semToSearch(s: SemanticResult): SearchResult {
+function rustHitToSearchResult(h: RustSearchHit): SearchResult {
   return {
-    message_id: s.message_id,
-    account_id: s.account_id,
-    thread_id: s.thread_id,
-    subject: s.subject,
-    from_name: s.from_name,
-    from_address: s.from_address,
-    snippet: s.snippet,
-    date: s.date,
-    rank: s.similarity,
+    message_id: h.message_id,
+    account_id: h.account_id,
+    thread_id: h.thread_id,
+    subject: h.subject,
+    from_name: h.from_name,
+    from_address: h.from_address,
+    snippet: h.snippet,
+    date: h.date,
+    rank: h.score,
   };
 }
 
@@ -84,55 +95,27 @@ export async function askMyInbox(
   let results: SearchResult[];
 
   if (accountRagEnabled && serverUrl) {
-    // Hybrid retrieval: run FTS and embedding query in parallel
+    // Generate query embedding from Ollama (still JS-side, network call)
     const cleanQuery = sanitizeForEmbedding(question, 256);
     const { query: queryPrefix } = getEmbeddingPrefixes(embeddingModel);
     const prefixedQuery = cleanQuery
       ? queryPrefix ? `${queryPrefix}${cleanQuery}` : cleanQuery
       : cleanQuery;
-    const [ftsResults, queryEmbedding] = await Promise.all([
-      searchMessages(terms, accountId, 20),
-      generateEmbedding(prefixedQuery ?? "", serverUrl, embeddingModel),
-    ]);
+
+    const queryEmbedding = await generateEmbedding(prefixedQuery ?? "", serverUrl, embeddingModel);
 
     if (queryEmbedding) {
-      const semResults = await semanticSearch(queryEmbedding, accountId, 20);
-
-      const hasFts = ftsResults.length > 0;
-      const hasSem = semResults.length > 0;
-
-      // Dynamic weights: both available → 40/60; only one available → 100/0 or 0/100
-      const ftsW = hasFts && hasSem ? 0.4 : hasFts ? 1.0 : 0.0;
-      const semW = hasFts && hasSem ? 0.6 : hasSem ? 1.0 : 0.0;
-
-      // Normalised rank score: top result = 1.0, last = ~0
-      const ftsScore = new Map<string, number>();
-      ftsResults.forEach((r, i) => ftsScore.set(r.message_id, 1 - i / Math.max(ftsResults.length, 1)));
-
-      const semScore = new Map<string, SemanticResult>();
-      semResults.forEach((r) => semScore.set(r.message_id, r));
-
-      const allIds = new Set([...ftsScore.keys(), ...semScore.keys()]);
-
-      type Scored = SearchResult & { hybridScore: number };
-      const merged: Scored[] = [];
-
-      for (const id of allIds) {
-        const fts = ftsScore.get(id) ?? 0;
-        const sem = semScore.get(id)?.similarity ?? 0;
-        const hybridScore = ftsW * fts + semW * sem;
-
-        const base = ftsResults.find((r) => r.message_id === id)
-          ?? semToSearch(semScore.get(id)!);
-
-        merged.push({ ...base, hybridScore });
-      }
-
-      merged.sort((a, b) => b.hybridScore - a.hybridScore);
-      results = merged.slice(0, 15);
+      // Hybrid FTS + vector retrieval with RRF fusion — fully in Rust
+      const hits = await invoke<RustSearchHit[]>("ask_inbox_rust", {
+        queryEmbedding,
+        accountId,
+        ftsTerms: terms,
+        limit: 20,
+      });
+      results = hits.map(rustHitToSearchResult);
     } else {
       // Ollama unreachable — fall back to FTS silently
-      results = ftsResults.slice(0, 15);
+      results = await searchMessages(terms, accountId, 15);
     }
   } else {
     results = await searchMessages(terms, accountId, 15);

@@ -103,8 +103,9 @@ export function EmailList({
   const setThreads = useThreadStore((s) => s.setThreads);
   const setLoading = useThreadStore((s) => s.setLoading);
   const removeThreads = useThreadStore((s) => s.removeThreads);
-  const selectThread = useThreadStore((s) => s.selectThread);
+const selectThread = useThreadStore((s) => s.selectThread);
    const clearMultiSelect = useThreadStore((s) => s.clearMultiSelect);
+   const setSelectedMessageId = useThreadStore((s) => s.setSelectedMessageId);
   const selectAll = useThreadStore((s) => s.selectAll);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const activeLabel = useActiveLabel();
@@ -480,21 +481,13 @@ export function EmailList({
 
   const clearSearch = useThreadStore((s) => s.clearSearch);
 
-  const [highlightedThreadId, setHighlightedThreadId] = useState<string | null>(null);
-
-const handleCitationClick = useCallback((threadId: string) => {
+  const handleCitationClick = useCallback((threadId: string, messageId?: string) => {
      selectThread(threadId);
      clearMultiSelect();
-     setHighlightedThreadId(threadId);
-     setTimeout(() => setHighlightedThreadId(null), 3000);
-     const el = scrollContainerRef.current?.querySelector(
-       `[data-thread-id="${CSS.escape(threadId)}"]`,
-     );
-     el?.scrollIntoView({ block: "center", behavior: "smooth" });
-     const threadEl = el?.closest("[data-thread-id]");
-     threadEl?.classList.add("animate-pulse-highlight");
-     setTimeout(() => threadEl?.classList.remove("animate-pulse-highlight"), 3000);
-   }, [selectThread, clearMultiSelect]);
+     if (messageId) {
+       setSelectedMessageId(messageId);
+     }
+   }, [selectThread, clearMultiSelect, setSelectedMessageId]);
 
   const loadThreads = useCallback(async (keepSearch = false) => {
     if (!activeAccountId) {
@@ -1035,22 +1028,13 @@ useEffect(() => {
             {visibleThreads.map((thread, idx) => {
               const prevThread = idx > 0 ? filteredThreads[idx - 1] : undefined;
               const showDivider = prevThread?.isPinned && !thread.isPinned;
-              return (
-                <div
-                  key={thread.id}
-                  data-thread-id={thread.id}
-                  className={[
-                    idx < 15 ? "stagger-in" : undefined,
-                    highlightedThreadId === thread.id
-                      ? "ring-1 ring-accent/50 ring-inset rounded transition-shadow duration-500"
-                      : undefined,
-                  ]
-                    .filter(Boolean)
-                    .join(" ") || undefined}
-                  style={
-                    idx < 15 ? { animationDelay: `${idx * 30}ms` } : undefined
-                  }
-                >
+return (
+                 <div
+                   key={thread.id}
+                   data-thread-id={thread.id}
+                   className={idx < 15 ? "stagger-in" : undefined}
+                   style={idx < 15 ? { animationDelay: `${idx * 30}ms` } : undefined}
+                 >
                   {showDivider && (
                     <div className="px-4 py-1.5 text-xs font-medium text-text-tertiary uppercase tracking-wider bg-bg-tertiary/50 border-b border-border-secondary">
                       Other emails

@@ -1,4 +1,5 @@
 import { fetch } from "@tauri-apps/plugin-http";
+import { invoke } from "@tauri-apps/api/core";
 import { getDb } from "@/services/db/connection";
 
 // Boilerplate patterns to strip before embedding.
@@ -73,33 +74,7 @@ export function sanitizeForEmbedding(text: string, chunkSize = 512): string {
 }
 
 // ---------------------------------------------------------------------------
-// Binary serialization — Base64 Float32 (~3× smaller than JSON)
-// Tauri SQL plugin does not support raw BLOB parameters (it JSON-serializes
-// everything over IPC), so we use Base64-encoded binary stored as TEXT.
-// ---------------------------------------------------------------------------
-
-function float32ToBase64(floats: number[]): string {
-  const f32 = new Float32Array(floats);
-  const u8 = new Uint8Array(f32.buffer);
-  let binary = "";
-  for (let i = 0; i < u8.length; i++) binary += String.fromCharCode(u8[i]!);
-  return btoa(binary);
-}
-
-function base64ToFloat32(b64: string): number[] {
-  if (!b64) return [];
-  try {
-    const binary = atob(b64);
-    const u8 = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) u8[i] = binary.charCodeAt(i);
-    return Array.from(new Float32Array(u8.buffer));
-  } catch {
-    return [];
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Math
+// Math (kept for callers outside the RAG pipeline)
 // ---------------------------------------------------------------------------
 
 export function cosineSimilarity(a: number[], b: number[]): number {
@@ -150,23 +125,50 @@ export function getEmbeddingPrefixes(model: string): EmbeddingPrefixes {
 // Ollama API
 // ---------------------------------------------------------------------------
 
+const EMBEDDING_TIMEOUT_MS = 30_000;
+
+// Promise.race-based timeout — works regardless of whether the underlying
+// Tauri HTTP plugin honours AbortController (it does not reliably).
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("embedding_timeout")), ms),
+    ),
+  ]);
+}
+
 export async function generateEmbedding(
   text: string,
   serverUrl: string,
   model: string,
 ): Promise<number[] | null> {
+  // Use the modern /api/embed endpoint (input field, embeddings[] response).
+  // The legacy /api/embeddings (prompt field) hangs on newer models like
+  // nomic-embed-text-v2-moe when input exceeds their 512-token context limit.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), EMBEDDING_TIMEOUT_MS);
   try {
     const base = serverUrl.replace(/\/+$/, "");
-    const resp = await fetch(`${base}/api/embeddings`, {
+    // withTimeout is a belt-and-suspenders fallback: the Tauri HTTP plugin does
+    // not reliably honour AbortController signals, so Promise.race guarantees
+    // the caller unblocks even if the signal is ignored at the native layer.
+    const fetchPromise = fetch(`${base}/api/embed`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model, prompt: text }),
+      body: JSON.stringify({ model, input: text }),
+      signal: controller.signal,
+    }).then(async (resp) => {
+      if (!resp.ok) return null;
+      const data = (await resp.json()) as { embeddings?: number[][] };
+      const emb = data.embeddings?.[0];
+      return Array.isArray(emb) && emb.length > 0 ? emb : null;
     });
-    if (!resp.ok) return null;
-    const data = (await resp.json()) as { embedding?: number[] };
-    return Array.isArray(data.embedding) ? data.embedding : null;
+    return await withTimeout(fetchPromise, EMBEDDING_TIMEOUT_MS);
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -184,30 +186,37 @@ export async function testEmbeddingModel(
   model: string,
 ): Promise<EmbeddingTestResult> {
   const base = serverUrl.replace(/\/+$/, "");
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), EMBEDDING_TIMEOUT_MS);
   try {
-    const resp = await fetch(`${base}/api/embeddings`, {
+    const fetchPromise = fetch(`${base}/api/embed`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model, prompt: "test" }),
+      body: JSON.stringify({ model, input: "test" }),
+      signal: controller.signal,
+    }).then(async (resp) => {
+      if (resp.status === 404 || resp.status === 400) {
+        return { ok: false, errorType: "model_not_found" as EmbeddingTestError };
+      }
+      if (!resp.ok) {
+        try {
+          const err = (await resp.json()) as { error?: string };
+          if (err.error?.toLowerCase().includes("model")) {
+            return { ok: false, errorType: "model_not_found" as EmbeddingTestError };
+          }
+        } catch { /* ignore */ }
+        return { ok: false, errorType: "unknown" as EmbeddingTestError };
+      }
+      const data = (await resp.json()) as { embeddings?: number[][] };
+      const emb = data.embeddings?.[0];
+      if (!Array.isArray(emb) || emb.length === 0) return { ok: false, errorType: "unknown" as EmbeddingTestError };
+      return { ok: true, dimensions: emb.length };
     });
-    if (resp.status === 404 || resp.status === 400) {
-      return { ok: false, errorType: "model_not_found" };
-    }
-    if (!resp.ok) {
-      // Try to read error body for "model not found" message from Ollama
-      try {
-        const err = (await resp.json()) as { error?: string };
-        if (err.error?.toLowerCase().includes("model")) {
-          return { ok: false, errorType: "model_not_found" };
-        }
-      } catch { /* ignore */ }
-      return { ok: false, errorType: "unknown" };
-    }
-    const data = (await resp.json()) as { embedding?: number[] };
-    if (!Array.isArray(data.embedding)) return { ok: false, errorType: "unknown" };
-    return { ok: true, dimensions: data.embedding.length };
+    return await withTimeout<EmbeddingTestResult>(fetchPromise, EMBEDDING_TIMEOUT_MS);
   } catch {
     return { ok: false, errorType: "server_down" };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -215,18 +224,20 @@ export async function testEmbeddingModel(
 // DB helpers
 // ---------------------------------------------------------------------------
 
+// Stores an embedding as a binary BLOB via the native Rust command.
+// Pass an empty array to write a NULL sentinel (no embeddable content).
 export async function storeEmbedding(
   messageId: string,
   accountId: string,
   embedding: number[],
   model: string,
 ): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    `INSERT OR REPLACE INTO message_embeddings (message_id, account_id, embedding, model)
-     VALUES ($1, $2, $3, $4)`,
-    [messageId, accountId, float32ToBase64(embedding), model],
-  );
+  await invoke("store_embedding", {
+    messageId,
+    accountId,
+    embedding,
+    model,
+  });
 }
 
 export interface SemanticResult {
@@ -239,48 +250,6 @@ export interface SemanticResult {
   snippet: string | null;
   date: number;
   similarity: number;
-}
-
-type EmbeddingRow = {
-  message_id: string;
-  account_id: string;
-  thread_id: string;
-  subject: string | null;
-  from_name: string | null;
-  from_address: string | null;
-  snippet: string | null;
-  date: number;
-  embedding: string;
-};
-
-export async function semanticSearch(
-  queryEmbedding: number[],
-  accountId: string,
-  limit = 20,
-): Promise<SemanticResult[]> {
-  const db = await getDb();
-
-  // Empty-string sentinel means "no usable content" — skip these rows.
-  const rows = await db.select<EmbeddingRow[]>(
-    `SELECT me.message_id, me.account_id, m.thread_id, m.subject,
-            m.from_name, m.from_address, m.snippet, m.date, me.embedding
-     FROM message_embeddings me
-     JOIN messages m ON m.id = me.message_id
-     WHERE me.account_id = $1
-       AND me.embedding != ''
-     ORDER BY me.created_at DESC
-     LIMIT 5000`,
-    [accountId],
-  );
-
-  const scored = rows.map((row) => {
-    const emb = base64ToFloat32(row.embedding);
-    const { embedding: _emb, ...rest } = row;
-    return { ...rest, similarity: cosineSimilarity(queryEmbedding, emb) };
-  });
-
-  scored.sort((a, b) => b.similarity - a.similarity);
-  return scored.slice(0, limit);
 }
 
 export async function getEmbeddingProgress(

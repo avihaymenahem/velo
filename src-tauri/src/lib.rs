@@ -10,6 +10,7 @@ mod commands;
 mod imap;
 mod oauth;
 mod smtp;
+mod vector_search;
 
 #[tauri::command]
 fn close_splashscreen(app: tauri::AppHandle) {
@@ -400,6 +401,8 @@ pub fn run() {
             commands::imap_delta_check,
             commands::smtp_send_email,
             commands::smtp_test_connection,
+            vector_search::store_embedding,
+            vector_search::ask_inbox_rust,
         ])
         .setup(|app| {
             {
@@ -412,6 +415,9 @@ pub fn run() {
                     tauri_plugin_log::Builder::default()
                         .level(level)
                         .level_for("sqlx::query", log::LevelFilter::Warn)
+                        .level_for("hyper_util", log::LevelFilter::Warn)
+                        .level_for("hyper", log::LevelFilter::Warn)
+                        .level_for("reqwest", log::LevelFilter::Warn)
                         .build(),
                 )?;
             }
