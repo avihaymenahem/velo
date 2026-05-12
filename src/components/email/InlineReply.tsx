@@ -12,6 +12,7 @@ import { buildRawEmail } from "@/utils/emailBuilder";
 import { upsertContact } from "@/services/db/contacts";
 import { getSetting } from "@/services/db/settings";
 import { getDefaultSignature } from "@/services/db/signatures";
+import { QuickReplyList } from "./QuickReplyList";
 import {
   isAutoDraftEnabled,
   generateAutoDraft,
@@ -391,6 +392,14 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
           </div>
         )}
       </div>
+
+      {/* Quick Replies */}
+      <QuickReplyList
+        accountId={accountId}
+        onInsert={(bodyHtml) => {
+          editor?.chain().focus().insertContent(bodyHtml).run();
+        }}
+      />
 
       {/* Footer */}
       <div className="flex items-center justify-between px-3 py-2 border-t border-border-secondary bg-bg-secondary">

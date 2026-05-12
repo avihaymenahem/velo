@@ -50,6 +50,7 @@ import { ContactEditor } from "./ContactEditor";
 import { SubscriptionManager } from "./SubscriptionManager";
 import { SmartFolderEditor } from "./SmartFolderEditor";
 import { QuickStepEditor } from "./QuickStepEditor";
+import { QuickReplyEditor } from "./QuickReplyEditor";
 import { SmartLabelEditor } from "./SmartLabelEditor";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { WorkflowEditor } from "./WorkflowEditor";
@@ -797,6 +798,13 @@ export function SettingsPage() {
 
                   <Section title="Templates">
                     <TemplateEditor />
+                  </Section>
+
+                  <Section title="Quick Replies">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Quick replies are reusable message snippets you can insert with one click.
+                    </p>
+                    <QuickReplyEditor />
                   </Section>
                 </>
               )}
