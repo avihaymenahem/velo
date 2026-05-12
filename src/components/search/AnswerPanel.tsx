@@ -111,32 +111,25 @@ export function AnswerPanel({
       classNames="answer-panel"
       unmountOnExit
     >
-      <div
-        ref={panelRef}
-        className="border-b border-border-secondary bg-gradient-to-r from-accent/5 to-transparent"
-      >
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-1.5 mb-2">
-            <Sparkles size={11} className="text-accent shrink-0" />
-            <span className="text-[0.6rem] font-semibold text-accent uppercase tracking-widest">
-              AI answer
-            </span>
-          </div>
-
-          {loading && !result && (
-            <div className="space-y-2">
-              <div className="h-2 rounded-full bg-bg-hover animate-pulse w-full" />
-              <div className="h-2 rounded-full bg-bg-hover animate-pulse w-4/5" />
-              <div className="h-2 rounded-full bg-bg-hover animate-pulse w-3/5" />
-            </div>
-          )}
-
-          {result && (
-            <p className="text-xs text-text-primary leading-relaxed">
-              {renderAnswer(result.answer, result.citations, onCitationClick)}
-            </p>
-          )}
+      <div ref={panelRef} className="mx-4 my-2 p-3 rounded-lg bg-accent/5 border border-accent/20">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles size={14} className="text-accent" />
+          <span className="text-xs font-medium text-accent flex-1">AI Answer</span>
         </div>
+
+        {loading && !result && (
+          <div className="space-y-2">
+            <div className="h-2 rounded-full bg-bg-hover animate-pulse w-full" />
+            <div className="h-2 rounded-full bg-bg-hover animate-pulse w-4/5" />
+            <div className="h-2 rounded-full bg-bg-hover animate-pulse w-3/5" />
+          </div>
+        )}
+
+        {result && (
+          <p className="text-xs text-text-primary leading-relaxed">
+            {renderAnswer(result.answer, result.citations, onCitationClick)}
+          </p>
+        )}
       </div>
     </CSSTransition>
   );

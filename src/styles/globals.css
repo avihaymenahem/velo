@@ -876,3 +876,20 @@ body {
 .swiping-active * {
     pointer-events: none !important;
 }
+
+@keyframes pulse-highlight {
+    0%, 100% {
+        background-color: var(--color-accent-light);
+        outline: 2px solid var(--color-accent);
+        outline-offset: -2px;
+    }
+    50% {
+        background-color: var(--color-accent-light);
+        outline: 3px solid var(--color-accent-hover);
+        outline-offset: -3px;
+    }
+}
+
+.animate-pulse-highlight {
+    animation: pulse-highlight 1.5s ease-in-out;
+}

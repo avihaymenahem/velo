@@ -103,7 +103,8 @@ export function EmailList({
   const setThreads = useThreadStore((s) => s.setThreads);
   const setLoading = useThreadStore((s) => s.setLoading);
   const removeThreads = useThreadStore((s) => s.removeThreads);
-  const clearMultiSelect = useThreadStore((s) => s.clearMultiSelect);
+  const selectThread = useThreadStore((s) => s.selectThread);
+   const clearMultiSelect = useThreadStore((s) => s.clearMultiSelect);
   const selectAll = useThreadStore((s) => s.selectAll);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const activeLabel = useActiveLabel();
@@ -481,14 +482,19 @@ export function EmailList({
 
   const [highlightedThreadId, setHighlightedThreadId] = useState<string | null>(null);
 
-  const handleCitationClick = useCallback((threadId: string) => {
-    setHighlightedThreadId(threadId);
-    setTimeout(() => setHighlightedThreadId(null), 2000);
-    const el = scrollContainerRef.current?.querySelector(
-      `[data-thread-id="${CSS.escape(threadId)}"]`,
-    );
-    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, []);
+const handleCitationClick = useCallback((threadId: string) => {
+     selectThread(threadId);
+     clearMultiSelect();
+     setHighlightedThreadId(threadId);
+     setTimeout(() => setHighlightedThreadId(null), 3000);
+     const el = scrollContainerRef.current?.querySelector(
+       `[data-thread-id="${CSS.escape(threadId)}"]`,
+     );
+     el?.scrollIntoView({ block: "center", behavior: "smooth" });
+     const threadEl = el?.closest("[data-thread-id]");
+     threadEl?.classList.add("animate-pulse-highlight");
+     setTimeout(() => threadEl?.classList.remove("animate-pulse-highlight"), 3000);
+   }, [selectThread, clearMultiSelect]);
 
   const loadThreads = useCallback(async (keepSearch = false) => {
     if (!activeAccountId) {
