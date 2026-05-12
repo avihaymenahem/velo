@@ -2,15 +2,16 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Editor } from "@tiptap/react";
 import { InputDialog } from "@/components/ui/InputDialog";
-import { Sparkles } from "lucide-react";
+import { Sparkles, FileText } from "lucide-react";
 
 interface EditorToolbarProps {
   editor: Editor | null;
   onToggleAiAssist?: () => void;
   aiAssistOpen?: boolean;
+  onToggleTemplatePicker?: () => void;
 }
 
-export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, onToggleTemplatePicker }: EditorToolbarProps) {
   const { t } = useTranslation();
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
@@ -87,6 +88,18 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
       {btn(t("composer.image"), false, () => imageInputRef.current?.click(), t("composer.insertImage"))}
 
       <div className="flex-1" />
+
+      {onToggleTemplatePicker && (
+        <button
+          type="button"
+          onClick={onToggleTemplatePicker}
+          title="Templates (Ctrl+Shift+T)"
+          className="px-1.5 py-1 text-xs rounded hover:bg-bg-hover transition-colors flex items-center gap-1 text-text-secondary"
+        >
+          <FileText size={12} />
+          {t("composer.templates")}
+        </button>
+      )}
 
       {onToggleAiAssist && (
         <button

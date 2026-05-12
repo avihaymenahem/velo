@@ -38,6 +38,8 @@ import {
   RotateCcw,
   Repeat,
   Shield,
+  ShieldCheck,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 import { SignatureEditor } from "./SignatureEditor";
@@ -52,6 +54,7 @@ import { SmartLabelEditor } from "./SmartLabelEditor";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { WorkflowEditor } from "./WorkflowEditor";
 import { PgpKeyManager } from "./PgpKeyManager";
+import { ComplianceProfileManager } from "./ComplianceProfileManager";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
@@ -67,15 +70,17 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
 
-type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "workflows" | "pgp" | "people" | "accounts" | "shortcuts" | "ai" | "about";
+type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "templates" | "workflows" | "pgp" | "compliance" | "people" | "accounts" | "shortcuts" | "ai" | "about";
 
 const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "general", label: "General", icon: Settings },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "composing", label: "Composing", icon: PenLine },
   { id: "mail-rules", label: "Mail Rules", icon: Filter },
+  { id: "templates", label: "Templates", icon: FileText },
   { id: "workflows", label: "Workflows", icon: Repeat },
   { id: "pgp", label: "PGP", icon: Shield },
+  { id: "compliance", label: "Compliance", icon: ShieldCheck },
   { id: "people", label: "People", icon: Users },
   { id: "accounts", label: "Accounts", icon: UserCircle },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
@@ -848,6 +853,12 @@ export function SettingsPage() {
               {activeTab === "pgp" && (
                 <Section title="PGP Encryption">
                   <PgpKeyManager />
+                </Section>
+              )}
+
+              {activeTab === "compliance" && (
+                <Section title="Compliance Profiles">
+                  <ComplianceProfileManager />
                 </Section>
               )}
 

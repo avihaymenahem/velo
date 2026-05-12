@@ -138,6 +138,8 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
       });
     });
 
+    // Load vault files (wired in Phase 4 — vault tab pending)
+
     return () => { cancelled = true; };
   }, [email, accountId]);
 

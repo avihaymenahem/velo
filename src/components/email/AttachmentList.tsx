@@ -3,8 +3,9 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { getAttachmentsForMessage, type DbAttachment } from "@/services/db/attachments";
 import { getEmailProvider } from "@/services/email/providerFactory";
+import { saveAttachmentToVault } from "@/services/attachments/vaultService";
 import { Modal } from "@/components/ui/Modal";
-import { Download, Eye } from "lucide-react";
+import { Download, Eye, Archive } from "lucide-react";
 import { formatFileSize, isImage, isPdf, isText, canPreview, getFileIcon } from "@/utils/fileTypeHelpers";
 
 /** Dedup attachments by filename+size (content-based) */
@@ -23,9 +24,10 @@ interface AttachmentListProps {
   messageId: string;
   attachments: DbAttachment[];
   referencedCids?: Set<string>;
+  fromAddress?: string | null;
 }
 
-export function AttachmentList({ accountId, messageId, attachments, referencedCids }: AttachmentListProps) {
+export function AttachmentList({ accountId, messageId, attachments, referencedCids, fromAddress }: AttachmentListProps) {
   const [preview, setPreview] = useState<DbAttachment | null>(null);
 
   // Filter out CID images rendered in the email body and true inline parts, then dedup
@@ -71,6 +73,7 @@ export function AttachmentList({ accountId, messageId, attachments, referencedCi
           attachment={preview}
           accountId={accountId}
           messageId={messageId}
+          fromAddress={fromAddress}
           onClose={() => setPreview(null)}
         />
       )}
@@ -82,15 +85,19 @@ export function AttachmentPreview({
   attachment,
   accountId,
   messageId,
+  fromAddress,
   onClose,
 }: {
   attachment: DbAttachment;
   accountId: string;
   messageId: string;
+  fromAddress?: string | null;
   onClose: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingToVault, setSavingToVault] = useState(false);
+  const [vaultSaved, setVaultSaved] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bytesRef = useRef<Uint8Array | null>(null);
@@ -164,6 +171,20 @@ export function AttachmentPreview({
     }
   };
 
+  const handleSaveToVault = async () => {
+    if (!fromAddress || savingToVault) return;
+    setSavingToVault(true);
+    try {
+      await saveAttachmentToVault(accountId, messageId, fromAddress, attachment);
+      setVaultSaved(true);
+      setTimeout(() => setVaultSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save to vault:", err);
+    } finally {
+      setSavingToVault(false);
+    }
+  };
+
   const handleClose = () => {
     if (blobUrl) URL.revokeObjectURL(blobUrl);
     onClose();
@@ -183,6 +204,20 @@ export function AttachmentPreview({
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0 ml-4">
+        {fromAddress && (
+          <button
+            onClick={handleSaveToVault}
+            disabled={savingToVault}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-50 ${
+              vaultSaved
+                ? "text-success bg-success/10 border border-success/30"
+                : "text-accent border border-accent/30 hover:bg-accent/10"
+            }`}
+          >
+            <Archive size={13} />
+            {savingToVault ? "Saving..." : vaultSaved ? "Saved!" : "Save to Vault"}
+          </button>
+        )}
         <button
           onClick={handleDownload}
           disabled={saving}
