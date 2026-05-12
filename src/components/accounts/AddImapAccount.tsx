@@ -28,6 +28,14 @@ interface AddImapAccountProps {
   onClose: () => void;
   onSuccess: () => void;
   onBack: () => void;
+  prefill?: {
+    imapHost: string;
+    imapPort: number;
+    imapSecurity: "ssl" | "starttls" | "none";
+    smtpHost: string;
+    smtpPort: number;
+    smtpSecurity: "ssl" | "starttls" | "none";
+  };
 }
 
 type Step = "basic" | "imap" | "smtp" | "test";
@@ -121,9 +129,23 @@ export function AddImapAccount({
   onClose,
   onSuccess,
   onBack,
+  prefill,
 }: AddImapAccountProps) {
   const [currentStep, setCurrentStep] = useState<Step>("basic");
-  const [form, setForm] = useState<FormState>(initialFormState);
+  const [form, setForm] = useState<FormState>(() => {
+    if (prefill) {
+      return {
+        ...initialFormState,
+        imapHost: prefill.imapHost,
+        imapPort: prefill.imapPort,
+        imapSecurity: prefill.imapSecurity,
+        smtpHost: prefill.smtpHost,
+        smtpPort: prefill.smtpPort,
+        smtpSecurity: prefill.smtpSecurity,
+      };
+    }
+    return initialFormState;
+  });
   const [imapTest, setImapTest] = useState<TestStatus>({ state: "idle" });
   const [smtpTest, setSmtpTest] = useState<TestStatus>({ state: "idle" });
   const [saving, setSaving] = useState(false);

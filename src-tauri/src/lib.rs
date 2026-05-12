@@ -134,6 +134,28 @@ pub fn run() {
             export::types::validate_export_config,
         ])
         .setup(|app| {
+            // Linux dmabuf workaround: disable dmabuf renderer on NVIDIA/Nouveau drivers
+            // to prevent high CPU usage and UI lag in WebKit.
+            #[cfg(target_os = "linux")]
+            {
+                if std::path::Path::new("/proc/driver/nvidia").exists() {
+                    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+                    println!("[linux-workaround] Disabled dmabuf renderer (NVIDIA driver detected)");
+                } else {
+                    let driver_check = std::process::Command::new("glxinfo")
+                        .arg("-B")
+                        .output()
+                        .or_else(|_| std::process::Command::new("nvidia-smi").arg("-L").output());
+                    if let Ok(output) = driver_check {
+                        let info = String::from_utf8_lossy(&output.stdout);
+                        if info.contains("NVIDIA") || info.contains("Nouveau") {
+                            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+                            println!("[linux-workaround] Disabled dmabuf renderer for NVIDIA/Nouveau driver");
+                        }
+                    }
+                }
+            }
+
             {
                 let level = if cfg!(debug_assertions) {
                     log::LevelFilter::Debug

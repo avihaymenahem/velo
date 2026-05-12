@@ -40,6 +40,7 @@ import {
   Shield,
   ShieldCheck,
   FileText,
+  Clock,
   type LucideIcon,
 } from "lucide-react";
 import { SignatureEditor } from "./SignatureEditor";
@@ -57,6 +58,7 @@ import { WorkflowEditor } from "./WorkflowEditor";
 import { TemplateManager } from "./TemplateManager";
 import { PgpKeyManager } from "./PgpKeyManager";
 import { ComplianceProfileManager } from "./ComplianceProfileManager";
+import { SnoozePresetsEditor } from "./SnoozePresetsEditor";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
@@ -72,7 +74,7 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
 
-type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "templates" | "workflows" | "pgp" | "compliance" | "people" | "accounts" | "shortcuts" | "ai" | "about";
+type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "templates" | "workflows" | "pgp" | "compliance" | "people" | "accounts" | "shortcuts" | "ai" | "about" | "snooze";
 
 const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "general", label: "General", icon: Settings },
@@ -87,6 +89,7 @@ const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "accounts", label: "Accounts", icon: UserCircle },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
   { id: "ai", label: "AI", icon: Sparkles },
+  { id: "snooze", label: "Snooze", icon: Clock },
   { id: "about", label: "About", icon: Info },
 ];
 
@@ -884,6 +887,15 @@ export function SettingsPage() {
                     Automate actions when specific email events occur. Create rules that trigger on incoming email, follow-up reminders, or time-based schedules.
                   </p>
                   <WorkflowEditor />
+                </Section>
+              )}
+
+              {activeTab === "snooze" && (
+                <Section title="Snooze Presets">
+                  <p className="text-xs text-text-tertiary mb-3">
+                    Create custom snooze durations for quick access when deferring emails.
+                  </p>
+                  <SnoozePresetsEditor />
                 </Section>
               )}
 

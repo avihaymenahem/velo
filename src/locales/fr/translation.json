@@ -620,8 +620,14 @@
     "preview": "Aperçu",
     "select": "Sélectionner"
   },
-  "titleBar": {
-    "appName": "Velo"
+  "snooze": {
+    "presets": "Préréglages de report",
+    "addPreset": "Ajouter un préréglage",
+    "presetName": "Nom du préréglage",
+    "recurring": "Récurrent",
+    "recurringLower": "récurrent",
+    "noPresets": "Aucun préréglage de report pour le moment",
+    "createInSettings": "Créez-en un dans Paramètres"
   },
   "compliance": {
     "title": "Conformité",

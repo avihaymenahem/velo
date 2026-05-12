@@ -620,6 +620,15 @@
     "preview": "معاينة",
     "select": "اختيار"
   },
+  "snooze": {
+    "presets": "الرومات المسبقة",
+    "addPreset": "إضافة رومات مسبقة",
+    "presetName": "اسم الرومات المسبقة",
+    "recurring": "متكرر",
+    "recurringLower": "متكرر",
+    "noPresets": "لا توجد رومات مسبقة بعد",
+    "createInSettings": "أنشئ واحدة في الإعدادات"
+  },
   "titleBar": {
     "appName": "Velo"
   },

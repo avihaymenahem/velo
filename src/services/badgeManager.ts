@@ -1,6 +1,8 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { getUnreadInboxCount } from "./db/threads";
+import { useAccountStore } from "@/stores/accountStore";
+import { useUIStore } from "@/stores/uiStore";
 
 let lastCount = -1;
 
@@ -21,6 +23,12 @@ export async function updateBadgeCount(): Promise<void> {
       await invoke("set_tray_tooltip", { tooltip });
     } catch {
       // tray tooltip update is best-effort
+    }
+
+    // Also refresh in-app unread count badges
+    const activeAcct = useAccountStore.getState().activeAccountId;
+    if (activeAcct) {
+      await useUIStore.getState().refreshUnreadCounts(activeAcct);
     }
   } catch (err) {
     console.error("Failed to update badge count:", err);

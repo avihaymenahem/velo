@@ -132,14 +132,10 @@ When migration 14 (IMAP/SMTP provider support) is recorded in the _migrations ta
 
 **Integration Steps:**
 
-- Cherry-pick the commit onto the fork's main branch
-    
-- The fork has additional migrations up to v34; verify the repair logic covers v14 through v34
-    
-- Add a test case for the repair path in migrations.test.ts
-    
-- Run full test suite to verify migration ordering is preserved
-    
+    - Cherry-pick the commit onto the fork's main branch
+    - The fork has additional migrations up to v34; verify the repair logic covers v14 through v34
+    - Add a test case for the repair path in migrations.test.ts   
+    - Run full test suite to verify migration ordering is preserved
 
 ## **3.2 PR #219: UTC Fix for iCal All-Day Events**
 

@@ -368,6 +368,13 @@
     "customModel": "Model",
     "customProvider": "Custom (OpenAI Compatible)"
   },
+  "addAccount": {
+    "easySetup": "Easy Setup (IMAP + App Password)",
+    "easySetupDesc": "Use an App Password with IMAP. No developer setup required.",
+    "fastSync": "Fast Sync (Gmail API)",
+    "fastSyncDesc": "Full Gmail API integration. Requires Google Cloud Console setup.",
+    "chooseMethod": "Choose how to connect your Gmail account"
+  },
   "search": {
     "placeholder": "Search emails...",
     "noResults": "No results found",
@@ -634,6 +641,15 @@
     "shortcut": "Shortcut key",
     "body": "Message body",
     "sortOrder": "Sort order"
+  },
+  "snooze": {
+    "presets": "Snooze Presets",
+    "addPreset": "Add preset",
+    "presetName": "Preset name",
+    "recurring": "Recurring",
+    "recurringLower": "recurring",
+    "noPresets": "No snooze presets yet",
+    "createInSettings": "Create one in Settings"
   },
   "compliance": {
     "title": "Compliance",

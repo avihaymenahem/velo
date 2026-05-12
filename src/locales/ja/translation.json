@@ -616,8 +616,14 @@
     "preview": "プレビュー",
     "select": "選択"
   },
-  "titleBar": {
-    "appName": "Velo"
+  "snooze": {
+    "presets": "スヌーズプリセット",
+    "addPreset": "プリセットを追加",
+    "presetName": "プリセット名",
+    "recurring": "繰り返し",
+    "recurringLower": "繰り返し",
+    "noPresets": "スヌーズプリセットはありません",
+    "createInSettings": "設定で作成してください"
   },
   "compliance": {
     "title": "コンプライアンス",

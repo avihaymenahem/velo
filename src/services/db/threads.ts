@@ -57,7 +57,6 @@ export async function getThreadsForCategory(
 ): Promise<DbThread[]> {
   const db = await getDb();
   if (category === "Primary") {
-    // Primary includes threads with NULL category (uncategorized)
     return db.select<DbThread[]>(
       `SELECT t.*, m.from_name, m.from_address FROM threads t
        INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
@@ -125,12 +124,10 @@ export async function setThreadLabels(
   labelIds: string[],
 ): Promise<void> {
   const db = await getDb();
-  // Remove existing labels
   await db.execute(
     "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
     [accountId, threadId],
   );
-  // Insert new labels
   for (const labelId of labelIds) {
     await db.execute(
       "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) VALUES ($1, $2, $3)",
@@ -174,6 +171,38 @@ export async function getThreadCountForAccount(accountId: string): Promise<numbe
     [accountId],
   );
   return rows[0]?.count ?? 0;
+}
+
+export async function getLabelUnreadCount(
+  accountId: string,
+  labelId: string,
+): Promise<number> {
+  const db = await getDb();
+  const row = await db.select<{ count: number }[]>(
+    `SELECT COUNT(*) as count FROM threads t
+     JOIN thread_labels tl ON tl.thread_id = t.id AND tl.account_id = t.account_id
+     WHERE t.account_id = $1 AND tl.label_id = $2 AND t.is_read = 0`,
+    [accountId, labelId],
+  );
+  return row[0]?.count ?? 0;
+}
+
+export async function getAllLabelUnreadCounts(
+  accountId: string,
+): Promise<Record<string, number>> {
+  const db = await getDb();
+  const rows = await db.select<{ label_id: string; count: number }[]>(
+    `SELECT tl.label_id, COUNT(*) as count FROM threads t
+     JOIN thread_labels tl ON tl.thread_id = t.id AND tl.account_id = t.account_id
+     WHERE t.account_id = $1 AND t.is_read = 0
+     GROUP BY tl.label_id`,
+    [accountId],
+  );
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    counts[row.label_id] = row.count;
+  }
+  return counts;
 }
 
 export async function getUnreadInboxCount(): Promise<number> {

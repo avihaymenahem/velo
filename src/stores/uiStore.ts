@@ -3,6 +3,7 @@ import { setSetting } from "@/services/db/settings";
 import type { ColorThemeId } from "@/constants/themes";
 import type { SupportedLocale } from "@/locales";
 import { LOCALE_DIRS } from "@/locales";
+import { getAllLabelUnreadCounts } from "@/services/db/threads";
 
 type Theme = "light" | "dark" | "system";
 type ReadingPanePosition = "right" | "bottom" | "hidden";
@@ -38,6 +39,7 @@ interface UIState {
   isOnline: boolean;
   pendingOpsCount: number;
   isSyncingFolder: string | null;
+  unreadCounts: Record<string, number>;
   locale: SupportedLocale;
   textDirection: "ltr" | "rtl";
   aiLanguage: string;
@@ -66,6 +68,8 @@ interface UIState {
   setOnline: (online: boolean) => void;
   setPendingOpsCount: (count: number) => void;
   setSyncingFolder: (folder: string | null) => void;
+  setUnreadCounts: (counts: Record<string, number>) => void;
+  refreshUnreadCounts: (accountId: string) => Promise<void>;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -88,6 +92,7 @@ export const useUIStore = create<UIState>((set) => ({
   isOnline: true,
   pendingOpsCount: 0,
   isSyncingFolder: null,
+  unreadCounts: {},
   locale: "en",
   textDirection: "ltr",
   aiLanguage: "auto",
@@ -174,5 +179,14 @@ export const useUIStore = create<UIState>((set) => ({
   },
   setOnline: (isOnline) => set({ isOnline }),
   setPendingOpsCount: (pendingOpsCount) => set({ pendingOpsCount }),
-  setSyncingFolder: (isSyncingFolder) => set({ isSyncingFolder }),
+setSyncingFolder: (isSyncingFolder) => set({ isSyncingFolder }),
+  setUnreadCounts: (unreadCounts) => set({ unreadCounts }),
+  refreshUnreadCounts: async (accountId: string) => {
+    try {
+      const counts = await getAllLabelUnreadCounts(accountId);
+      set({ unreadCounts: counts });
+    } catch (err) {
+      console.error("Failed to refresh unread counts:", err);
+    }
+  },
 }));

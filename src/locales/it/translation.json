@@ -616,8 +616,14 @@
     "preview": "Anteprima",
     "select": "Seleziona"
   },
-  "titleBar": {
-    "appName": "Velo"
+  "snooze": {
+    "presets": "Preimpostazioni di posticipazione",
+    "addPreset": "Aggiungi preimpostazione",
+    "presetName": "Nome della preimpostazione",
+    "recurring": "Ricorrente",
+    "recurringLower": "ricorrente",
+    "noPresets": "Nessuna preimpostazione di posticipazione",
+    "createInSettings": "Crea una in Impostazioni"
   },
   "compliance": {
     "title": "Conformità",

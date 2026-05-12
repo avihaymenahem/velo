@@ -1025,15 +1025,31 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_quick_replies_account ON quick_replies(account_id);
     `,
   },
-  {
-    version: 35,
-    description: "Separate SMTP credentials",
-    sql: `
-      ALTER TABLE accounts ADD COLUMN smtp_username TEXT;
-      ALTER TABLE accounts ADD COLUMN smtp_password TEXT;
-    `,
-  },
-];
+{
+     version: 35,
+     description: "Separate SMTP credentials",
+     sql: `
+       ALTER TABLE accounts ADD COLUMN smtp_username TEXT;
+       ALTER TABLE accounts ADD COLUMN smtp_password TEXT;
+     `,
+   },
+   {
+     version: 36,
+     description: "Snooze presets for quick recurring snooze durations",
+     sql: `
+       CREATE TABLE IF NOT EXISTS snooze_presets (
+         id TEXT PRIMARY KEY,
+         account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+         label TEXT NOT NULL,
+         duration_minutes INTEGER NOT NULL,
+         is_recurring INTEGER DEFAULT 0,
+         sort_order INTEGER DEFAULT 0,
+         created_at INTEGER DEFAULT (unixepoch())
+       );
+       CREATE INDEX IF NOT EXISTS idx_snooze_presets_account ON snooze_presets(account_id);
+     `,
+   },
+ ];
 
 /**
  * Split a SQL string into individual statements, correctly handling

@@ -146,12 +146,13 @@ async function applyLocalDbUpdate(
 ): Promise<void> {
   const db = await getDb();
   switch (action.type) {
-    case "markRead":
-      await db.execute(
-        "UPDATE threads SET is_read = $1 WHERE account_id = $2 AND id = $3",
-        [action.read ? 1 : 0, accountId, action.threadId],
-      );
-      break;
+case "markRead":
+       await db.execute(
+         "UPDATE threads SET is_read = $1 WHERE account_id = $2 AND id = $3",
+         [action.read ? 1 : 0, accountId, action.threadId],
+       );
+       window.dispatchEvent(new Event("velo-sync-done"));
+       break;
     case "star":
       await db.execute(
         "UPDATE threads SET is_starred = $1 WHERE account_id = $2 AND id = $3",
