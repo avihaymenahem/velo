@@ -95,7 +95,7 @@ export function CampaignList({ accountId }: CampaignListProps) {
                   </button>
                   {isExpanded && (
                     <div className="px-4 pb-4 pt-2 border-t border-border-primary">
-                      <CampaignAnalytics stats={stats[c.id] ?? { total: 0, sent: 0, opened: 0, clicked: 0, bounced: 0 }} />
+                      <CampaignAnalytics stats={stats[c.id] ?? { total: 0, sent: 0, opened: 0, clicked: 0, bounced: 0 }} campaignId={c.id} campaignName={c.name} />
                     </div>
                   )}
                 </div>

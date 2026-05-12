@@ -41,6 +41,7 @@ import {
   ShieldCheck,
   FileText,
   Clock,
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 import { SignatureEditor } from "./SignatureEditor";
@@ -59,6 +60,7 @@ import { TemplateManager } from "./TemplateManager";
 import { PgpKeyManager } from "./PgpKeyManager";
 import { ComplianceProfileManager } from "./ComplianceProfileManager";
 import { SnoozePresetsEditor } from "./SnoozePresetsEditor";
+import { QueueInspector } from "./QueueInspector";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
@@ -74,24 +76,68 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
 
-type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "templates" | "workflows" | "pgp" | "compliance" | "people" | "accounts" | "shortcuts" | "ai" | "about" | "snooze";
+type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "templates" | "workflows" | "pgp" | "compliance" | "people" | "accounts" | "shortcuts" | "ai" | "about" | "snooze" | "queue";
 
-const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
-  { id: "general", label: "General", icon: Settings },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "composing", label: "Composing", icon: PenLine },
-  { id: "mail-rules", label: "Mail Rules", icon: Filter },
-  { id: "templates", label: "Templates", icon: FileText },
-  { id: "workflows", label: "Workflows", icon: Repeat },
-  { id: "pgp", label: "PGP", icon: Shield },
-  { id: "compliance", label: "Compliance", icon: ShieldCheck },
-  { id: "people", label: "People", icon: Users },
-  { id: "accounts", label: "Accounts", icon: UserCircle },
-  { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
-  { id: "ai", label: "AI", icon: Sparkles },
-  { id: "snooze", label: "Snooze", icon: Clock },
-  { id: "about", label: "About", icon: Info },
+interface SettingsTabItem {
+  id: SettingsTab;
+  label: string;
+  icon: LucideIcon;
+}
+
+interface SettingsGroup {
+  label: string;
+  tabs: SettingsTabItem[];
+}
+
+const tabGroups: SettingsGroup[] = [
+  {
+    label: "Appearance",
+    tabs: [
+      { id: "general", label: "General", icon: Settings },
+      { id: "notifications", label: "Notifications", icon: Bell },
+      { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
+      { id: "people", label: "People", icon: Users },
+      { id: "about", label: "About", icon: Info },
+    ],
+  },
+  {
+    label: "Accounts",
+    tabs: [
+      { id: "accounts", label: "Accounts", icon: UserCircle },
+    ],
+  },
+  {
+    label: "Compose",
+    tabs: [
+      { id: "composing", label: "Composing", icon: PenLine },
+      { id: "templates", label: "Templates", icon: FileText },
+    ],
+  },
+  {
+    label: "AI & Automation",
+    tabs: [
+      { id: "ai", label: "AI", icon: Sparkles },
+      { id: "mail-rules", label: "Mail Rules", icon: Filter },
+      { id: "workflows", label: "Workflows", icon: Repeat },
+      { id: "snooze", label: "Snooze", icon: Clock },
+    ],
+  },
+  {
+    label: "Privacy & Security",
+    tabs: [
+      { id: "pgp", label: "PGP", icon: Shield },
+      { id: "compliance", label: "Compliance", icon: ShieldCheck },
+    ],
+  },
+  {
+    label: "System",
+    tabs: [
+      { id: "queue", label: "Queue", icon: Activity },
+    ],
+  },
 ];
+
+const tabs: SettingsTabItem[] = tabGroups.flatMap((g) => g.tabs);
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -412,26 +458,33 @@ export function SettingsPage() {
 
       {/* Body: sidebar nav + content */}
       <div className="flex flex-1 min-h-0">
-        {/* Vertical tab sidebar */}
+        {/* Vertical tab sidebar with groups */}
         <nav className="w-48 border-r border-border-primary py-2 overflow-y-auto shrink-0 bg-bg-primary/30">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2.5 w-full px-4 py-2 text-[0.8125rem] transition-colors ${
-                  isActive
-                    ? "bg-bg-selected text-accent font-medium"
-                    : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-                }`}
-              >
-                <Icon size={15} className="shrink-0" />
-                {tab.label}
-              </button>
-            );
-          })}
+          {tabGroups.map((group) => (
+            <div key={group.label}>
+              <div className="px-4 pt-3 pb-1 text-[0.625rem] font-semibold uppercase tracking-wider text-text-tertiary">
+                {group.label}
+              </div>
+              {group.tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-2.5 w-full px-4 py-2 text-[0.8125rem] transition-colors ${
+                      isActive
+                        ? "bg-bg-selected text-accent font-medium"
+                        : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                    }`}
+                  >
+                    <Icon size={15} className="shrink-0" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Scrollable content */}
@@ -908,6 +961,16 @@ export function SettingsPage() {
               {activeTab === "compliance" && (
                 <Section title="Compliance Profiles">
                   <ComplianceProfileManager />
+                </Section>
+              )}
+
+              {activeTab === "queue" && (
+                <Section title="Queue Inspector">
+                  <p className="text-xs text-text-tertiary mb-3">
+                    Monitor and manage the email queue. Pending operations are processed every 30 seconds.
+                    Failed operations can be retried or cleared.
+                  </p>
+                  <QueueInspector />
                 </Section>
               )}
 

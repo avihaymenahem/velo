@@ -95,6 +95,54 @@ export async function updateRecipientStatus(
   });
 }
 
+export async function updateRecipientOpen(
+  campaignId: string,
+  contactId: string,
+): Promise<void> {
+  await queryWithRetry(async (db) => {
+    const now = Math.floor(Date.now() / 1000);
+    await db.execute(
+      "UPDATE campaign_recipients SET status = 'opened', opened_at = $1 WHERE campaign_id = $2 AND contact_id = $3 AND opened_at IS NULL",
+      [now, campaignId, contactId],
+    );
+  });
+}
+
+export async function updateRecipientClick(
+  campaignId: string,
+  contactId: string,
+): Promise<void> {
+  await queryWithRetry(async (db) => {
+    const now = Math.floor(Date.now() / 1000);
+    await db.execute(
+      "UPDATE campaign_recipients SET status = 'clicked', clicked_at = $1 WHERE campaign_id = $2 AND contact_id = $3 AND clicked_at IS NULL",
+      [now, campaignId, contactId],
+    );
+  });
+}
+
+export interface EngagementDataPoint {
+  date: string;
+  opens: number;
+  clicks: number;
+}
+
+export async function getEngagementTimeSeries(campaignId: string): Promise<EngagementDataPoint[]> {
+  return queryWithRetry(async (db) =>
+    db.select<EngagementDataPoint[]>(
+      `SELECT
+         date(opened_at, 'unixepoch') as date,
+         SUM(CASE WHEN opened_at IS NOT NULL THEN 1 ELSE 0 END) as opens,
+         SUM(CASE WHEN clicked_at IS NOT NULL THEN 1 ELSE 0 END) as clicks
+       FROM campaign_recipients
+       WHERE campaign_id = $1 AND (opened_at IS NOT NULL OR clicked_at IS NOT NULL)
+       GROUP BY date(opened_at, 'unixepoch')
+       ORDER BY date ASC`,
+      [campaignId],
+    ),
+  );
+}
+
 export async function removeRecipient(
   campaignId: string,
   contactId: string,
