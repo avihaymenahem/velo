@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Star, Search, Plus, X } from "lucide-react";
+import { FileText, Star, Search, Plus, X, Eye, ArrowRight } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { Modal } from "@/components/ui/Modal";
@@ -14,6 +14,7 @@ import {
   type DbTemplate,
   type DbTemplateCategory,
 } from "@/services/db/templates";
+import { interpolateVariablesSync } from "@/utils/templateVariables";
 import type { Editor } from "@tiptap/react";
 
 interface TemplatePickerProps {
@@ -64,6 +65,7 @@ export function TemplatePicker({ editor, isOpen: controlledOpen, onClose: contro
   const [mostUsed, setMostUsed] = useState<DbTemplate[]>([]);
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [previewTemplate, setPreviewTemplate] = useState<DbTemplate | null>(null);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
@@ -121,7 +123,7 @@ export function TemplatePicker({ editor, isOpen: controlledOpen, onClose: contro
     return list;
   }, [templates, activeCategory, searchQuery, categories]);
 
-  const handleSelect = useCallback(async (tmpl: DbTemplate) => {
+  const handleInsert = useCallback(async (tmpl: DbTemplate) => {
     if (controlledOnSelect) {
       controlledOnSelect(tmpl);
       return;
@@ -143,6 +145,26 @@ export function TemplatePicker({ editor, isOpen: controlledOpen, onClose: contro
       setInternalOpen(false);
     }
   }, [editor, mode, subject, setSubject, activeAccountId, controlledOnSelect, isControlled]);
+
+  const handlePreview = useCallback((tmpl: DbTemplate) => {
+    setPreviewTemplate((prev) => (prev?.id === tmpl.id ? prev : tmpl));
+  }, []);
+
+  const handleInsertCurrent = useCallback(async () => {
+    if (!previewTemplate) return;
+    await handleInsert(previewTemplate);
+  }, [previewTemplate, handleInsert]);
+
+  const previewHtml = useMemo(() => {
+    if (!previewTemplate) return "";
+    return interpolateVariablesSync(previewTemplate.body_html, {
+      recipientName: "John Doe",
+      recipientEmail: "john@acme.com",
+      senderName: "You",
+      senderEmail: "you@example.com",
+      subject: previewTemplate.subject ?? "Your Subject Here",
+    });
+  }, [previewTemplate]);
 
   const handleAddCategory = useCallback(async () => {
     if (!activeAccountId || !newCategoryName.trim()) return;
@@ -172,7 +194,7 @@ export function TemplatePicker({ editor, isOpen: controlledOpen, onClose: contro
         isOpen={isOpen}
         onClose={handleClose}
         title={t("composer.insertTemplate")}
-        width="w-[520px]"
+        width="w-[720px]"
         panelClassName="max-h-[80vh] flex flex-col"
       >
         {/* Search */}
@@ -261,7 +283,9 @@ export function TemplatePicker({ editor, isOpen: controlledOpen, onClose: contro
                   key={tmpl.id}
                   template={tmpl}
                   categoryName={tmpl.category_id ? categoryMap[tmpl.category_id] ?? null : null}
-                  onSelect={handleSelect}
+                  onSelect={handleInsert}
+                  onPreview={handlePreview}
+                  isSelected={previewTemplate?.id === tmpl.id}
                 />
               ))}
               <div className="border-t border-border-secondary my-2" />
@@ -279,7 +303,9 @@ export function TemplatePicker({ editor, isOpen: controlledOpen, onClose: contro
                   key={tmpl.id}
                   template={tmpl}
                   categoryName={tmpl.category_id ? categoryMap[tmpl.category_id] ?? null : null}
-                  onSelect={handleSelect}
+                  onSelect={handleInsert}
+                  onPreview={handlePreview}
+                  isSelected={previewTemplate?.id === tmpl.id}
                 />
               ))}
               <div className="border-t border-border-secondary my-2" />
@@ -304,11 +330,38 @@ export function TemplatePicker({ editor, isOpen: controlledOpen, onClose: contro
                 key={tmpl.id}
                 template={tmpl}
                 categoryName={tmpl.category_id ? categoryMap[tmpl.category_id] ?? null : null}
-                onSelect={handleSelect}
+                onSelect={handleInsert}
+                onPreview={handlePreview}
+                isSelected={previewTemplate?.id === tmpl.id}
               />
             ))
           )}
         </div>
+
+        {/* Live preview panel */}
+        {previewTemplate && (
+          <div className="border-t border-border-secondary px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-[0.625rem] font-semibold uppercase tracking-wider text-text-tertiary flex items-center gap-1.5">
+                <Eye size={11} />
+                {t("composer.templatePreview")}
+              </h4>
+              <button
+                onClick={handleInsertCurrent}
+                className="flex items-center gap-1 px-2.5 py-1 text-[0.625rem] font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors"
+              >
+                <ArrowRight size={10} />
+                {t("composer.insertTemplate")}
+              </button>
+            </div>
+            <div className="bg-bg-tertiary rounded-md p-3 max-h-[160px] overflow-y-auto border border-border-primary">
+              <div
+                className="text-xs text-text-primary prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Footer hint */}
         <div className="px-4 py-2 border-t border-border-primary text-[0.625rem] text-text-tertiary flex items-center gap-2">
@@ -324,10 +377,14 @@ function TemplateCard({
   template,
   categoryName,
   onSelect,
+  onPreview,
+  isSelected,
 }: {
   template: DbTemplate;
   categoryName: string | null;
   onSelect: (tmpl: DbTemplate) => void;
+  onPreview?: (tmpl: DbTemplate) => void;
+  isSelected?: boolean;
 }) {
   const { t } = useTranslation();
   const bodyText = template.body_html.replace(/<[^>]*>/g, "").trim();
@@ -335,7 +392,12 @@ function TemplateCard({
   return (
     <button
       onClick={() => onSelect(template)}
-      className="w-full text-left px-3 py-2 rounded-lg bg-bg-secondary hover:bg-bg-hover transition-colors border border-transparent hover:border-border-secondary group"
+      onMouseEnter={() => onPreview?.(template)}
+      className={`w-full text-left px-3 py-2 rounded-lg bg-bg-secondary transition-colors border group ${
+        isSelected
+          ? "border-accent bg-accent/5"
+          : "border-transparent hover:bg-bg-hover hover:border-border-secondary"
+      }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">

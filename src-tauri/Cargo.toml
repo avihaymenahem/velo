@@ -55,6 +55,7 @@ openssl = "0.10.79"
 rustls-webpki = "0.103.13"
 tar = "0.4.45"
 quinn-proto = "0.11.14"
+trust-dns-resolver = { version = "0.23", default-features = false, features = ["tokio-runtime"] }
 
 [dev-dependencies]
 tempfile = "3"

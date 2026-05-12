@@ -2,9 +2,10 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import type { Editor } from "@tiptap/react";
 import { InputDialog } from "@/components/ui/InputDialog";
-import { Sparkles, FileText, MessageSquarePlus } from "lucide-react";
+import { Sparkles, FileText, MessageSquarePlus, Type, Table, Smile, Plus, Minus, Trash2, Columns3, Rows3 } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
 import { getQuickReplies, incrementQuickReplyUsage, type QuickReply } from "@/services/db/quickReplies";
+import { EmojiPicker } from "./EmojiPicker";
 
 interface EditorToolbarProps {
   editor: Editor | null;
@@ -19,8 +20,11 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, onToggle
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [quickReplyOpen, setQuickReplyOpen] = useState(false);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+  const [tableMenuOpen, setTableMenuOpen] = useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const qrMenuRef = useRef<HTMLDivElement>(null);
+  const tableMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!quickReplyOpen || !activeAccountId) return;
@@ -38,12 +42,39 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, onToggle
     return () => document.removeEventListener("mousedown", handler);
   }, [quickReplyOpen]);
 
+  useEffect(() => {
+    if (!tableMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (tableMenuRef.current && !tableMenuRef.current.contains(e.target as Node)) {
+        setTableMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [tableMenuOpen]);
+
+  useEffect(() => {
+    if (!emojiPickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      setEmojiPickerOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [emojiPickerOpen]);
+
   const handleInsertQuickReply = useCallback(async (qr: QuickReply) => {
     if (!editor) return;
     editor.chain().focus().insertContent(qr.body_html).run();
     setQuickReplyOpen(false);
     await incrementQuickReplyUsage(qr.id).catch(() => {});
   }, [editor]);
+
+  const handleEmojiSelect = useCallback((emoji: string) => {
+    if (!editor) return;
+    editor.chain().focus().insertContent(emoji).run();
+  }, [editor]);
+
+  const isInTable = editor?.isActive("table");
 
   if (!editor) return null;
 
@@ -116,6 +147,142 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, onToggle
       />
       {btn(t("composer.image"), false, () => imageInputRef.current?.click(), t("composer.insertImage"))}
 
+      <div className="w-px h-4 bg-border-primary mx-1" />
+
+      {/* Table */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setTableMenuOpen(!tableMenuOpen)}
+          title="Table"
+          className={`p-1 rounded hover:bg-bg-hover transition-colors ${
+            isInTable ? "bg-bg-hover text-accent" : "text-text-secondary"
+          }`}
+        >
+          <Table size={14} />
+        </button>
+        {tableMenuOpen && (
+          <div
+            ref={tableMenuRef}
+            className="absolute left-0 top-full mt-1 w-48 bg-bg-secondary border border-border-primary rounded-lg shadow-xl z-50 py-1"
+          >
+            {!isInTable ? (
+              <button
+                type="button"
+                onClick={() => {
+                  editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+                  setTableMenuOpen(false);
+                }}
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover text-left transition-colors"
+              >
+                <Plus size={12} className="shrink-0" />
+                Insert Table (3×3)
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().addColumnBefore().run();
+                    setTableMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover text-left transition-colors"
+                >
+                  <Columns3 size={12} className="shrink-0" />
+                  Add Column Before
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().addColumnAfter().run();
+                    setTableMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover text-left transition-colors"
+                >
+                  <Columns3 size={12} className="shrink-0" />
+                  Add Column After
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().deleteColumn().run();
+                    setTableMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover text-left transition-colors"
+                >
+                  <Minus size={12} className="shrink-0" />
+                  Delete Column
+                </button>
+                <div className="h-px bg-border-primary my-1" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().addRowBefore().run();
+                    setTableMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover text-left transition-colors"
+                >
+                  <Rows3 size={12} className="shrink-0" />
+                  Add Row Before
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().addRowAfter().run();
+                    setTableMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover text-left transition-colors"
+                >
+                  <Rows3 size={12} className="shrink-0 rotate-180" />
+                  Add Row After
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().deleteRow().run();
+                    setTableMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover text-left transition-colors"
+                >
+                  <Minus size={12} className="shrink-0" />
+                  Delete Row
+                </button>
+                <div className="h-px bg-border-primary my-1" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().deleteTable().run();
+                    setTableMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover text-left transition-colors"
+                >
+                  <Trash2 size={12} className="shrink-0" />
+                  Delete Table
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Emoji */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setEmojiPickerOpen(!emojiPickerOpen)}
+          title="Insert Emoji"
+          className="p-1 rounded hover:bg-bg-hover transition-colors text-text-secondary"
+        >
+          <Smile size={14} />
+        </button>
+        {emojiPickerOpen && (
+          <EmojiPicker
+            onSelect={handleEmojiSelect}
+            onClose={() => setEmojiPickerOpen(false)}
+          />
+        )}
+      </div>
+
       <div className="flex-1" />
 
       {onToggleTemplatePicker && (
@@ -187,6 +354,9 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, onToggle
 
       {btn(t("composer.undo"), false, () => editor.chain().focus().undo().run())}
       {btn(t("composer.redo"), false, () => editor.chain().focus().redo().run())}
+      {/* Format preview bar */}
+      <FormatPreviewBar editor={editor} />
+
       <InputDialog
         isOpen={showLinkDialog}
         onClose={() => setShowLinkDialog(false)}
@@ -199,6 +369,69 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen, onToggle
         fields={[{ key: "url", label: t("composer.url"), placeholder: "https://..." }]}
         submitLabel={t("common.insert")}
       />
+    </div>
+  );
+}
+
+function FormatPreviewBar({ editor }: { editor: Editor }) {
+  const formats: { label: string; active: boolean }[] = [
+    { label: "B", active: editor.isActive("bold") },
+    { label: "I", active: editor.isActive("italic") },
+    { label: "U", active: editor.isActive("underline") },
+    { label: "S", active: editor.isActive("strike") },
+  ];
+
+  let headingLabel = "";
+  if (editor.isActive("heading", { level: 1 })) headingLabel = "H1";
+  else if (editor.isActive("heading", { level: 2 })) headingLabel = "H2";
+  else if (editor.isActive("heading", { level: 3 })) headingLabel = "H3";
+
+  let listLabel = "";
+  if (editor.isActive("bulletList")) listLabel = "UL";
+  else if (editor.isActive("orderedList")) listLabel = "OL";
+
+  const anyFormat = formats.some((f) => f.active) || headingLabel || listLabel || editor.isActive("blockquote") || editor.isActive("codeBlock") || editor.isActive("link");
+
+  if (!anyFormat) return null;
+
+  return (
+    <div className="flex items-center gap-1 px-3 py-1 border-b border-border-secondary bg-bg-tertiary/30">
+      <Type size={10} className="text-text-tertiary" />
+      {formats.map((f) => (
+        <span
+          key={f.label}
+          className={`text-[0.625rem] px-1 rounded ${
+            f.active ? "text-accent font-semibold bg-accent/10" : "text-text-tertiary"
+          }`}
+        >
+          {f.label}
+        </span>
+      ))}
+      {headingLabel && (
+        <span className="text-[0.625rem] text-accent font-semibold bg-accent/10 px-1 rounded">
+          {headingLabel}
+        </span>
+      )}
+      {listLabel && (
+        <span className="text-[0.625rem] text-accent font-semibold bg-accent/10 px-1 rounded">
+          {listLabel}
+        </span>
+      )}
+      {editor.isActive("blockquote") && (
+        <span className="text-[0.625rem] text-accent font-semibold bg-accent/10 px-1 rounded">
+          Quote
+        </span>
+      )}
+      {editor.isActive("codeBlock") && (
+        <span className="text-[0.625rem] text-accent font-semibold bg-accent/10 px-1 rounded">
+          Code
+        </span>
+      )}
+      {editor.isActive("link") && (
+        <span className="text-[0.625rem] text-accent font-semibold bg-accent/10 px-1 rounded">
+          Link
+        </span>
+      )}
     </div>
   );
 }

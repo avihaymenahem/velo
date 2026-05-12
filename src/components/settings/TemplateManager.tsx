@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -6,7 +6,8 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import {
   Plus, Trash2, Pencil, ChevronDown, Eye, Edit3, Copy, Check,
-  Download, Upload, FileText,
+  Download, Upload, FileText, BarChart3, Clock, ArrowUpDown,
+  BetweenHorizonalEnd, Code,
 } from "lucide-react";
 import { EditorToolbar } from "@/components/composer/EditorToolbar";
 import { useAccountStore } from "@/stores/accountStore";
@@ -22,7 +23,9 @@ import {
   type DbTemplateCategory,
 } from "@/services/db/templates";
 import { TEMPLATE_VARIABLES } from "@/utils/templateVariables";
-import { exportTemplateToJson, importFromFile } from "@/services/campaigns/templateShare";
+import { exportTemplateToJson, parseImportedTemplate, importFromFile, toExportableJson } from "@/services/campaigns/templateShare";
+
+type AnalyticsSort = "usage" | "recent";
 
 export function TemplateManager() {
   const { t } = useTranslation();
@@ -42,6 +45,12 @@ export function TemplateManager() {
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editCatName, setEditCatName] = useState("");
   const [newCatName, setNewCatName] = useState("");
+  const [showCondBuilder, setShowCondBuilder] = useState(false);
+  const [importPreviewData, setImportPreviewData] = useState<string | null>(null);
+  const [importPreviewName, setImportPreviewName] = useState("");
+  const [importPreviewSubject, setImportPreviewSubject] = useState("");
+  const [importPreviewBody, setImportPreviewBody] = useState("");
+  const [importPreviewCat, setImportPreviewCat] = useState("");
 
   const editor = useEditor({
     extensions: [
@@ -71,6 +80,11 @@ export function TemplateManager() {
     loadData();
   }, [loadData]);
 
+  const maxUsageCount = useMemo(() => {
+    if (templates.length === 0) return 1;
+    return Math.max(...templates.map((t) => t.usage_count), 1);
+  }, [templates]);
+
   const resetForm = useCallback(() => {
     setName("");
     setSubject("");
@@ -94,6 +108,7 @@ export function TemplateManager() {
     setShowForm(true);
     setPreviewMode(false);
     setCopied(false);
+    setShowCondBuilder(false);
     editor?.commands.setContent(tmpl.body_html);
   }, [editor]);
 
@@ -149,6 +164,9 @@ export function TemplateManager() {
       shortcut: tmpl.shortcut,
       categoryName: cat?.name ?? null,
       conditional_blocks_json: tmpl.conditional_blocks_json,
+      usageCount: tmpl.usage_count,
+      lastUsedAt: tmpl.last_used_at,
+      createdAt: tmpl.created_at,
     });
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -165,31 +183,48 @@ export function TemplateManager() {
     input.accept = ".json";
     input.onchange = async () => {
       const file = input.files?.[0];
-      if (!file || !activeAccountId) return;
+      if (!file) return;
       const parsed = await importFromFile(file);
       if (!parsed) return;
-      let catId: string | null = null;
-      if (parsed.category_name) {
-        const existing = categories.find((c) => c.name === parsed.category_name);
-        if (existing) {
-          catId = existing.id;
-        } else {
-          catId = await upsertCategory({ accountId: activeAccountId, name: parsed.category_name });
-        }
-      }
-      await insertTemplate({
-        accountId: activeAccountId,
-        name: parsed.name,
-        subject: parsed.subject,
-        bodyHtml: parsed.body_html,
-        shortcut: parsed.shortcut,
-        categoryId: catId,
-        conditionalBlocksJson: parsed.conditional_blocks_json,
-      });
-      await loadData();
+      setImportPreviewName(parsed.name);
+      setImportPreviewSubject(parsed.subject ?? "");
+      setImportPreviewBody(parsed.body_html);
+      setImportPreviewCat(parsed.category_name ?? "");
+      setImportPreviewData(toExportableJson(parsed));
     };
     input.click();
-  }, [activeAccountId, categories, loadData]);
+  }, []);
+
+  const confirmImport = useCallback(async () => {
+    if (!activeAccountId || !importPreviewData) return;
+    const parsed = parseImportedTemplate(importPreviewData);
+    if (!parsed) return;
+    const existingNames = new Set(templates.map((t) => t.name.toLowerCase()));
+    let finalName = parsed.name;
+    if (existingNames.has(finalName.toLowerCase())) {
+      finalName = `${finalName} (imported)`;
+    }
+    let catId: string | null = null;
+    if (parsed.category_name) {
+      const existing = categories.find((c) => c.name === parsed.category_name);
+      if (existing) {
+        catId = existing.id;
+      } else {
+        catId = await upsertCategory({ accountId: activeAccountId, name: parsed.category_name });
+      }
+    }
+    await insertTemplate({
+      accountId: activeAccountId,
+      name: finalName,
+      subject: parsed.subject,
+      bodyHtml: parsed.body_html,
+      shortcut: parsed.shortcut,
+      categoryId: catId,
+      conditionalBlocksJson: parsed.conditional_blocks_json,
+    });
+    setImportPreviewData(null);
+    await loadData();
+  }, [activeAccountId, importPreviewData, templates, categories, loadData]);
 
   const handleCategoryRename = useCallback(async (id: string) => {
     if (!editCatName.trim()) return;
@@ -355,6 +390,58 @@ export function TemplateManager() {
         </button>
       </div>
 
+      {/* Import preview modal */}
+      {importPreviewData && (
+        <div className="border border-accent/30 rounded-md p-4 space-y-3 bg-accent/5">
+          <h4 className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+            <Eye size={12} />
+            {t("settings.importPreview")}
+          </h4>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-tertiary w-20">{t("settings.templateName")}</span>
+              <span className="text-xs text-text-primary font-medium">{importPreviewName}</span>
+            </div>
+            {importPreviewSubject && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-text-tertiary w-20">{t("settings.templateSubject")}</span>
+                <span className="text-xs text-text-primary">{importPreviewSubject}</span>
+              </div>
+            )}
+            {importPreviewCat && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-text-tertiary w-20">{t("settings.category")}</span>
+                <span className="text-xs text-text-primary">{importPreviewCat}</span>
+              </div>
+            )}
+            <div>
+              <span className="text-xs text-text-tertiary block mb-1">{t("settings.templatePreview")}</span>
+              <div className="bg-bg-tertiary border border-border-primary rounded-md p-3 max-h-[200px] overflow-y-auto">
+                <div
+                  className="text-xs text-text-primary prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: importPreviewBody }}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={confirmImport}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors"
+            >
+              <Upload size={12} className="inline mr-1" />
+              {t("settings.confirmImport")}
+            </button>
+            <button
+              onClick={() => setImportPreviewData(null)}
+              className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary rounded-md transition-colors"
+            >
+              {t("common.cancel")}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Template editor form */}
       {showForm && (
         <div className="border border-border-primary rounded-md p-3 space-y-2">
@@ -432,13 +519,28 @@ export function TemplateManager() {
             placeholder={t("settings.templateShortcut")}
             className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
           />
-          <textarea
-            value={conditionalBlocks}
-            onChange={(e) => setConditionalBlocks(e.target.value)}
-            placeholder={t("settings.conditionalBlocksHint")}
-            rows={2}
-            className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary outline-none focus:border-accent font-mono"
-          />
+
+          {/* Conditional blocks builder */}
+          <div className="border border-border-primary rounded-md overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowCondBuilder(!showCondBuilder)}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs text-text-secondary hover:bg-bg-hover transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <BetweenHorizonalEnd size={12} />
+                {t("settings.conditionalBlocks")}
+              </span>
+              <ChevronDown size={12} className={`transition-transform ${showCondBuilder ? "" : "-rotate-90"}`} />
+            </button>
+            {showCondBuilder && (
+              <ConditionalBlocksBuilder
+                value={conditionalBlocks}
+                onChange={setConditionalBlocks}
+              />
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={handleSave}
@@ -456,9 +558,264 @@ export function TemplateManager() {
           </div>
         </div>
       )}
+
+      {/* Template usage analytics */}
+      {templates.length > 0 && (
+        <TemplateAnalytics templates={templates} maxUsage={maxUsageCount} />
+      )}
     </div>
   );
 }
+
+/* ─── Template Usage Analytics ─────────────────────────────── */
+
+function TemplateAnalytics({ templates, maxUsage }: { templates: DbTemplate[]; maxUsage: number }) {
+  const { t } = useTranslation();
+  const [sortBy, setSortBy] = useState<AnalyticsSort>("usage");
+
+  const sorted = useMemo(() => {
+    const list = [...templates];
+    if (sortBy === "usage") {
+      list.sort((a, b) => b.usage_count - a.usage_count || (b.last_used_at ?? 0) - (a.last_used_at ?? 0));
+    } else {
+      list.sort((a, b) => (b.last_used_at ?? 0) - (a.last_used_at ?? 0));
+    }
+    return list.slice(0, 10);
+  }, [templates, sortBy]);
+
+  function formatTimestamp(ts: number | null): string {
+    if (!ts) return "—";
+    const diff = Date.now() / 1000 - ts;
+    if (diff < 60) return t("settings.justNow");
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ${t("settings.ago")}`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ${t("settings.ago")}`;
+    return `${Math.floor(diff / 86400)}d ${t("settings.ago")}`;
+  }
+
+  return (
+    <div className="border border-border-primary rounded-md p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+          <BarChart3 size={12} />
+          {t("settings.templateAnalytics")}
+        </h4>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setSortBy("usage")}
+            className={`px-2 py-0.5 text-[0.625rem] rounded transition-colors ${
+              sortBy === "usage"
+                ? "bg-accent/10 text-accent font-medium"
+                : "text-text-tertiary hover:text-text-secondary"
+            }`}
+          >
+            <ArrowUpDown size={10} className="inline mr-1" />
+            {t("settings.mostUsed")}
+          </button>
+          <button
+            onClick={() => setSortBy("recent")}
+            className={`px-2 py-0.5 text-[0.625rem] rounded transition-colors ${
+              sortBy === "recent"
+                ? "bg-accent/10 text-accent font-medium"
+                : "text-text-tertiary hover:text-text-secondary"
+            }`}
+          >
+            <Clock size={10} className="inline mr-1" />
+            {t("settings.recentlyUsed")}
+          </button>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        {sorted.map((tmpl) => (
+          <div key={tmpl.id} className="flex items-center gap-3">
+            <div className="w-4 text-[0.5rem] text-text-tertiary text-right shrink-0">
+              {tmpl.usage_count}
+            </div>
+            <div className="flex-1 h-5 bg-bg-tertiary rounded-sm overflow-hidden relative">
+              <div
+                className="h-full bg-accent/20 rounded-sm transition-all duration-300"
+                style={{ width: `${Math.round((tmpl.usage_count / maxUsage) * 100)}%` }}
+              />
+              <span className="absolute inset-0 flex items-center px-1.5 text-[0.5rem] text-text-primary truncate">
+                {tmpl.name}
+              </span>
+            </div>
+            <span className="text-[0.5rem] text-text-tertiary shrink-0 w-12 text-right">
+              {formatTimestamp(tmpl.last_used_at)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Conditional Blocks Builder ───────────────────────────── */
+
+interface ConditionalBlockEntry {
+  variable: string;
+  ifContent: string;
+  elseContent: string;
+}
+
+function ConditionalBlocksBuilder({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (json: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [blocks, setBlocks] = useState<ConditionalBlockEntry[]>(() => {
+    if (!value.trim()) return [];
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed as ConditionalBlockEntry[];
+    } catch {
+      /* not JSON — parse as legacy conditional blocks text */
+    }
+    return [];
+  });
+  const [showRaw, setShowRaw] = useState(false);
+  const [rawText, setRawText] = useState(value);
+
+  const syncToParent = useCallback((newBlocks: ConditionalBlockEntry[]) => {
+    setBlocks(newBlocks);
+    onChange(newBlocks.length > 0 ? JSON.stringify(newBlocks, null, 2) : "");
+  }, [onChange]);
+
+  const addBlock = useCallback(() => {
+    const newBlocks = [...blocks, { variable: TEMPLATE_VARIABLES[0]?.key ?? "{{first_name}}", ifContent: "", elseContent: "" }];
+    syncToParent(newBlocks);
+  }, [blocks, syncToParent]);
+
+  const removeBlock = useCallback((idx: number) => {
+    const newBlocks = blocks.filter((_, i) => i !== idx);
+    syncToParent(newBlocks);
+  }, [blocks, syncToParent]);
+
+  const updateBlock = useCallback((idx: number, field: keyof ConditionalBlockEntry, val: string) => {
+    const newBlocks = blocks.map((b, i) => (i === idx ? { ...b, [field]: val } : b));
+    syncToParent(newBlocks);
+  }, [blocks, syncToParent]);
+
+  const handleRawChange = useCallback(() => {
+    try {
+      const parsed = JSON.parse(rawText);
+      if (Array.isArray(parsed)) {
+        setBlocks(parsed as ConditionalBlockEntry[]);
+        setShowRaw(false);
+        onChange(rawText);
+      }
+    } catch {
+      /* invalid JSON — keep showing raw */
+    }
+  }, [rawText, onChange]);
+
+  if (showRaw) {
+    return (
+      <div className="p-2 space-y-2">
+        <textarea
+          value={rawText}
+          onChange={(e) => setRawText(e.target.value)}
+          rows={4}
+          className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary outline-none focus:border-accent font-mono"
+        />
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleRawChange}
+            className="px-2 py-1 text-[0.625rem] font-medium text-white bg-accent rounded hover:bg-accent-hover"
+          >
+            {t("settings.apply")}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setShowRaw(false); setRawText(value); }}
+            className="px-2 py-1 text-[0.625rem] text-text-tertiary hover:text-text-secondary"
+          >
+            {t("common.cancel")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-2 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[0.625rem] text-text-tertiary">
+          {t("settings.conditionalBlocksDesc")}
+        </span>
+        <button
+          type="button"
+          onClick={() => { setShowRaw(true); setRawText(value); }}
+          className="flex items-center gap-1 text-[0.625rem] text-text-tertiary hover:text-text-secondary"
+        >
+          <Code size={10} />
+          {t("settings.editRawJson")}
+        </button>
+      </div>
+
+      {blocks.map((block, idx) => (
+        <div key={idx} className="border border-border-primary rounded-md p-2 space-y-1.5 bg-bg-secondary">
+          <div className="flex items-center gap-1.5">
+            <select
+              value={block.variable}
+              onChange={(e) => updateBlock(idx, "variable", e.target.value)}
+              className="flex-1 px-2 py-1 text-xs bg-bg-tertiary border border-border-primary rounded text-text-primary outline-none focus:border-accent"
+            >
+              {TEMPLATE_VARIABLES.map((v) => (
+                <option key={v.key} value={v.key}>{v.key} — {v.desc}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => removeBlock(idx)}
+              className="p-1 text-text-tertiary hover:text-danger"
+            >
+              <Trash2 size={10} />
+            </button>
+          </div>
+          <div>
+            <label className="text-[0.5rem] text-text-tertiary uppercase tracking-wider block mb-0.5">
+              {t("settings.ifBlock")}
+            </label>
+            <input
+              type="text"
+              value={block.ifContent}
+              onChange={(e) => updateBlock(idx, "ifContent", e.target.value)}
+              placeholder={t("settings.ifBlockPlaceholder")}
+              className="w-full px-2 py-1 text-xs bg-bg-tertiary border border-border-primary rounded text-text-primary outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="text-[0.5rem] text-text-tertiary uppercase tracking-wider block mb-0.5">
+              {t("settings.elseBlock")}
+            </label>
+            <input
+              type="text"
+              value={block.elseContent}
+              onChange={(e) => updateBlock(idx, "elseContent", e.target.value)}
+              placeholder={t("settings.elseBlockPlaceholder")}
+              className="w-full px-2 py-1 text-xs bg-bg-tertiary border border-border-primary rounded text-text-primary outline-none focus:border-accent"
+            />
+          </div>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={addBlock}
+        className="flex items-center gap-1 text-[0.625rem] text-accent hover:text-accent-hover"
+      >
+        <Plus size={10} />
+        {t("settings.addConditionalBlock")}
+      </button>
+    </div>
+  );
+}
+
+/* ─── Template List Item ───────────────────────────────────── */
 
 function TemplateListItem({
   template,
@@ -485,6 +842,11 @@ function TemplateListItem({
           {template.is_favorite === 1 && (
             <span className="text-warning">&#9733;</span>
           )}
+          {template.usage_count > 0 && (
+            <span className="text-[0.5rem] text-text-tertiary bg-bg-tertiary px-1.5 py-0.5 rounded-full">
+              {template.usage_count}
+            </span>
+          )}
         </div>
         {template.subject && (
           <div className="text-xs text-text-tertiary truncate">{template.subject}</div>
@@ -504,6 +866,8 @@ function TemplateListItem({
     </div>
   );
 }
+
+/* ─── Insert Variable Dropdown ─────────────────────────────── */
 
 function InsertVariableDropdown({ onInsert }: { onInsert: (variable: string) => void }) {
   const { t } = useTranslation();

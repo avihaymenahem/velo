@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Mail, Calendar, ShieldCheck } from "lucide-react";
+import { Mail, Calendar, ShieldCheck, CheckCircle2, Settings, Plug, Loader2 } from "lucide-react";
 import { startOAuthFlow } from "@/services/gmail/auth";
 import { insertAccount } from "@/services/db/accounts";
 import { getClientId, getClientSecret } from "@/services/gmail/tokenManager";
@@ -16,7 +16,51 @@ interface AddAccountProps {
   onSuccess: () => void;
 }
 
-type View = "select-provider" | "gmail" | "gmail-easy" | "gmail-fast-sync" | "imap" | "caldav";
+type View = "select-provider" | "gmail" | "gmail-easy" | "gmail-fast-sync" | "imap" | "caldav" | "done";
+
+const ONBOARDING_STEPS = [
+  { step: 1, label: "Setup", icon: Settings },
+  { step: 2, label: "Connect", icon: Plug },
+  { step: 3, label: "Verify", icon: ShieldCheck },
+  { step: 4, label: "Done", icon: CheckCircle2 },
+];
+
+function OnboardingStepIndicator({ currentStep }: { currentStep: number }) {
+  return (
+    <div className="flex items-center justify-center gap-1 mb-6">
+      {ONBOARDING_STEPS.map((s, i) => {
+        const isActive = s.step === currentStep;
+        const isCompleted = s.step < currentStep;
+        const Icon = s.icon;
+        return (
+          <div key={s.step} className="flex items-center gap-1">
+            {i > 0 && (
+              <div
+                className={`w-8 h-px transition-colors duration-300 ${isCompleted ? "bg-accent" : "bg-border-primary"}`}
+              />
+            )}
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-300 ${
+                isActive
+                  ? "bg-accent/10 text-accent ring-1 ring-accent/30"
+                  : isCompleted
+                    ? "text-accent"
+                    : "text-text-tertiary"
+              }`}
+            >
+              {isCompleted ? (
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              ) : (
+                <Icon className="w-3.5 h-3.5" />
+              )}
+              <span>{s.label}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
   const { t } = useTranslation();
@@ -27,6 +71,22 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
   const [error, setError] = useState<string | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const addAccount = useAccountStore((s) => s.addAccount);
+
+  const onboardingStep = (() => {
+    switch (view) {
+      case "select-provider":
+      case "gmail":
+        return 1;
+      case "gmail-easy":
+      case "imap":
+      case "caldav":
+        return 2;
+      case "gmail-fast-sync":
+        return status === "idle" || status === "checking" ? 2 : status === "authenticating" ? 3 : 4;
+      case "done":
+        return 4;
+    }
+  })();
 
   const handleAddGmailAccount = async () => {
     setStatus("checking");
@@ -60,7 +120,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
         isActive: true,
       });
 
-      onSuccess();
+      setView("done");
     } catch (err) {
       console.error("Add account error:", err);
       const message =
@@ -124,10 +184,38 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
     );
   }
 
+  if (view === "done") {
+    return (
+      <Modal isOpen={true} onClose={onClose} title="Add Account" width="w-full max-w-md">
+        <div className="p-4">
+          <OnboardingStepIndicator currentStep={onboardingStep} />
+          <div className="text-center py-6">
+            <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-8 h-8 text-success" />
+            </div>
+            <h3 className="text-lg font-semibold text-text-primary mb-1">
+              {t("addAccount.connected") || "Account Connected!"}
+            </h3>
+            <p className="text-sm text-text-secondary mb-6">
+              {t("addAccount.connectedDesc") || "Your account has been connected. Velo will now sync your emails."}
+            </p>
+            <button
+              onClick={onClose}
+              className="px-6 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
+            >
+              {t("addAccount.done") || "Done"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
   if (view === "gmail") {
     return (
       <Modal isOpen={true} onClose={onClose} title="Add Gmail Account" width="w-full max-w-md">
         <div className="p-4">
+          <OnboardingStepIndicator currentStep={onboardingStep} />
           <p className="text-text-secondary text-sm mb-2">
             {t("addAccount.chooseMethod")}
           </p>
@@ -216,56 +304,60 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
     return (
       <Modal isOpen={true} onClose={onClose} title="Add Gmail Account" width="w-full max-w-md">
         <div className="p-4">
-          <p className="text-text-secondary text-sm mb-6">
-            Sign in with your Google account to connect it to Velo.
-          </p>
+          <OnboardingStepIndicator currentStep={onboardingStep} />
+          {status === "idle" || status === "checking" ? (
+            <>
+              <p className="text-text-secondary text-sm mb-6">
+                Sign in with your Google account to connect it to Velo.
+              </p>
 
-          {error && (
-            <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 mb-4 text-sm text-danger">
-              {error}
-            </div>
-          )}
+              {error && (
+                <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 mb-4 text-sm text-danger">
+                  {error}
+                </div>
+              )}
 
-          {status === "authenticating" && (
-            <div className="text-center py-4 text-text-secondary text-sm">
-              <div className="mb-2">Waiting for Google sign-in...</div>
-              <div className="text-xs text-text-tertiary">
-                Complete the sign-in in your browser, then return here.
+              <div className="flex gap-3 justify-between">
+                <button
+                  onClick={() => {
+                    setView("select-provider");
+                    setStatus("idle");
+                    setError(null);
+                  }}
+                  className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Back
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={onClose}
+                    className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddGmailAccount}
+                    disabled={status === "checking"}
+                    className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {status === "checking" ? "Checking..." : "Sign in with Google"}
+                  </button>
+                </div>
               </div>
+            </>
+          ) : status === "authenticating" ? (
+            <div className="text-center py-8">
+              <div className="mb-4 flex justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-accent" />
+              </div>
+              <p className="text-text-secondary text-sm mb-2">
+                Waiting for Google sign-in...
+              </p>
+              <p className="text-xs text-text-tertiary">
+                Complete the sign-in in your browser, then return here.
+              </p>
             </div>
-          )}
-
-          <div className="flex gap-3 justify-between">
-            <button
-              onClick={() => {
-                setView("select-provider");
-                setStatus("idle");
-                setError(null);
-              }}
-              className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
-            >
-              Back
-            </button>
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddGmailAccount}
-                disabled={status === "authenticating" || status === "checking"}
-                className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {status === "authenticating"
-                  ? "Waiting..."
-                  : status === "checking"
-                    ? "Checking..."
-                    : "Sign in with Google"}
-              </button>
-            </div>
-          </div>
+          ) : null}
         </div>
       </Modal>
     );
@@ -275,6 +367,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
   return (
     <Modal isOpen={true} onClose={onClose} title="Add Account" width="w-full max-w-md">
       <div className="p-4">
+        <OnboardingStepIndicator currentStep={onboardingStep} />
         <p className="text-text-secondary text-sm mb-4">
           Choose how you want to connect your email account.
         </p>

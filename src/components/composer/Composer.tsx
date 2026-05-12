@@ -34,6 +34,7 @@ import { readFileAsBase64 } from "@/utils/fileUtils";
 import { interpolateVariables } from "@/utils/templateVariables";
 import { sanitizeHtml } from "@/utils/sanitize";
 import { CompliancePanel } from "./CompliancePanel";
+import { PreSendChecklist } from "./PreSendChecklist";
 
 export function Composer() {
   const { t } = useTranslation();
@@ -68,6 +69,12 @@ export function Composer() {
   const activeAccount = accounts.find((a) => a.id === activeAccountId);
   const sendingRef = useRef(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showPreSendChecklist, setShowPreSendChecklist] = useState(false);
+  const [preSendData, setPreSendData] = useState<{
+    raw: string;
+    senderEmail: string;
+    isBulk: boolean;
+  } | null>(null);
   const [showAiAssist, setShowAiAssist] = useState(false);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -144,6 +151,31 @@ export function Composer() {
         // allowing the event to bubble up to the composer's onDrop for attachment handling.
         if (event.dataTransfer?.files?.length) {
           return true;
+        }
+        return false;
+      },
+      handlePaste: (_view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.type.startsWith("image/")) {
+            event.preventDefault();
+            const file = item.getAsFile();
+            if (!file) return true;
+            readFileAsBase64(file).then((content) => {
+              addAttachment({
+                id: crypto.randomUUID(),
+                file,
+                filename: file.name || `pasted-image-${Date.now()}.png`,
+                mimeType: file.type || "image/png",
+                size: file.size,
+                content,
+              });
+            });
+            return true;
+          }
         }
         return false;
       },
@@ -243,16 +275,10 @@ export function Composer() {
     return `${editorHtml}<div style="margin-top:16px;border-top:1px solid #e5e5e5;padding-top:12px">${sanitizeHtml(signatureHtml)}</div>`;
   }, [editor, signatureHtml]);
 
-  const handleSend = useCallback(async () => {
-    if (!activeAccountId || !activeAccount || sendingRef.current) return;
+  const buildRawAndSender = useCallback(() => {
     const state = useComposerStore.getState();
-    if (state.to.length === 0) return;
-
-    sendingRef.current = true;
-    stopAutoSave();
-
     const html = getFullHtml();
-    const senderEmail = state.fromEmail ?? activeAccount.email;
+    const senderEmail = state.fromEmail ?? activeAccount!.email;
     const raw = buildRawEmail({
       from: senderEmail,
       to: state.to,
@@ -270,6 +296,12 @@ export function Composer() {
           }))
         : undefined,
     });
+    return { raw, senderEmail };
+  }, [activeAccount, getFullHtml]);
+
+  const executeSend = useCallback(async (raw: string) => {
+    if (!activeAccountId) return;
+    const state = useComposerStore.getState();
 
     // Get undo send delay
     const delaySetting = await getSetting("undo_send_delay_seconds");
@@ -307,7 +339,43 @@ export function Composer() {
 
     state.setUndoSendTimer(timer);
     closeComposer();
-  }, [activeAccountId, activeAccount, closeComposer, getFullHtml]);
+  }, [activeAccountId, closeComposer]);
+
+  const handleSend = useCallback(async () => {
+    if (!activeAccountId || !activeAccount || sendingRef.current) return;
+    const state = useComposerStore.getState();
+    if (state.to.length === 0) return;
+
+    sendingRef.current = true;
+    stopAutoSave();
+
+    const { raw, senderEmail } = buildRawAndSender();
+    const totalRecipients = state.to.length + state.cc.length + state.bcc.length;
+    const isBulk = totalRecipients > 5;
+
+    if (isBulk) {
+      // Show pre-send checklist for bulk/campaign emails
+      setPreSendData({ raw, senderEmail, isBulk });
+      setShowPreSendChecklist(true);
+    } else {
+      // Direct send for normal emails
+      await executeSend(raw);
+    }
+  }, [activeAccountId, activeAccount, buildRawAndSender, executeSend]);
+
+  const handlePreSendProceed = useCallback(() => {
+    setShowPreSendChecklist(false);
+    if (preSendData) {
+      executeSend(preSendData.raw);
+      setPreSendData(null);
+    }
+  }, [preSendData, executeSend]);
+
+  const handlePreSendClose = useCallback(() => {
+    setShowPreSendChecklist(false);
+    setPreSendData(null);
+    sendingRef.current = false;
+  }, []);
 
   const handleSchedule = useCallback(async (scheduledAt: number) => {
     if (!activeAccountId || !activeAccount) return;
@@ -586,8 +654,8 @@ const { queryWithRetry } = await import("@/services/db/connection");
         )}
 
         {/* Attachments */}
-        <div className="border-t border-border-secondary">
-          <AttachmentPicker />
+        <div className={`border-t border-border-secondary ${isDragging ? "bg-accent/5" : ""}`}>
+          <AttachmentPicker isDragging={isDragging} />
         </div>
 
         {/* Footer */}
@@ -636,6 +704,19 @@ const { queryWithRetry } = await import("@/services/db/connection");
         <ScheduleSendDialog
           onSchedule={handleSchedule}
           onClose={() => setShowSchedule(false)}
+        />
+      )}
+
+      {showPreSendChecklist && preSendData && (
+        <PreSendChecklist
+          subject={useComposerStore.getState().subject}
+          bodyHtml={editor?.getHTML() ?? ""}
+          bodyText={editor?.getText() ?? ""}
+          recipients={[...useComposerStore.getState().to, ...useComposerStore.getState().cc, ...useComposerStore.getState().bcc]}
+          senderEmail={preSendData.senderEmail}
+          isBulk={preSendData.isBulk}
+          onClose={handlePreSendClose}
+          onProceed={handlePreSendProceed}
         />
       )}
     </div>

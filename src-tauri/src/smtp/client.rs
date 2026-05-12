@@ -6,6 +6,10 @@ use lettre::{
     },
     AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
 };
+use std::collections::HashMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::Mutex;
+use std::sync::OnceLock;
 
 use super::types::{SmtpConfig, SmtpSendResult};
 
@@ -16,13 +20,30 @@ fn decode_base64url(input: &str) -> Result<Vec<u8>, String> {
         .map_err(|e| format!("Base64 decode error: {}", e))
 }
 
-/// Build an async SMTP transport from the given config.
-fn build_transport(
+/// Generate a hash key for an SMTP config to use as a pool key.
+fn config_hash(config: &SmtpConfig) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    config.host.hash(&mut hasher);
+    config.port.hash(&mut hasher);
+    config.security.hash(&mut hasher);
+    config.username.hash(&mut hasher);
+    config.auth_method.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// Global SMTP connection pool keyed by config hash.
+/// Reuses existing connections instead of creating a new transport per email.
+fn smtp_pool() -> &'static Mutex<HashMap<u64, AsyncSmtpTransport<Tokio1Executor>>> {
+    static POOL: OnceLock<Mutex<HashMap<u64, AsyncSmtpTransport<Tokio1Executor>>>> = OnceLock::new();
+    POOL.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Build an async SMTP transport from the given config (no pooling).
+fn build_standalone_transport(
     config: &SmtpConfig,
 ) -> Result<AsyncSmtpTransport<Tokio1Executor>, String> {
     let credentials = Credentials::new(config.username.clone(), config.password.clone());
 
-    // For OAuth2, force XOAUTH2 mechanism; for password, use default mechanisms
     let auth_mechanisms = if config.auth_method == "oauth2" {
         vec![Mechanism::Xoauth2]
     } else {
@@ -31,7 +52,6 @@ fn build_transport(
 
     let transport = match config.security.as_str() {
         "tls" => {
-            // Implicit TLS (typically port 465)
             let mut builder = AsyncSmtpTransport::<Tokio1Executor>::relay(&config.host)
                 .map_err(|e| format!("SMTP relay error: {}", e))?
                 .port(config.port)
@@ -50,7 +70,6 @@ fn build_transport(
             builder.build()
         }
         "starttls" => {
-            // STARTTLS (typically port 587)
             let mut builder = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.host)
                 .map_err(|e| format!("SMTP STARTTLS error: {}", e))?
                 .port(config.port)
@@ -69,7 +88,6 @@ fn build_transport(
             builder.build()
         }
         _ => {
-            // Plain / no encryption (typically port 25) — not recommended
             AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&config.host)
                 .port(config.port)
                 .credentials(credentials)
@@ -77,6 +95,30 @@ fn build_transport(
                 .build()
         }
     };
+
+    Ok(transport)
+}
+
+/// Build or retrieve a cached SMTP transport from the global pool.
+fn get_or_create_transport(
+    config: &SmtpConfig,
+) -> Result<AsyncSmtpTransport<Tokio1Executor>, String> {
+    let hash = config_hash(config);
+
+    // Check pool for existing transport
+    if let Ok(pool) = smtp_pool().lock() {
+        if let Some(transport) = pool.get(&hash) {
+            return Ok(transport.clone());
+        }
+    }
+
+    // Create new transport
+    let transport = build_standalone_transport(config)?;
+
+    // Store in pool (ignore lock errors — best effort caching)
+    if let Ok(mut pool) = smtp_pool().lock() {
+        pool.insert(hash, transport.clone());
+    }
 
     Ok(transport)
 }
@@ -147,27 +189,40 @@ fn extract_envelope(raw: &[u8]) -> Result<lettre::address::Envelope, String> {
 /// The `raw_email_base64url` parameter is the full email message encoded as
 /// base64url (the same encoding Gmail uses: `+` → `-`, `/` → `_`, no padding).
 /// The function decodes it, extracts the envelope from headers, and sends it.
+/// Uses the global connection pool to reuse SMTP connections.
 pub async fn send_raw_email(
     config: &SmtpConfig,
     raw_email_base64url: &str,
 ) -> Result<SmtpSendResult, String> {
     let raw_bytes = decode_base64url(raw_email_base64url)?;
     let envelope = extract_envelope(&raw_bytes)?;
-    let transport = build_transport(config)?;
+    let hash = config_hash(config);
+    let transport = get_or_create_transport(config)?;
 
-    transport
+    let result = transport
         .send_raw(&envelope, &raw_bytes)
         .await
         .map(|_response| SmtpSendResult {
             success: true,
             message: "Email sent successfully".to_string(),
         })
-        .map_err(|e| format!("SMTP send error: {}", e))
+        .map_err(|e| format!("SMTP send error: {}", e));
+
+    // On connection error, remove from pool so next call creates a fresh transport
+    if let Err(ref e) = result {
+        if e.contains("connection") || e.contains("timeout") || e.contains("closed") {
+            if let Ok(mut pool) = smtp_pool().lock() {
+                pool.remove(&hash);
+            }
+        }
+    }
+
+    result
 }
 
 /// Test SMTP connectivity by connecting, authenticating, and disconnecting.
 pub async fn test_connection(config: &SmtpConfig) -> Result<SmtpSendResult, String> {
-    let transport = build_transport(config)?;
+    let transport = build_standalone_transport(config)?;
 
     transport
         .test_connection()

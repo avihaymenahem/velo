@@ -12,6 +12,7 @@ export interface PendingOperation {
   next_retry_at: number | null;
   created_at: number;
   error_message: string | null;
+  hold_until: number | null;
 }
 
 export async function enqueuePendingOperation(
@@ -20,13 +21,14 @@ export async function enqueuePendingOperation(
   resourceId: string,
   params: Record<string, unknown>,
   campaignId?: string,
+  holdUntil?: number,
 ): Promise<string> {
   return queryWithRetry(async (db) => {
     const id = crypto.randomUUID();
     await db.execute(
-      `INSERT INTO pending_operations (id, account_id, operation_type, resource_id, params, campaign_id)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, accountId, operationType, resourceId, JSON.stringify(params), campaignId ?? null],
+      `INSERT INTO pending_operations (id, account_id, operation_type, resource_id, params, campaign_id, hold_until)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [id, accountId, operationType, resourceId, JSON.stringify(params), campaignId ?? null, holdUntil ?? null],
     );
     return id;
   });
@@ -36,13 +38,14 @@ export async function getPendingOperations(
   accountId?: string,
   limit = 50,
 ): Promise<PendingOperation[]> {
-  return queryWithRetry(async (db) => {
+    return queryWithRetry(async (db) => {
     const now = Math.floor(Date.now() / 1000);
     if (accountId) {
       return db.select<PendingOperation[]>(
         `SELECT * FROM pending_operations
          WHERE account_id = $1 AND status = 'pending'
            AND (next_retry_at IS NULL OR next_retry_at <= $2)
+           AND (hold_until IS NULL OR hold_until <= $2)
          ORDER BY created_at ASC LIMIT $3`,
         [accountId, now, limit],
       );
@@ -51,6 +54,7 @@ export async function getPendingOperations(
       `SELECT * FROM pending_operations
        WHERE status = 'pending'
          AND (next_retry_at IS NULL OR next_retry_at <= $1)
+         AND (hold_until IS NULL OR hold_until <= $1)
        ORDER BY created_at ASC LIMIT $2`,
       [now, limit],
     );
@@ -151,6 +155,16 @@ export async function getPendingOpsForResource(
       [accountId, resourceId],
     ),
   );
+}
+
+export async function getPendingOperationById(id: string): Promise<PendingOperation | null> {
+  return queryWithRetry(async (db) => {
+    const rows = await db.select<PendingOperation[]>(
+      "SELECT * FROM pending_operations WHERE id = $1",
+      [id],
+    );
+    return rows[0] ?? null;
+  });
 }
 
 export async function compactQueue(accountId?: string): Promise<number> {

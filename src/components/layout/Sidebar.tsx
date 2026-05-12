@@ -13,7 +13,7 @@ import { useSmartFolderStore } from "@/stores/smartFolderStore";
 import { useActiveLabel, useActiveCategory } from "@/hooks/useRouteNavigation";
 import { navigateToLabel } from "@/router/navigate";
 import { getCategoryUnreadCounts } from "@/services/db/threadCategories";
-import { getLabelUnreadCount } from "@/services/db/threads";
+import { getLabelUnreadCount, getAllLabelUnreadCounts } from "@/services/db/threads";
 import {
   Inbox,
   Star,
@@ -123,6 +123,7 @@ function DroppableLabelItem({
   label,
   isActive,
   collapsed,
+  unreadCount,
   onClick,
   onContextMenu,
   onEditClick,
@@ -130,6 +131,7 @@ function DroppableLabelItem({
   label: Label;
   isActive: boolean;
   collapsed: boolean;
+  unreadCount?: number;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onEditClick: () => void;
@@ -155,7 +157,7 @@ function DroppableLabelItem({
     >
       {collapsed ? (
         <span
-          className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-semibold shrink-0"
+          className="relative w-7 h-7 rounded-md flex items-center justify-center text-xs font-semibold shrink-0"
           style={label.colorBg
             ? { backgroundColor: label.colorBg, color: label.colorFg ?? "#ffffff" }
             : undefined
@@ -165,6 +167,11 @@ function DroppableLabelItem({
             initial
           ) : (
             <Tag size={14} />
+          )}
+          {unreadCount !== undefined && unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 flex items-center justify-center bg-accent text-white text-[0.5rem] font-bold rounded-full transition-all duration-300">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
           )}
         </span>
       ) : (
@@ -178,6 +185,11 @@ function DroppableLabelItem({
             <Tag size={14} className="shrink-0" />
           )}
           <span className="flex-1 truncate">{label.name}</span>
+          {unreadCount !== undefined && unreadCount > 0 && (
+            <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal transition-all duration-300 mr-0.5">
+              {unreadCount}
+            </span>
+          )}
           <span
             role="button"
             tabIndex={0}
@@ -261,20 +273,24 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
 
   // Unread counts for inbox nav item and category sub-items
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  // Per-label unread counts for user-created labels
+  const [labelUnreadCounts, setLabelUnreadCounts] = useState<Record<string, number>>({});
 
   const refreshLabelUnreadCounts = useCallback(async () => {
     if (!activeAccountId) return;
     try {
       // Fetch per-label counts and per-category counts in parallel
-      const [labelCounts, categoryCounts] = await Promise.all([
+      const [labelCounts, categoryCounts, allLabelCounts] = await Promise.all([
         getLabelUnreadCount(activeAccountId, "INBOX"),
         getCategoryUnreadCounts(activeAccountId),
+        getAllLabelUnreadCounts(activeAccountId),
       ]);
       const counts: Record<string, number> = { INBOX: labelCounts };
       for (const [cat, count] of categoryCounts) {
         counts[cat] = count;
       }
       setUnreadCounts(counts);
+      setLabelUnreadCounts(allLabelCounts);
     } catch (err) {
       console.error("Failed to refresh label unread counts:", err);
     }
@@ -569,6 +585,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                   label={label}
                   isActive={activeLabel === label.id}
                   collapsed={collapsed}
+                  unreadCount={labelUnreadCounts[label.id] ?? 0}
                   onClick={() => navigateToLabel(label.id)}
                   onContextMenu={(e) => handleLabelContextMenu(e, label.id)}
                   onEditClick={() => handleEditLabel(label.id)}
@@ -593,6 +610,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                         label={label}
                         isActive={activeLabel === label.id}
                         collapsed={collapsed}
+                        unreadCount={labelUnreadCounts[label.id] ?? 0}
                         onClick={() => navigateToLabel(label.id)}
                         onContextMenu={(e) => handleLabelContextMenu(e, label.id)}
                         onEditClick={() => handleEditLabel(label.id)}

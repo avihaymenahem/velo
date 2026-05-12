@@ -8,6 +8,7 @@ use tauri_plugin_autostart::MacosLauncher;
 
 mod commands;
 mod contacts;
+mod dns;
 mod export;
 mod imap;
 mod oauth;
@@ -116,6 +117,7 @@ pub fn run() {
             commands::imap_delta_check,
             commands::smtp_send_email,
             commands::smtp_test_connection,
+            dns::check_dns_records,
             contacts::csv::parse_csv,
             pgp::keyring::generate_key,
             pgp::keyring::get_key_info_cmd,

@@ -16,6 +16,8 @@ export interface DbScheduledEmail {
   attachment_paths: string | null;
   status: string;
   created_at: number;
+  recurrence: string;
+  timezone: string;
 }
 
 export async function getPendingScheduledEmails(): Promise<DbScheduledEmail[]> {
@@ -50,12 +52,14 @@ export async function insertScheduledEmail(email: {
   threadId: string | null;
   scheduledAt: number;
   signatureId: string | null;
+  recurrence?: string;
+  timezone?: string;
 }): Promise<string> {
   const id = crypto.randomUUID();
   await queryWithRetry(async (db) =>
     db.execute(
-      `INSERT INTO scheduled_emails (id, account_id, to_addresses, cc_addresses, bcc_addresses, subject, body_html, reply_to_message_id, thread_id, scheduled_at, signature_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      `INSERT INTO scheduled_emails (id, account_id, to_addresses, cc_addresses, bcc_addresses, subject, body_html, reply_to_message_id, thread_id, scheduled_at, signature_id, recurrence, timezone)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         id,
         email.accountId,
@@ -68,6 +72,8 @@ export async function insertScheduledEmail(email: {
         email.threadId,
         email.scheduledAt,
         email.signatureId,
+        email.recurrence ?? 'once',
+        email.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
       ],
     ),
   );

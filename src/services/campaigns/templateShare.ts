@@ -6,6 +6,10 @@ export interface ExportedTemplate {
   shortcut: string | null;
   category_name: string | null;
   conditional_blocks_json: string | null;
+  usage_count?: number;
+  last_used_at?: number | null;
+  created_at?: number;
+  exported_at?: number;
 }
 
 export function exportTemplateToJson(template: {
@@ -15,15 +19,22 @@ export function exportTemplateToJson(template: {
   shortcut: string | null;
   categoryName?: string | null;
   conditional_blocks_json?: string | null;
+  usageCount?: number;
+  lastUsedAt?: number | null;
+  createdAt?: number;
 }): string {
   const exported: ExportedTemplate = {
-    version: 1,
+    version: 2,
     name: template.name,
     subject: template.subject,
     body_html: template.body_html,
     shortcut: template.shortcut,
     category_name: template.categoryName ?? null,
     conditional_blocks_json: template.conditional_blocks_json ?? null,
+    usage_count: template.usageCount ?? 0,
+    last_used_at: template.lastUsedAt ?? null,
+    created_at: template.createdAt ?? Date.now(),
+    exported_at: Date.now(),
   };
   return JSON.stringify(exported, null, 2);
 }
@@ -48,6 +59,10 @@ export function parseImportedTemplate(json: string): ExportedTemplate | null {
       shortcut: typeof parsed.shortcut === "string" ? parsed.shortcut : null,
       category_name: typeof parsed.category_name === "string" ? parsed.category_name : null,
       conditional_blocks_json: typeof parsed.conditional_blocks_json === "string" ? parsed.conditional_blocks_json : null,
+      usage_count: typeof parsed.usage_count === "number" ? parsed.usage_count : undefined,
+      last_used_at: parsed.last_used_at ?? undefined,
+      created_at: typeof parsed.created_at === "number" ? parsed.created_at : undefined,
+      exported_at: typeof parsed.exported_at === "number" ? parsed.exported_at : undefined,
     };
   } catch {
     return null;
@@ -64,4 +79,8 @@ export function importFromFile(file: File): Promise<ExportedTemplate | null> {
     reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsText(file);
   });
+}
+
+export function toExportableJson(parsed: ExportedTemplate): string {
+  return JSON.stringify(parsed, null, 2);
 }
