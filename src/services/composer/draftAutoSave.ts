@@ -2,6 +2,7 @@ import { useComposerStore } from "@/stores/composerStore";
 import { createDraft as createDraftAction, updateDraft as updateDraftAction } from "@/services/emailActions";
 import { buildRawEmail } from "@/utils/emailBuilder";
 import { useAccountStore } from "@/stores/accountStore";
+import { getSetting, setSetting, deleteSetting } from "@/services/db/settings";
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let unsubscribe: (() => void) | null = null;
@@ -125,14 +126,15 @@ async function saveDraft(): Promise<void> {
           void cleanupOldDraftFromDb(accountId, oldDraftId);
           if (!isDiscarding) {
             const key = getPersistenceKey(accountId);
-            localStorage.setItem(key, data.draftId);
+            await setSetting(key, data.draftId);
           }
         }
       }
     } else {
-      // Recovery: check if we have a persisted draftId for this context (survives reload)
+      // Recovery: check if we have a persisted draftId for this context (survives reload/window switch)
+      // Uses SQLite (shared across all Tauri windows) instead of localStorage (window-local).
       const key = getPersistenceKey(accountId);
-      const persistedId = localStorage.getItem(key);
+      const persistedId = await getSetting(key);
       if (persistedId) {
         try {
           if (isDiscarding) return;
@@ -144,7 +146,7 @@ async function saveDraft(): Promise<void> {
               void cleanupOldDraftFromDb(accountId, persistedId);
             }
             if (!isDiscarding) {
-              localStorage.setItem(key, data.draftId);
+              await setSetting(key, data.draftId);
               if (data.threadId && !state.threadId) {
                 useComposerStore.setState({ threadId: data.threadId });
               }
@@ -161,7 +163,7 @@ async function saveDraft(): Promise<void> {
             const data = result.data as { draftId: string; threadId?: string };
             state.setDraftId(data.draftId);
             if (!isDiscarding) {
-              localStorage.setItem(key, data.draftId);
+              await setSetting(key, data.draftId);
               if (data.threadId && !state.threadId) {
                 useComposerStore.setState({ threadId: data.threadId });
               }
@@ -176,7 +178,7 @@ async function saveDraft(): Promise<void> {
           const data = result.data as { draftId: string; threadId?: string };
           state.setDraftId(data.draftId);
           if (!isDiscarding) {
-            localStorage.setItem(key, data.draftId);
+            await setSetting(key, data.draftId);
             if (data.threadId && !state.threadId) {
               useComposerStore.setState({ threadId: data.threadId });
             }
@@ -296,7 +298,7 @@ export function stopAutoSave(): void {
   }
   // Clear persistence ONLY if the composer is actually closed (not just HMR)
   if (currentAccountId && !useComposerStore.getState().isOpen) {
-    localStorage.removeItem(getPersistenceKey(currentAccountId));
+    void deleteSetting(getPersistenceKey(currentAccountId));
   }
   currentAccountId = null;
   // Do NOT clear isDiscarding or isSaveInFlight here — a discard may have an in-flight

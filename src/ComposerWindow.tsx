@@ -12,6 +12,7 @@ import { initializeClients } from "./services/gmail/tokenManager";
 import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
 import type { ComposerMode } from "./stores/composerStore";
+import { saveNow } from "./services/composer/draftAutoSave";
 
 export default function ComposerWindow() {
   const { setTheme, setFontScale, setColorTheme, setComposerFontFamily, setComposerFontSize } = useUIStore();
@@ -225,6 +226,22 @@ export default function ComposerWindow() {
       return () => mq.removeEventListener("change", apply);
     }
   }, [colorTheme, theme]);
+
+  // Save draft when user closes the window via OS (Cmd+W / ✕ button)
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    import("@tauri-apps/api/webviewWindow").then(({ getCurrentWebviewWindow }) => {
+      const win = getCurrentWebviewWindow();
+      win.onCloseRequested(async (event) => {
+        event.preventDefault();
+        if (useComposerStore.getState().isOpen) {
+          await saveNow();
+        }
+        await win.destroy();
+      }).then((fn) => { unlisten = fn; });
+    }).catch(() => {});
+    return () => { unlisten?.(); };
+  }, []);
 
   if (loading) {
     return (

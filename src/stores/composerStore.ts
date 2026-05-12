@@ -176,6 +176,7 @@ openComposer: (opts) => {
             width: 980,
             height: 650,
             center: true,
+            dragDropEnabled: false,
             // @ts-ignore - titleBarStyle is valid for macOS in Tauri 2
             titleBarStyle: "Overlay",
           });
