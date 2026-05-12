@@ -1,0 +1,27 @@
+use tauri::{AppHandle, Emitter, Manager};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+pub fn run_backup_scheduler(app: AppHandle) {
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+
+    let handle = app.handle().clone();
+    tokio::spawn(async move {
+        // Check every 60 seconds for backup schedules whose next_run_at is due
+        loop {
+            if !r.load(Ordering::Relaxed) {
+                break;
+            }
+
+            // Emit event for the frontend to check schedules
+            let _ = handle.emit("backup-tick", ());
+
+            tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+        }
+    });
+}
+
+pub fn stop_backup_scheduler(running: &Arc<AtomicBool>) {
+    running.store(false, Ordering::Relaxed);
+}

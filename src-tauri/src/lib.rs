@@ -8,10 +8,12 @@ use tauri_plugin_autostart::MacosLauncher;
 
 mod commands;
 mod contacts;
+mod export;
 mod imap;
 mod oauth;
 mod pgp;
 mod smtp;
+mod vault;
 
 #[tauri::command]
 fn close_splashscreen(app: tauri::AppHandle) {
@@ -122,6 +124,12 @@ pub fn run() {
             pgp::cache_passphrase,
             pgp::get_cached_passphrase,
             pgp::clear_passphrase_cache,
+            vault::ops::get_vault_root,
+            vault::ops::copy_to_vault,
+            vault::ops::delete_from_vault,
+            vault::ops::list_vault_dir,
+            vault::pdf::extract_pdf_text,
+            export::mbox::append_to_mbox,
         ])
         .setup(|app| {
             {
