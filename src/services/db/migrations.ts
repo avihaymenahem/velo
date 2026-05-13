@@ -1071,6 +1071,34 @@ const MIGRATIONS = [
            'prop', 0);
       `,
     },
+    {
+      version: 40,
+      description: "Composer presets and default formatting profiles",
+      sql: `
+        CREATE TABLE IF NOT EXISTS composer_presets (
+          id TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          name TEXT NOT NULL DEFAULT 'Default',
+          default_reply_mode TEXT NOT NULL DEFAULT 'reply',
+          send_and_archive INTEGER NOT NULL DEFAULT 0,
+          undo_send_delay INTEGER NOT NULL DEFAULT 10,
+          font_family TEXT DEFAULT 'sans-serif',
+          font_size INTEGER DEFAULT 14,
+          is_default INTEGER DEFAULT 0,
+          created_at INTEGER DEFAULT (unixepoch())
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_composer_presets_account ON composer_presets(account_id);
+
+        -- Auto-create a default composer preset when a new account is added
+        CREATE TRIGGER IF NOT EXISTS trg_composer_preset_new_account
+        AFTER INSERT ON accounts
+        BEGIN
+          INSERT OR IGNORE INTO composer_presets (id, account_id, name, is_default)
+          VALUES (NEW.id || '-default', NEW.id, 'Default', 1);
+        END;
+      `,
+    },
   ];
 
 /**
