@@ -29,6 +29,7 @@ export function WorkflowEditor() {
   const [triggerConditions, setTriggerConditions] = useState("");
   const [actions, setActions] = useState<WorkflowAction[]>([]);
   const [showPresets, setShowPresets] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleApplyPreset = useCallback((preset: WorkflowPreset) => {
     setName(preset.name);
@@ -67,19 +68,32 @@ export function WorkflowEditor() {
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!activeAccountId || !name.trim()) return;
+    setSaveError(null);
 
-    await upsertWorkflowRule({
-      id: editingId ?? undefined,
-      accountId: activeAccountId,
-      name: name.trim(),
-      triggerEvent,
-      triggerConditions: triggerConditions || undefined,
-      actions: JSON.stringify(actions),
-    });
+    if (!activeAccountId) {
+      setSaveError("No account configured. Please add an account first.");
+      return;
+    }
 
-    resetForm();
-    await loadRules();
+    if (!name.trim()) {
+      setSaveError("Workflow name is required.");
+      return;
+    }
+
+    try {
+      await upsertWorkflowRule({
+        id: editingId ?? undefined,
+        accountId: activeAccountId,
+        name: name.trim(),
+        triggerEvent,
+        triggerConditions: triggerConditions || undefined,
+        actions: JSON.stringify(actions),
+      });
+      resetForm();
+      await loadRules();
+    } catch (err) {
+      setSaveError(String(err));
+    }
   }, [activeAccountId, name, triggerEvent, triggerConditions, actions, editingId, resetForm, loadRules]);
 
   const handleEdit = useCallback((rule: DbWorkflowRule) => {
@@ -145,6 +159,11 @@ export function WorkflowEditor() {
 
       {showForm ? (
         <div className="border border-border-primary rounded-md p-3 space-y-3">
+          {saveError && (
+            <div className="text-sm text-error bg-error/10 border border-error/20 rounded-lg px-3 py-2">
+              {saveError}
+            </div>
+          )}
           <input
             type="text"
             value={name}

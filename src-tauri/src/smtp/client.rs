@@ -10,6 +10,8 @@ use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Mutex;
 use std::sync::OnceLock;
+use std::time::Duration;
+use tokio::time::timeout;
 
 use super::types::{SmtpConfig, SmtpSendResult};
 
@@ -38,7 +40,17 @@ fn smtp_pool() -> &'static Mutex<HashMap<u64, AsyncSmtpTransport<Tokio1Executor>
     POOL.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Build an async SMTP transport from the given config (no pooling).
+/// Port/security mapping:
+///   - Port 587 → use STARTTLS (security: "starttls"): `starttls_relay()`
+///     Client connects in plain text, then upgrades to TLS via STARTTLS.
+///   - Port 465 → use implicit TLS (security: "tls"): `.relay()`
+///     Client establishes TLS before any SMTP commands.
+///   - Port 25  → use no encryption (security: "none"): `builder_dangerous()`
+///     Typically blocked by ISPs; use only for local relays.
+///
+/// Mailtrap (sandbox) uses port 587 with STARTTLS. If the UI selects "SSL/TLS"
+/// (= "tls") on port 587, it will fail because port 587 requires STARTTLS.
+/// The frontend should map UI "SSL/TLS" + port 587 → "starttls".
 fn build_standalone_transport(
     config: &SmtpConfig,
 ) -> Result<AsyncSmtpTransport<Tokio1Executor>, String> {
@@ -221,12 +233,23 @@ pub async fn send_raw_email(
 }
 
 /// Test SMTP connectivity by connecting, authenticating, and disconnecting.
+///
+/// Wraps the operation with a 30-second timeout to prevent hanging on
+/// unreachable hosts, firewall blocks, or TLS negotiation failures
+/// (e.g. Windows SSPI/Schannel errors on port 587).
 pub async fn test_connection(config: &SmtpConfig) -> Result<SmtpSendResult, String> {
     let transport = build_standalone_transport(config)?;
 
-    transport
-        .test_connection()
+    let result = timeout(Duration::from_secs(30), transport.test_connection())
         .await
+        .map_err(|_| {
+            format!(
+                "SMTP connection to {}:{} timed out after 30s — check your server settings, firewall, or try STARTTLS on port 587",
+                config.host, config.port
+            )
+        })?;
+
+    result
         .map(|success| SmtpSendResult {
             success,
             message: if success {

@@ -125,6 +125,17 @@ function mapSecurity(security: string): string {
   return security;
 }
 
+/** Wraps an async operation with a timeout. Shows a clear error for timeouts vs other failures. */
+async function testConnectionWithTimeout<T>(
+  fn: () => Promise<T>,
+  timeoutMs = 15000,
+): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Connection timed out")), timeoutMs),
+  );
+  return Promise.race([fn(), timeout]);
+}
+
 export function AddImapAccount({
   onClose,
   onSuccess,
@@ -308,9 +319,8 @@ export function AddImapAccount({
   const testImapConnection = async () => {
     setImapTest({ state: "testing" });
     try {
-      const result = await invoke<string>(
-        "imap_test_connection",
-        {
+      const result = await testConnectionWithTimeout(() =>
+        invoke<string>("imap_test_connection", {
           config: {
             host: form.imapHost,
             port: form.imapPort,
@@ -320,12 +330,20 @@ export function AddImapAccount({
             auth_method: isOAuth ? "oauth2" : "password",
             accept_invalid_certs: form.acceptInvalidCerts,
           },
-        },
+        }),
       );
       setImapTest({ state: "success", message: result });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setImapTest({ state: "error", message });
+      const friendly =
+        message === "Connection timed out"
+          ? `IMAP connection to ${form.imapHost}:${form.imapPort} timed out after 15s — check the server address, port, or firewall`
+          : message.includes("authentication failed") || message.includes("Invalid credentials")
+            ? "Authentication failed — check your username and password"
+            : message.includes("certificate") || message.includes("cert")
+              ? `TLS certificate error — try enabling "Accept self-signed certificates"`
+              : message;
+      setImapTest({ state: "error", message: friendly });
     }
   };
 
@@ -338,9 +356,8 @@ export function AddImapAccount({
         : form.samePassword
           ? form.password
           : form.smtpPassword;
-      const result = await invoke<{ success: boolean; message: string }>(
-        "smtp_test_connection",
-        {
+      const result = await testConnectionWithTimeout(() =>
+        invoke<{ success: boolean; message: string }>("smtp_test_connection", {
           config: {
             host: form.smtpHost,
             port: form.smtpPort,
@@ -350,7 +367,7 @@ export function AddImapAccount({
             auth_method: isOAuth ? "oauth2" : "password",
             accept_invalid_certs: form.acceptInvalidCerts,
           },
-        },
+        }),
       );
       setSmtpTest({
         state: result.success ? "success" : "error",
@@ -358,7 +375,17 @@ export function AddImapAccount({
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setSmtpTest({ state: "error", message });
+      const friendly =
+        message === "Connection timed out"
+          ? `SMTP connection to ${form.smtpHost}:${form.smtpPort} timed out after 15s — check the server address, port, or firewall`
+          : message.includes("authentication failed") || message.includes("Invalid credentials")
+            ? "Authentication failed — check your SMTP username and password"
+            : message.includes("certificate") || message.includes("cert")
+              ? `TLS certificate error — try enabling "Accept self-signed certificates"`
+              : message.includes("tls") || message.includes("STARTTLS") || message.includes("ssl")
+                ? "TLS handshake failed — try changing Security to STARTTLS (port 587) or SSL/TLS (port 465)"
+                : message;
+      setSmtpTest({ state: "error", message: friendly });
     }
   };
 
