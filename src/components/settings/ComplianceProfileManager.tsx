@@ -135,8 +135,49 @@ export function ComplianceProfileManager() {
     return <div className="text-xs text-text-tertiary">{t("common.loading")}</div>;
   }
 
+  const [showHelp, setShowHelp] = useState(false);
+
   return (
     <div className="space-y-3">
+      <button
+        onClick={() => setShowHelp(!showHelp)}
+        className="w-full flex items-center gap-2 p-3 rounded-lg bg-bg-secondary border border-border-primary text-sm text-left group"
+      >
+        <Shield className="w-4 h-4 text-accent shrink-0" />
+        <span className="flex-1 font-medium text-text-primary">{t("compliance.whatIsThis")}</span>
+        <span className="text-text-tertiary text-xs">{showHelp ? "▲" : "▼"}</span>
+      </button>
+      {showHelp && (
+        <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary text-sm space-y-3">
+          <p className="text-text-secondary">
+            Compliance profiles define regulatory requirements for outgoing emails. When you compose an email, Velo checks it against active profiles that match your recipient's jurisdiction.
+          </p>
+          <div className="space-y-2">
+            <p className="font-medium text-text-primary">Built-in profiles:</p>
+            <ul className="list-disc list-inside text-text-secondary space-y-1">
+              <li><strong>GDPR (EU)</strong> — Requires unsubscribe link, retention notice, lawful basis</li>
+              <li><strong>CAN-SPAM (US)</strong> — Physical address, clear subject, 10-day opt-out</li>
+              <li><strong>LGPD (Brazil)</strong> — Portuguese-language data subject rights notice</li>
+              <li><strong>Morocco Business</strong> — Formal French tone, company identifiers in signature</li>
+              <li><strong>Professional</strong> — No ALL-CAPS subject, attachment mentioned in body</li>
+            </ul>
+          </div>
+          <div className="space-y-2">
+            <p className="font-medium text-text-primary">Import format:</p>
+            <pre className="bg-bg-tertiary p-2 rounded text-xs overflow-x-auto">
+{`{
+  "code": "my-profile",
+  "name": "My Profile",
+  "regionHint": ".com,.net",
+  "rules": [
+    { "type": "signature_required", "severity": "error", "messageKey": "..." }
+  ]
+}`}
+            </pre>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs text-text-tertiary">
           {t("compliance.profilesDescription")}
