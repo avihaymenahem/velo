@@ -6,6 +6,17 @@ import {
   setThreadCategoriesBatch,
 } from "@/services/db/threadCategories";
 
+export async function reportUserCorrection(
+  threadId: string,
+  correctedCategory: string,
+): Promise<void> {
+  try {
+    console.info(`User correction: thread ${threadId} → ${correctedCategory}`);
+  } catch (err) {
+    console.error("Failed to report user correction:", err);
+  }
+}
+
 export async function categorizeNewThreads(accountId: string): Promise<void> {
   try {
     // Check if AI and auto-categorize are enabled

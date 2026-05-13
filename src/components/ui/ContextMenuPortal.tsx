@@ -41,7 +41,8 @@ import {
 } from "lucide-react";
 import { triggerSync } from "@/services/gmail/syncManager";
 import { useUIStore } from "@/stores/uiStore";
-import { setThreadCategory, ALL_CATEGORIES } from "@/services/db/threadCategories";
+import { updateThreadCategory, ALL_CATEGORIES } from "@/services/db/threadCategories";
+import { reportUserCorrection } from "@/services/ai/categorizationManager";
 
 function buildQuote(msg: { from_name: string | null; from_address: string | null; date: string | number; body_html: string | null; body_text: string | null }): string {
   const date = new Date(msg.date).toLocaleString();
@@ -542,7 +543,8 @@ function ThreadMenu({
         label: cat,
         action: async () => {
           for (const id of targetIds) {
-            await setThreadCategory(activeAccountId, id, cat, true);
+            await updateThreadCategory(activeAccountId, id, cat, true);
+            reportUserCorrection(id, cat);
           }
           window.dispatchEvent(new Event("velo-sync-done"));
         },

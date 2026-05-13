@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useThreadStore, type Thread } from "./threadStore";
+
+const mockGetAllLabelUnreadCounts = vi.fn();
+
+vi.mock("@/services/db/threads", () => ({
+  getAllLabelUnreadCounts: (...args: unknown[]) => mockGetAllLabelUnreadCounts(...args),
+}));
 
 const mockThread: Thread = {
   id: "thread-1",
@@ -168,6 +174,55 @@ describe("threadStore", () => {
 
     it("should start with empty threadMap", () => {
       expect(useThreadStore.getState().threadMap.size).toBe(0);
+    });
+  });
+
+  describe("unreadCounts", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it("should start with empty unreadCounts", () => {
+      const { unreadCounts } = useThreadStore.getState();
+      expect(unreadCounts).toEqual({});
+    });
+
+    it("should set unreadCounts via loadUnreadCounts", async () => {
+      mockGetAllLabelUnreadCounts.mockResolvedValueOnce({
+        INBOX: 5,
+        "label-1": 3,
+        "label-2": 0,
+      });
+
+      await useThreadStore.getState().loadUnreadCounts("acc-1");
+
+      const { unreadCounts } = useThreadStore.getState();
+      expect(unreadCounts).toEqual({
+        INBOX: 5,
+        "label-1": 3,
+        "label-2": 0,
+      });
+    });
+
+    it("should be a record of labelId -> number", async () => {
+      mockGetAllLabelUnreadCounts.mockResolvedValueOnce({
+        INBOX: 10,
+      });
+
+      await useThreadStore.getState().loadUnreadCounts("acc-1");
+
+      const { unreadCounts } = useThreadStore.getState();
+      expect(typeof unreadCounts).toBe("object");
+      expect(unreadCounts["INBOX"]).toBe(10);
+      expect(typeof unreadCounts["INBOX"]).toBe("number");
+    });
+
+    it("should pass the accountId to getAllLabelUnreadCounts", async () => {
+      mockGetAllLabelUnreadCounts.mockResolvedValueOnce({});
+
+      await useThreadStore.getState().loadUnreadCounts("acc-42");
+
+      expect(mockGetAllLabelUnreadCounts).toHaveBeenCalledWith("acc-42");
     });
   });
 

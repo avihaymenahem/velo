@@ -92,4 +92,17 @@ describe("CategoryTabs", () => {
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.queryByText("0")).not.toBeInTheDocument();
   });
+
+  it("shows pencil icon on tabs with user overrides", () => {
+    render(
+      <CategoryTabs
+        activeCategory="Primary"
+        onCategoryChange={onCategoryChange}
+        userOverrideCounts={{ Updates: 2, Promotions: 1 }}
+      />,
+    );
+
+    const pencils = document.querySelectorAll('[class*="lucide-pencil"]');
+    expect(pencils.length).toBe(2);
+  });
 });

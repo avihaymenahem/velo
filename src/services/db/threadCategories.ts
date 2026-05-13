@@ -115,10 +115,39 @@ export async function setThreadCategoriesBatch(
          VALUES ($1, $2, $3, 0)
          ON CONFLICT(account_id, thread_id) DO UPDATE SET
            category = $3
-         WHERE is_manual = 0`,
+         WHERE is_manual = 0 AND is_user_override = 0`,
         [accountId, threadId, category],
       );
     }
+  });
+}
+
+export async function updateThreadCategory(
+  accountId: string,
+  threadId: string,
+  category: string,
+  isUserOverride = false,
+): Promise<void> {
+  await queryWithRetry(async (db) =>
+    db.execute(
+      `INSERT INTO thread_categories (account_id, thread_id, category, is_user_override)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT(account_id, thread_id) DO UPDATE SET
+         category = $3, is_user_override = $4`,
+      [accountId, threadId, category, isUserOverride ? 1 : 0],
+    ),
+  );
+}
+
+export async function getUserOverrides(
+  accountId: string,
+): Promise<{ threadId: string; category: string }[]> {
+  return queryWithRetry(async (db) => {
+    const rows = await db.select<{ thread_id: string; category: string }[]>(
+      "SELECT thread_id, category FROM thread_categories WHERE account_id = $1 AND is_user_override = 1",
+      [accountId],
+    );
+    return rows.map((r) => ({ threadId: r.thread_id, category: r.category }));
   });
 }
 

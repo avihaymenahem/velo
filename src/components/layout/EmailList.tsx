@@ -11,7 +11,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useActiveLabel, useSelectedThreadId, useActiveCategory } from "@/hooks/useRouteNavigation";
 import { navigateToThread, navigateToLabel } from "@/router/navigate";
 import { getThreadsForAccount, getThreadsForCategory, getThreadLabelIds, deleteThread as deleteThreadFromDb } from "@/services/db/threads";
-import { getCategoriesForThreads, getCategoryUnreadCounts } from "@/services/db/threadCategories";
+import { getCategoriesForThreads, getCategoryUnreadCounts, getUserOverrides } from "@/services/db/threadCategories";
 import { getActiveFollowUpThreadIds } from "@/services/db/followUpReminders";
 import { getBundleRules, getHeldThreadIds, getBundleSummaries, type DbBundleRule } from "@/services/db/bundleRules";
 import { getGmailClient } from "@/services/gmail/tokenManager";
@@ -83,6 +83,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [categoryMap, setCategoryMap] = useState<Map<string, string>>(() => new Map());
   const [categoryUnreadCounts, setCategoryUnreadCounts] = useState<Map<string, number>>(() => new Map());
+  const [userOverrideCounts, setUserOverrideCounts] = useState<Map<string, number>>(() => new Map());
   const [followUpThreadIds, setFollowUpThreadIds] = useState<Set<string>>(() => new Set());
   const [bundleRules, setBundleRules] = useState<DbBundleRule[]>([]);
   const [heldThreadIds, setHeldThreadIds] = useState<Set<string>>(() => new Set());
@@ -393,6 +394,23 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
           setCategoryUnreadCounts(new Map());
         }
 
+        // User override counts (only for inbox)
+        if (isInbox) {
+          promises.push(
+            getUserOverrides(activeAccountId).then((overrides) => {
+              if (!cancelled) {
+                const counts = new Map<string, number>();
+                for (const o of overrides) {
+                  counts.set(o.category, (counts.get(o.category) ?? 0) + 1);
+                }
+                setUserOverrideCounts(counts);
+              }
+            }),
+          );
+        } else {
+          setUserOverrideCounts(new Map());
+        }
+
         // Follow-up indicators
         if (threadIds.length > 0) {
           promises.push(
@@ -537,6 +555,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}
           unreadCounts={Object.fromEntries(categoryUnreadCounts)}
+          userOverrideCounts={Object.fromEntries(userOverrideCounts)}
         />
       )}
 

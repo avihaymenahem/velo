@@ -1,11 +1,23 @@
 import { useState, useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X, Copy } from "lucide-react";
+import { useThreadStore } from "@/stores/threadStore";
+import { useAccountStore } from "@/stores/accountStore";
+import { updateBadgeCount } from "@/services/badgeManager";
 
 const isMac = navigator.userAgent.includes("Macintosh");
 
 export function TitleBar() {
   const [maximized, setMaximized] = useState(false);
+  const loadUnreadCounts = useThreadStore((s) => s.loadUnreadCounts);
+  const activeAccountId = useAccountStore((s) => s.activeAccountId);
+
+  useEffect(() => {
+    if (activeAccountId) {
+      loadUnreadCounts(activeAccountId);
+    }
+    updateBadgeCount();
+  }, [activeAccountId, loadUnreadCounts]);
 
   useEffect(() => {
     const appWindow = getCurrentWindow();

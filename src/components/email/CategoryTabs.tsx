@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useCallback, useRef, useState } from "react";
-import { Inbox, Bell, Tag, Users, Newspaper, type LucideIcon } from "lucide-react";
+import { Inbox, Bell, Tag, Users, Newspaper, Pencil, type LucideIcon } from "lucide-react";
 import { ALL_CATEGORIES } from "@/services/db/threadCategories";
 
 export interface CategoryTabsProps {
   activeCategory: string;
   onCategoryChange: (category: string) => void;
   unreadCounts?: Record<string, number>;
+  userOverrideCounts?: Record<string, number>;
 }
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
@@ -16,7 +17,7 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Newsletters: Newspaper,
 };
 
-export function CategoryTabs({ activeCategory, onCategoryChange, unreadCounts }: CategoryTabsProps) {
+export function CategoryTabs({ activeCategory, onCategoryChange, unreadCounts, userOverrideCounts }: CategoryTabsProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number } | null>(null);
@@ -88,6 +89,9 @@ export function CategoryTabs({ activeCategory, onCategoryChange, unreadCounts }:
                 <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
                   {count}
                 </span>
+              )}
+              {(userOverrideCounts?.[cat] ?? 0) > 0 && (
+                <Pencil size={10} className="text-accent shrink-0" />
               )}
             </button>
           );

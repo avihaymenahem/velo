@@ -13,7 +13,7 @@ import { useSmartFolderStore } from "@/stores/smartFolderStore";
 import { useActiveLabel, useActiveCategory } from "@/hooks/useRouteNavigation";
 import { navigateToLabel } from "@/router/navigate";
 import { getCategoryUnreadCounts } from "@/services/db/threadCategories";
-import { getLabelUnreadCount, getAllLabelUnreadCounts } from "@/services/db/threads";
+import { useThreadStore } from "@/stores/threadStore";
 import {
   Inbox,
   Star,
@@ -271,48 +271,40 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
 
   const [labelsExpanded, setLabelsExpanded] = useState(false);
 
-  // Unread counts for inbox nav item and category sub-items
-  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
-  // Per-label unread counts for user-created labels
-  const [labelUnreadCounts, setLabelUnreadCounts] = useState<Record<string, number>>({});
+  // Category unread counts for split inbox view
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const threadUnreadCounts = useThreadStore((s) => s.unreadCounts);
+  const loadUnreadCounts = useThreadStore((s) => s.loadUnreadCounts);
 
-  const refreshLabelUnreadCounts = useCallback(async () => {
+  const refreshCategoryCounts = useCallback(async () => {
     if (!activeAccountId) return;
     try {
-      // Fetch per-label counts and per-category counts in parallel
-      const [labelCounts, categoryCounts, allLabelCounts] = await Promise.all([
-        getLabelUnreadCount(activeAccountId, "INBOX"),
-        getCategoryUnreadCounts(activeAccountId),
-        getAllLabelUnreadCounts(activeAccountId),
-      ]);
-      const counts: Record<string, number> = { INBOX: labelCounts };
-      for (const [cat, count] of categoryCounts) {
-        counts[cat] = count;
+      const counts = await getCategoryUnreadCounts(activeAccountId);
+      const merged: Record<string, number> = {};
+      for (const [cat, count] of counts) {
+        merged[cat] = count;
       }
-      setUnreadCounts(counts);
-      setLabelUnreadCounts(allLabelCounts);
+      setCategoryCounts(merged);
     } catch (err) {
-      console.error("Failed to refresh label unread counts:", err);
+      console.error("Failed to refresh category counts:", err);
     }
   }, [activeAccountId]);
 
-  // Load labels when active account changes
   useEffect(() => {
     if (activeAccountId) {
       loadLabels(activeAccountId);
+      loadUnreadCounts(activeAccountId);
     }
-  }, [activeAccountId, loadLabels]);
+  }, [activeAccountId, loadLabels, loadUnreadCounts]);
 
-  // Load smart folders when active account changes
   useEffect(() => {
     loadSmartFolders(activeAccountId ?? undefined);
     if (activeAccountId) {
       refreshSmartFolderCounts(activeAccountId);
-      refreshLabelUnreadCounts();
+      refreshCategoryCounts();
     }
-  }, [activeAccountId, loadSmartFolders, refreshSmartFolderCounts, refreshLabelUnreadCounts]);
+  }, [activeAccountId, loadSmartFolders, refreshSmartFolderCounts, refreshCategoryCounts]);
 
-  // Reload labels and smart folder counts on sync completion (debounced to avoid waterfall from multiple emitters)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const handler = () => {
@@ -320,8 +312,9 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       timer = setTimeout(() => {
         if (activeAccountId) {
           loadLabels(activeAccountId);
+          loadUnreadCounts(activeAccountId);
           refreshSmartFolderCounts(activeAccountId);
-          refreshLabelUnreadCounts();
+          refreshCategoryCounts();
         }
         useUIStore.getState().setSyncingFolder(null);
       }, 500);
@@ -331,7 +324,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       window.removeEventListener("velo-sync-done", handler);
       if (timer) clearTimeout(timer);
     };
-  }, [activeAccountId, loadLabels, refreshSmartFolderCounts, refreshLabelUnreadCounts]);
+  }, [activeAccountId, loadLabels, loadUnreadCounts, refreshSmartFolderCounts, refreshCategoryCounts]);
 
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [showNewLabelForm, setShowNewLabelForm] = useState(false);
@@ -434,9 +427,9 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
 {!collapsed && (
                        <span className="flex-1 truncate">{t(item.label)}</span>
                      )}
-                      {isInbox && (unreadCounts["INBOX"] ?? 0) > 0 && !collapsed && (
-                        <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
-                          {unreadCounts["INBOX"]}
+                      {isInbox && (threadUnreadCounts["INBOX"] ?? 0) > 0 && !collapsed && (
+                        <span className="bg-danger text-white text-[10px] rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                          {threadUnreadCounts["INBOX"]}
                         </span>
                       )}
                      {item.id === "tasks" && taskIncompleteCount > 0 && !collapsed && (
@@ -492,9 +485,9 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                       >
 <CatIcon size={14} className="shrink-0" />
                          <span className="flex-1 truncate">{t(cat.label)}</span>
-{unreadCounts[cat.id] !== undefined && (unreadCounts[cat.id] ?? 0) > 0 && (
+{categoryCounts[cat.id] !== undefined && (categoryCounts[cat.id] ?? 0) > 0 && (
                             <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
-                              {unreadCounts[cat.id] ?? 0}
+                              {categoryCounts[cat.id] ?? 0}
                             </span>
                           )}
                       </button>
@@ -585,7 +578,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                   label={label}
                   isActive={activeLabel === label.id}
                   collapsed={collapsed}
-                  unreadCount={labelUnreadCounts[label.id] ?? 0}
+                  unreadCount={threadUnreadCounts[label.id] ?? 0}
                   onClick={() => navigateToLabel(label.id)}
                   onContextMenu={(e) => handleLabelContextMenu(e, label.id)}
                   onEditClick={() => handleEditLabel(label.id)}
@@ -610,7 +603,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                         label={label}
                         isActive={activeLabel === label.id}
                         collapsed={collapsed}
-                        unreadCount={labelUnreadCounts[label.id] ?? 0}
+                        unreadCount={threadUnreadCounts[label.id] ?? 0}
                         onClick={() => navigateToLabel(label.id)}
                         onContextMenu={(e) => handleLabelContextMenu(e, label.id)}
                         onEditClick={() => handleEditLabel(label.id)}

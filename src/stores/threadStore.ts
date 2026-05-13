@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { getAllLabelUnreadCounts } from "@/services/db/threads";
+import { useAccountStore } from "./accountStore";
 
 export interface Thread {
   id: string;
@@ -25,7 +27,9 @@ interface ThreadState {
   isLoading: boolean;
   searchQuery: string;
   searchThreadIds: Set<string> | null; // null = no active search
+  unreadCounts: Record<string, number>;
   setThreads: (threads: Thread[]) => void;
+  loadUnreadCounts: (accountId: string) => Promise<void>;
   selectThread: (id: string | null) => void;
   toggleThreadSelection: (id: string) => void;
   selectThreadRange: (id: string) => void;
@@ -48,8 +52,17 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   isLoading: false,
   searchQuery: "",
   searchThreadIds: null,
+  unreadCounts: {},
 
   setThreads: (threads) => set({ threads, threadMap: new Map(threads.map((t) => [t.id, t])) }),
+  loadUnreadCounts: async (accountId: string) => {
+    try {
+      const counts = await getAllLabelUnreadCounts(accountId);
+      set({ unreadCounts: counts });
+    } catch (err) {
+      console.error("Failed to load unread counts:", err);
+    }
+  },
   selectThread: (selectedThreadId) => set({ selectedThreadId, selectedThreadIds: new Set() }),
   toggleThreadSelection: (id) =>
     set((state) => {
@@ -135,3 +148,12 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   setSearch: (query, threadIds) => set({ searchQuery: query, searchThreadIds: threadIds }),
   clearSearch: () => set({ searchQuery: "", searchThreadIds: null }),
 }));
+
+if (typeof window !== "undefined") {
+  window.addEventListener("velo-sync-done", () => {
+    const activeAccountId = useAccountStore.getState().activeAccountId;
+    if (activeAccountId) {
+      useThreadStore.getState().loadUnreadCounts(activeAccountId);
+    }
+  });
+}

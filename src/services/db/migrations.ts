@@ -1,6 +1,6 @@
 import { getDb } from "./connection";
 
-const MIGRATIONS = [
+export const MIGRATIONS = [
   {
     version: 1,
     description: "Initial schema",
@@ -1097,6 +1097,13 @@ const MIGRATIONS = [
           INSERT OR IGNORE INTO composer_presets (id, account_id, name, is_default)
           VALUES (NEW.id || '-default', NEW.id, 'Default', 1);
         END;
+      `,
+    },
+    {
+      version: 41,
+      description: "Add is_user_override to thread_categories",
+      sql: `
+        ALTER TABLE thread_categories ADD COLUMN is_user_override INTEGER NOT NULL DEFAULT 0;
       `,
     },
   ];
