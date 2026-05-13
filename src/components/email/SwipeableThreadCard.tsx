@@ -49,30 +49,30 @@ interface SwipeableThreadCardProps {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
-  const { thread } = props;
-  const activeLabel = useActiveLabel();
-  const activeAccountId = useAccountStore((s) => s.activeAccountId);
+   const { thread } = props;
+   const activeLabel = useActiveLabel();
+   const activeAccountId = useAccountStore((s) => s.activeAccountId);
+   
+   // Refs for non-stale access inside event handlers / timeouts
+   const rawX = useRef(0);           // accumulated raw drag distance
+   const phaseRef = useRef<SwipePhase>("idle");
+   const startX = useRef(0);
+   const startY = useRef(0);
+   const pointerDown = useRef(false); // true only between pointerDown and pointerUp/leave
+   const isScroll = useRef<boolean | null>(null);
+   const cardDivRef = useRef<HTMLDivElement>(null);
+   const wrapperRef = useRef<HTMLDivElement>(null);
+   const wheelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+   // Wheel-specific state (all refs — no re-renders inside the handler)
+   const wheelActive = useRef(false);   // has the gesture crossed the dead zone?
+   const wheelAccum = useRef(0);       // raw deltaX accumulator (pre-activation)
 
-  const [translateX, setTranslateX] = useState(0);
-  const [phase, setPhase] = useState<SwipePhase>("idle");
-  const [exitDir, setExitDir] = useState<"left" | "right">("left");
-  const [collapsed, setCollapsed] = useState(false);
+   const [translateX, setTranslateX] = useState(0);
+   const [phase, setPhase] = useState<SwipePhase>("idle");
+   const [exitDir, setExitDir] = useState<"left" | "right">("left");
+   const [collapsed, setCollapsed] = useState(false);
 
-  // Refs for non-stale access inside event handlers / timeouts
-  const rawX = useRef(0);           // accumulated raw drag distance
-  const phaseRef = useRef<SwipePhase>("idle");
-  const startX = useRef(0);
-  const startY = useRef(0);
-  const pointerDown = useRef(false); // true only between pointerDown and pointerUp/leave
-  const isScroll = useRef<boolean | null>(null);
-  const cardDivRef = useRef<HTMLDivElement>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const wheelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Wheel-specific state (all refs — no re-renders inside the handler)
-  const wheelActive = useRef(false);   // has the gesture crossed the dead zone?
-  const wheelAccum = useRef(0);       // raw deltaX accumulator (pre-activation)
-
-  // Keep phaseRef in sync
+   // Keep phaseRef in sync
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   const isTrashView = activeLabel === "trash";
@@ -266,12 +266,12 @@ export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
     doReleaseRef.current(rawX.current);
   }, []);
 
-  // ── Render values ─────────────────────────────────────────────────────────
-  const isDragging = phase === "dragging";
-  const leftReveal = Math.min(1, Math.max(0, -translateX / SWIPE_THRESHOLD));
-  const rightReveal = Math.min(1, Math.max(0, translateX / SWIPE_THRESHOLD));
+// ── Render values ─────────────────────────────────────────────────────────
+   const isDragging = phase === "dragging";
+   const leftReveal = Math.min(1, Math.max(0, -translateX / SWIPE_THRESHOLD));
+   const rightReveal = Math.min(1, Math.max(0, translateX / SWIPE_THRESHOLD));
 
-  const cardStyle: React.CSSProperties = {
+   const cardStyle: React.CSSProperties = {
     transform:
       phase === "exiting"
         ? exitDir === "left" ? "translateX(-110%) translateZ(0)" : "translateX(110%) translateZ(0)"
@@ -282,6 +282,9 @@ export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
           : "transform 350ms cubic-bezier(0.34,1.56,0.64,1)",
     position: "relative",
     zIndex: 1,
+    // flex eliminates the inline-block descender gap that creates a visible strip between card and reveal
+    display: "flex",
+    flexDirection: "column",
     willChange: "transform",
     touchAction: "pan-y",
     cursor: isDragging ? "grabbing" : undefined,
@@ -300,57 +303,59 @@ export function SwipeableThreadCard(props: SwipeableThreadCardProps) {
     >
       <div style={{ position: "relative" }}>
 
-        {/* Left reveal — Trash */}
-        <div
-          aria-hidden
-          style={{
-            position: "absolute", inset: 0,
-            display: "flex", alignItems: "center", justifyContent: "flex-end",
-            paddingRight: "28px",
-            background: "linear-gradient(to left, #7f1d1d 0%, #dc2626 60%, #ef4444 100%)",
-            opacity: leftReveal,
-            transition: isDragging ? "none" : "opacity 150ms ease",
-          }}
-        >
-          <div style={{
-            display: "flex", flexDirection: "column", alignItems: "center",
-            gap: "4px", color: "white",
-            transform: `scale(${0.65 + leftReveal * 0.35})`,
-            transition: isDragging ? "none" : "transform 150ms ease",
-          }}>
-            <Trash2 size={20} strokeWidth={2.5} />
-            <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              {isTrashView ? "Delete" : "Trash"}
-            </span>
-          </div>
-        </div>
+{/* Left reveal — Trash */}
+         <div
+           aria-hidden
+           style={{
+             position: "absolute", top: 0, bottom: 0, left: 0, right: 0,
+             display: "flex", alignItems: "center", justifyContent: "flex-end",
+             paddingRight: "28px",
+             background: "linear-gradient(to left, #7f1d1d 0%, #dc2626 60%, #ef4444 100%)",
+             opacity: leftReveal,
+             transition: isDragging ? "none" : "opacity 150ms ease",
+           }}
+         >
+           <div style={{
+             display: "flex", flexDirection: "column", alignItems: "center",
+             gap: "4px", color: "white",
+             transform: `scale(${0.65 + leftReveal * 0.35})`,
+             transition: isDragging ? "none" : "transform 150ms ease",
+             minWidth: "54px",
+           }}>
+             <Trash2 size={20} strokeWidth={2.5} />
+             <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+               {isTrashView ? "Delete" : "Trash"}
+             </span>
+           </div>
+         </div>
 
-        {/* Right reveal — Archive (not shown in Trash) */}
-        {!isTrashView && (
-          <div
-            aria-hidden
-            style={{
-              position: "absolute", inset: 0,
-              display: "flex", alignItems: "center", justifyContent: "flex-start",
-              paddingLeft: "28px",
-              background: "linear-gradient(to right, #064e3b 0%, #059669 60%, #10b981 100%)",
-              opacity: rightReveal,
-              transition: isDragging ? "none" : "opacity 150ms ease",
-            }}
-          >
-            <div style={{
-              display: "flex", flexDirection: "column", alignItems: "center",
-              gap: "4px", color: "white",
-              transform: `scale(${0.65 + rightReveal * 0.35})`,
-              transition: isDragging ? "none" : "transform 150ms ease",
-            }}>
-              <Archive size={20} strokeWidth={2.5} />
-              <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                Archive
-              </span>
-            </div>
-          </div>
-        )}
+         {/* Right reveal — Archive (not shown in Trash) */}
+         {!isTrashView && (
+           <div
+             aria-hidden
+             style={{
+               position: "absolute", top: 0, bottom: 0, left: 0, right: 0,
+               display: "flex", alignItems: "center", justifyContent: "flex-start",
+               paddingLeft: "28px",
+               background: "linear-gradient(to right, #064e3b 0%, #059669 60%, #10b981 100%)",
+               opacity: rightReveal,
+               transition: isDragging ? "none" : "opacity 150ms ease",
+             }}
+           >
+             <div style={{
+               display: "flex", flexDirection: "column", alignItems: "center",
+               gap: "4px", color: "white",
+               transform: `scale(${0.65 + rightReveal * 0.35})`,
+               transition: isDragging ? "none" : "transform 150ms ease",
+               minWidth: "54px",
+             }}>
+               <Archive size={20} strokeWidth={2.5} />
+               <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                 Archive
+               </span>
+             </div>
+           </div>
+         )}
 
         {/* Card */}
         <div

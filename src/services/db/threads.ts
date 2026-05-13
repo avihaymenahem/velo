@@ -144,6 +144,14 @@ export async function upsertThread(thread: {
   });
 }
 
+export async function markThreadUnreadInDb(accountId: string, threadId: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE threads SET is_read = 0 WHERE account_id = $1 AND id = $2 AND is_read = 1",
+    [accountId, threadId],
+  );
+}
+
 export async function recalculateThreadStats(
   accountId: string,
   threadId: string,

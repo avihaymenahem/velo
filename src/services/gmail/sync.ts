@@ -1,7 +1,7 @@
 import { GmailClient } from "./client";
 import { parseGmailMessage, type ParsedMessage } from "./messageParser";
 import { upsertLabel } from "../db/labels";
-import { upsertThread, setThreadLabels, deleteThread } from "../db/threads";
+import { upsertThread, setThreadLabels, deleteThread, markThreadUnreadInDb } from "../db/threads";
 import { upsertMessage } from "../db/messages";
 import { upsertAttachment } from "../db/attachments";
 import { updateAccountSyncState } from "../db/accounts";
@@ -49,7 +49,7 @@ async function processAndStoreThread(
     }
   }
 
-  const isRead = parsedMessages.every((m) => m.isRead) || allLabelIds.has("DRAFT") || allLabelIds.has("TRASH");
+  const isRead = parsedMessages.every((m) => m.isRead) || allLabelIds.has("TRASH");
   const isStarred = parsedMessages.some((m) => m.isStarred);
   const isImportant = allLabelIds.has("IMPORTANT");
   const hasAttachments = parsedMessages.some((m) => m.hasAttachments);
@@ -311,6 +311,10 @@ export async function deltaSync(
     // Paginate through all history pages
     const affectedThreadIds = new Set<string>();
     const newInboxMessageIds = new Set<string>();
+    // Threads confirmed to have unread messages by the History API itself.
+    // threads.get can return stale label data shortly after delivery, so we
+    // trust the history event labels as the authoritative source for UNREAD.
+    const historyConfirmedUnreadThreadIds = new Set<string>();
     let latestHistoryId = lastHistoryId;
     let pageToken: string | undefined;
 
@@ -323,8 +327,10 @@ export async function deltaSync(
           if (item.messagesAdded) {
             for (const added of item.messagesAdded) {
               affectedThreadIds.add(added.message.threadId);
-              // Track new unread inbox messages for notifications
               const labels = added.message.labelIds ?? [];
+              if (labels.includes("UNREAD")) {
+                historyConfirmedUnreadThreadIds.add(added.message.threadId);
+              }
               if (labels.includes("INBOX") && labels.includes("UNREAD")) {
                 newInboxMessageIds.add(added.message.id);
               }
@@ -338,11 +344,18 @@ export async function deltaSync(
           if (item.labelsAdded) {
             for (const labeled of item.labelsAdded) {
               affectedThreadIds.add(labeled.message.threadId);
+              if (labeled.labelIds.includes("UNREAD")) {
+                historyConfirmedUnreadThreadIds.add(labeled.message.threadId);
+              }
             }
           }
           if (item.labelsRemoved) {
             for (const unlabeled of item.labelsRemoved) {
               affectedThreadIds.add(unlabeled.message.threadId);
+              // If UNREAD was explicitly removed, it is no longer unread
+              if (unlabeled.labelIds.includes("UNREAD")) {
+                historyConfirmedUnreadThreadIds.delete(unlabeled.message.threadId);
+              }
             }
           }
         }
@@ -400,6 +413,13 @@ export async function deltaSync(
 
           const parsedMessages = thread.messages.map(parseGmailMessage);
           await processAndStoreThread(thread, accountId, parsedMessages, client, autoArchiveCategories);
+
+          // threads.get can return stale label data immediately after delivery.
+          // If the History API confirms this thread has an unread message, override
+          // any stale is_read=1 that processAndStoreThread may have written.
+          if (historyConfirmedUnreadThreadIds.has(threadId)) {
+            await markThreadUnreadInDb(accountId, threadId);
+          }
 
           // Auto-archive muted threads that reappear in INBOX
           if (mutedThreadIds.has(threadId)) {
