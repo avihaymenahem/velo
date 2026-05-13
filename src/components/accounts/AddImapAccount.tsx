@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowLeft,
@@ -142,6 +143,7 @@ export function AddImapAccount({
   onBack,
   prefill,
 }: AddImapAccountProps) {
+  const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState<Step>("basic");
   const [form, setForm] = useState<FormState>(() => {
     if (prefill) {
@@ -735,14 +737,14 @@ export function AddImapAccount({
       )}
       <div>
         <label htmlFor="imap-host" className={labelClass}>
-          IMAP Server
+          {t("account.imapHost")}
         </label>
         <input
           id="imap-host"
           type="text"
           value={form.imapHost}
           onChange={(e) => updateForm("imapHost", e.target.value)}
-          placeholder="imap.example.com"
+          placeholder={t("account.imapHostPlaceholder")}
           className={inputClass}
           autoFocus
         />
@@ -750,7 +752,7 @@ export function AddImapAccount({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="imap-port" className={labelClass}>
-            Port
+            {t("account.imapPort")}
           </label>
           <input
             id="imap-port"
@@ -764,7 +766,7 @@ export function AddImapAccount({
         </div>
         <div>
           <label htmlFor="imap-security" className={labelClass}>
-            Security
+            {t("account.imapSecurity")}
           </label>
           <select
             id="imap-security"
@@ -774,9 +776,9 @@ export function AddImapAccount({
             }
             className={selectClass}
           >
-            <option value="ssl">SSL/TLS</option>
-            <option value="starttls">STARTTLS</option>
-            <option value="none">None</option>
+            <option value="ssl">{t("account.imapSecuritySsl")}</option>
+            <option value="starttls">{t("account.imapSecurityStarttls")}</option>
+            <option value="none">{t("account.imapSecurityNone")}</option>
           </select>
         </div>
       </div>
@@ -810,14 +812,14 @@ export function AddImapAccount({
       )}
       <div>
         <label htmlFor="smtp-host" className={labelClass}>
-          SMTP Server
+          {t("account.smtpHost")}
         </label>
         <input
           id="smtp-host"
           type="text"
           value={form.smtpHost}
           onChange={(e) => updateForm("smtpHost", e.target.value)}
-          placeholder="smtp.example.com"
+          placeholder={t("account.smtpHostPlaceholder")}
           className={inputClass}
           autoFocus
         />
@@ -825,7 +827,7 @@ export function AddImapAccount({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="smtp-port" className={labelClass}>
-            Port
+            {t("account.smtpPort")}
           </label>
           <input
             id="smtp-port"
@@ -839,7 +841,7 @@ export function AddImapAccount({
         </div>
         <div>
           <label htmlFor="smtp-security" className={labelClass}>
-            Security
+            {t("account.smtpSecurity")}
           </label>
           <select
             id="smtp-security"
@@ -849,9 +851,9 @@ export function AddImapAccount({
             }
             className={selectClass}
           >
-            <option value="ssl">SSL/TLS</option>
-            <option value="starttls">STARTTLS</option>
-            <option value="none">None</option>
+            <option value="ssl">{t("account.imapSecuritySsl")}</option>
+            <option value="starttls">{t("account.imapSecurityStarttls")}</option>
+            <option value="none">{t("account.imapSecurityNone")}</option>
           </select>
         </div>
       </div>
@@ -964,7 +966,7 @@ export function AddImapAccount({
         {imapTest.state === "testing" || smtpTest.state === "testing"
           ? "Testing..."
           : imapTest.state === "idle" && smtpTest.state === "idle"
-            ? "Test Connection"
+            ? t("account.testConnection")
             : "Re-test Connection"}
       </button>
 
@@ -1006,7 +1008,7 @@ export function AddImapAccount({
             className="flex items-center gap-1 px-3 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Back
+            {t("account.back")}
           </button>
 
           <div className="flex gap-2">
@@ -1014,7 +1016,7 @@ export function AddImapAccount({
               onClick={onClose}
               className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
             >
-              Cancel
+              {t("account.cancel")}
             </button>
 
             {currentStep === "test" ? (
@@ -1023,7 +1025,7 @@ export function AddImapAccount({
                 disabled={!bothTestsPassed || saving}
                 className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? "Adding..." : "Add Account"}
+                {saving ? "Adding..." : t("account.save")}
               </button>
             ) : (
               <button
@@ -1031,7 +1033,7 @@ export function AddImapAccount({
                 disabled={!canGoNext()}
                 className="flex items-center gap-1 px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next
+                {t("account.next")}
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}

@@ -42,6 +42,7 @@ import {
   FileText,
   Clock,
   Activity,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
 import { SignatureEditor } from "./SignatureEditor";
@@ -52,6 +53,7 @@ import { ContactEditor } from "./ContactEditor";
 import { SubscriptionManager } from "./SubscriptionManager";
 import { SmartFolderEditor } from "./SmartFolderEditor";
 import { QuickStepEditor } from "./QuickStepEditor";
+import { AddAccount } from "@/components/accounts/AddAccount";
 import { QuickReplyEditor } from "./QuickReplyEditor";
 import { SmartLabelEditor } from "./SmartLabelEditor";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -138,6 +140,36 @@ const tabGroups: SettingsGroup[] = [
 ];
 
 const tabs: SettingsTabItem[] = tabGroups.flatMap((g) => g.tabs);
+
+function NoAccountsEmptyState() {
+  const { t } = useTranslation();
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  return (
+    <div className="flex flex-col items-center justify-center py-12 px-4">
+      <div className="text-center">
+        <h3 className="text-lg font-medium text-text-primary mb-2">
+          {t("settings.noMailAccountsConnected")}
+        </h3>
+        <p className="text-sm text-text-secondary mb-6">
+          {t("settings.addAccountToGetStarted")}
+        </p>
+        <button
+          onClick={() => setShowAddAccount(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          {t("settings.addMailAccount")}
+        </button>
+      </div>
+      {showAddAccount && (
+        <AddAccount
+          onClose={() => setShowAddAccount(false)}
+          onSuccess={() => setShowAddAccount(false)}
+        />
+      )}
+    </div>
+  );
+}
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -996,9 +1028,7 @@ export function SettingsPage() {
                 <>
                   <Section title="Mail Accounts">
                     {accounts.filter((a) => a.provider !== "caldav").length === 0 ? (
-                      <p className="text-sm text-text-tertiary">
-                        No mail accounts connected
-                      </p>
+                      <NoAccountsEmptyState />
                     ) : (
                       <div className="space-y-2">
                         {accounts.filter((a) => a.provider !== "caldav").map((account) => {
