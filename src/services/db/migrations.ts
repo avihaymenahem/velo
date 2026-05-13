@@ -1096,6 +1096,16 @@ function splitStatements(sql: string): string[] {
   return statements;
 }
 
+function isObjectAlreadyExistsError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return msg.includes("already exists") || msg.includes("duplicate column");
+}
+
+function isTableNotFoundError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return msg.includes("no such table");
+}
+
 export async function runMigrations(): Promise<void> {
   const db = await getDb();
 
@@ -1138,33 +1148,26 @@ export async function runMigrations(): Promise<void> {
     // Split SQL into individual statements, respecting BEGIN...END blocks
     const statements = splitStatements(migration.sql);
 
-    // Use a transaction so migrations are all-or-nothing
-    await db.execute("BEGIN");
-    try {
-      for (const statement of statements) {
-        try {
-          await db.execute(statement);
-        } catch (err) {
-          // Tolerate "duplicate column" errors from ALTER TABLE ADD COLUMN
-          // in case a migration was partially applied previously
-          const msg = err instanceof Error ? err.message : String(err);
-          if (msg.includes("duplicate column")) {
-            console.warn(`Skipping duplicate column in v${migration.version}: ${msg}`);
-          } else {
-            throw err;
-          }
+    // Best-effort per-statement: tolerate idempotent re-run errors
+    for (const statement of statements) {
+      try {
+        await db.execute(statement);
+      } catch (err) {
+        if (isObjectAlreadyExistsError(err) || isTableNotFoundError(err)) {
+          console.warn(
+            `Skipping in v${migration.version}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        } else {
+          throw err;
         }
       }
-
-      await db.execute(
-        "INSERT OR IGNORE INTO _migrations (version, description) VALUES ($1, $2)",
-        [migration.version, migration.description],
-      );
-      await db.execute("COMMIT");
-    } catch (err) {
-      await db.execute("ROLLBACK").catch(() => {});
-      throw err;
     }
+
+    // Mark applied regardless of per-statement skips
+    await db.execute(
+      "INSERT OR IGNORE INTO _migrations (version, description) VALUES ($1, $2)",
+      [migration.version, migration.description],
+    );
   }
 
   console.log("All migrations applied.");
