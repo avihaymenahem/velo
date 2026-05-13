@@ -98,15 +98,13 @@ function DroppableNavItem({
       onClick={onClick}
       onContextMenu={onContextMenu}
       title={title}
-      className={`flex items-center w-full py-2 text-sm transition-colors press-scale ${
-        collapsed ? "justify-center px-0" : "gap-3 px-3 text-left"
-      } ${
-        isOver
+      className={`flex items-center w-full py-2 text-sm transition-colors press-scale ${collapsed ? "justify-center px-0" : "gap-3 px-3 text-left"
+        } ${isOver
           ? "bg-accent/20 ring-1 ring-accent"
           : isActive
             ? "bg-accent/10 text-accent font-medium"
             : "hover:bg-sidebar-hover text-sidebar-text"
-      }`}
+        }`}
     >
       {children(isOver)}
     </button>
@@ -139,15 +137,13 @@ function DroppableLabelItem({
       onClick={onClick}
       onContextMenu={onContextMenu}
       title={collapsed ? label.name : undefined}
-      className={`group flex items-center w-full py-2 text-sm transition-colors ${
-        collapsed ? "justify-center px-0" : "gap-3 px-3 text-left"
-      } ${
-        isOver
+      className={`group flex items-center w-full py-2 text-sm transition-colors ${collapsed ? "justify-center px-0" : "gap-3 px-3 text-left"
+        } ${isOver
           ? "bg-accent/20 ring-1 ring-accent"
           : isActive
             ? "bg-accent/10 text-accent font-medium"
             : "hover:bg-sidebar-hover text-sidebar-text"
-      }`}
+        }`}
     >
       {collapsed ? (
         <span
@@ -155,9 +151,9 @@ function DroppableLabelItem({
           style={
             label.colorBg
               ? {
-                  backgroundColor: label.colorBg,
-                  color: label.colorFg ?? "#ffffff",
-                }
+                backgroundColor: label.colorBg,
+                color: label.colorFg ?? "#ffffff",
+              }
               : undefined
           }
         >
@@ -230,6 +226,26 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
   const activeCategory = useActiveCategory();
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const [isScrolling, setIsScrolling] = useState(false);
+
+  useEffect(() => {
+    let scrollTimer: ReturnType<typeof setTimeout>;
+    const handleScroll = () => {
+      setIsScrolling(true);
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => setIsScrolling(false), 1500);
+    };
+    const navElement = document.querySelector('.sidebar nav');
+    if (navElement) {
+      navElement.addEventListener('scroll', handleScroll, { passive: true });
+    }
+    return () => {
+      clearTimeout(scrollTimer);
+      if (navElement) {
+        navElement.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
   const labels = useLabelStore((s) => s.labels);
   const loadLabels = useLabelStore((s) => s.loadLabels);
   const unreadCounts = useLabelStore((s) => s.unreadCounts);
@@ -394,13 +410,12 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
 
   return (
     <aside
-      className={`sidebar no-select flex flex-col bg-sidebar-bg text-sidebar-text border-r border-border-primary transition-all duration-200 glass-panel ${
-        collapsed ? "w-16" : "w-60"
-      }`}
+      className={`sidebar no-select flex flex-col bg-sidebar-bg text-sidebar-text border-r border-border-primary transition-all duration-200 glass-panel ${collapsed ? "w-16" : "w-90"
+        }`}
     >
       <AccountSwitcher collapsed={collapsed} onAddAccount={onAddAccount} />
 
-      <nav className="flex-1 overflow-y-auto py-2">
+      <nav className={`flex-1 overflow-y-auto py-2 ${isScrolling ? 'scrollbar-visible' : 'scrollbar-hidden'}`}>
         {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isInbox = item.id === "inbox";
@@ -417,8 +432,8 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                 isActive={
                   isInbox
                     ? activeLabel === "inbox" &&
-                      (inboxViewMode === "unified" ||
-                        activeCategory === "Primary")
+                    (inboxViewMode === "unified" ||
+                      activeCategory === "Primary")
                     : activeLabel === item.id
                 }
                 collapsed={collapsed}
@@ -481,11 +496,10 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                             ? "Switch to unified inbox"
                             : "Switch to split inbox"
                         }
-                        className={`p-1 rounded transition-colors ${
-                          inboxViewMode === "split"
-                            ? "text-accent hover:bg-accent/10"
-                            : "text-sidebar-text/40 hover:text-sidebar-text hover:bg-sidebar-hover"
-                        }`}
+                        className={`p-1 rounded transition-colors ${inboxViewMode === "split"
+                          ? "text-accent hover:bg-accent/10"
+                          : "text-sidebar-text/40 hover:text-sidebar-text hover:bg-sidebar-hover"
+                          }`}
                       >
                         <Columns2 size={14} />
                       </span>
@@ -506,11 +520,10 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                         onClick={() => {
                           navigateToLabel("inbox", { category: cat.id });
                         }}
-                        className={`flex items-center gap-2 w-full py-1.5 pl-7 pr-3 text-left text-[0.8125rem] transition-colors ${
-                          isCatActive
-                            ? "text-accent font-medium"
-                            : "text-sidebar-text/70 hover:text-sidebar-text hover:bg-sidebar-hover"
-                        }`}
+                        className={`flex items-center gap-2 w-full py-1.5 pl-7 pr-3 text-left text-[0.8125rem] transition-colors ${isCatActive
+                          ? "text-accent font-medium"
+                          : "text-sidebar-text/70 hover:text-sidebar-text hover:bg-sidebar-hover"
+                          }`}
                       >
                         <CatIcon size={14} className="shrink-0" />
                         <span className="flex-1 truncate">{cat.label}</span>
@@ -554,13 +567,11 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                   key={folder.id}
                   onClick={() => navigateToLabel(`smart-folder:${folder.id}`)}
                   title={collapsed ? folder.name : undefined}
-                  className={`flex items-center w-full py-2 text-sm transition-colors press-scale ${
-                    collapsed ? "justify-center px-0" : "gap-3 px-3 text-left"
-                  } ${
-                    isActive
+                  className={`flex items-center w-full py-2 text-sm transition-colors press-scale ${collapsed ? "justify-center px-0" : "gap-3 px-3 text-left"
+                    } ${isActive
                       ? "bg-accent/10 text-accent font-medium"
                       : "hover:bg-sidebar-hover text-sidebar-text"
-                  }`}
+                    }`}
                 >
                   <Icon
                     size={18}
@@ -694,15 +705,13 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       >
         <button
           onClick={() => navigateToLabel("settings")}
-          className={`flex items-center text-sm rounded-md transition-colors ${
-            collapsed
-              ? "p-2 justify-center"
-              : "gap-3 flex-1 px-3 py-2 text-left"
-          } ${
-            activeLabel === "settings"
+          className={`flex items-center text-sm rounded-md transition-colors ${collapsed
+            ? "p-2 justify-center"
+            : "gap-3 flex-1 px-3 py-2 text-left"
+            } ${activeLabel === "settings"
               ? "bg-accent/10 text-accent font-medium"
               : "text-sidebar-text hover:bg-sidebar-hover"
-          }`}
+            }`}
           title="Settings"
         >
           <Settings size={18} className="shrink-0" />
@@ -710,13 +719,11 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
         </button>
         <button
           onClick={() => navigateToLabel("help")}
-          className={`flex items-center text-sm rounded-md transition-colors ${
-            collapsed ? "p-2 justify-center" : "p-2"
-          } ${
-            activeLabel === "help"
+          className={`flex items-center text-sm rounded-md transition-colors ${collapsed ? "p-2 justify-center" : "p-2"
+            } ${activeLabel === "help"
               ? "bg-accent/10 text-accent font-medium"
               : "text-sidebar-text hover:bg-sidebar-hover"
-          }`}
+            }`}
           title="Help"
         >
           <HelpCircle size={18} className="shrink-0" />

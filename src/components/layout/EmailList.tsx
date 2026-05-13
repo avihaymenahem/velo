@@ -135,9 +135,10 @@ const selectThread = useThreadStore((s) => s.selectThread);
       ? (cat: string) => navigateToLabel("inbox", { category: cat })
       : () => { };
 
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+const [hasMore, setHasMore] = useState(true);
+   const [loadingMore, setLoadingMore] = useState(false);
+   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+   const [isScrolling, setIsScrolling] = useState(false);
   const [categoryMap, setCategoryMap] = useState<Map<string, string>>(
     () => new Map(),
   );
@@ -790,21 +791,30 @@ const selectThread = useThreadStore((s) => s.selectThread);
   }, [loadThreads, activeAccountId, activeLabel]);
 
 // Infinite scroll: load more when near bottom
-useEffect(() => {
-  const container = scrollContainerRef.current;
-  if (!container) return;
+ useEffect(() => {
+   const container = scrollContainerRef.current;
+   if (!container) return;
 
-  const handleScroll = () => {
-    scrollTracker.markScroll();
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    if (scrollHeight - scrollTop - clientHeight < 200) {
-      loadMore();
-    }
-  };
+   let scrollTimer: ReturnType<typeof setTimeout>;
+   
+   const handleScroll = () => {
+     scrollTracker.markScroll();
+     setIsScrolling(true);
+     clearTimeout(scrollTimer);
+     scrollTimer = setTimeout(() => setIsScrolling(false), 1500);
+     
+     const { scrollTop, scrollHeight, clientHeight } = container;
+     if (scrollHeight - scrollTop - clientHeight < 200) {
+       loadMore();
+     }
+   };
 
-  container.addEventListener("scroll", handleScroll, { passive: true });
-  return () => container.removeEventListener("scroll", handleScroll);
-}, [loadMore]);
+   container.addEventListener("scroll", handleScroll, { passive: true });
+   return () => {
+     clearTimeout(scrollTimer);
+     container.removeEventListener("scroll", handleScroll);
+   };
+ }, [loadMore]);
 
   return (
     <div
@@ -986,9 +996,9 @@ useEffect(() => {
         </div>
       </CSSTransition>
 
-      {/* Thread list */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto email-list-container">
-        {isLoading && threads.length === 0 ? (
+{/* Thread list */}
+       <div ref={scrollContainerRef} className={`flex-1 overflow-y-auto ${isScrolling ? 'scrollbar-visible' : 'scrollbar-hidden'}`}>
+         {isLoading && threads.length === 0 ? (
           <EmailListSkeleton />
         ) : filteredThreads.length === 0 && bundleRules.length === 0 ? (
           <EmptyStateForContext
