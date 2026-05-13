@@ -55,3 +55,20 @@ export async function setSecureSetting(key: string, value: string): Promise<void
   const encrypted = await encryptValue(value);
   await setSetting(key, encrypted);
 }
+
+export async function getQueuePaused(): Promise<boolean> {
+  try {
+    const setting = await queryWithRetry(async (db) =>
+      db.select<{ value: string }[]>(
+        "SELECT value FROM settings WHERE key = 'queue_paused'",
+      ),
+    );
+    return setting?.[0]?.value === "true";
+  } catch {
+    return false;
+  }
+}
+
+export async function setQueuePaused(paused: boolean): Promise<void> {
+  await setSetting("queue_paused", paused ? "true" : "false");
+}
