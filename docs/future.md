@@ -6,7 +6,7 @@
 
 ## Current snapshot
 
-Version `0.4.22` reflects the current fork state and the features included in this release.
+Version `0.5.0` — all QA stabilization resolved. 40 migrations, 1659 tests passing.
 
 ### Feature highlights
 
@@ -96,7 +96,7 @@ The fork has merged a set of upstream reliability and security fixes while retai
 | 32 | FTS5 file search | Adds full-text search for contact files |
 | 33 | Advanced filter engine | Adds `filter_conditions` and `group_operator` support |
 | 34 | Quick replies | Adds `quick_replies` table and indexes |
-| 35 | SMTP credentials separation | Adds separate SMTP credential fields to accounts |
+| 40 | Composer presets | Adds formatting profiles per account with auto-creation trigger |
 
 ---
 
