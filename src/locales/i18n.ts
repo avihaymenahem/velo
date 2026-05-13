@@ -73,7 +73,7 @@ export async function changeLanguage(lng: SupportedLocale): Promise<void> {
   if (!initialized) {
     await initI18n();
   }
-  return i18n.changeLanguage(lng) as Promise<void>;
+  await i18n.changeLanguage(lng);
 }
 
 export function useI18nReady(): boolean {
