@@ -40,7 +40,7 @@ cd src-tauri && cargo check
 - **Setup:** `src/test/setup.ts` (imports `@testing-library/jest-dom/vitest`)
 - **Config:** `globals: true` -- no imports needed for `describe`, `it`, `expect`
 - **Location:** Tests are colocated with source files (e.g., `uiStore.test.ts` next to `uiStore.ts`)
-- **Count:** 142 test files, 1,645 tests passing (84 TS + 7 Rust). Organized across stores (8), services (70), utils (14), components (32), constants (3), router (1), hooks (2), and config (1)
+- **Count:** 142 test files, 1,659 tests passing (84 TS + 7 Rust). Organized across stores (8), services (70), utils (14), components (32), constants (3), router (1), hooks (2), and config (1)
 
 ### Zustand test pattern
 
@@ -118,8 +118,7 @@ To enable AI features, add your API key for one or more providers in Settings:
 
 After adding an API key, select which model to use for each provider in Settings > AI.
 
-## Known Issues (v0.4.22)
+## Known Issues (v0.5.0)
 
-- **Git SSL cert error** — If you get `ca-bundle.crt` errors when pushing, fix Git SSL config or switch to SSH.
 - **Rust `cargo build` failure** — MinGW/dlltool issues on Windows. Code is structurally correct (passes `tsc --noEmit` + `vitest`). Fix by installing proper MSVC toolchain.
   - **Workaround:** Use `npm run tauri dev` for development; use WSL or a Linux VM for production builds.
