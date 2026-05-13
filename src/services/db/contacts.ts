@@ -261,3 +261,131 @@ export async function getLatestAuthResult(
     return rows[0]?.auth_results ?? null;
   });
 }
+
+export interface ContactEngagementRow {
+  id: string;
+  email: string;
+  engagement_score: number;
+  last_engaged_at: number | null;
+  health_status: string;
+}
+
+export async function getContactEngagementData(contactId: string): Promise<ContactEngagementRow | null> {
+  return selectFirstBy<ContactEngagementRow>(
+    "SELECT id, email, engagement_score, last_engaged_at, health_status FROM contacts WHERE id = $1",
+    [contactId],
+  );
+}
+
+export async function updateContactScore(
+  contactId: string,
+  score: number,
+  lastEngagedAt: number,
+  healthStatus: string,
+): Promise<void> {
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      `UPDATE contacts SET engagement_score = $1, last_engaged_at = $2, health_status = $3, updated_at = unixepoch() WHERE id = $4`,
+      [score, lastEngagedAt, healthStatus, contactId],
+    );
+  });
+}
+
+export async function getContactsNeedingScoreUpdate(hours = 24): Promise<{ id: string; email: string }[]> {
+  const cutoff = Math.floor(Date.now() / 1000) - hours * 3600;
+  return queryWithRetry(async (db) =>
+    db.select<{ id: string; email: string }[]>(
+      `SELECT id, email FROM contacts
+       WHERE updated_at IS NULL OR updated_at < $1
+       ORDER BY updated_at ASC NULLS FIRST
+       LIMIT 500`,
+      [cutoff],
+    )
+  );
+}
+
+export interface EngagementLogRow {
+  id: string;
+  contact_id: string;
+  event_type: string;
+  score_delta: number;
+  created_at: number;
+}
+
+export async function insertEngagementLog(
+  contactId: string,
+  eventType: string,
+  scoreDelta: number,
+): Promise<void> {
+  const id = crypto.randomUUID();
+  const now = Math.floor(Date.now() / 1000);
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      "INSERT INTO engagement_log (id, contact_id, event_type, score_delta, created_at) VALUES ($1, $2, $3, $4, $5)",
+      [id, contactId, eventType, scoreDelta, now],
+    );
+  });
+}
+
+export async function getEngagementLog(
+  contactId: string,
+  limit = 50,
+): Promise<EngagementLogRow[]> {
+  return queryWithRetry(async (db) =>
+    db.select<EngagementLogRow[]>(
+      "SELECT * FROM engagement_log WHERE contact_id = $1 ORDER BY created_at DESC LIMIT $2",
+      [contactId, limit],
+    )
+  );
+}
+
+export interface DynamicSegmentRow {
+  id: string;
+  account_id: string;
+  name: string;
+  query: string;
+  refreshed_at: number | null;
+}
+
+export async function getDynamicSegments(accountId: string): Promise<DynamicSegmentRow[]> {
+  return queryWithRetry(async (db) =>
+    db.select<DynamicSegmentRow[]>(
+      "SELECT * FROM dynamic_segments WHERE account_id = $1 ORDER BY name ASC",
+      [accountId],
+    )
+  );
+}
+
+export async function createDynamicSegment(
+  accountId: string,
+  name: string,
+  query: string,
+): Promise<string> {
+  const id = crypto.randomUUID();
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      "INSERT INTO dynamic_segments (id, account_id, name, query) VALUES ($1, $2, $3, $4)",
+      [id, accountId, name, query],
+    );
+  });
+  return id;
+}
+
+export async function updateDynamicSegmentRefresh(segmentId: string): Promise<void> {
+  const now = Math.floor(Date.now() / 1000);
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      "UPDATE dynamic_segments SET refreshed_at = $1 WHERE id = $2",
+      [now, segmentId],
+    );
+  });
+}
+
+export async function deleteDynamicSegment(id: string, accountId: string): Promise<void> {
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      "DELETE FROM dynamic_segments WHERE id = $1 AND account_id = $2",
+      [id, accountId],
+    );
+  });
+}

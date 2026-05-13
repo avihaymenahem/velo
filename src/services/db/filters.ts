@@ -10,6 +10,7 @@ export interface FilterCondition {
   field: FilterField;
   operator: FilterOperator;
   value: string;
+  weight?: number;
 }
 
 export interface FilterGroup {
@@ -23,6 +24,7 @@ export interface FilterConditionInput {
   field: FilterField;
   operator: FilterOperator;
   value: string;
+  weight?: number;
 }
 
 export interface FilterCriteria {
@@ -53,6 +55,24 @@ export interface DbFilterRule {
   sort_order: number;
   created_at: number;
   group_operator?: string;
+  score_threshold?: number;
+  chaining_action?: string;
+}
+
+export interface FilterLog {
+  id: string;
+  rule_id: string;
+  message_id: string;
+  matched: number;
+  score: number;
+  applied_actions: string;
+  created_at: number;
+}
+
+export interface FilterStats {
+  matchCount: number;
+  topRules: { ruleId: string; ruleName: string; matchCount: number }[];
+  zeroMatchRules: { ruleId: string; ruleName: string }[];
 }
 
 export async function getFiltersForAccount(
@@ -83,11 +103,13 @@ export async function insertFilter(filter: {
   criteria: FilterCriteria;
   actions: FilterActions;
   isEnabled?: boolean;
+  scoreThreshold?: number;
+  chainingAction?: string;
 }): Promise<string> {
   const id = crypto.randomUUID();
   await queryWithRetry(async (db) => {
     await db.execute(
-      "INSERT INTO filter_rules (id, account_id, name, is_enabled, criteria_json, actions_json) VALUES ($1, $2, $3, $4, $5, $6)",
+      "INSERT INTO filter_rules (id, account_id, name, is_enabled, criteria_json, actions_json, score_threshold, chaining_action) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
       [
         id,
         filter.accountId,
@@ -95,6 +117,8 @@ export async function insertFilter(filter: {
         boolToInt(filter.isEnabled !== false),
         JSON.stringify(filter.criteria),
         JSON.stringify(filter.actions),
+        filter.scoreThreshold ?? null,
+        filter.chainingAction ?? 'stop',
       ],
     );
   });
@@ -108,6 +132,8 @@ export async function updateFilter(
     criteria?: FilterCriteria;
     actions?: FilterActions;
     isEnabled?: boolean;
+    scoreThreshold?: number | null;
+    chainingAction?: string;
   },
 ): Promise<void> {
   const fields: [string, unknown][] = [];
@@ -115,6 +141,8 @@ export async function updateFilter(
   if (updates.criteria !== undefined) fields.push(["criteria_json", JSON.stringify(updates.criteria)]);
   if (updates.actions !== undefined) fields.push(["actions_json", JSON.stringify(updates.actions)]);
   if (updates.isEnabled !== undefined) fields.push(["is_enabled", boolToInt(updates.isEnabled)]);
+  if (updates.scoreThreshold !== undefined) fields.push(["score_threshold", updates.scoreThreshold]);
+  if (updates.chainingAction !== undefined) fields.push(["chaining_action", updates.chainingAction]);
 
   await queryWithRetry(async (db) => {
     const query = buildDynamicUpdate("filter_rules", "id", id, fields);
@@ -197,5 +225,79 @@ export async function upsertFilterCondition(condition: FilterCondition): Promise
 export async function deleteFilterCondition(id: string): Promise<void> {
   return queryWithRetry(async (db) => {
     await db.execute("DELETE FROM filter_conditions WHERE id = $1", [id]);
+  });
+}
+
+export async function getFilterLogs(
+  ruleId: string,
+  limit: number = 50,
+): Promise<FilterLog[]> {
+  return queryWithRetry(async (db) => {
+    return db.select<FilterLog[]>(
+      `SELECT fl.id, fl.rule_id, fl.message_id, fl.matched, fl.score,
+              fl.applied_actions, fl.created_at
+       FROM filter_logs fl
+       WHERE fl.rule_id = $1
+       ORDER BY fl.created_at DESC
+       LIMIT $2`,
+      [ruleId, limit],
+    );
+  });
+}
+
+export async function logFilterMatch(
+  ruleId: string,
+  messageId: string,
+  matched: boolean,
+  score: number,
+  actions: FilterActions,
+): Promise<void> {
+  const id = crypto.randomUUID();
+  await queryWithRetry(async (db) => {
+    await db.execute(
+      `INSERT INTO filter_logs (id, rule_id, message_id, matched, score, applied_actions)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, ruleId, messageId, matched ? 1 : 0, score, JSON.stringify(actions)],
+    );
+  });
+}
+
+export async function getFilterStats(accountId: string): Promise<FilterStats> {
+  return queryWithRetry(async (db) => {
+    const matchCountRow = await db.select<{ count: number }[]>(
+      `SELECT COUNT(*) as count FROM filter_logs fl
+       JOIN filter_rules fr ON fr.id = fl.rule_id
+       WHERE fr.account_id = $1 AND fl.matched = 1`,
+      [accountId],
+    );
+
+    const topRules = await db.select<{ ruleId: string; ruleName: string; matchCount: number }[]>(
+      `SELECT fr.id as ruleId, fr.name as ruleName, COUNT(*) as matchCount
+       FROM filter_logs fl
+       JOIN filter_rules fr ON fr.id = fl.rule_id
+       WHERE fr.account_id = $1 AND fl.matched = 1
+       GROUP BY fr.id
+       ORDER BY matchCount DESC
+       LIMIT 10`,
+      [accountId],
+    );
+
+    const zeroMatchRules = await db.select<{ ruleId: string; ruleName: string }[]>(
+      `SELECT fr.id as ruleId, fr.name as ruleName
+       FROM filter_rules fr
+       WHERE fr.account_id = $1 AND fr.is_enabled = 1
+         AND NOT EXISTS (
+           SELECT 1 FROM filter_logs fl
+           WHERE fl.rule_id = fr.id AND fl.matched = 1
+         )
+       ORDER BY fr.name`,
+      [accountId],
+    );
+
+    return {
+      matchCount: matchCountRow[0]?.count ?? 0,
+      topRules,
+      zeroMatchRules,
+    };
   });
 }

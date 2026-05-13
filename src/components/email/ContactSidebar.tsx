@@ -9,7 +9,8 @@ import {
   getContactByEmail, getContactStats, getRecentThreadsWithContact,
   upsertContact, updateContact, updateContactNotes,
   getAttachmentsFromContact, getContactsFromSameDomain, getLatestAuthResult,
-  type ContactStats, type DbContact, type ContactAttachment, type SameDomainContact,
+  getContactEngagementData,
+  type ContactStats, type DbContact, type ContactAttachment, type SameDomainContact, type ContactEngagementRow,
 } from "@/services/db/contacts";
 import { isVipSender, addVipSender, removeVipSender } from "@/services/db/notificationVips";
 import { fetchAndCacheGravatarUrl } from "@/services/contacts/gravatar";
@@ -54,6 +55,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
 
   const [activeTab, setActiveTab] = useState<"info" | "activity" | "files">("info");
   const [vaultFiles, setVaultFiles] = useState<ContactFile[]>([]);
+  const [engagement, setEngagement] = useState<ContactEngagementRow | null>(null);
 
   const loadedRef = useRef<string | null>(null);
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -144,6 +146,14 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
 
     // Load vault files
     getContactFilesBySender(email).then((files) => { if (!cancelled) setVaultFiles(files); });
+
+    // Load engagement data
+    getContactByEmail(email).then((c) => {
+      if (cancelled || !c) return;
+      getContactEngagementData(c.id).then((e) => {
+        if (!cancelled) setEngagement(e);
+      });
+    });
 
     return () => { cancelled = true; };
   }, [email, accountId]);
@@ -396,6 +406,45 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
               <div className="flex items-center gap-2 text-xs text-text-secondary">
                 <Clock size={12} className="text-text-tertiary shrink-0" />
                 <span>{t('contact.lastEmail', { date: formatRelativeDate(stats.lastEmail) })}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Engagement Score */}
+        {engagement && (
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold uppercase tracking-wider text-text-tertiary">
+                {t('contact.engagement')}
+              </span>
+              <span className={`px-1.5 py-0.5 rounded text-[0.625rem] font-medium ${
+                engagement.health_status === 'hot' ? 'bg-danger/20 text-danger' :
+                engagement.health_status === 'warm' ? 'bg-warning/20 text-warning' :
+                engagement.health_status === 'lukewarm' ? 'bg-accent/20 text-accent' :
+                'bg-bg-tertiary text-text-tertiary'
+              }`}>
+                {engagement.health_status === 'hot' ? '🔥' :
+                 engagement.health_status === 'warm' ? '👋' :
+                 engagement.health_status === 'lukewarm' ? '👍' : '❄️'}
+                {' '}{engagement.health_status}
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  engagement.engagement_score >= 0.7 ? 'bg-danger' :
+                  engagement.engagement_score >= 0.4 ? 'bg-warning' :
+                  engagement.engagement_score >= 0.2 ? 'bg-accent' :
+                  'bg-text-tertiary'
+                }`}
+                style={{ width: `${Math.round(engagement.engagement_score * 100)}%` }}
+              />
+            </div>
+            {engagement.last_engaged_at && (
+              <div className="flex items-center gap-2 text-xs text-text-tertiary">
+                <Clock size={11} />
+                <span>{t('contact.lastEngaged', { date: formatRelativeDate(engagement.last_engaged_at) })}</span>
               </div>
             )}
           </div>

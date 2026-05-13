@@ -1,7 +1,17 @@
 import type { FilterCriteria, FilterCondition, FilterActions } from "../db/filters";
-import { getEnabledFiltersForAccount, getFilterConditionsForRule } from "../db/filters";
+import {
+  getEnabledFiltersForAccount,
+  getFilterConditionsForRule,
+  logFilterMatch,
+} from "../db/filters";
 import type { ParsedMessage } from "../gmail/messageParser";
 import { addThreadLabel, removeThreadLabel, markThreadRead, starThread } from "../emailActions";
+
+export interface ScoredCondition extends FilterCondition {
+  weight: number;
+}
+
+export type ChainingAction = "stop" | "continue" | "continue_on_match" | "continue_on_no_match";
 
 export function evaluateCondition(
   condition: FilterCondition,
@@ -79,36 +89,62 @@ export function evaluateCondition(
   }
 }
 
-/** Eval each condition in the array using AND logic. */
-function evaluateConditionsAnd(conditions: FilterCondition[], message: ParsedMessage): boolean {
-  return conditions.every((c) => evaluateCondition(c, message).passed);
-}
+/**
+ * Evaluate a scored rule: sum(weight * match_bool) across conditions.
+ * Returns both whether the rule matched and the computed score.
+ */
+export function evaluateScoredConditions(
+  conditions: ScoredCondition[],
+  message: ParsedMessage,
+  operator: "AND" | "OR" = "AND",
+): { matched: boolean; score: number } {
+  let totalScore = 0;
+  let anyMatched = false;
+  let allMatched = true;
 
-/** Eval each condition in the array using OR logic. */
-function evaluateConditionsOr(conditions: FilterCondition[], message: ParsedMessage): boolean {
-  return conditions.some((c) => evaluateCondition(c, message).passed);
+  for (const cond of conditions) {
+    const weight = cond.weight ?? 1.0;
+    const result = evaluateCondition(cond, message);
+    if (result.passed) {
+      totalScore += weight;
+      anyMatched = true;
+    } else {
+      allMatched = false;
+    }
+  }
+
+  if (operator === "OR") {
+    return { matched: anyMatched, score: totalScore };
+  }
+  return { matched: allMatched, score: totalScore };
 }
 
 /**
- * Evaluate a filter rule (from DB) against a message.
- * Uses filter_conditions rows + group_operator if available,
- * falls back to legacy criteria_json.
+ * Evaluate a filter rule with scoring support.
+ * Returns { matched, score } where score is the weighted sum.
+ * When score_threshold is set on the rule, the rule only matches if score >= threshold.
  */
 export async function evaluateFilterRule(
-  rule: { id: string; group_operator?: string | null; criteria_json?: string },
+  rule: { id: string; group_operator?: string | null; criteria_json?: string; score_threshold?: number | null },
   message: ParsedMessage,
   criteria?: FilterCriteria,
   conditions?: FilterCondition[],
-): Promise<boolean> {
+): Promise<{ matched: boolean; score: number }> {
   if (!conditions) {
     conditions = await getFilterConditionsForRule(rule.id);
   }
 
   if (conditions.length > 0) {
     const operator = (rule.group_operator as "AND" | "OR" | undefined) ?? "AND";
-    return operator === "AND"
-      ? evaluateConditionsAnd(conditions, message)
-      : evaluateConditionsOr(conditions, message);
+    const scoredConditions: ScoredCondition[] = conditions.map((c) => ({
+      ...c,
+      weight: (c as ScoredCondition).weight ?? 1.0,
+    }));
+    const result = evaluateScoredConditions(scoredConditions, message, operator);
+    if (rule.score_threshold != null) {
+      return { matched: result.score >= rule.score_threshold, score: result.score };
+    }
+    return result;
   }
 
   // Fall back to legacy criteria
@@ -116,7 +152,45 @@ export async function evaluateFilterRule(
     if (!rule.criteria_json) return {};
     try { return JSON.parse(rule.criteria_json) as FilterCriteria; } catch { return {}; }
   })();
-  return messageMatchesFilter(message, crit);
+  const legacyMatched = messageMatchesFilter(message, crit);
+  return { matched: legacyMatched, score: legacyMatched ? 1 : 0 };
+}
+
+/**
+ * Evaluate a chain of filter rules against a message, respecting each rule's chaining_action.
+ * Returns the list of rules that matched, in evaluation order.
+ */
+export async function evaluateChainedRules(
+  rules: {
+    id: string;
+    group_operator?: string | null;
+    criteria_json?: string;
+    score_threshold?: number | null;
+    chaining_action?: string | null;
+  }[],
+  message: ParsedMessage,
+): Promise<{ ruleId: string; matched: boolean; score: number }[]> {
+  const results: { ruleId: string; matched: boolean; score: number }[] = [];
+
+  for (const rule of rules) {
+    const conditions = await getFilterConditionsForRule(rule.id);
+    const { matched, score } = await evaluateFilterRule(rule, message, undefined, conditions);
+    results.push({ ruleId: rule.id, matched, score });
+
+    const chainAction = (rule.chaining_action as ChainingAction) ?? "stop";
+
+    if (chainAction === "stop") {
+      break;
+    } else if (chainAction === "continue") {
+      // always continue to next
+    } else if (chainAction === "continue_on_match") {
+      if (!matched) break;
+    } else if (chainAction === "continue_on_no_match") {
+      if (matched) break;
+    }
+  }
+
+  return results;
 }
 
 /**
@@ -238,6 +312,7 @@ export function computeFilterActions(actions: FilterActions): FilterResult {
 /**
  * Apply all enabled filters to a set of new messages for the given account.
  * Modifies threads via the Gmail API and updates local DB.
+ * Supports v2 features: scoring, chaining, and logging.
  */
 export async function applyFiltersToMessages(
   accountId: string,
@@ -268,8 +343,11 @@ export async function applyFiltersToMessages(
 
   for (const msg of messages) {
     for (const { rule, criteria, actions, conditions } of flatParsed) {
-      const matches = await evaluateFilterRule(rule, msg, criteria, conditions);
-      if (matches) {
+      const { matched, score } = await evaluateFilterRule(rule, msg, criteria, conditions);
+
+      await logFilterMatch(rule.id, msg.id, matched, score, actions).catch(() => {});
+
+      if (matched) {
         const result = computeFilterActions(actions);
         const existing = threadActions.get(msg.threadId);
         if (existing) {
@@ -280,6 +358,11 @@ export async function applyFiltersToMessages(
         } else {
           threadActions.set(msg.threadId, result);
         }
+      }
+
+      const chainAction = (rule.chaining_action as ChainingAction) ?? "stop";
+      if (chainAction === "stop" || (chainAction === "continue_on_match" && !matched) || (chainAction === "continue_on_no_match" && matched)) {
+        break;
       }
     }
   }

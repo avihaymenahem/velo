@@ -8,6 +8,7 @@ use tauri_plugin_autostart::MacosLauncher;
 
 mod commands;
 mod contacts;
+mod deliverability;
 mod dns;
 mod export;
 mod imap;
@@ -132,8 +133,10 @@ pub fn run() {
             vault::ops::list_vault_dir,
             vault::pdf::extract_pdf_text,
             export::mbox::append_to_mbox,
+            export::pdf_report::export_analytics_report,
             export::types::get_export_formats,
             export::types::validate_export_config,
+            deliverability::dnsbl::check_dnsbl_cmd,
         ])
         .setup(|app| {
             // Linux dmabuf workaround: disable dmabuf renderer on NVIDIA/Nouveau drivers

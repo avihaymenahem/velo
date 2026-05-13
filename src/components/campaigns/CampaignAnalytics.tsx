@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from "recharts";
-import { Send, MailOpen, MousePointerClick, AlertTriangle, Download, FileDown } from "lucide-react";
+import { Send, MailOpen, MousePointerClick, AlertTriangle, Trophy, FlaskConical, TrendingUp } from "lucide-react";
 import { CampaignStatsCard } from "./CampaignStatsCard";
+import { ExportMenu } from "./ExportMenu";
 import type { CampaignStat } from "@/stores/campaignStore";
 import { getEngagementTimeSeries } from "@/services/db/campaignRecipients";
-import { generateCsvData, downloadCsv } from "@/services/campaigns/trackingService";
+import { getVariantStats, getABTestConfig } from "@/services/campaigns/abTesting";
+import { getCampaignAnalytics } from "@/services/campaigns/analyticsService";
+import type { CampaignAnalytics as AnalyticsData } from "@/services/campaigns/analyticsService";
 
 const COLORS = {
   accent: "#4f46e5",
@@ -22,19 +25,53 @@ interface CampaignAnalyticsProps {
 export function CampaignAnalytics({ stats, campaignId, campaignName = "campaign" }: CampaignAnalyticsProps) {
   const [timeSeries, setTimeSeries] = useState<{ date: string; opens: number; clicks: number }[]>([]);
   const [timeSeriesLoading, setTimeSeriesLoading] = useState(false);
+  const [abVariantStats, setAbVariantStats] = useState<{
+    a: { total: number; opens: number; clicks: number; openRate: number; clickRate: number } | null;
+    b: { total: number; opens: number; clicks: number; openRate: number; clickRate: number } | null;
+    winner: string | null;
+    significant: boolean;
+    pValue: number | null;
+  } | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
 
   useEffect(() => {
     if (!campaignId) return;
     let cancelled = false;
     setTimeSeriesLoading(true);
-    getEngagementTimeSeries(campaignId).then((data) => {
+    Promise.all([
+      getEngagementTimeSeries(campaignId),
+      getCampaignAnalytics(campaignId),
+    ]).then(([ts, an]) => {
       if (!cancelled) {
-        setTimeSeries(data);
+        setTimeSeries(ts);
+        setAnalytics(an);
         setTimeSeriesLoading(false);
       }
     }).catch(() => {
       if (!cancelled) setTimeSeriesLoading(false);
     });
+    return () => { cancelled = true; };
+  }, [campaignId]);
+
+  useEffect(() => {
+    if (!campaignId) return;
+    let cancelled = false;
+    getABTestConfig(campaignId).then((config) => {
+      if (cancelled || !config) return;
+      return getVariantStats(campaignId);
+    }).then((vs) => {
+      if (cancelled || !vs) return;
+      getABTestConfig(campaignId).then((config) => {
+        if (cancelled) return;
+        setAbVariantStats({
+          a: vs.a,
+          b: vs.b,
+          winner: config?.winnerId ?? null,
+          significant: config?.significant ?? false,
+          pValue: config?.pValue ?? null,
+        });
+      });
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, [campaignId]);
 
@@ -53,67 +90,6 @@ export function CampaignAnalytics({ stats, campaignId, campaignName = "campaign"
 
   const timeSeriesData = timeSeries.length > 0 ? timeSeries : [];
 
-  async function handleExportCsv() {
-    const csv = generateCsvData(
-      { sent: stats.sent, opened: stats.opened, clicked: stats.clicked, bounced: stats.bounced, openRate: stats.total > 0 ? stats.opened / stats.total : 0, clickRate: stats.total > 0 ? stats.clicked / stats.total : 0 },
-      timeSeries,
-    );
-    downloadCsv(csv, `${campaignName.replace(/\s+/g, "_")}_analytics.csv`);
-  }
-
-  function handleExportPdf() {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    printWindow.document.write(`
-      <html>
-      <head><title>Campaign Analytics - ${campaignName}</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 40px; color: #1a1a1a; }
-        h1 { font-size: 24px; margin-bottom: 8px; }
-        .meta { color: #666; margin-bottom: 24px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-        th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #e5e5e5; }
-        th { background: #f5f5f5; font-weight: 600; }
-        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-        .stat-card { border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; }
-        .stat-label { font-size: 12px; color: #666; }
-        .stat-value { font-size: 24px; font-weight: 700; margin-top: 4px; }
-        @media print { body { padding: 20px; } }
-      </style>
-      </head>
-      <body>
-        <h1>Campaign Analytics</h1>
-        <p class="meta">${campaignName}</p>
-        <div class="stat-grid">
-          <div class="stat-card"><div class="stat-label">Sent</div><div class="stat-value">${stats.sent}</div></div>
-          <div class="stat-card"><div class="stat-label">Opened</div><div class="stat-value">${stats.opened}</div></div>
-          <div class="stat-card"><div class="stat-label">Clicked</div><div class="stat-value">${stats.clicked}</div></div>
-          <div class="stat-card"><div class="stat-label">Bounced</div><div class="stat-value">${stats.bounced}</div></div>
-        </div>
-        <table>
-          <tr><th>Metric</th><th>Value</th></tr>
-          <tr><td>Sent</td><td>${stats.sent}</td></tr>
-          <tr><td>Opened</td><td>${stats.opened}</td></tr>
-          <tr><td>Clicked</td><td>${stats.clicked}</td></tr>
-          <tr><td>Bounced</td><td>${stats.bounced}</td></tr>
-          <tr><td>Open Rate</td><td>${stats.total > 0 ? (stats.opened / stats.total * 100).toFixed(1) : 0}%</td></tr>
-          <tr><td>Click Rate</td><td>${stats.total > 0 ? (stats.clicked / stats.total * 100).toFixed(1) : 0}%</td></tr>
-        </table>
-        ${timeSeries.length > 0 ? `
-          <h2>Engagement Over Time</h2>
-          <table>
-            <tr><th>Date</th><th>Opens</th><th>Clicks</th></tr>
-            ${timeSeries.map((d) => `<tr><td>${d.date}</td><td>${d.opens}</td><td>${d.clicks}</td></tr>`).join("")}
-          </table>
-        ` : ""}
-        <p style="margin-top: 32px; color: #999; font-size: 11px;">Generated by Velo Mail</p>
-      </body></html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => printWindow.print(), 250);
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -123,21 +99,14 @@ export function CampaignAnalytics({ stats, campaignId, campaignName = "campaign"
           <CampaignStatsCard label="Clicked" value={stats.clicked} icon={MousePointerClick} color={COLORS.warning} />
           <CampaignStatsCard label="Bounced" value={stats.bounced} icon={AlertTriangle} color={COLORS.danger} />
         </div>
-        <div className="flex gap-1.5 ml-3">
-          <button
-            onClick={handleExportCsv}
-            className="p-2 text-text-tertiary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors"
-            title="Export CSV"
-          >
-            <FileDown size={16} />
-          </button>
-          <button
-            onClick={handleExportPdf}
-            className="p-2 text-text-tertiary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors"
-            title="Export PDF"
-          >
-            <Download size={16} />
-          </button>
+        <div className="ml-3">
+          {campaignId && analytics && (
+            <ExportMenu
+              campaignId={campaignId}
+              campaignName={campaignName}
+              analytics={analytics}
+            />
+          )}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -192,6 +161,99 @@ export function CampaignAnalytics({ stats, campaignId, campaignName = "campaign"
           </ResponsiveContainer>
         </div>
       ) : null}
+
+      {abVariantStats && (abVariantStats.a || abVariantStats.b) && (
+        <div className="glass-panel rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <FlaskConical size={16} className="text-accent" />
+            <h4 className="text-sm font-medium text-text-primary">A/B Test Results</h4>
+            {abVariantStats.significant && abVariantStats.winner && (
+              <span className="flex items-center gap-1 ml-2 px-2 py-0.5 bg-success/10 text-success text-xs rounded-full">
+                <Trophy size={12} />
+                Winner: {abVariantStats.winner}
+              </span>
+            )}
+            {abVariantStats.pValue !== null && (
+              <span className="ml-auto text-xs text-text-tertiary">
+                p = {abVariantStats.pValue.toFixed(4)}
+                {abVariantStats.significant ? " (significant)" : " (not significant)"}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {(["a", "b"] as const).map((key) => {
+              const v = abVariantStats[key];
+              if (!v) return null;
+              const isWinner = abVariantStats.winner === key.toUpperCase();
+              return (
+                <div
+                  key={key}
+                  className={`rounded-lg p-3 border ${
+                    isWinner
+                      ? "border-success/40 bg-success/5"
+                      : "border-border-primary bg-bg-secondary"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      Variant {key.toUpperCase()}
+                    </span>
+                    {isWinner && (
+                      <span className="flex items-center gap-1 text-xs text-success">
+                        <Trophy size={12} />
+                        Winner
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-text-tertiary">Sent:</span>{" "}
+                      <span className="text-text-primary font-medium">{v.total}</span>
+                    </div>
+                    <div>
+                      <span className="text-text-tertiary">Opens:</span>{" "}
+                      <span className="text-text-primary font-medium">{v.opens}</span>
+                    </div>
+                    <div>
+                      <span className="text-text-tertiary">Open Rate:</span>{" "}
+                      <span className="text-text-primary font-medium">{(v.openRate * 100).toFixed(1)}%</span>
+                    </div>
+                    <div>
+                      <span className="text-text-tertiary">Click Rate:</span>{" "}
+                      <span className="text-text-primary font-medium">{(v.clickRate * 100).toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {analytics && analytics.topLinks.length > 0 && (
+        <div className="glass-panel rounded-lg p-4">
+          <h4 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-1.5">
+            <TrendingUp size={14} />
+            Top Links
+          </h4>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-text-tertiary text-xs">
+                <th className="text-left py-1 pr-2">URL</th>
+                <th className="text-right py-1 w-20">Clicks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {analytics.topLinks.slice(0, 5).map((link, i) => (
+                <tr key={i} className="border-t border-border-primary">
+                  <td className="py-1.5 pr-2 text-text-primary truncate max-w-[400px]">{link.url}</td>
+                  <td className="py-1.5 text-right text-text-primary font-medium">{link.clicks}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

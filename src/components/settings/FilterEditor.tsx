@@ -30,6 +30,13 @@ const OPERATORS: { value: FilterConditionInput["operator"]; label: string }[] = 
   { value: "not_contains", label: "Does not contain" },
 ];
 
+const CHAINING_OPTIONS: { value: string; label: string }[] = [
+  { value: "stop", label: "Stop" },
+  { value: "continue", label: "Continue" },
+  { value: "continue_on_match", label: "Continue on match" },
+  { value: "continue_on_no_match", label: "Continue on no match" },
+];
+
 function isValidRegex(pattern: string): boolean {
   if (!pattern) return true;
   try {
@@ -37,6 +44,18 @@ function isValidRegex(pattern: string): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+function getRegexPreview(pattern: string): string | null {
+  if (!pattern) return null;
+  try {
+    const regex = new RegExp(pattern, "i");
+    const sampleText = "Sample text to test: Alice Smith <alice@example.com> Project Update 123";
+    const match = sampleText.match(regex);
+    return match ? match[0] : null;
+  } catch {
+    return null;
   }
 }
 
@@ -55,6 +74,8 @@ export function FilterEditor() {
   const [actionStar, setActionStar] = useState(false);
   const [actionMarkRead, setActionMarkRead] = useState(false);
   const [actionTrash, setActionTrash] = useState(false);
+  const [scoreThreshold, setScoreThreshold] = useState("");
+  const [chainingAction, setChainingAction] = useState("stop");
 
   const [testRuleId, setTestRuleId] = useState<string | null>(null);
 
@@ -81,15 +102,21 @@ export function FilterEditor() {
     setActionStar(false);
     setActionMarkRead(false);
     setActionTrash(false);
+    setScoreThreshold("");
+    setChainingAction("stop");
     setEditingId(null);
     setShowForm(false);
   }, []);
 
   const buildCriteria = (): FilterCriteria => {
     const validConds = conditions.filter((c) => c.value.trim());
+    const condsWithWeight = validConds.map((c) => ({
+      ...c,
+      weight: c.weight && c.weight !== 1 ? c.weight : undefined,
+    }));
     return {
-      conditions: validConds.length > 0 ? validConds : undefined,
-      matchType: validConds.length > 1 ? matchType : undefined,
+      conditions: condsWithWeight.length > 0 ? condsWithWeight : undefined,
+      matchType: condsWithWeight.length > 1 ? matchType : undefined,
     };
   };
 
@@ -109,19 +136,27 @@ export function FilterEditor() {
     const actions = buildActions();
 
     if (editingId) {
-      await updateFilter(editingId, { name: name.trim(), criteria, actions });
+      await updateFilter(editingId, {
+        name: name.trim(),
+        criteria,
+        actions,
+        scoreThreshold: scoreThreshold ? parseFloat(scoreThreshold) : null,
+        chainingAction,
+      });
     } else {
       await insertFilter({
         accountId: activeAccountId,
         name: name.trim(),
         criteria,
         actions,
+        scoreThreshold: scoreThreshold ? parseFloat(scoreThreshold) : undefined,
+        chainingAction,
       });
     }
 
     resetForm();
     await loadFilters();
-  }, [activeAccountId, name, editingId, resetForm, loadFilters, conditions, matchType, actionLabel, actionArchive, actionStar, actionMarkRead, actionTrash]);
+  }, [activeAccountId, name, editingId, resetForm, loadFilters, conditions, matchType, actionLabel, actionArchive, actionStar, actionMarkRead, actionTrash, scoreThreshold, chainingAction]);
 
   const handleEdit = useCallback((filter: DbFilterRule) => {
     setEditingId(filter.id);
@@ -150,6 +185,8 @@ export function FilterEditor() {
     setActionStar(actions.star ?? false);
     setActionMarkRead(actions.markRead ?? false);
     setActionTrash(actions.trash ?? false);
+    setScoreThreshold(filter.score_threshold != null ? String(filter.score_threshold) : "");
+    setChainingAction(filter.chaining_action ?? "stop");
     setShowForm(true);
   }, []);
 
@@ -170,7 +207,11 @@ export function FilterEditor() {
       try {
         const c = JSON.parse(filter.criteria_json) as FilterCriteria;
         if (c.conditions && c.conditions.length > 0) {
-          const parts = c.conditions.map((cond) => `${cond.field} ${cond.operator} "${cond.value}"`);
+          const parts = c.conditions.map((cond) => {
+            const w = (cond as any).weight;
+            const weightStr = w && w !== 1 ? ` [x${w}]` : "";
+            return `${cond.field} ${cond.operator} "${cond.value}"${weightStr}`;
+          });
           map.set(filter.id, parts.join(c.matchType === "any" ? " OR " : " AND ") || "No criteria");
         } else {
           const parts: string[] = [];
@@ -215,6 +256,16 @@ export function FilterEditor() {
               {filter.is_enabled !== 1 && (
                 <span className="text-[0.625rem] bg-bg-tertiary text-text-tertiary px-1.5 py-0.5 rounded">
                   Disabled
+                </span>
+              )}
+              {filter.chaining_action && filter.chaining_action !== "stop" && (
+                <span className="text-[0.625rem] bg-accent/10 text-accent px-1.5 py-0.5 rounded">
+                  {filter.chaining_action}
+                </span>
+              )}
+              {filter.score_threshold != null && (
+                <span className="text-[0.625rem] bg-warning/10 text-warning px-1.5 py-0.5 rounded">
+                  threshold: {filter.score_threshold}
                 </span>
               )}
             </div>
@@ -300,6 +351,7 @@ export function FilterEditor() {
               {conditions.map((cond, idx) => {
                 const isRegex = cond.operator === "matches";
                 const regexValid = isRegex && cond.value ? isValidRegex(cond.value) : true;
+                const previewText = isRegex && cond.value && regexValid ? getRegexPreview(cond.value) : null;
                 return (
                   <div key={idx} className="flex items-center gap-1.5">
                     <select
@@ -338,6 +390,21 @@ export function FilterEditor() {
                         </span>
                       )}
                     </div>
+                    <input
+                      type="number"
+                      value={(cond as any).weight ?? 1}
+                      onChange={(e) => updateCondition(idx, { weight: parseFloat(e.target.value) || 1 })}
+                      placeholder="Wt"
+                      className="w-14 bg-bg-tertiary text-text-primary text-xs px-1.5 py-1.5 rounded border border-border-primary outline-none focus:border-accent"
+                      title="Weight (default 1.0)"
+                      min="0"
+                      step="0.5"
+                    />
+                    {isRegex && previewText && (
+                      <span className="text-[0.625rem] text-accent truncate max-w-[100px]" title={previewText}>
+                        "{previewText}"
+                      </span>
+                    )}
                     <button
                       onClick={() => removeCondition(idx)}
                       disabled={conditions.length <= 1}
@@ -395,6 +462,33 @@ export function FilterEditor() {
                   Trash
                 </label>
               </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <span className="text-xs font-medium text-text-secondary block mb-1">Score threshold</span>
+              <input
+                type="number"
+                value={scoreThreshold}
+                onChange={(e) => setScoreThreshold(e.target.value)}
+                placeholder="e.g. 2.0"
+                min="0"
+                step="0.5"
+                className="w-full bg-bg-tertiary text-text-primary text-xs px-2 py-1.5 rounded border border-border-primary outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <span className="text-xs font-medium text-text-secondary block mb-1">Chaining action</span>
+              <select
+                value={chainingAction}
+                onChange={(e) => setChainingAction(e.target.value)}
+                className="w-full bg-bg-tertiary text-text-primary text-xs px-2 py-1.5 rounded border border-border-primary outline-none focus:border-accent"
+              >
+                {CHAINING_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
             </div>
           </div>
 

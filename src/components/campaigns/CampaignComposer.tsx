@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, CheckSquare, Square, Users, Clock, Send, FileText, Eye, Calendar, Repeat, ChevronLeft } from "lucide-react";
+import { Search, CheckSquare, Square, Users, Clock, Send, FileText, Eye, Calendar, Repeat, ChevronLeft, SplitSquareHorizontal } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { CampaignTemplatePicker } from "./CampaignTemplatePicker";
 import { campaignTemplates } from "@/constants/campaignTemplates";
@@ -36,6 +36,11 @@ interface Contact {
   email: string;
 }
 
+interface ABVariantContent {
+  subject: string;
+  body: string;
+}
+
 export function CampaignComposer({ isOpen, onClose, accountId }: CampaignComposerProps) {
 
   const [step, setStep] = useState<Step>("audience");
@@ -52,6 +57,11 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
   const [trackingEnabled, setTrackingEnabled] = useState(false);
   const [gdprConsent, setGdprConsent] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [abEnabled, setAbEnabled] = useState(false);
+  const [variantA, setVariantA] = useState<ABVariantContent>({ subject: "", body: "" });
+  const [variantB, setVariantB] = useState<ABVariantContent>({ subject: "", body: "" });
+  const [splitRatio, setSplitRatio] = useState(50);
+  const [testDuration, setTestDuration] = useState(24);
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [groups, setGroups] = useState<ContactGroup[]>([]);
@@ -73,6 +83,11 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
     setRecurringFrequency("weekly");
     setTrackingEnabled(false);
     setGdprConsent(false);
+    setAbEnabled(false);
+    setVariantA({ subject: "", body: "" });
+    setVariantB({ subject: "", body: "" });
+    setSplitRatio(50);
+    setTestDuration(24);
     setStep("audience");
     setCreating(false);
     setContactSearch("");
@@ -182,6 +197,14 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
         recipientContactIds,
         groupId,
         segmentId,
+        abTestConfig: abEnabled && variantA.subject && variantB.subject
+          ? {
+              variantA: { subject: variantA.subject, body: variantA.body },
+              variantB: { subject: variantB.subject, body: variantB.body },
+              splitRatio: splitRatio / 100,
+              testDurationHours: testDuration,
+            }
+          : undefined,
       });
     } catch (err) {
       console.error("Failed to create campaign:", err);
@@ -376,6 +399,106 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
               selectedTemplateId={templateId}
               onSelect={(id) => setTemplateId(id ?? "")}
             />
+            <div className="border-t border-border-primary pt-3 mt-3">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <span className="text-sm text-text-primary font-medium flex items-center gap-1.5">
+                    <SplitSquareHorizontal size={14} />
+                    A/B Testing
+                  </span>
+                  <p className="text-xs text-text-tertiary mt-0.5">
+                    Test two variants to find the better performer
+                  </p>
+                </div>
+                <button
+                  onClick={() => setAbEnabled(!abEnabled)}
+                  className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ml-4 ${
+                    abEnabled ? "bg-accent" : "bg-bg-tertiary"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform shadow ${
+                      abEnabled ? "translate-x-5" : ""
+                    }`}
+                  />
+                </button>
+              </div>
+              {abEnabled && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="glass-panel rounded-lg p-3 space-y-2">
+                      <span className="text-xs font-semibold text-accent uppercase tracking-wide">Variant A</span>
+                      <input
+                        type="text"
+                        value={variantA.subject}
+                        onChange={(e) => setVariantA((p) => ({ ...p, subject: e.target.value }))}
+                        placeholder="Subject A"
+                        className="w-full px-2 py-1.5 bg-bg-secondary border border-border-primary rounded text-xs text-text-primary placeholder:text-text-tertiary outline-none focus:ring-1 focus:ring-accent"
+                      />
+                      <textarea
+                        value={variantA.body}
+                        onChange={(e) => setVariantA((p) => ({ ...p, body: e.target.value }))}
+                        placeholder="Body A (HTML)"
+                        rows={4}
+                        className="w-full px-2 py-1.5 bg-bg-secondary border border-border-primary rounded text-xs text-text-primary placeholder:text-text-tertiary outline-none focus:ring-1 focus:ring-accent resize-none"
+                      />
+                    </div>
+                    <div className="glass-panel rounded-lg p-3 space-y-2">
+                      <span className="text-xs font-semibold text-warning uppercase tracking-wide">Variant B</span>
+                      <input
+                        type="text"
+                        value={variantB.subject}
+                        onChange={(e) => setVariantB((p) => ({ ...p, subject: e.target.value }))}
+                        placeholder="Subject B"
+                        className="w-full px-2 py-1.5 bg-bg-secondary border border-border-primary rounded text-xs text-text-primary placeholder:text-text-tertiary outline-none focus:ring-1 focus:ring-accent"
+                      />
+                      <textarea
+                        value={variantB.body}
+                        onChange={(e) => setVariantB((p) => ({ ...p, body: e.target.value }))}
+                        placeholder="Body B (HTML)"
+                        rows={4}
+                        className="w-full px-2 py-1.5 bg-bg-secondary border border-border-primary rounded text-xs text-text-primary placeholder:text-text-tertiary outline-none focus:ring-1 focus:ring-accent resize-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className="text-xs text-text-tertiary mb-1 block">Split Ratio</label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-text-secondary w-6">A: {splitRatio}%</span>
+                        <input
+                          type="range"
+                          min={10}
+                          max={90}
+                          value={splitRatio}
+                          onChange={(e) => setSplitRatio(Number(e.target.value))}
+                          className="flex-1 accent-accent"
+                        />
+                        <span className="text-xs text-text-secondary w-6">B: {100 - splitRatio}%</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs text-text-tertiary mb-1 block">Test Duration</label>
+                      <div className="flex gap-1">
+                        {[6, 12, 24, 48].map((h) => (
+                          <button
+                            key={h}
+                            onClick={() => setTestDuration(h)}
+                            className={`flex-1 px-2 py-1 rounded text-xs border transition-colors ${
+                              testDuration === h
+                                ? "bg-accent/10 border-accent text-accent"
+                                : "bg-bg-secondary border-border-primary text-text-secondary hover:border-accent/50"
+                            }`}
+                          >
+                            {h}h
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -534,6 +657,17 @@ export function CampaignComposer({ isOpen, onClose, accountId }: CampaignCompose
                   {trackingEnabled ? "Enabled" : "Disabled"}
                 </span>
               </div>
+              {abEnabled && (
+                <>
+                  <div className="border-t border-border-primary" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-text-tertiary">A/B Test</span>
+                    <span className="text-sm text-accent">
+                      A: {splitRatio}% / B: {100 - splitRatio}% · {testDuration}h
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

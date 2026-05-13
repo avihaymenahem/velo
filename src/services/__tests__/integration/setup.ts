@@ -31,10 +31,10 @@ export class MockTauriDb {
     const { sql: converted, params: expanded } = this.convertParams(sql, params);
     if (expanded.length === 0) {
       const stmt = this.db.prepare(converted);
-      return stmt.all() as T[];
+      return stmt.all() as unknown as T[];
     }
     const stmt = this.db.prepare(converted);
-    return stmt.all(...expanded) as T[];
+    return stmt.all(...expanded) as unknown as T[];
   }
 
   close(): void {
@@ -132,13 +132,13 @@ export async function seedAccount(overrides: Record<string, unknown> = {}): Prom
 
 export async function getTestAccount(): Promise<Record<string, unknown> | null> {
   const db = dbRef.current!;
-  const rows = await db.select<Record<string, unknown>[]>("SELECT * FROM accounts WHERE id = $1", [TEST_ACCOUNT_ID]);
-  return (rows as Record<string, unknown>[])[0] ?? null;
+  const rows = await db.select<Record<string, unknown>>("SELECT * FROM accounts WHERE id = $1", [TEST_ACCOUNT_ID]);
+  return rows[0] ?? null;
 }
 
 export async function getTestMessages(accountId?: string): Promise<Record<string, unknown>[]> {
   const db = dbRef.current!;
-  return db.select<Record<string, unknown>[]>(
+  return db.select<Record<string, unknown>>(
     "SELECT * FROM messages WHERE account_id = $1 ORDER BY date ASC",
     [accountId ?? TEST_ACCOUNT_ID],
   );
@@ -146,13 +146,8 @@ export async function getTestMessages(accountId?: string): Promise<Record<string
 
 export async function getTestThreads(accountId?: string): Promise<Record<string, unknown>[]> {
   const db = dbRef.current!;
-  return db.select<Record<string, unknown>[]>(
+  return db.select<Record<string, unknown>>(
     "SELECT * FROM threads WHERE account_id = $1 ORDER BY last_message_at DESC",
     [accountId ?? TEST_ACCOUNT_ID],
   );
-}
-
-export async function getRawDb(): Promise<Record<string, unknown>[]> {
-  const db = dbRef.current!;
-  return db.select("SELECT * FROM accounts");
 }

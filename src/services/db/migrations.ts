@@ -1106,6 +1106,184 @@ export const MIGRATIONS = [
         ALTER TABLE thread_categories ADD COLUMN is_user_override INTEGER NOT NULL DEFAULT 0;
       `,
     },
+    {
+      version: 42,
+      description: "Filter Engine v2: score_threshold and chaining_action",
+      sql: `
+        ALTER TABLE filter_rules ADD COLUMN score_threshold REAL;
+        ALTER TABLE filter_rules ADD COLUMN chaining_action TEXT DEFAULT 'stop';
+      `,
+    },
+    {
+      version: 43,
+      description: "Filter Engine v2: filter_logs table",
+      sql: `
+        CREATE TABLE IF NOT EXISTS filter_logs (
+          id TEXT PRIMARY KEY,
+          rule_id TEXT NOT NULL REFERENCES filter_rules(id) ON DELETE CASCADE,
+          message_id TEXT NOT NULL,
+          matched INTEGER NOT NULL DEFAULT 0,
+          score REAL DEFAULT 0.0,
+          applied_actions TEXT,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+      `,
+    },
+    {
+      version: 44,
+      description: "Contact engagement scoring",
+      sql: `
+        ALTER TABLE contacts ADD COLUMN engagement_score REAL DEFAULT 0.0;
+        ALTER TABLE contacts ADD COLUMN last_engaged_at INTEGER;
+        ALTER TABLE contacts ADD COLUMN health_status TEXT DEFAULT 'cold';
+      `,
+    },
+    {
+      version: 45,
+      description: "Engagement log and dynamic segments",
+      sql: `
+        CREATE TABLE IF NOT EXISTS engagement_log (
+          id TEXT PRIMARY KEY,
+          contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+          event_type TEXT NOT NULL,
+          score_delta REAL DEFAULT 0.0,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE TABLE IF NOT EXISTS dynamic_segments (
+          id TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          query TEXT NOT NULL,
+          refreshed_at INTEGER
+        );
+      `,
+    },
+    {
+      version: 46,
+      description: "Campaign A/B testing columns",
+      sql: `
+        ALTER TABLE campaigns ADD COLUMN ab_test_config TEXT;
+        ALTER TABLE campaign_recipients ADD COLUMN variant TEXT;
+        ALTER TABLE campaign_recipients ADD COLUMN is_winner BOOLEAN;
+      `,
+    },
+    {
+      version: 47,
+      description: "UTM tracking tables",
+      sql: `
+        CREATE TABLE IF NOT EXISTS utm_links (
+          id TEXT PRIMARY KEY,
+          campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+          url TEXT NOT NULL,
+          utm_source TEXT,
+          utm_medium TEXT,
+          utm_campaign TEXT,
+          utm_content TEXT,
+          click_count INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE TABLE IF NOT EXISTS utm_clicks (
+          id TEXT PRIMARY KEY,
+          link_id TEXT NOT NULL REFERENCES utm_links(id) ON DELETE CASCADE,
+          contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+          clicked_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+      `,
+    },
+    {
+      version: 48,
+      description: "Analytics snapshots",
+      sql: `
+        CREATE TABLE IF NOT EXISTS analytics_snapshots (
+          id TEXT PRIMARY KEY,
+          campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+          snapshot_data TEXT NOT NULL,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+      `,
+    },
+    {
+      version: 49,
+      description: "Email warming tables",
+      sql: `
+        CREATE TABLE IF NOT EXISTS email_warming (
+          id TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          enabled INTEGER NOT NULL DEFAULT 0,
+          start_volume INTEGER NOT NULL DEFAULT 10,
+          current_volume INTEGER NOT NULL DEFAULT 10,
+          target_volume INTEGER NOT NULL DEFAULT 100,
+          ramp_days INTEGER NOT NULL DEFAULT 14,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+          updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE TABLE IF NOT EXISTS warming_log (
+          id TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          sent_date TEXT NOT NULL,
+          volume INTEGER NOT NULL,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+      `,
+    },
+    {
+      version: 50,
+      description: "Blacklist checks table",
+      sql: `
+        CREATE TABLE IF NOT EXISTS blacklist_checks (
+          id TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          check_type TEXT NOT NULL,
+          target TEXT NOT NULL,
+          listed INTEGER NOT NULL DEFAULT 0,
+          list_name TEXT,
+          responded INTEGER NOT NULL DEFAULT 0,
+          checked_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+      `,
+    },
+    {
+      version: 51,
+      description: "Bounces and suppression list",
+      sql: `
+        CREATE TABLE IF NOT EXISTS bounces (
+          id TEXT PRIMARY KEY,
+          campaign_id TEXT REFERENCES campaigns(id) ON DELETE SET NULL,
+          contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+          recipient_email TEXT NOT NULL,
+          bounce_type TEXT NOT NULL,
+          diagnostic_code TEXT,
+          reason TEXT,
+          bounced_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE TABLE IF NOT EXISTS suppression_list (
+          id TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          email TEXT NOT NULL,
+          reason TEXT NOT NULL,
+          suppressed_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+      `,
+    },
+    {
+      version: 52,
+      description: "ARF feedback loop reports",
+      sql: `
+        CREATE TABLE IF NOT EXISTS arf_reports (
+          id TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          original_recipient TEXT,
+          reported_domain TEXT,
+          feedback_type TEXT,
+          user_agent TEXT,
+          source_ip TEXT,
+          arrival_date INTEGER,
+          report_raw TEXT,
+          processed INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+      `,
+    },
   ];
 
 /**

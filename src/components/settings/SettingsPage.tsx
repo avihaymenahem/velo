@@ -63,6 +63,9 @@ import { PgpKeyManager } from "./PgpKeyManager";
 import { ComplianceProfileManager } from "./ComplianceProfileManager";
 import { SnoozePresetsEditor } from "./SnoozePresetsEditor";
 import { QueueInspector } from "./QueueInspector";
+import { WarmingSettings } from "./WarmingSettings";
+import { BlacklistChecker } from "./BlacklistChecker";
+import { BounceManager } from "./BounceManager";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
@@ -78,7 +81,7 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
 
-type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "templates" | "workflows" | "pgp" | "compliance" | "people" | "accounts" | "shortcuts" | "ai" | "about" | "snooze" | "queue";
+type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "templates" | "workflows" | "pgp" | "compliance" | "people" | "accounts" | "shortcuts" | "ai" | "about" | "snooze" | "queue" | "warming" | "blacklist" | "bounce";
 
 interface SettingsTabItem {
   id: SettingsTab;
@@ -129,6 +132,14 @@ const tabGroups: SettingsGroup[] = [
     tabs: [
       { id: "pgp", label: "PGP", icon: Shield },
       { id: "compliance", label: "Compliance", icon: ShieldCheck },
+    ],
+  },
+  {
+    label: "Deliverability",
+    tabs: [
+      { id: "warming", label: "Warming", icon: Mail },
+      { id: "blacklist", label: "Blacklist", icon: Shield },
+      { id: "bounce", label: "Bounces", icon: Activity },
     ],
   },
   {
@@ -997,15 +1008,26 @@ export function SettingsPage() {
               )}
 
               {activeTab === "queue" && (
-                <Section title="Queue Inspector">
-                  <p className="text-xs text-text-tertiary mb-3">
-                    Monitor and manage the email queue. Pending operations are processed every 30 seconds.
-                    Failed operations can be retried or cleared.
-                  </p>
-                  <QueueInspector />
-                </Section>
+                <QueueInspector />
               )}
-
+              {activeTab === "warming" && (
+                <div className="glass-panel p-4 rounded-xl">
+                  <h3 className="text-base font-medium text-text-primary mb-4">Email Warming</h3>
+                  <WarmingSettings />
+                </div>
+              )}
+              {activeTab === "blacklist" && (
+                <div className="glass-panel p-4 rounded-xl">
+                  <h3 className="text-base font-medium text-text-primary mb-4">Blacklist Checker</h3>
+                  <BlacklistChecker />
+                </div>
+              )}
+              {activeTab === "bounce" && (
+                <div className="glass-panel p-4 rounded-xl">
+                  <h3 className="text-base font-medium text-text-primary mb-4">Bounce Manager</h3>
+                  <BounceManager />
+                </div>
+              )}
               {activeTab === "people" && (
                 <>
                   <Section title="Contacts">

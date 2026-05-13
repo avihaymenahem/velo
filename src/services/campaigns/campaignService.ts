@@ -15,6 +15,12 @@ export interface CampaignCreateInput {
   segmentId?: string;
   recipientContactIds?: string[];
   groupId?: string;
+  abTestConfig?: {
+    variantA: { subject: string; body: string };
+    variantB: { subject: string; body: string };
+    splitRatio: number;
+    testDurationHours: number;
+  };
 }
 
 export async function createCampaign(
@@ -51,6 +57,21 @@ export async function createCampaign(
     await addRecipientsBulk(campaignId, contactIds);
   }
 
+  if (input.abTestConfig) {
+    const { createABTest } = await import("@/services/campaigns/abTesting");
+    await createABTest(campaignId, {
+      variantA: input.abTestConfig.variantA,
+      variantB: input.abTestConfig.variantB,
+      splitRatio: input.abTestConfig.splitRatio,
+      testDurationHours: input.abTestConfig.testDurationHours,
+      winnerId: null,
+      startedAt: null,
+      endedAt: null,
+      significant: false,
+      pValue: null,
+    });
+  }
+
   return campaignId;
 }
 
@@ -69,7 +90,18 @@ export async function sendCampaign(campaignId: string): Promise<void> {
     "@/services/db/pendingOperations"
   );
 
+  const { getABTestConfig, assignVariant, setRecipientVariant, createABTest } = await import(
+    "@/services/campaigns/abTesting"
+  );
+
+  const abConfig = await getABTestConfig(campaignId);
+
   for (const recipient of recipients) {
+    if (abConfig) {
+      const variant = await assignVariant(recipient.contact_id, abConfig.splitRatio);
+      await setRecipientVariant(campaignId, recipient.contact_id, variant);
+    }
+
     await enqueuePendingOperation(
       campaign.account_id,
       "send_campaign_email",
@@ -78,9 +110,15 @@ export async function sendCampaign(campaignId: string): Promise<void> {
         campaignId,
         contactId: recipient.contact_id,
         templateId: campaign.template_id,
+        variant: abConfig ? undefined : undefined,
       },
       campaignId,
     );
+  }
+
+  if (abConfig && !abConfig.startedAt) {
+    abConfig.startedAt = Math.floor(Date.now() / 1000);
+    await createABTest(campaignId, abConfig);
   }
 
   await updateCampaignStatus(campaignId, "sent");
