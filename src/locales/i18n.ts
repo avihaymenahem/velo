@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import en from "./en/translation.json";
@@ -34,9 +35,16 @@ export function getBrowserLocale(): SupportedLocale {
   return "en";
 }
 
+let initPromise: Promise<typeof i18n> | null = null;
 let initialized = false;
 
 export async function initI18n(language?: string): Promise<typeof i18n> {
+  if (initPromise) return initPromise;
+  initPromise = doInit(language);
+  return initPromise;
+}
+
+async function doInit(language?: string): Promise<typeof i18n> {
   if (initialized) return i18n;
 
   const lng = language ?? getBrowserLocale();
@@ -61,8 +69,23 @@ export async function initI18n(language?: string): Promise<typeof i18n> {
   return i18n;
 }
 
-export function changeLanguage(lng: SupportedLocale): void {
-  i18n.changeLanguage(lng);
+export async function changeLanguage(lng: SupportedLocale): Promise<void> {
+  if (!initialized) {
+    await initI18n();
+  }
+  await i18n.changeLanguage(lng);
+}
+
+export function useI18nReady(): boolean {
+  const [ready, setReady] = useState(initialized);
+  useEffect(() => {
+    if (!initialized) {
+      initI18n().then(() => setReady(true));
+    } else {
+      setReady(true);
+    }
+  }, []);
+  return ready;
 }
 
 export { i18n };

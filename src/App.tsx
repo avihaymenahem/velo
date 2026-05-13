@@ -196,7 +196,7 @@ export default function App() {
         await initI18n();
         const savedLocale = await getSetting("locale");
         if (savedLocale && SUPPORTED_LOCALES.includes(savedLocale as SupportedLocale)) {
-          changeLanguage(savedLocale as SupportedLocale);
+          await changeLanguage(savedLocale as SupportedLocale);
           useUIStore.getState().setLocale(savedLocale as SupportedLocale);
         }
 

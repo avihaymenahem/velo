@@ -289,9 +289,9 @@ pub fn run() {
             }
 
             // Spawn background backup scheduler
-            let app_handle = app.handle().clone();
-            std::thread::spawn(move || {
-                export::scheduler::run_backup_scheduler(app_handle);
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                export::scheduler::run_backup_scheduler(handle).await;
             });
 
             Ok(())
