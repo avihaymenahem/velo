@@ -4,6 +4,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { queryWithRetry } from "@/services/db/connection";
 import { getPendingOpsCount, clearFailedOperations, retryFailedOperations } from "@/services/db/pendingOperations";
 import { stopQueueProcessor, startQueueProcessor } from "@/services/queue/queueProcessor";
+import { getQueuePaused, setQueuePaused } from "@/services/db/settings";
 
 interface QueueOperation {
   id: string;
@@ -58,6 +59,7 @@ export function QueueInspector() {
 
   useEffect(() => {
     loadOperations();
+    getQueuePaused().then(setPaused);
     const interval = setInterval(loadOperations, 10_000);
     return () => clearInterval(interval);
   }, [loadOperations]);
@@ -66,9 +68,11 @@ export function QueueInspector() {
     if (paused) {
       startQueueProcessor();
       setPaused(false);
+      await setQueuePaused(false);
     } else {
       stopQueueProcessor();
       setPaused(true);
+      await setQueuePaused(true);
     }
   }
 
