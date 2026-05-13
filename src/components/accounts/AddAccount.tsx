@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useReducer, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Mail, Calendar, ShieldCheck, CheckCircle2, Settings, Plug, Loader2 } from "lucide-react";
 import { startOAuthFlow } from "@/services/gmail/auth";
@@ -16,7 +16,32 @@ interface AddAccountProps {
   onSuccess: () => void;
 }
 
-type View = "select-provider" | "gmail" | "gmail-easy" | "gmail-fast-sync" | "imap" | "caldav" | "done";
+type Step = "select-provider" | "gmail-method" | "gmail-fast-sync" | "gmail-easy" | "imap" | "caldav" | "done";
+
+type AccountSetupState = {
+  step: Step;
+  status: "idle" | "checking" | "authenticating" | "saving" | "error";
+  error: string | null;
+};
+
+type Action =
+  | { type: "GO_TO"; step: Step }
+  | { type: "SET_STATUS"; status: AccountSetupState["status"] }
+  | { type: "SET_ERROR"; error: string }
+  | { type: "RESET" };
+
+function reducer(state: AccountSetupState, action: Action): AccountSetupState {
+  switch (action.type) {
+    case "GO_TO":
+      return { step: action.step, status: "idle", error: null };
+    case "SET_STATUS":
+      return { ...state, status: action.status, error: action.status === "error" ? state.error : null };
+    case "SET_ERROR":
+      return { ...state, status: "error", error: action.error };
+    case "RESET":
+      return { step: "select-provider", status: "idle", error: null };
+  }
+}
 
 const ONBOARDING_STEPS = [
   { step: 1, label: "Setup", icon: Settings },
@@ -64,18 +89,26 @@ function OnboardingStepIndicator({ currentStep }: { currentStep: number }) {
 
 export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
   const { t } = useTranslation();
-  const [view, setView] = useState<View>("select-provider");
-  const [status, setStatus] = useState<
-    "idle" | "checking" | "authenticating" | "error"
-  >("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [{ step, status, error }, dispatch] = useReducer(reducer, {
+    step: "select-provider",
+    status: "idle",
+    error: null,
+  });
   const [needsSetup, setNeedsSetup] = useState(false);
   const addAccount = useAccountStore((s) => s.addAccount);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const abortOAuth = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  };
 
   const onboardingStep = (() => {
-    switch (view) {
+    switch (step) {
       case "select-provider":
-      case "gmail":
+      case "gmail-method":
         return 1;
       case "gmail-easy":
       case "imap":
@@ -89,15 +122,22 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
   })();
 
   const handleAddGmailAccount = async () => {
-    setStatus("checking");
-    setError(null);
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    dispatch({ type: "SET_STATUS", status: "checking" });
 
     try {
       const clientId = await getClientId();
       const clientSecret = await getClientSecret();
-      setStatus("authenticating");
+
+      if (ac.signal.aborted) return;
+
+      dispatch({ type: "SET_STATUS", status: "authenticating" });
 
       const { tokens, userInfo } = await startOAuthFlow(clientId, clientSecret);
+
+      if (ac.signal.aborted) return;
 
       const accountId = crypto.randomUUID();
       const expiresAt = getCurrentUnixTimestamp() + tokens.expires_in;
@@ -112,6 +152,8 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
         tokenExpiresAt: expiresAt,
       });
 
+      if (ac.signal.aborted) return;
+
       addAccount({
         id: accountId,
         email: userInfo.email,
@@ -120,16 +162,21 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
         isActive: true,
       });
 
-      setView("done");
+      abortRef.current = null;
+      dispatch({ type: "GO_TO", step: "done" });
     } catch (err) {
+      if (ac.signal.aborted) {
+        abortRef.current = null;
+        return;
+      }
+      abortRef.current = null;
       console.error("Add account error:", err);
       const message =
         err instanceof Error ? err.message : String(err);
       if (message.includes("Client ID not configured")) {
         setNeedsSetup(true);
       } else {
-        setError(message);
-        setStatus("error");
+        dispatch({ type: "SET_ERROR", error: message });
       }
     }
   };
@@ -139,39 +186,39 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
       <SetupClientId
         onComplete={() => {
           setNeedsSetup(false);
-          setStatus("idle");
+          dispatch({ type: "SET_STATUS", status: "idle" });
         }}
         onCancel={onClose}
       />
     );
   }
 
-  if (view === "caldav") {
+  if (step === "caldav") {
     return (
       <AddCalDavAccount
         onClose={onClose}
         onSuccess={onSuccess}
-        onBack={() => setView("select-provider")}
+        onBack={() => dispatch({ type: "GO_TO", step: "select-provider" })}
       />
     );
   }
 
-  if (view === "imap") {
+  if (step === "imap") {
     return (
       <AddImapAccount
         onClose={onClose}
         onSuccess={onSuccess}
-        onBack={() => setView("select-provider")}
+        onBack={() => dispatch({ type: "GO_TO", step: "select-provider" })}
       />
     );
   }
 
-  if (view === "gmail-easy") {
+  if (step === "gmail-easy") {
     return (
       <AddImapAccount
         onClose={onClose}
         onSuccess={onSuccess}
-        onBack={() => setView("select-provider")}
+        onBack={() => dispatch({ type: "GO_TO", step: "select-provider" })}
         prefill={{
           imapHost: "imap.gmail.com",
           imapPort: 993,
@@ -184,7 +231,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
     );
   }
 
-  if (view === "done") {
+  if (step === "done") {
     return (
       <Modal isOpen={true} onClose={onClose} title="Add Account" width="w-full max-w-md">
         <div className="p-4">
@@ -211,7 +258,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
     );
   }
 
-  if (view === "gmail") {
+  if (step === "gmail-method") {
     return (
       <Modal isOpen={true} onClose={onClose} title="Add Gmail Account" width="w-full max-w-md">
         <div className="p-4">
@@ -222,11 +269,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
 
           <div className="space-y-3 mb-6">
             <button
-              onClick={() => {
-                setView("gmail-easy");
-                setStatus("idle");
-                setError(null);
-              }}
+              onClick={() => dispatch({ type: "GO_TO", step: "gmail-easy" })}
               className="w-full flex items-center gap-4 p-4 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-hover transition-colors text-left group"
             >
               <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-bg-tertiary flex items-center justify-center">
@@ -243,7 +286,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
             </button>
 
             <button
-              onClick={() => setView("gmail-fast-sync")}
+              onClick={() => dispatch({ type: "GO_TO", step: "gmail-fast-sync" })}
               className="w-full flex items-center gap-4 p-4 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-hover transition-colors text-left group"
             >
               <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-bg-tertiary flex items-center justify-center">
@@ -279,11 +322,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
 
           <div className="flex gap-3 justify-between">
             <button
-              onClick={() => {
-                setView("select-provider");
-                setStatus("idle");
-                setError(null);
-              }}
+              onClick={() => dispatch({ type: "GO_TO", step: "select-provider" })}
               className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
             >
               Back
@@ -300,7 +339,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
     );
   }
 
-  if (view === "gmail-fast-sync") {
+  if (step === "gmail-fast-sync") {
     return (
       <Modal isOpen={true} onClose={onClose} title="Add Gmail Account" width="w-full max-w-md">
         <div className="p-4">
@@ -320,9 +359,8 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
               <div className="flex gap-3 justify-between">
                 <button
                   onClick={() => {
-                    setView("select-provider");
-                    setStatus("idle");
-                    setError(null);
+                    abortOAuth();
+                    dispatch({ type: "GO_TO", step: "gmail-method" });
                   }}
                   className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
                 >
@@ -346,16 +384,36 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
               </div>
             </>
           ) : status === "authenticating" ? (
-            <div className="text-center py-8">
-              <div className="mb-4 flex justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-accent" />
+            <div>
+              <div className="text-center py-8">
+                <div className="mb-4 flex justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-accent" />
+                </div>
+                <p className="text-text-secondary text-sm mb-2">
+                  Waiting for Google sign-in...
+                </p>
+                <p className="text-xs text-text-tertiary">
+                  Complete the sign-in in your browser, then return here.
+                </p>
               </div>
-              <p className="text-text-secondary text-sm mb-2">
-                Waiting for Google sign-in...
-              </p>
-              <p className="text-xs text-text-tertiary">
-                Complete the sign-in in your browser, then return here.
-              </p>
+
+              {error && (
+                <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 mb-4 text-sm text-danger">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex justify-center mt-2">
+                <button
+                  onClick={() => {
+                    abortOAuth();
+                    dispatch({ type: "GO_TO", step: "gmail-method" });
+                  }}
+                  className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           ) : null}
         </div>
@@ -374,7 +432,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
 
         <div className="space-y-3">
           <button
-            onClick={() => setView("gmail")}
+            onClick={() => dispatch({ type: "GO_TO", step: "gmail-method" })}
             className="w-full flex items-center gap-4 p-4 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-hover transition-colors text-left group"
           >
             <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-bg-tertiary flex items-center justify-center">
@@ -408,7 +466,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
           </button>
 
           <button
-            onClick={() => setView("imap")}
+            onClick={() => dispatch({ type: "GO_TO", step: "imap" })}
             className="w-full flex items-center gap-4 p-4 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-hover transition-colors text-left group"
           >
             <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-bg-tertiary flex items-center justify-center">
@@ -425,7 +483,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
           </button>
 
           <button
-            onClick={() => setView("caldav")}
+            onClick={() => dispatch({ type: "GO_TO", step: "caldav" })}
             className="w-full flex items-center gap-4 p-4 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-hover transition-colors text-left group"
           >
             <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-bg-tertiary flex items-center justify-center">
