@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,6 +23,7 @@ interface AddCalDavAccountProps {
 type Step = "basic" | "server" | "test" | "done";
 
 export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccountProps) {
+  const { t } = useTranslation();
   const addAccount = useAccountStore((s) => s.addAccount);
   const [step, setStep] = useState<Step>("basic");
 
@@ -135,14 +137,14 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
                 className="flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
               >
                 <ArrowLeft size={14} />
-                Back
+                {t("account.back")}
               </button>
               <button
                 onClick={handleDiscoverAndNext}
                 disabled={!email.trim()}
                 className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
               >
-                Next
+                {t("account.next")}
                 <ArrowRight size={14} />
               </button>
             </div>
@@ -164,7 +166,7 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
             )}
 
             <TextField
-              label="CalDAV Server URL"
+              label={t("account.caldavUrl")}
               type="url"
               value={caldavUrl}
               onChange={(e) => setCaldavUrl(e.target.value)}
@@ -172,7 +174,7 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
             />
 
             <TextField
-              label="Username"
+              label={t("account.caldavUsername")}
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -180,7 +182,7 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
             />
 
             <TextField
-              label={needsAppPassword ? "App Password" : "Password"}
+              label={t("account.caldavPassword")}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -193,14 +195,14 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
                 className="flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
               >
                 <ArrowLeft size={14} />
-                Back
+                {t("account.back")}
               </button>
               <button
                 onClick={() => { setStep("test"); handleTest(); }}
                 disabled={!caldavUrl || !password}
                 className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
               >
-                Test & Connect
+                {t("account.test")}
                 <ArrowRight size={14} />
               </button>
             </div>
@@ -244,7 +246,7 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
                 className="flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
               >
                 <ArrowLeft size={14} />
-                Back
+                {t("account.back")}
               </button>
 
               {testResult?.success ? (
@@ -253,14 +255,14 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
                   disabled={creating}
                   className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
                 >
-                  {creating ? "Creating..." : "Add Account"}
+                  {creating ? "Creating..." : t("account.save")}
                 </button>
               ) : !testing ? (
                 <button
                   onClick={handleTest}
                   className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors"
                 >
-                  Retry
+                  {t("account.test")}
                 </button>
               ) : null}
             </div>
