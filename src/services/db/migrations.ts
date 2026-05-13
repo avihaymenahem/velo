@@ -1047,9 +1047,31 @@ const MIGRATIONS = [
          created_at INTEGER DEFAULT (unixepoch())
        );
        CREATE INDEX IF NOT EXISTS idx_snooze_presets_account ON snooze_presets(account_id);
-     `,
-   },
- ];
+      `,
+    },
+    {
+      version: 39,
+      description: "Seed built-in template presets",
+      sql: `
+        INSERT OR IGNORE INTO templates (id, account_id, name, subject, body_html, shortcut, is_favorite) VALUES
+          ('preset-followup', NULL, 'Follow-up', 'Checking in',
+           '<p>Hi {{first_name}},</p><p>I wanted to follow up on our previous conversation. Have you had a chance to think about it?</p><p>Best regards,<br>{{my_name}}</p>',
+           'fu', 1),
+          ('preset-thankyou', NULL, 'Thank You', 'Thank you',
+           '<p>Hi {{first_name}},</p><p>Thank you so much for your time. I really appreciate it.</p><p>Best regards,<br>{{my_name}}</p>',
+           'ty', 1),
+          ('preset-intro', NULL, 'Introduction', 'Introduction',
+           '<p>Hi {{first_name}},</p><p>I''m reaching out to introduce myself. I work at {{company}} and would love to connect.</p><p>Best regards,<br>{{my_name}}</p>',
+           'intro', 0),
+          ('preset-meeting', NULL, 'Meeting Request', 'Meeting request',
+           '<p>Hi {{first_name}},</p><p>Would you be available for a 30-minute call next week to discuss {{subject}}?</p><p>Best regards,<br>{{my_name}}</p>',
+           'mtg', 1),
+          ('preset-proposal', NULL, 'Proposal', 'Proposal: {{subject}}',
+           '<p>Hi {{first_name}},</p><p>Following up on our discussion, I''d like to share a proposal for {{subject}}.</p><p>Best regards,<br>{{my_name}}</p>',
+           'prop', 0);
+      `,
+    },
+  ];
 
 /**
  * Split a SQL string into individual statements, correctly handling
