@@ -41,6 +41,8 @@ import {
   Loader2,
   type LucideIcon,
 } from "lucide-react";
+
+const isMac = navigator.userAgent.includes("Macintosh");
 import { useTaskStore } from "@/stores/taskStore";
 
 interface SidebarProps {
@@ -410,9 +412,10 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
 
   return (
     <aside
-      className={`sidebar no-select flex flex-col bg-sidebar-bg text-sidebar-text border-r border-border-primary transition-all duration-200 glass-panel ${collapsed ? "w-16" : "w-90"
+      className={`sidebar no-select flex flex-col bg-sidebar-bg text-sidebar-text border-r border-border-primary transition-all duration-200 glass-panel ${collapsed ? "w-20" : "w-90"
         }`}
     >
+      {isMac && <div className="h-7 shrink-0" data-tauri-drag-region />}
       <AccountSwitcher collapsed={collapsed} onAddAccount={onAddAccount} />
 
       <nav className={`flex-1 overflow-y-auto py-2 ${isScrolling ? 'scrollbar-visible' : 'scrollbar-hidden'}`}>

@@ -24,44 +24,43 @@ export function TitleBar() {
   const handleMaximize = () => getCurrentWindow().toggleMaximize();
   const handleClose = () => getCurrentWindow().close();
 
+  // On macOS traffic lights live in the sidebar — no top bar needed
+  if (isMac) return null;
+
   return (
     <div
       data-tauri-drag-region
       className="title-bar flex items-center justify-between h-9 bg-sidebar-bg border-b border-border-primary select-none shrink-0"
     >
-      {/* App title — left side (extra padding on macOS for traffic light buttons) */}
-      <div data-tauri-drag-region className={`flex items-center gap-2 ${isMac ? "pl-20" : "pl-4"}`}>
+      <div data-tauri-drag-region className="flex items-center gap-2 pl-4">
         <span data-tauri-drag-region className="text-xs font-semibold text-sidebar-text tracking-wide">
           Velo
         </span>
       </div>
 
-      {/* Window controls — right side (hidden on macOS, uses native traffic lights) */}
-      {!isMac && (
-        <div className="flex items-center h-full">
-          <button
-            onClick={handleMinimize}
-            className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-sidebar-hover transition-colors"
-            title="Minimize"
-          >
-            <Minus size={14} />
-          </button>
-          <button
-            onClick={handleMaximize}
-            className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-sidebar-hover transition-colors"
-            title={maximized ? "Restore" : "Maximize"}
-          >
-            {maximized ? <Copy size={12} /> : <Square size={12} />}
-          </button>
-          <button
-            onClick={handleClose}
-            className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-danger hover:text-white transition-colors"
-            title="Close"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
+      <div className="flex items-center h-full">
+        <button
+          onClick={handleMinimize}
+          className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-sidebar-hover transition-colors"
+          title="Minimize"
+        >
+          <Minus size={14} />
+        </button>
+        <button
+          onClick={handleMaximize}
+          className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-sidebar-hover transition-colors"
+          title={maximized ? "Restore" : "Maximize"}
+        >
+          {maximized ? <Copy size={12} /> : <Square size={12} />}
+        </button>
+        <button
+          onClick={handleClose}
+          className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-danger hover:text-white transition-colors"
+          title="Close"
+        >
+          <X size={14} />
+        </button>
+      </div>
     </div>
   );
 }

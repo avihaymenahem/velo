@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Velo",
+        "title": "",
         "width": 1680,
         "height": 800,
         "minWidth": 1120,
@@ -21,6 +21,7 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": true,
+        "transparent": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "visible": false,
