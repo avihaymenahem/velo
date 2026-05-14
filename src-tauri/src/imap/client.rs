@@ -681,32 +681,42 @@ pub async fn get_folder_status(
 }
 
 /// Fetch a specific MIME part (attachment) by UID and part ID.
-/// Returns the decoded binary data as standard base64.
+/// Returns the content as standard base64, ready for a `data:` URI.
 ///
-/// Fetches the full message via `BODY.PEEK[]`, parses it with `mail-parser`
-/// (which handles all content-transfer-encoding decoding), and extracts
-/// the requested part's decoded bytes.
+/// Uses `BODY.PEEK[section]` to download only the requested part — avoids
+/// pulling the entire message for a single attachment.
 pub async fn fetch_attachment(
     session: &mut ImapSession,
     folder: &str,
     uid: u32,
     part_id: &str,
 ) -> Result<String, String> {
+    use async_imap::imap_proto::types::SectionPath;
+
+    // Parse "2" or "1.2" into Vec<u32> for the IMAP section path.
+    let part_nums: Vec<u32> = part_id
+        .split('.')
+        .map(|s| s.parse::<u32>().map_err(|_| format!("Invalid part ID segment in: {part_id}")))
+        .collect::<Result<Vec<_>, _>>()?;
+    let section_path = SectionPath::Part(part_nums, None);
+
     tokio::time::timeout(IMAP_CMD_TIMEOUT, session.select(folder))
         .await
         .map_err(|_| format!("SELECT {folder} timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))?
         .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
 
     let uid_str = uid.to_string();
+    // Fetch only the requested MIME part — avoids downloading the entire message.
+    let fetch_cmd = format!("BODY.PEEK[{part_id}]");
     let fetches: Vec<_> = tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
         let stream = session
-            .uid_fetch(&uid_str, "BODY.PEEK[]")
+            .uid_fetch(&uid_str, fetch_cmd.as_str())
             .await
-            .map_err(|e| format!("UID FETCH attachment failed: {e}"))?;
+            .map_err(|e| format!("UID FETCH attachment section failed: {e}"))?;
         Ok::<_, String>(stream.collect::<Vec<_>>().await)
     })
     .await
-    .map_err(|_| format!("UID FETCH attachment timed out after {}s — check your server settings or network connection", IMAP_FETCH_TIMEOUT.as_secs()))?
+    .map_err(|_| format!("UID FETCH attachment section timed out after {}s — check your server settings or network connection", IMAP_FETCH_TIMEOUT.as_secs()))?
     ?
     .into_iter()
     .filter_map(|r| r.ok())
@@ -716,46 +726,19 @@ pub async fn fetch_attachment(
         .first()
         .ok_or_else(|| format!("No response for UID {uid}"))?;
 
-    let raw = fetch
-        .body()
-        .ok_or_else(|| format!("No body for UID {uid}"))?;
+    // BODY[section] returns the raw part body with Content-Transfer-Encoding intact.
+    // For base64-encoded attachments (images, binaries), this is base64 text with
+    // MIME line breaks (76-char lines per RFC 2045). Strip whitespace to get clean base64.
+    // For non-UTF-8 binary (rare, CTE=binary or 8bit), re-encode to base64.
+    let section_bytes = fetch
+        .section(&section_path)
+        .ok_or_else(|| format!("Section {part_id} not found in FETCH response for UID {uid}"))?;
 
-    // Parse the full message — mail-parser decodes content-transfer-encoding
-    let parser = MessageParser::default();
-    let message = parser
-        .parse(raw)
-        .ok_or_else(|| format!("Failed to parse message UID {uid}"))?;
+    let base64_str = std::str::from_utf8(section_bytes)
+        .map(|s| s.split_whitespace().collect::<String>())
+        .unwrap_or_else(|_| base64::engine::general_purpose::STANDARD.encode(section_bytes));
 
-    // Build section map and find the part index for the requested section path
-    let section_map = build_imap_section_map(&message);
-    let target_part_idx = section_map
-        .iter()
-        .find(|(_, section)| section.as_str() == part_id)
-        .map(|(&idx, _)| idx)
-        .ok_or_else(|| format!("Section {part_id} not found in message UID {uid}"))?;
-
-    let part = message
-        .parts
-        .get(target_part_idx)
-        .ok_or_else(|| format!("Part index {target_part_idx} out of range for UID {uid}"))?;
-
-    // Extract the decoded binary content from the part
-    let data = match &part.body {
-        mail_parser::PartType::Binary(data) | mail_parser::PartType::InlineBinary(data) => {
-            data.as_ref().to_vec()
-        }
-        mail_parser::PartType::Text(text) => text.as_bytes().to_vec(),
-        mail_parser::PartType::Html(html) => html.as_bytes().to_vec(),
-        mail_parser::PartType::Message(msg) => {
-            // Nested message — encode the raw bytes
-            msg.raw_message.as_ref().to_vec()
-        }
-        mail_parser::PartType::Multipart(_) => {
-            return Err(format!("Part {part_id} is a multipart container, not a leaf part"));
-        }
-    };
-
-    Ok(base64::engine::general_purpose::STANDARD.encode(&data))
+    Ok(base64_str)
 }
 
 /// Fetch the raw RFC822 source of a single message by UID.

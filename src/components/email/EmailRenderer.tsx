@@ -135,9 +135,13 @@ export function EmailRenderer({
       var d = e.data;
       if (!d) return;
       if (d.type === 'cid') {
-        document.querySelectorAll('img[data-cid]').forEach(function(img) {
+        var imgs = document.querySelectorAll('img[data-cid]');
+        console.log('[CID-DBG iframe] got cid msg, img[data-cid] count:', imgs.length, 'map keys:', Object.keys(d.map));
+        imgs.forEach(function(img) {
           var cid = (img.getAttribute('data-cid') || '').replace(/[<>]/g, '').trim();
-          if (cid && d.map[cid]) img.setAttribute('src', d.map[cid]);
+          var found = !!(cid && d.map[cid]);
+          console.log('[CID-DBG iframe] cid="' + cid + '" → match=' + found);
+          if (found) img.setAttribute('src', d.map[cid]);
         });
       } else if (d.type === 'cidFailed') {
         var failed = d.cids || [];
@@ -181,9 +185,10 @@ export function EmailRenderer({
   useEffect(() => {
     cidMapRef.current = cidMap;
     if (!cidMap || cidMap.size === 0) return;
-    iframeRef.current?.contentWindow?.postMessage(
-      { type: "cid", map: Object.fromEntries(cidMap) }, "*"
-    );
+    console.log(`[CID-DBG] sending postMessage cid to iframe, keys:`, [...cidMap.keys()]);
+    const win = iframeRef.current?.contentWindow;
+    if (!win) { console.warn("[CID-DBG] iframe contentWindow null — message not sent"); return; }
+    win.postMessage({ type: "cid", map: Object.fromEntries(cidMap) }, "*");
   }, [cidMap]);
 
   // Push failed CIDs to the iframe so it can render a placeholder.

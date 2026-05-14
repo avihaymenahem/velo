@@ -55,23 +55,28 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
         // that limit concurrent logins, so retrying on a fixed timer can mean waiting
         // through the full fetch timeout (up to minutes) rather than seconds.
         let data: string | null = null;
+        console.log(`[CID-DBG] fetching cid="${att.content_id}" attachmentId="${attachmentId}" msgId="${message.id}"`);
         try {
           ({ data } = await provider.fetchAttachment(message.id, attachmentId));
-        } catch {
-          // First attempt failed — wait for sync to signal completion, then retry once.
+          console.log(`[CID-DBG] fetch OK, data.length=${data.length}`);
+        } catch (err) {
+          console.warn(`[CID-DBG] fetch attempt 1 failed:`, err, `— waiting for velo-sync-done`);
           await new Promise<void>((resolve) => {
             const done = () => resolve();
             document.addEventListener("velo-sync-done", done, { once: true });
-            setTimeout(done, 30_000); // fallback: don't wait forever
+            setTimeout(done, 30_000);
           });
+          console.log(`[CID-DBG] retrying after sync-done`);
           try {
             ({ data } = await provider.fetchAttachment(message.id, attachmentId));
-          } catch {
-            // Both attempts failed
+            console.log(`[CID-DBG] retry OK, data.length=${data.length}`);
+          } catch (err2) {
+            console.error(`[CID-DBG] retry also failed:`, err2);
           }
         }
 
         if (!data) {
+          console.warn(`[CID-DBG] no data for cid="${att.content_id}" → marking failed`);
           failed.push(att.content_id.replace(/[<>]/g, "").trim());
           continue;
         }
@@ -88,6 +93,7 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
         newMap.set(cidKey, dataUri);
       }
 
+      console.log(`[CID-DBG] done — resolved=${newMap.size} failed=${failed.length}`, [...newMap.keys()]);
       if (newMap.size > 0) setCidMap(newMap);
       if (failed.length > 0) setCidFailed(new Set(failed));
     } catch {
