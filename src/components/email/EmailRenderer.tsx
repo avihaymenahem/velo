@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useMemo, useCallback, useState } from "react";
 import { ImageOff } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { stripRemoteImages, hasBlockedImages } from "@/utils/imageBlocker";
@@ -26,8 +26,6 @@ export function EmailRenderer({
   cidMap,
 }: EmailRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const observerRef = useRef<ResizeObserver | null>(null);
-  const rafRef = useRef<number>(0);
   const [overrideShow, setOverrideShow] = useState(false);
 
   const theme = useUIStore((s) => s.theme);
@@ -55,6 +53,13 @@ export function EmailRenderer({
 
     if (shouldBlock && sanitizedBody) {
       body = stripRemoteImages(body);
+    }
+
+    // Rewrite anchor hrefs to data-link before injecting into the iframe so
+    // the webview can never navigate to an external URL — the inline script
+    // below intercepts clicks and postMessages the URL to the parent instead.
+    if (sanitizedBody) {
+      body = rewriteLinksForSrcdoc(body);
     }
 
     return body;
@@ -86,6 +91,7 @@ export function EmailRenderer({
     }
     img { max-width: 100%; height: auto; }
     a { color: ${plainTextDark ? "#60a5fa" : "#3b82f6"}; }
+    a[data-link] { cursor: pointer; }
     blockquote {
       border-left: 3px solid ${plainTextDark ? "#4b5563" : "#d1d5db"};
       margin: 8px 0;
@@ -96,49 +102,43 @@ export function EmailRenderer({
     table { max-width: 100%; }
   </style>
 </head>
-<body>${bodyHtml}</body>
+<body>${bodyHtml}<script>(function () {
+  function sendHeight() {
+    try { window.parent.postMessage({ type: 'height', value: document.body.scrollHeight }, '*'); } catch (e) {}
+  }
+  new ResizeObserver(sendHeight).observe(document.body);
+  sendHeight();
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    while (el && el.tagName !== 'A') el = el.parentElement;
+    if (!el) return;
+    var href = el.getAttribute('data-link');
+    if (!href) return;
+    e.preventDefault();
+    try { window.parent.postMessage({ type: 'link', href: href }, '*'); } catch (e2) {}
+  });
+})();<\/script>
+</body>
 </html>`;
   }, [bodyHtml, isDark, isPlainText]);
 
-  // Disconnect observer on unmount
+  // Receive height updates and link clicks from the sandboxed iframe via postMessage.
   useEffect(() => {
-    return () => {
-      observerRef.current?.disconnect();
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
-
-  const handleLoad = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    observerRef.current?.disconnect();
-
-    const doc = iframe.contentDocument;
-    if (!doc?.body) return;
-
-    const applyHeight = () => {
-      const h = doc.body.scrollHeight;
-      if (h > 0) iframe.style.height = h + "px";
-    };
-    applyHeight();
-
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(applyHeight);
-    });
-    ro.observe(doc.body);
-    observerRef.current = ro;
-
-    doc.addEventListener("click", (e) => {
-      const anchor = (e.target as HTMLElement).closest("a");
-      if (anchor?.href) {
-        e.preventDefault();
-        openUrl(anchor.href).catch((err) => {
-          console.error("Failed to open link:", err);
-        });
+    const handleMessage = (e: MessageEvent) => {
+      if (!iframeRef.current || e.source !== iframeRef.current.contentWindow) return;
+      const data = e.data as { type: string; value?: unknown; href?: unknown };
+      if (data?.type === "height") {
+        const h = Number(data.value);
+        if (h > 0 && iframeRef.current) iframeRef.current.style.height = h + "px";
+      } else if (data?.type === "link") {
+        const href = String(data.href ?? "");
+        if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("mailto:")) {
+          openUrl(href).catch((err) => console.error("Failed to open link:", err));
+        }
       }
-    });
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
   }, []);
 
   const handleLoadImages = useCallback(() => {
@@ -178,9 +178,8 @@ export function EmailRenderer({
       )}
       <iframe
         ref={iframeRef}
-        sandbox="allow-same-origin"
+        sandbox="allow-scripts"
         srcDoc={srcdoc}
-        onLoad={handleLoad}
         className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
         style={{ overflow: "hidden", minHeight: "40px" }}
         title="Email content"
@@ -191,4 +190,18 @@ export function EmailRenderer({
 
 function escapeCidRegex(cid: string): string {
   return cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Replaces every <a href="…"> with <a data-link="…"> (no href) before the
+// content is injected into the sandboxed iframe. The inline script sends a
+// postMessage to the parent on click; the parent calls openUrl to open
+// the URL in the system browser.
+function rewriteLinksForSrcdoc(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll("a[href]").forEach((el) => {
+    const href = el.getAttribute("href") ?? "";
+    el.setAttribute("data-link", href);
+    el.removeAttribute("href");
+  });
+  return doc.body.innerHTML;
 }
