@@ -840,8 +840,8 @@ const [hasMore, setHasMore] = useState(true);
       />
 
       {/* Header */}
-      <div className="px-4 py-2 border-b border-border-primary flex items-center justify-between">
-        <div>
+      <div data-tauri-drag-region className="px-4 py-2 border-b border-border-primary flex items-center justify-between">
+        <div data-tauri-drag-region>
           <h2 className="text-sm font-semibold text-text-primary capitalize flex items-center gap-1.5">
             {isSmartFolder && (
               <FolderSearch size={14} className="text-accent shrink-0" />

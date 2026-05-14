@@ -555,7 +555,7 @@ const handlePrint = useCallback(async () => {
         />
 
         {/* Thread subject */}
-        <div className="px-6 py-3 border-b border-border-primary">
+        <div data-tauri-drag-region className="px-6 py-3 border-b border-border-primary">
           <h1 className="text-lg font-semibold text-text-primary flex items-center gap-2">
             {thread.subject ?? "(No subject)"}
             {thread.isMuted && (

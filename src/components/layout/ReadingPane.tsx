@@ -78,7 +78,7 @@ export function ReadingPane() {
 
   if (loading && !thread) {
     return (
-      <div className="flex-1 flex flex-col bg-bg-primary/50 glass-panel">
+      <div data-tauri-drag-region className="flex-1 flex flex-col bg-bg-primary/50 glass-panel">
         <div className="flex-1 flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-accent/20 border-t-accent rounded-full animate-spin" />
         </div>
@@ -88,7 +88,7 @@ export function ReadingPane() {
 
   if (!thread) {
     return (
-      <div className="flex-1 flex flex-col bg-bg-primary/50 glass-panel">
+      <div data-tauri-drag-region className="flex-1 flex flex-col bg-bg-primary/50 glass-panel">
         <EmptyState
           illustration={ReadingPaneIllustration}
           title="Melo"
