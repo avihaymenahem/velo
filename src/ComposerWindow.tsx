@@ -233,10 +233,9 @@ export default function ComposerWindow() {
     import("@tauri-apps/api/webviewWindow").then(({ getCurrentWebviewWindow }) => {
       const win = getCurrentWebviewWindow();
       win.onCloseRequested(async (event) => {
+        if (!useComposerStore.getState().isOpen) return;
         event.preventDefault();
-        if (useComposerStore.getState().isOpen) {
-          await saveNow();
-        }
+        await saveNow();
         await win.destroy();
       }).then((fn) => { unlisten = fn; });
     }).catch(() => {});

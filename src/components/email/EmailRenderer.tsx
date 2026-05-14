@@ -1,10 +1,12 @@
-import { useRef, useEffect, useMemo, useCallback, useState } from "react";
+import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import { ImageOff } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { stripRemoteImages, hasBlockedImages } from "@/utils/imageBlocker";
 import { addToAllowlist } from "@/services/db/imageAllowlist";
 import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { useUIStore } from "@/stores/uiStore";
+import { useComposerStore } from "@/stores/composerStore";
+import { parseMailtoUrl } from "@/utils/mailtoParser";
 
 interface EmailRendererProps {
   html: string | null;
@@ -26,6 +28,8 @@ export function EmailRenderer({
   cidMap,
 }: EmailRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const rafRef = useRef<number>(0);
   const [overrideShow, setOverrideShow] = useState(false);
 
   const theme = useUIStore((s) => s.theme);
@@ -56,8 +60,7 @@ export function EmailRenderer({
     }
 
     // Rewrite anchor hrefs to data-link before injecting into the iframe so
-    // the webview can never navigate to an external URL — the inline script
-    // below intercepts clicks and postMessages the URL to the parent instead.
+    // the webview can never navigate to an external URL on click.
     if (sanitizedBody) {
       body = rewriteLinksForSrcdoc(body);
     }
@@ -76,6 +79,7 @@ export function EmailRenderer({
     return `<!DOCTYPE html>
 <html>
 <head>
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
   <style>
     body {
       margin: 0;
@@ -102,43 +106,54 @@ export function EmailRenderer({
     table { max-width: 100%; }
   </style>
 </head>
-<body>${bodyHtml}<script>(function () {
-  function sendHeight() {
-    try { window.parent.postMessage({ type: 'height', value: document.body.scrollHeight }, '*'); } catch (e) {}
-  }
-  new ResizeObserver(sendHeight).observe(document.body);
-  sendHeight();
-  document.addEventListener('click', function (e) {
-    var el = e.target;
-    while (el && el.tagName !== 'A') el = el.parentElement;
-    if (!el) return;
-    var href = el.getAttribute('data-link');
-    if (!href) return;
-    e.preventDefault();
-    try { window.parent.postMessage({ type: 'link', href: href }, '*'); } catch (e2) {}
-  });
-})();<\/script>
-</body>
+<body>${bodyHtml}</body>
 </html>`;
   }, [bodyHtml, isDark, isPlainText]);
 
-  // Receive height updates and link clicks from the sandboxed iframe via postMessage.
   useEffect(() => {
-    const handleMessage = (e: MessageEvent) => {
-      if (!iframeRef.current || e.source !== iframeRef.current.contentWindow) return;
-      const data = e.data as { type: string; value?: unknown; href?: unknown };
-      if (data?.type === "height") {
-        const h = Number(data.value);
-        if (h > 0 && iframeRef.current) iframeRef.current.style.height = h + "px";
-      } else if (data?.type === "link") {
-        const href = String(data.href ?? "");
-        if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("mailto:")) {
-          openUrl(href).catch((err) => console.error("Failed to open link:", err));
-        }
-      }
+    return () => {
+      observerRef.current?.disconnect();
+      cancelAnimationFrame(rafRef.current);
     };
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  const handleLoad = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    observerRef.current?.disconnect();
+
+    const doc = iframe.contentDocument;
+    if (!doc?.body) return;
+
+    // Height tracking
+    const applyHeight = () => {
+      const h = doc.body.scrollHeight;
+      if (h > 0) iframe.style.height = h + "px";
+    };
+    applyHeight();
+
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(applyHeight);
+    });
+    ro.observe(doc.body);
+    observerRef.current = ro;
+
+    // Link click handling via contentDocument — runs in parent window context
+    // so openUrl / openComposer have full Tauri IPC access.
+    doc.addEventListener("click", (e) => {
+      const anchor = (e.target as HTMLElement).closest("a[data-link]");
+      if (!anchor) return;
+      e.preventDefault();
+      const href = anchor.getAttribute("data-link") ?? "";
+      if (href.startsWith("mailto:")) {
+        const { to, cc, bcc, subject } = parseMailtoUrl(href);
+        useComposerStore.getState().openComposer({ to, cc, bcc, subject });
+      } else if (href.startsWith("http://") || href.startsWith("https://")) {
+        openUrl(href).catch((err) => console.error("Failed to open link:", err));
+      }
+    });
   }, []);
 
   const handleLoadImages = useCallback(() => {
@@ -178,8 +193,9 @@ export function EmailRenderer({
       )}
       <iframe
         ref={iframeRef}
-        sandbox="allow-scripts"
+        sandbox="allow-same-origin"
         srcDoc={srcdoc}
+        onLoad={handleLoad}
         className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
         style={{ overflow: "hidden", minHeight: "40px" }}
         title="Email content"
@@ -193,9 +209,8 @@ function escapeCidRegex(cid: string): string {
 }
 
 // Replaces every <a href="…"> with <a data-link="…"> (no href) before the
-// content is injected into the sandboxed iframe. The inline script sends a
-// postMessage to the parent on click; the parent calls openUrl to open
-// the URL in the system browser.
+// srcdoc is created. This prevents any in-frame navigation; clicks are
+// handled by contentDocument.addEventListener in the parent window.
 function rewriteLinksForSrcdoc(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc.querySelectorAll("a[href]").forEach((el) => {
