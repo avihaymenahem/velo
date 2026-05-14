@@ -989,6 +989,20 @@ const MIGRATIONS = [
         AND message_id LIKE 'imap-%';
     `,
   },
+  {
+    version: 40,
+    description: "Add composite indexes to eliminate full-table-scans in unread-count and label-filter queries",
+    sql: `
+      CREATE INDEX IF NOT EXISTS idx_threads_account_unread
+        ON threads(account_id, is_read);
+
+      CREATE INDEX IF NOT EXISTS idx_thread_labels_thread
+        ON thread_labels(account_id, thread_id);
+
+      CREATE INDEX IF NOT EXISTS idx_thread_categories_thread
+        ON thread_categories(account_id, thread_id);
+    `,
+  },
 ];
 
 /**

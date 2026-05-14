@@ -1,4 +1,5 @@
 use crate::imap::client as imap_client;
+use crate::imap::pool::ImapSessionPool;
 use crate::imap::types::{
     DeltaCheckRequest, DeltaCheckResult, ImapConfig, ImapFetchResult, ImapFolder,
     ImapFolderSearchResult, ImapFolderStatus, ImapFolderSyncResult, ImapMessage,
@@ -204,15 +205,28 @@ pub async fn imap_get_folder_status(
 
 #[tauri::command]
 pub async fn imap_fetch_attachment(
+    pool: tauri::State<'_, ImapSessionPool>,
     config: ImapConfig,
     folder: String,
     uid: u32,
     part_id: String,
 ) -> Result<String, String> {
-    let mut session = imap_client::connect(&config).await?;
-    let data = imap_client::fetch_attachment(&mut session, &folder, uid, &part_id).await?;
-    let _ = session.logout().await;
-    Ok(data)
+    let t0 = std::time::Instant::now();
+    let (mut session, key) = pool.acquire(&config).await?;
+    log::debug!("[CID-DBG] pool.acquire in {}ms key={key}", t0.elapsed().as_millis());
+
+    match imap_client::fetch_attachment(&mut session, &folder, uid, &part_id).await {
+        Ok(data) => {
+            log::debug!("[CID-DBG] fetch OK in {}ms uid={uid} part={part_id}", t0.elapsed().as_millis());
+            pool.release(key, session).await;
+            Ok(data)
+        }
+        Err(e) => {
+            // Don't return session on error — it may be in a broken state.
+            log::warn!("[CID-DBG] fetch failed in {}ms uid={uid} part={part_id}: {e}", t0.elapsed().as_millis());
+            Err(e)
+        }
+    }
 }
 
 #[tauri::command]

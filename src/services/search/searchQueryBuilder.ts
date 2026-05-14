@@ -112,7 +112,7 @@ export function buildSearchQuery(
   // Exclude TRASH and SPAM unless the query explicitly targets those labels
   if (excludeSystemLabels && !parsed.label) {
     whereClauses.push(
-      `NOT EXISTS (SELECT 1 FROM thread_labels tl2 WHERE tl2.account_id = m.account_id AND tl2.thread_id = m.thread_id AND UPPER(tl2.label_id) IN ('TRASH', 'SPAM', 'DRAFT'))`,
+      `NOT EXISTS (SELECT 1 FROM thread_labels tl2 WHERE tl2.account_id = m.account_id AND tl2.thread_id = m.thread_id AND tl2.label_id IN ('TRASH', 'SPAM', 'DRAFT'))`,
     );
   }
 

@@ -405,6 +405,8 @@ pub fn run() {
             vector_search::ask_inbox_rust,
         ])
         .setup(|app| {
+            app.manage(crate::imap::pool::ImapSessionPool::new());
+
             {
                 let level = if cfg!(debug_assertions) {
                     log::LevelFilter::Debug

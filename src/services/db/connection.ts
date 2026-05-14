@@ -5,10 +5,16 @@ let db: Database | null = null;
 export async function getDb(): Promise<Database> {
   if (!db) {
     db = await Database.load("sqlite:velo.db");
-    // Set busy timeout to 5 seconds
     await db.execute("PRAGMA busy_timeout = 5000", []);
-    // Enable WAL mode for better concurrency and performance
     await db.execute("PRAGMA journal_mode = WAL", []);
+    // NORMAL is safe with WAL and much faster than FULL (no fsync on every write)
+    await db.execute("PRAGMA synchronous = NORMAL", []);
+    // 64 MB page cache — reduces repeated I/O for hot tables like messages/threads
+    await db.execute("PRAGMA cache_size = -65536", []);
+    // Only auto-checkpoint after 10 000 WAL pages (~40 MB); default 1 000 pages
+    // causes frequent reader-blocking checkpoints under heavy IMAP sync load
+    await db.execute("PRAGMA wal_autocheckpoint = 10000", []);
+    await db.execute("PRAGMA temp_store = MEMORY", []);
   }
   return db;
 }

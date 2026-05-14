@@ -9,6 +9,30 @@ import { MailMinus } from "lucide-react";
 import { AuthBadge } from "./AuthBadge";
 import { AuthWarningBanner } from "./AuthWarningBanner";
 
+// ---------------------------------------------------------------------------
+// Module-level IMAP fetch semaphore — caps concurrent attachment/CID fetches
+// at 2 to prevent server-side "Connection Reset" (OS Error 54) under load.
+// ---------------------------------------------------------------------------
+let _imapFetchActive = 0;
+const _imapFetchWaiters: Array<() => void> = [];
+function _acquireImapSlot(): Promise<void> {
+  return new Promise((resolve) => {
+    const tryAcquire = () => {
+      if (_imapFetchActive < 2) {
+        _imapFetchActive++;
+        resolve();
+      } else {
+        _imapFetchWaiters.push(tryAcquire);
+      }
+    };
+    tryAcquire();
+  });
+}
+function _releaseImapSlot() {
+  _imapFetchActive--;
+  _imapFetchWaiters.shift()?.();
+}
+
 interface MessageItemProps {
   message: DbMessage;
   isLast: boolean;
@@ -50,29 +74,23 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
 
         const attachmentId = att.gmail_attachment_id ?? att.imap_part_id!;
 
-        // Try once immediately, then wait for the sync cycle to release the IMAP
-        // connection before retrying — the sync holds the only session on servers
-        // that limit concurrent logins, so retrying on a fixed timer can mean waiting
-        // through the full fetch timeout (up to minutes) rather than seconds.
         let data: string | null = null;
+        const t0 = Date.now();
         console.log(`[CID-DBG] fetching cid="${att.content_id}" attachmentId="${attachmentId}" msgId="${message.id}"`);
+        await _acquireImapSlot();
         try {
           ({ data } = await provider.fetchAttachment(message.id, attachmentId));
-          console.log(`[CID-DBG] fetch OK, data.length=${data.length}`);
+          console.log(`[CID-DBG] fetch OK in ${Date.now() - t0}ms, data.length=${data.length}`);
         } catch (err) {
-          console.warn(`[CID-DBG] fetch attempt 1 failed:`, err, `— waiting for velo-sync-done`);
-          await new Promise<void>((resolve) => {
-            const done = () => resolve();
-            document.addEventListener("velo-sync-done", done, { once: true });
-            setTimeout(done, 30_000);
-          });
-          console.log(`[CID-DBG] retrying after sync-done`);
+          console.warn(`[CID-DBG] fetch attempt 1 failed in ${Date.now() - t0}ms:`, err);
           try {
             ({ data } = await provider.fetchAttachment(message.id, attachmentId));
-            console.log(`[CID-DBG] retry OK, data.length=${data.length}`);
+            console.log(`[CID-DBG] retry OK in ${Date.now() - t0}ms, data.length=${data.length}`);
           } catch (err2) {
             console.error(`[CID-DBG] retry also failed:`, err2);
           }
+        } finally {
+          _releaseImapSlot();
         }
 
         if (!data) {
