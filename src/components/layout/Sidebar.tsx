@@ -598,8 +598,8 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           </>
         )}
 
-        {/* User labels */}
-        {showLabels && (labels.length > 0 || !collapsed) && (
+        {/* User labels — hidden when collapsed (all labels share the same icon and would be indistinguishable) */}
+        {showLabels && !collapsed && (
           <>
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">
