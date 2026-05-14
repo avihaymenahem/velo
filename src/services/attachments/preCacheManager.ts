@@ -61,8 +61,12 @@ async function preCacheRecent(): Promise<void> {
       const provider = await getEmailProvider(att.account_id);
       const result = await provider.fetchAttachment(att.message_id, attachmentId);
 
-      // Decode base64 data
-      const binary = Uint8Array.from(atob(result.data), (c) => c.charCodeAt(0));
+      // Decode base64 data - handle both standard (IMAP) and URL-safe (Gmail) base64
+      // Standard base64 never contains - or _, URL-safe uses them in place of + and /
+      const base64 = result.data.includes("-") || result.data.includes("_")
+        ? result.data.replace(/-/g, "+").replace(/_/g, "/")
+        : result.data;
+      const binary = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
       await cacheAttachment(att.id, binary);
     } catch {
       // Silently skip — will retry next interval

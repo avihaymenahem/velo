@@ -105,16 +105,21 @@ function ImageThumbnail({
   const loadedRef = useRef(false);
 
   const loadThumbnail = useCallback(async () => {
-    if (loadedRef.current || !attachment.gmail_attachment_id) return;
+    if (loadedRef.current || (!attachment.gmail_attachment_id && !attachment.imap_part_id)) return;
     loadedRef.current = true;
     setLoading(true);
 
     try {
       const provider = await getEmailProvider(accountId);
-      const response = await provider.fetchAttachment(messageId, attachment.gmail_attachment_id);
+      const attachmentId = attachment.gmail_attachment_id ?? attachment.imap_part_id!;
+      const response = await provider.fetchAttachment(messageId, attachmentId);
 
-      // Normalize URL-safe base64 (Gmail API) to standard base64
-      const base64 = response.data.replace(/-/g, "+").replace(/_/g, "/");
+      // Normalize URL-safe base64 (Gmail API) to standard base64.
+      // IMAP returns standard base64; Gmail returns URL-safe. Standard base64 never has - or _,
+      // so we can safely detect and convert only URL-safe format.
+      const base64 = response.data.includes("-") || response.data.includes("_")
+        ? response.data.replace(/-/g, "+").replace(/_/g, "/")
+        : response.data;
       const binaryStr = atob(base64);
       const bytes = new Uint8Array(binaryStr.length);
       for (let i = 0; i < binaryStr.length; i++) {

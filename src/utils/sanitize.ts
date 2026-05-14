@@ -35,6 +35,7 @@ export function sanitizeHtml(html: string): string {
       "dir",
       "lang",
       "data-blocked-src",
+      "data-cid",
     ],
   });
 }

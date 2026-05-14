@@ -978,6 +978,17 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_embeddings_account_created ON message_embeddings(account_id, created_at);
     `,
   },
+  {
+    version: 39,
+    description: "Fix IMAP attachment part IDs: move from gmail_attachment_id to imap_part_id for rows populated before the column separation was in place",
+    sql: `
+      UPDATE attachments
+      SET imap_part_id = gmail_attachment_id, gmail_attachment_id = NULL
+      WHERE imap_part_id IS NULL
+        AND gmail_attachment_id IS NOT NULL
+        AND message_id LIKE 'imap-%';
+    `,
+  },
 ];
 
 /**

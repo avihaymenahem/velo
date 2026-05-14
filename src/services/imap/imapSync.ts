@@ -402,7 +402,8 @@ async function storeThreadsAndMessages(
               filename: att.filename,
               mimeType: att.mimeType,
               size: att.size,
-              gmailAttachmentId: att.gmailAttachmentId,
+              gmailAttachmentId: null,
+              imapPartId: att.gmailAttachmentId,
               contentId: att.contentId,
               isInline: att.isInline,
             });
@@ -755,7 +756,7 @@ export async function imapInitialSync(
                 imapFolder: msg.folder ?? null,
               });
 
-              // Store attachments
+// Store attachments
               for (const att of parsed.attachments) {
                 await upsertAttachment({
                   id: `${parsed.id}_${att.gmailAttachmentId}`,
@@ -764,7 +765,8 @@ export async function imapInitialSync(
                   filename: att.filename,
                   mimeType: att.mimeType,
                   size: att.size,
-                  gmailAttachmentId: att.gmailAttachmentId,
+                  gmailAttachmentId: null,
+                  imapPartId: att.gmailAttachmentId,
                   contentId: att.contentId,
                   isInline: att.isInline,
                 });

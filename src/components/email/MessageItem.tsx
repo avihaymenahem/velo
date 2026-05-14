@@ -27,20 +27,14 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
   const [attachments, setAttachments] = useState<DbAttachment[]>([]);
   const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
   const [cidMap, setCidMap] = useState<Map<string, string>>(new Map());
+  const [cidFailed, setCidFailed] = useState<Set<string>>(new Set());
   const attachmentsLoadedRef = useRef(false);
-  const blobUrlsRef = useRef<string[]>([]);
-
-  useEffect(() => {
-    return () => {
-      for (const url of blobUrlsRef.current) URL.revokeObjectURL(url);
-    };
-  }, []);
 
   const resolveCidImages = async (atts: DbAttachment[]) => {
     const html = message.body_html;
     if (!html || !/\bcid:/i.test(html)) return;
 
-    const cidAtts = atts.filter((a) => a.content_id && a.gmail_attachment_id);
+    const cidAtts = atts.filter((a) => a.content_id && (a.gmail_attachment_id || a.imap_part_id));
     if (cidAtts.length === 0) return;
 
     try {
@@ -48,34 +42,54 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
       const provider = await getEmailProvider(message.account_id);
 
       const newMap = new Map<string, string>();
-      const newBlobUrls: string[] = [];
+      const failed: string[] = [];
 
       for (const att of cidAtts) {
-        if (!att.content_id || !att.gmail_attachment_id) continue;
+        if (!att.content_id || (!att.gmail_attachment_id && !att.imap_part_id)) continue;
         if (!new RegExp(`cid:${escapeCid(att.content_id)}`, "i").test(html)) continue;
 
+        const attachmentId = att.gmail_attachment_id ?? att.imap_part_id!;
+
+        // Try once immediately, then wait for the sync cycle to release the IMAP
+        // connection before retrying — the sync holds the only session on servers
+        // that limit concurrent logins, so retrying on a fixed timer can mean waiting
+        // through the full fetch timeout (up to minutes) rather than seconds.
+        let data: string | null = null;
         try {
-          const { data } = await provider.fetchAttachment(message.id, att.gmail_attachment_id);
-          const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
-          const binary = atob(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const blob = new Blob([bytes.buffer as ArrayBuffer], {
-            type: att.mime_type ?? "application/octet-stream",
-          });
-          const blobUrl = URL.createObjectURL(blob);
-          newBlobUrls.push(blobUrl);
-          newMap.set(att.content_id, blobUrl);
+          ({ data } = await provider.fetchAttachment(message.id, attachmentId));
         } catch {
-          // Skip unresolvable attachment
+          // First attempt failed — wait for sync to signal completion, then retry once.
+          await new Promise<void>((resolve) => {
+            const done = () => resolve();
+            document.addEventListener("velo-sync-done", done, { once: true });
+            setTimeout(done, 30_000); // fallback: don't wait forever
+          });
+          try {
+            ({ data } = await provider.fetchAttachment(message.id, attachmentId));
+          } catch {
+            // Both attempts failed
+          }
         }
+
+        if (!data) {
+          failed.push(att.content_id.replace(/[<>]/g, "").trim());
+          continue;
+        }
+
+        const base64 = data.includes("-") || data.includes("_")
+          ? data.replace(/-/g, "+").replace(/_/g, "/")
+          : data;
+        // Use data: URI — WKWebView sandboxed iframes cannot load blob URLs from the
+        // parent window's registry, but data: URIs set via DOM are fine.
+        const dataUri = `data:${att.mime_type ?? "application/octet-stream"};base64,${base64}`;
+        // Strip angle brackets — MIME Content-ID headers use <uuid> but the HTML
+        // cid: URI and our data-cid attribute never include them.
+        const cidKey = att.content_id.replace(/[<>]/g, "").trim();
+        newMap.set(cidKey, dataUri);
       }
 
-      if (newMap.size > 0) {
-        for (const url of blobUrlsRef.current) URL.revokeObjectURL(url);
-        blobUrlsRef.current = newBlobUrls;
-        setCidMap(newMap);
-      }
+      if (newMap.size > 0) setCidMap(newMap);
+      if (failed.length > 0) setCidFailed(new Set(failed));
     } catch {
       // Silently fall back to original HTML
     }
@@ -202,6 +216,7 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
               accountId={message.account_id}
               senderAllowlisted={senderAllowlisted}
               cidMap={cidMap}
+              cidFailed={cidFailed}
             />
           ) : (
             <div className="py-8 text-center text-text-tertiary text-sm">Loading...</div>

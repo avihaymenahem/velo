@@ -156,6 +156,7 @@ async function processAndStoreThread(
         mimeType: att.mimeType,
         size: att.size,
         gmailAttachmentId: att.gmailAttachmentId,
+        imapPartId: null,
         contentId: att.contentId,
         isInline: att.isInline,
       }),
