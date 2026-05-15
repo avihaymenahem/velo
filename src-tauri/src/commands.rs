@@ -1,8 +1,12 @@
+use tauri::Manager;
+
 use crate::imap::client as imap_client;
 use crate::imap::pool::ImapSessionPool;
 use crate::imap::types::{
-    DeltaCheckRequest, DeltaCheckResult, ImapConfig, ImapFetchResult, ImapFolder,
-    ImapFolderSearchResult, ImapFolderStatus, ImapFolderSyncResult, ImapMessage,
+    BodyCache, BodyEntry, DeltaCheckRequest, DeltaCheckResult, GmailAttachment, GmailMessage,
+    GmailStoredHeader, ImapConfig, ImapFetchResult, ImapFetchResultMeta, ImapFolder,
+    ImapFolderSearchResult, ImapFolderStatus, ImapFolderSyncResult, ImapMessage, ImapMessageMeta,
+    ImapSyncHeader, ImapThreadUpdate, SyncSemaphore,
 };
 use crate::smtp::client as smtp_client;
 use crate::smtp::types::{SmtpConfig, SmtpSendResult};
@@ -24,6 +28,8 @@ pub async fn imap_list_folders(config: ImapConfig) -> Result<Vec<ImapFolder>, St
 
 #[tauri::command]
 pub async fn imap_fetch_messages(
+    pool: tauri::State<'_, ImapSessionPool>,
+    sync_semaphore: tauri::State<'_, SyncSemaphore>,
     config: ImapConfig,
     folder: String,
     uids: Vec<u32>,
@@ -31,22 +37,27 @@ pub async fn imap_fetch_messages(
     if uids.is_empty() {
         return Err("No UIDs provided".to_string());
     }
+    log::info!("[DIAG] imap_fetch_messages: folder={folder} uids={}", uids.len());
 
-    // Build a UID set string like "1,5,10,20"
+    let _permit = sync_semaphore.semaphore.acquire().await
+        .map_err(|e| format!("semaphore acquire: {e}"))?;
+
     let uid_set: String = uids
         .iter()
         .map(|u| u.to_string())
         .collect::<Vec<_>>()
         .join(",");
 
-    let mut session = imap_client::connect(&config).await?;
+    let (mut session, key) = pool.acquire(&config).await?;
     let result = imap_client::fetch_messages(&mut session, &folder, &uid_set).await;
-    let _ = session.logout().await;
 
     match result {
-        Ok(r) => Ok(r),
+        Ok(r) => {
+            pool.release(key, session).await;
+            Ok(r)
+        }
         Err(e) if e.starts_with("ASYNC_IMAP_EMPTY:") => {
-            // async-imap can't parse this server's responses — use raw TCP fallback
+            // async-imap failed, fallback to raw TCP (doesn't use pool)
             log::info!("Falling back to raw TCP fetch for folder {folder}");
             imap_client::raw_fetch_messages(&config, &folder, &uid_set).await
         }
@@ -79,10 +90,15 @@ pub async fn imap_search_all_uids(
 
 #[tauri::command]
 pub async fn imap_fetch_message_body(
+    sync_semaphore: tauri::State<'_, SyncSemaphore>,
     config: ImapConfig,
     folder: String,
     uid: u32,
 ) -> Result<ImapMessage, String> {
+    log::info!("[DIAG] imap_fetch_message_body: folder={folder} uid={uid}");
+    let _permit = sync_semaphore.semaphore.acquire().await
+        .map_err(|e| format!("semaphore acquire: {e}"))?;
+
     let mut session = imap_client::connect(&config).await?;
     let message = imap_client::fetch_message_body(&mut session, &folder, uid).await?;
     let _ = session.logout().await;
@@ -211,6 +227,7 @@ pub async fn imap_fetch_attachment(
     uid: u32,
     part_id: String,
 ) -> Result<String, String> {
+    log::info!("[DIAG] imap_fetch_attachment: folder={folder} uid={uid} part={part_id}");
     let t0 = std::time::Instant::now();
     let (mut session, key) = pool.acquire(&config).await?;
     log::debug!("[CID-DBG] pool.acquire in {}ms key={key}", t0.elapsed().as_millis());
@@ -269,11 +286,16 @@ pub async fn imap_search_folder(
 
 #[tauri::command]
 pub async fn imap_sync_folder(
+    sync_semaphore: tauri::State<'_, SyncSemaphore>,
     config: ImapConfig,
     folder: String,
     batch_size: u32,
     since_date: Option<String>,
 ) -> Result<ImapFolderSyncResult, String> {
+    // Phase 1: Implementazione Backpressure (Semafori)
+    let _permit = sync_semaphore.semaphore.acquire().await
+        .map_err(|e| format!("semaphore acquire: {e}"))?;
+
     let mut session = imap_client::connect(&config).await?;
     let result = imap_client::sync_folder(&mut session, &folder, batch_size, since_date).await;
     let _ = session.logout().await;
@@ -294,10 +316,734 @@ pub async fn imap_delta_check(
     config: ImapConfig,
     folders: Vec<DeltaCheckRequest>,
 ) -> Result<Vec<DeltaCheckResult>, String> {
+    log::info!("[DIAG] imap_delta_check: {} folders", folders.len());
     let mut session = imap_client::connect(&config).await?;
     let results = imap_client::delta_check_folders(&mut session, &folders).await?;
     let _ = session.logout().await;
     Ok(results)
+}
+
+/// Fetch messages from IMAP but keep body_html in a Rust-side BodyCache.
+/// Returns ImapFetchResultMeta (no body_html) over the Tauri IPC bridge so
+/// WebKit never has to deserialise multi-megabyte HTML strings.
+/// After writing the message metadata to SQLite, call imap_flush_bodies to
+/// have Rust write the HTML bodies directly from the cache into the DB.
+#[tauri::command]
+pub async fn imap_fetch_messages_buffered(
+    pool: tauri::State<'_, ImapSessionPool>,
+    body_cache: tauri::State<'_, BodyCache>,
+    sync_semaphore: tauri::State<'_, SyncSemaphore>,
+    config: ImapConfig,
+    folder: String,
+    uids: Vec<u32>,
+) -> Result<ImapFetchResultMeta, String> {
+    if uids.is_empty() {
+        return Err("No UIDs provided".to_string());
+    }
+    log::info!("[DIAG] imap_fetch_messages_buffered: folder={folder} uids={}", uids.len());
+
+    let _permit = sync_semaphore.semaphore.acquire().await
+        .map_err(|e| format!("semaphore acquire: {e}"))?;
+
+    let uid_set: String = uids
+        .iter()
+        .map(|u| u.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let (mut session, key) = pool.acquire(&config).await?;
+    let result = imap_client::fetch_messages(&mut session, &folder, &uid_set).await;
+
+    let fetch_result: ImapFetchResult = match result {
+        Ok(r) => {
+            pool.release(key, session).await;
+            r
+        }
+        Err(e) if e.starts_with("ASYNC_IMAP_EMPTY:") => {
+            log::info!("Falling back to raw TCP fetch for folder {folder} (buffered)");
+            imap_client::raw_fetch_messages(&config, &folder, &uid_set).await?
+        }
+        Err(e) => return Err(e),
+    };
+
+    let mut meta_messages = Vec::with_capacity(fetch_result.messages.len());
+    {
+        let mut cache = body_cache
+            .lock()
+            .map_err(|e| format!("body cache lock: {e}"))?;
+
+        for msg in fetch_result.messages.into_iter() {
+            if msg.body_html.is_some() || msg.body_text.is_some() {
+                cache.insert(
+                    (msg.folder.clone(), msg.uid),
+                    BodyEntry {
+                        body_html: msg.body_html,
+                        body_text: msg.body_text,
+                    },
+                );
+            }
+
+            meta_messages.push(ImapMessageMeta {
+                uid: msg.uid,
+                folder: msg.folder,
+                message_id: msg.message_id,
+                in_reply_to: msg.in_reply_to,
+                references: msg.references,
+                from_address: msg.from_address,
+                from_name: msg.from_name,
+                to_addresses: msg.to_addresses,
+                cc_addresses: msg.cc_addresses,
+                bcc_addresses: msg.bcc_addresses,
+                reply_to: msg.reply_to,
+                subject: msg.subject,
+                date: msg.date,
+                is_read: msg.is_read,
+                is_starred: msg.is_starred,
+                is_draft: msg.is_draft,
+                snippet: msg.snippet,
+                raw_size: msg.raw_size,
+                list_unsubscribe: msg.list_unsubscribe,
+                list_unsubscribe_post: msg.list_unsubscribe_post,
+                auth_results: msg.auth_results,
+                attachments: msg.attachments,
+            });
+        }
+    }
+
+    Ok(ImapFetchResultMeta {
+        messages: meta_messages,
+        folder_status: fetch_result.folder_status,
+    })
+}
+
+/// Drain body_html + body_text for the given (folder, uid) pairs from BodyCache and
+/// write them directly to SQLite via rusqlite — no WebKit involved on either path.
+/// Must be called (and awaited) after TypeScript has upserted the message metadata rows.
+/// Returns the number of rows updated.
+#[tauri::command]
+pub async fn imap_flush_bodies(
+    app: tauri::AppHandle,
+    body_cache: tauri::State<'_, BodyCache>,
+    account_id: String,
+    folder: String,
+    uids: Vec<u32>,
+) -> Result<u32, String> {
+    if uids.is_empty() {
+        return Ok(0);
+    }
+
+    // Drain the requested entries; unknown UIDs (skipped/deduped) are silently ignored.
+    let entries: Vec<(u32, BodyEntry)> = {
+        let mut cache = body_cache
+            .lock()
+            .map_err(|e| format!("body cache lock: {e}"))?;
+        uids.iter()
+            .filter_map(|&uid| cache.remove(&(folder.clone(), uid)).map(|e| (uid, e)))
+            .collect()
+    };
+
+    if entries.is_empty() {
+        return Ok(0);
+    }
+
+    let db_path = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("velo.db");
+
+    // WAL mode: one writer at a time, but readers are never blocked.
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    conn.busy_timeout(std::time::Duration::from_secs(10))
+        .map_err(|e| e.to_string())?;
+
+    // Phase 2: SQLite Sink Optimization
+    conn.execute_batch(
+        "PRAGMA cache_size = -2000; \
+         PRAGMA journal_mode = WAL; \
+         PRAGMA synchronous = NORMAL;"
+    ).map_err(|e| e.to_string())?;
+
+    let mut count = 0u32;
+    for (uid, entry) in entries {
+        let message_id = format!("imap-{account_id}-{folder}-{uid}");
+        let rows = conn
+            .execute(
+                // COALESCE mirrors the TypeScript upsertMessage pattern:
+                // only overwrite if the existing DB value is NULL.
+                "UPDATE messages \
+                 SET body_html = COALESCE(?1, body_html), \
+                     body_text = COALESCE(?2, body_text) \
+                 WHERE id = ?3 AND account_id = ?4",
+                rusqlite::params![entry.body_html, entry.body_text, message_id, account_id],
+            )
+            .map_err(|e| format!("flush body uid {uid}: {e}"))?;
+        if rows > 0 {
+            count += 1;
+        }
+    }
+
+    log::debug!("[imap_flush_bodies] Wrote {count} HTML bodies for folder={folder} account={account_id}");
+    Ok(count)
+}
+
+// ---------- Zero-IPC sync commands ----------
+// These commands fetch from IMAP and write ALL SQL via rusqlite,
+// so WebKit never receives or allocates memory for message content.
+
+/// Fetch a batch of messages from IMAP and write thread placeholders, messages (with full
+/// body_html + body_text), and attachments directly to SQLite via rusqlite.
+/// Returns only the minimal `ImapSyncHeader` slice needed for JWZ threading (~200 B/msg).
+/// WebKit IPC traffic per batch: ~1-2 KB regardless of message body size.
+#[tauri::command]
+pub async fn imap_fetch_and_store(
+    app: tauri::AppHandle,
+    pool: tauri::State<'_, ImapSessionPool>,
+    sync_semaphore: tauri::State<'_, SyncSemaphore>,
+    config: ImapConfig,
+    account_id: String,
+    folder: String,
+    label_id: String,
+    uids: Vec<u32>,
+    cutoff_date: i64, // Unix timestamp in seconds; 0 = no cutoff
+) -> Result<Vec<ImapSyncHeader>, String> {
+    if uids.is_empty() {
+        return Ok(vec![]);
+    }
+    log::info!("[DIAG] imap_fetch_and_store: folder={folder} uids={}", uids.len());
+
+    let _permit = sync_semaphore.semaphore.acquire().await
+        .map_err(|e| format!("semaphore acquire: {e}"))?;
+
+    let uid_set: String = uids
+        .iter()
+        .map(|u| u.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+
+    // Fetch full messages (body_html + body_text) from IMAP.
+    let (mut session, key) = pool.acquire(&config).await?;
+    let fetch_result: ImapFetchResult =
+        match imap_client::fetch_messages(&mut session, &folder, &uid_set).await {
+            Ok(r) => {
+                pool.release(key, session).await;
+                r
+            }
+            Err(e) if e.starts_with("ASYNC_IMAP_EMPTY:") => {
+                log::info!("imap_fetch_and_store: raw TCP fallback for {folder}");
+                imap_client::raw_fetch_messages(&config, &folder, &uid_set).await?
+            }
+            Err(e) => return Err(e),
+        };
+
+    // Open rusqlite — WAL mode means no conflict with the Tauri SQL plugin reader pool.
+    let db_path = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("velo.db");
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    conn.busy_timeout(std::time::Duration::from_secs(10))
+        .map_err(|e| e.to_string())?;
+    
+    // Phase 2: SQLite Sink Optimization
+    conn.execute_batch(
+        "PRAGMA cache_size = -2000; \
+         PRAGMA journal_mode = WAL; \
+         PRAGMA synchronous = NORMAL;"
+    ).map_err(|e| e.to_string())?;
+
+    // Load tombstones for this folder (deleted messages we must not re-import).
+    // Keep stmt alive until after collect() so the borrow on conn is released cleanly.
+    let mut tombstone_stmt = conn
+        .prepare("SELECT uid FROM deleted_imap_uids WHERE account_id = ?1 AND folder_path = ?2")
+        .map_err(|e| e.to_string())?;
+    let tombstones: std::collections::HashSet<u32> = tombstone_stmt
+        .query_map(rusqlite::params![account_id, folder], |r| r.get::<_, u32>(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+    drop(tombstone_stmt);
+
+    // Load existing RFC message IDs for this batch to detect cross-folder duplicates.
+    let rfc_ids_in_batch: Vec<String> = fetch_result
+        .messages
+        .iter()
+        .filter_map(|m| m.message_id.clone())
+        .collect();
+    let existing_rfc_ids: std::collections::HashSet<String> = if rfc_ids_in_batch.is_empty() {
+        std::collections::HashSet::new()
+    } else {
+        let placeholders = (2..=rfc_ids_in_batch.len() + 1)
+            .map(|i| format!("?{i}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT message_id_header FROM messages \
+             WHERE account_id = ?1 AND message_id_header IN ({placeholders})"
+        );
+        let mut rfc_stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let mut params: Vec<rusqlite::types::Value> =
+            vec![rusqlite::types::Value::Text(account_id.clone())];
+        for id in &rfc_ids_in_batch {
+            params.push(rusqlite::types::Value::Text(id.clone()));
+        }
+        let result: std::collections::HashSet<String> = rfc_stmt
+            .query_map(rusqlite::params_from_iter(params.iter()), |r| {
+                r.get::<_, String>(0)
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        drop(rfc_stmt);
+        result
+    };
+
+    let mut headers: Vec<ImapSyncHeader> = Vec::with_capacity(fetch_result.messages.len());
+
+    conn.execute_batch("BEGIN").map_err(|e| e.to_string())?;
+
+    for msg in fetch_result.messages.into_iter() {
+        // Filter 1: tombstone
+        if tombstones.contains(&msg.uid) {
+            continue;
+        }
+
+        let is_read = msg.is_read || msg.is_draft || label_id == "TRASH";
+        let snippet = msg.snippet.unwrap_or_default();
+        let has_attachments = !msg.attachments.is_empty();
+        let local_id = format!("imap-{account_id}-{}-{}", msg.folder, msg.uid);
+        let synthetic_rfc_id = || {
+            format!(
+                "synthetic-{account_id}-{}-{}@velo.local",
+                msg.folder, msg.uid
+            )
+        };
+        let rfc_id_for_header = msg.message_id.clone().unwrap_or_else(synthetic_rfc_id);
+
+        // Filter 2: dedup by RFC message ID (message exists in another folder already)
+        let stored = if msg.message_id.as_ref().map_or(false, |id| existing_rfc_ids.contains(id)) {
+            false // duplicate — return header so TypeScript can accumulate cross-folder labels
+        } else {
+            // Filter 3: date cutoff
+            if cutoff_date > 0 && msg.date > 0 && msg.date < cutoff_date {
+                false
+            } else {
+                // Write placeholder thread (thread_id = local_id; updated by imap_store_threads)
+                conn.execute(
+                    "INSERT INTO threads \
+                     (id, account_id, subject, snippet, last_message_at, message_count, \
+                      is_read, is_starred, is_important, has_attachments) \
+                     VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, ?7, 0, ?8) \
+                     ON CONFLICT(account_id, id) DO UPDATE SET \
+                       subject=?3, snippet=?4, last_message_at=?5, \
+                       is_read=?6, is_starred=?7, has_attachments=?8",
+                    rusqlite::params![
+                        local_id,
+                        account_id,
+                        msg.subject,
+                        snippet,
+                        msg.date,
+                        is_read as i32,
+                        msg.is_starred as i32,
+                        has_attachments as i32,
+                    ],
+                )
+                .map_err(|e| format!("thread insert uid {}: {e}", msg.uid))?;
+
+                // Write message with body_html + body_text directly (no IPC, no BodyCache)
+                conn.execute(
+                    "INSERT INTO messages \
+                     (id, account_id, thread_id, from_address, from_name, to_addresses, \
+                      cc_addresses, bcc_addresses, reply_to, subject, snippet, date, is_read, \
+                      is_starred, body_html, body_text, body_cached, raw_size, internal_date, \
+                      list_unsubscribe, list_unsubscribe_post, auth_results, message_id_header, \
+                      references_header, in_reply_to_header, imap_uid, imap_folder) \
+                     VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,\
+                             ?19,?20,?21,?22,?23,?24,?25,?26,?27) \
+                     ON CONFLICT(account_id, id) DO UPDATE SET \
+                       from_address=?4, from_name=?5, to_addresses=?6, cc_addresses=?7, \
+                       bcc_addresses=?8, reply_to=?9, subject=?10, snippet=?11, date=?12, \
+                       is_read=?13, is_starred=?14, \
+                       body_html=COALESCE(?15, body_html), \
+                       body_text=COALESCE(?16, body_text), \
+                       body_cached=CASE WHEN ?15 IS NOT NULL THEN 1 ELSE body_cached END, \
+                       raw_size=?18, internal_date=?19, list_unsubscribe=?20, \
+                       list_unsubscribe_post=?21, auth_results=?22, \
+                       message_id_header=COALESCE(?23, message_id_header), \
+                       references_header=COALESCE(?24, references_header), \
+                       in_reply_to_header=COALESCE(?25, in_reply_to_header), \
+                       imap_uid=COALESCE(?26, imap_uid), \
+                       imap_folder=COALESCE(?27, imap_folder)",
+                    rusqlite::params![
+                        local_id,
+                        account_id,
+                        local_id, // placeholder thread_id
+                        msg.from_address,
+                        msg.from_name,
+                        msg.to_addresses,
+                        msg.cc_addresses,
+                        msg.bcc_addresses,
+                        msg.reply_to,
+                        msg.subject,
+                        snippet,
+                        msg.date,
+                        is_read as i32,
+                        msg.is_starred as i32,
+                        msg.body_html,
+                        msg.body_text,
+                        msg.body_html.is_some() as i32,
+                        msg.raw_size,
+                        msg.date, // internal_date = date for IMAP
+                        msg.list_unsubscribe,
+                        msg.list_unsubscribe_post,
+                        msg.auth_results,
+                        msg.message_id,
+                        msg.references,
+                        msg.in_reply_to,
+                        msg.uid,
+                        msg.folder,
+                    ],
+                )
+                .map_err(|e| format!("message insert uid {}: {e}", msg.uid))?;
+
+                // Write attachments
+                for att in msg.attachments {
+                    let att_id = format!("{local_id}_{}", att.part_id);
+                    conn.execute(
+                        "INSERT INTO attachments \
+                         (id, message_id, account_id, filename, mime_type, size, \
+                          gmail_attachment_id, imap_part_id, content_id, is_inline) \
+                         VALUES (?1,?2,?3,?4,?5,?6,NULL,?7,?8,?9) \
+                         ON CONFLICT(id) DO UPDATE SET \
+                           filename=?4, mime_type=?5, size=?6, \
+                           imap_part_id=?7, content_id=?8, is_inline=?9",
+                        rusqlite::params![
+                            att_id,
+                            local_id,
+                            account_id,
+                            att.filename,
+                            att.mime_type,
+                            att.size,
+                            att.part_id,
+                            att.content_id,
+                            att.is_inline as i32,
+                        ],
+                    )
+                    .map_err(|e| format!("attachment insert uid {}: {e}", msg.uid))?;
+                }
+                true
+            }
+        };
+
+        headers.push(ImapSyncHeader {
+            local_id,
+            message_id: rfc_id_for_header.into(),
+            in_reply_to: msg.in_reply_to,
+            references: msg.references,
+            subject: msg.subject,
+            date: msg.date,
+            label_id: label_id.clone(),
+            is_read,
+            is_starred: msg.is_starred,
+            is_draft: msg.is_draft,
+            has_attachments,
+            snippet,
+            from_address: msg.from_address,
+            from_name: msg.from_name,
+            stored,
+        });
+    }
+
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+
+    log::debug!(
+        "[imap_fetch_and_store] folder={folder} uids={} stored={} account={account_id}",
+        uids.len(),
+        headers.iter().filter(|h| h.stored).count(),
+    );
+
+    Ok(headers)
+}
+
+/// Finalize threads after JWZ threading in TypeScript.
+/// Writes final thread records, thread_labels, and message thread_id updates via rusqlite.
+/// Also cleans up placeholder threads that are no longer the canonical thread ID.
+/// Receives pre-computed aggregate values — no SQL aggregate queries needed.
+#[tauri::command]
+pub async fn imap_store_threads(
+    app: tauri::AppHandle,
+    account_id: String,
+    thread_updates: Vec<ImapThreadUpdate>,
+    // all_local_ids: all local_ids created as placeholder threads (to detect orphans)
+    all_local_ids: Vec<String>,
+) -> Result<u32, String> {
+    if thread_updates.is_empty() {
+        return Ok(0);
+    }
+
+    let db_path = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("velo.db");
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    conn.busy_timeout(std::time::Duration::from_secs(10))
+        .map_err(|e| e.to_string())?;
+    // Phase 2: SQLite Sink Optimization
+    conn.execute_batch(
+        "PRAGMA cache_size = -2000; \
+         PRAGMA journal_mode = WAL; \
+         PRAGMA synchronous = NORMAL;"
+    ).map_err(|e| e.to_string())?;
+
+    let final_thread_ids: std::collections::HashSet<&str> =
+        thread_updates.iter().map(|u| u.thread_id.as_str()).collect();
+
+    conn.execute_batch("BEGIN").map_err(|e| e.to_string())?;
+
+    let mut stored = 0u32;
+    for update in &thread_updates {
+        // Upsert final thread record with pre-computed aggregate values
+        conn.execute(
+            "INSERT INTO threads \
+             (id, account_id, subject, snippet, last_message_at, message_count, \
+              is_read, is_starred, is_important, has_attachments) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9) \
+             ON CONFLICT(account_id, id) DO UPDATE SET \
+               subject=?3, snippet=?4, last_message_at=?5, message_count=?6, \
+               is_read=?7, is_starred=?8, has_attachments=?9",
+            rusqlite::params![
+                update.thread_id,
+                account_id,
+                update.subject,
+                update.snippet,
+                update.last_message_at,
+                update.message_ids.len() as i64,
+                update.is_read as i32,
+                update.is_starred as i32,
+                update.has_attachments as i32,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+
+        // Replace thread_labels
+        conn.execute(
+            "DELETE FROM thread_labels WHERE account_id = ?1 AND thread_id = ?2",
+            rusqlite::params![account_id, update.thread_id],
+        )
+        .map_err(|e| e.to_string())?;
+        for label_id in &update.label_ids {
+            conn.execute(
+                "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) \
+                 VALUES (?1, ?2, ?3)",
+                rusqlite::params![account_id, update.thread_id, label_id],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+
+        // Update thread_id on all member messages
+        for msg_id in &update.message_ids {
+            conn.execute(
+                "UPDATE messages SET thread_id = ?1 WHERE account_id = ?2 AND id = ?3",
+                rusqlite::params![update.thread_id, account_id, msg_id],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+
+        stored += 1;
+    }
+
+    // Delete orphaned placeholder threads (placeholder_id = message_id, but that message
+    // now belongs to a different thread after JWZ merging).
+    for local_id in &all_local_ids {
+        if !final_thread_ids.contains(local_id.as_str()) {
+            conn.execute(
+                "DELETE FROM threads \
+                 WHERE account_id = ?1 AND id = ?2 \
+                 AND NOT EXISTS \
+                   (SELECT 1 FROM messages WHERE account_id = ?1 AND thread_id = ?2)",
+                rusqlite::params![account_id, local_id],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+
+    log::debug!(
+        "[imap_store_threads] stored={stored} threads for account={account_id}"
+    );
+
+    Ok(stored)
+}
+
+// ---------- Gmail zero-IPC store command ----------
+
+/// Write a complete Gmail thread (messages + attachments + labels) directly to SQLite
+/// via rusqlite — no Tauri SQL plugin (WebKit IPC) involved.
+/// Bodies are written Rust → SQLite without ever touching the WebKit heap.
+/// Returns a tiny acknowledgement; TypeScript handles categorisation separately.
+#[tauri::command]
+pub async fn gmail_store_thread(
+    app: tauri::AppHandle,
+    account_id: String,
+    thread_id: String,
+    subject: Option<String>,
+    snippet: Option<String>,
+    last_message_at: i64,
+    message_count: u32,
+    is_read: bool,
+    is_starred: bool,
+    is_important: bool,
+    has_attachments: bool,
+    label_ids: Vec<String>,
+    messages: Vec<GmailMessage>,
+    attachments: Vec<GmailAttachment>,
+) -> Result<GmailStoredHeader, String> {
+    log::info!("[DIAG] gmail_store_thread: thread={thread_id} msgs={}", messages.len());
+    let db_path = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("velo.db");
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    conn.busy_timeout(std::time::Duration::from_secs(10))
+        .map_err(|e| e.to_string())?;
+    // Phase 2: SQLite Sink Optimization
+    conn.execute_batch(
+        "PRAGMA cache_size = -2000; \
+         PRAGMA journal_mode = WAL; \
+         PRAGMA synchronous = NORMAL;"
+    ).map_err(|e| e.to_string())?;
+
+    conn.execute_batch("BEGIN").map_err(|e| e.to_string())?;
+
+    // 1. Upsert thread row
+    conn.execute(
+        "INSERT INTO threads \
+         (id, account_id, subject, snippet, last_message_at, message_count, \
+          is_read, is_starred, is_important, has_attachments) \
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10) \
+         ON CONFLICT(account_id, id) DO UPDATE SET \
+           subject=?3, snippet=?4, last_message_at=?5, message_count=?6, \
+           is_read=?7, is_starred=?8, is_important=?9, has_attachments=?10",
+        rusqlite::params![
+            thread_id,
+            account_id,
+            subject,
+            snippet,
+            last_message_at,
+            message_count,
+            is_read as i32,
+            is_starred as i32,
+            is_important as i32,
+            has_attachments as i32,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // 2. Replace thread_labels atomically
+    conn.execute(
+        "DELETE FROM thread_labels WHERE account_id=?1 AND thread_id=?2",
+        rusqlite::params![account_id, thread_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    for label_id in &label_ids {
+        conn.execute(
+            "INSERT OR IGNORE INTO thread_labels (account_id, thread_id, label_id) \
+             VALUES (?1,?2,?3)",
+            rusqlite::params![account_id, thread_id, label_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    // 3. Upsert messages (bodies go straight to SQLite — never cross WebKit)
+    for msg in &messages {
+        let body_cached = if msg.body_html.is_some() { 1i32 } else { 0 };
+        conn.execute(
+            "INSERT INTO messages \
+             (id, account_id, thread_id, from_address, from_name, to_addresses, \
+              cc_addresses, bcc_addresses, reply_to, subject, snippet, date, \
+              is_read, is_starred, body_html, body_text, body_cached, raw_size, \
+              internal_date, list_unsubscribe, list_unsubscribe_post, auth_results, \
+              message_id_header, references_header, in_reply_to_header, imap_uid, imap_folder) \
+             VALUES \
+             (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,NULL,NULL) \
+             ON CONFLICT(account_id, id) DO UPDATE SET \
+               from_address=?4, from_name=?5, to_addresses=?6, cc_addresses=?7, \
+               bcc_addresses=?8, reply_to=?9, subject=?10, snippet=?11, \
+               date=?12, is_read=?13, is_starred=?14, \
+               body_html=COALESCE(?15, body_html), body_text=COALESCE(?16, body_text), \
+               body_cached=CASE WHEN ?15 IS NOT NULL THEN 1 ELSE body_cached END, \
+               raw_size=?18, internal_date=?19, list_unsubscribe=?20, \
+               list_unsubscribe_post=?21, auth_results=?22, \
+               message_id_header=COALESCE(?23, message_id_header), \
+               references_header=COALESCE(?24, references_header), \
+               in_reply_to_header=COALESCE(?25, in_reply_to_header)",
+            rusqlite::params![
+                msg.id,
+                account_id,
+                thread_id,
+                msg.from_address,
+                msg.from_name,
+                msg.to_addresses,
+                msg.cc_addresses,
+                msg.bcc_addresses,
+                msg.reply_to,
+                msg.subject,
+                msg.snippet,
+                msg.date,
+                msg.is_read as i32,
+                msg.is_starred as i32,
+                msg.body_html,
+                msg.body_text,
+                body_cached,
+                msg.raw_size.map(|v| v as i64),
+                msg.internal_date,
+                msg.list_unsubscribe,
+                msg.list_unsubscribe_post,
+                msg.auth_results,
+                msg.message_id_header,
+                msg.references_header,
+                msg.in_reply_to_header,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    // 4. Upsert attachments
+    for att in &attachments {
+        conn.execute(
+            "INSERT INTO attachments \
+             (id, message_id, account_id, filename, mime_type, size, \
+              gmail_attachment_id, imap_part_id, content_id, is_inline) \
+             VALUES (?1,?2,?3,?4,?5,?6,?7,NULL,?8,?9) \
+             ON CONFLICT(id) DO UPDATE SET \
+               filename=?4, mime_type=?5, size=?6, \
+               gmail_attachment_id=?7, content_id=?8, is_inline=?9",
+            rusqlite::params![
+                att.id,
+                att.message_id,
+                account_id,
+                att.filename,
+                att.mime_type,
+                att.size.map(|v| v as i64),
+                att.gmail_attachment_id,
+                att.content_id,
+                att.is_inline as i32,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+
+    Ok(GmailStoredHeader {
+        thread_id,
+        message_count: messages.len() as u32,
+    })
 }
 
 // ---------- SMTP commands ----------

@@ -2,12 +2,8 @@ import { decodeHtml } from "@/utils/sanitize";
 import type { EmailProvider, EmailFolder, SyncResult } from "./types";
 import type { ParsedMessage } from "../gmail/messageParser";
 import { buildImapConfig, buildSmtpConfig } from "../imap/imapConfigBuilder";
-import {
-  imapInitialSync,
-  imapDeltaSync,
-  imapMessageToParsedMessage,
-} from "../imap/imapSync";
-import { mapFolderToLabel, getSyncableFolders } from "../imap/folderMapper";
+import { imapInitialSync, imapDeltaSync } from "../imap/imapSync";
+import { mapFolderToLabel, getLabelsForMessage, getSyncableFolders } from "../imap/folderMapper";
 import {
   imapListFolders,
   imapSetFlags,
@@ -244,13 +240,49 @@ export class ImapSmtpProvider implements EmailProvider {
     const config = await this.getImapConfig();
     const imapMsg = await imapFetchMessageBody(config, folder, uid);
 
-    const { parsed } = imapMessageToParsedMessage(
-      imapMsg,
-      this.accountId,
-      folder,
+    // Build ParsedMessage inline — on-demand fetch includes body_html + body_text
+    const folderMapping = mapFolderToLabel({
+      path: folder, raw_path: folder, name: folder,
+      delimiter: "/", special_use: null, exists: 0, unseen: 0,
+    });
+    const labelIds = getLabelsForMessage(
+      { labelId: folderMapping.labelId, labelName: "", type: "" },
+      imapMsg.is_read, imapMsg.is_starred, imapMsg.is_draft,
     );
-    parsed.id = messageId;
-
+    const snippet = imapMsg.snippet ?? "";
+    const attachments = imapMsg.attachments.map((att) => ({
+      filename: att.filename,
+      mimeType: att.mime_type,
+      size: att.size,
+      gmailAttachmentId: att.part_id,
+      contentId: att.content_id,
+      isInline: att.is_inline,
+    }));
+    const parsed: ParsedMessage = {
+      id: messageId,
+      threadId: "",
+      fromAddress: imapMsg.from_address,
+      fromName: imapMsg.from_name,
+      toAddresses: imapMsg.to_addresses,
+      ccAddresses: imapMsg.cc_addresses,
+      bccAddresses: imapMsg.bcc_addresses,
+      replyTo: imapMsg.reply_to,
+      subject: imapMsg.subject,
+      snippet,
+      date: imapMsg.date * 1000,
+      isRead: imapMsg.is_read || imapMsg.is_draft,
+      isStarred: imapMsg.is_starred,
+      bodyHtml: imapMsg.body_html,
+      bodyText: imapMsg.body_text,
+      rawSize: imapMsg.raw_size,
+      internalDate: imapMsg.date * 1000,
+      labelIds,
+      hasAttachments: attachments.length > 0,
+      attachments,
+      listUnsubscribe: imapMsg.list_unsubscribe,
+      listUnsubscribePost: imapMsg.list_unsubscribe_post,
+      authResults: imapMsg.auth_results,
+    };
     return parsed;
   }
 

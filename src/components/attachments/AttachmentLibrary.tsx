@@ -159,7 +159,8 @@ export function AttachmentLibrary() {
     }
   }, [accountId, loadData]);
 
-  // Refresh on sync
+  // Refresh on sync — only when new messages actually arrived (velo-sync-done is
+  // gated behind storedCount > 0 in App.tsx, so this won't fire on idle cycles).
   useEffect(() => {
     const handler = () => {
       if (accountId) loadData(accountId);

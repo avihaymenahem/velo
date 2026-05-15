@@ -285,46 +285,71 @@ export async function deleteAllMessagesForAccount(
 export async function purgeImapDuplicates(accountId: string): Promise<number> {
   const db = await getDb();
 
-  // Find duplicate groups: same account + RFC Message-ID + folder, more than one record
-  const dupes = await db.select<{ message_id_header: string; imap_folder: string; keep_uid: number }[]>(
-    `SELECT message_id_header, imap_folder, MIN(imap_uid) as keep_uid
-     FROM messages
-     WHERE account_id = $1
-       AND message_id_header IS NOT NULL
-       AND imap_folder IS NOT NULL
-       AND imap_uid IS NOT NULL
-     GROUP BY message_id_header, imap_folder
-     HAVING COUNT(*) > 1`,
+  // Collect all victim (duplicate) message IDs in one CTE query — no per-victim loops
+  const victims = await db.select<{ id: string; thread_id: string }[]>(
+    `SELECT m.id, m.thread_id
+     FROM messages m
+     INNER JOIN (
+       SELECT message_id_header, imap_folder, MIN(imap_uid) AS keep_uid
+       FROM messages
+       WHERE account_id = $1
+         AND message_id_header IS NOT NULL
+         AND imap_folder IS NOT NULL
+         AND imap_uid IS NOT NULL
+       GROUP BY message_id_header, imap_folder
+       HAVING COUNT(*) > 1
+     ) dupes
+       ON m.message_id_header = dupes.message_id_header
+      AND m.imap_folder = dupes.imap_folder
+      AND m.imap_uid != dupes.keep_uid
+     WHERE m.account_id = $1`,
     [accountId],
   );
 
-  if (dupes.length === 0) return 0;
+  if (victims.length === 0) return 0;
 
-  let deleted = 0;
-  await withTransaction(async (db) => {
-    for (const { message_id_header, imap_folder, keep_uid } of dupes) {
-      const victims = await db.select<{ id: string; thread_id: string }[]>(
-        `SELECT id, thread_id FROM messages
-         WHERE account_id = $1 AND message_id_header = $2 AND imap_folder = $3 AND imap_uid != $4`,
-        [accountId, message_id_header, imap_folder, keep_uid],
+  const victimIds = victims.map((v) => v.id);
+  const affectedThreadIds = [...new Set(victims.map((v) => v.thread_id))];
+
+  // Batch deletes — 4–5 IPC calls total regardless of count (was 4–5 × N × M)
+  const CHUNK = 500;
+  for (let i = 0; i < victimIds.length; i += CHUNK) {
+    const chunk = victimIds.slice(i, i + CHUNK);
+    const ph = chunk.map((_, j) => `$${j + 2}`).join(",");
+    await db.execute(
+      `DELETE FROM message_embeddings WHERE account_id = $1 AND message_id IN (${ph})`,
+      [accountId, ...chunk],
+    );
+    await db.execute(
+      `DELETE FROM messages WHERE account_id = $1 AND id IN (${ph})`,
+      [accountId, ...chunk],
+    );
+  }
+
+  // Delete thread_labels + threads where no messages remain after purge
+  if (affectedThreadIds.length > 0) {
+    const tph = affectedThreadIds.map((_, j) => `$${j + 2}`).join(",");
+    const surviving = await db.select<{ thread_id: string }[]>(
+      `SELECT DISTINCT thread_id FROM messages WHERE account_id = $1 AND thread_id IN (${tph})`,
+      [accountId, ...affectedThreadIds],
+    );
+    const survivingSet = new Set(surviving.map((r) => r.thread_id));
+    const emptyThreadIds = affectedThreadIds.filter((id) => !survivingSet.has(id));
+
+    if (emptyThreadIds.length > 0) {
+      const eph = emptyThreadIds.map((_, j) => `$${j + 2}`).join(",");
+      await db.execute(
+        `DELETE FROM thread_labels WHERE account_id = $1 AND thread_id IN (${eph})`,
+        [accountId, ...emptyThreadIds],
       );
-      for (const { id, thread_id } of victims) {
-        await db.execute("DELETE FROM message_embeddings WHERE account_id = $1 AND message_id = $2", [accountId, id]);
-        await db.execute("DELETE FROM messages WHERE id = $1 AND account_id = $2", [id, accountId]);
-        deleted++;
-        const remaining = await db.select<{ c: number }[]>(
-          "SELECT COUNT(*) as c FROM messages WHERE thread_id = $1 AND account_id = $2",
-          [thread_id, accountId],
-        );
-        if ((remaining[0]?.c ?? 1) === 0) {
-          await db.execute("DELETE FROM thread_labels WHERE thread_id = $1 AND account_id = $2", [thread_id, accountId]);
-          await db.execute("DELETE FROM threads WHERE id = $1 AND account_id = $2", [thread_id, accountId]);
-        }
-      }
+      await db.execute(
+        `DELETE FROM threads WHERE account_id = $1 AND id IN (${eph})`,
+        [accountId, ...emptyThreadIds],
+      );
     }
-  });
+  }
 
-  return deleted;
+  return victimIds.length;
 }
 
 /**

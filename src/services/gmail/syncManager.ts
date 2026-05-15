@@ -32,6 +32,7 @@ export type SyncStatusCallback = (
   status: "syncing" | "done" | "error",
   progress?: SyncProgress,
   error?: string,
+  storedCount?: number,
 ) => void;
 
 let statusCallback: SyncStatusCallback | null = null;
@@ -46,7 +47,7 @@ export function onSyncStatus(cb: SyncStatusCallback): () => void {
 /**
  * Run a sync for a single Gmail API account (initial or delta).
  */
-async function syncGmailAccount(accountId: string): Promise<void> {
+async function syncGmailAccount(accountId: string): Promise<{ storedCount?: number }> {
   const client = await getGmailClient(accountId);
   const account = await getAccount(accountId);
 
@@ -61,14 +62,16 @@ async function syncGmailAccount(accountId: string): Promise<void> {
   if (account.history_id) {
     // Delta sync
     try {
-      await deltaSync(client, accountId, account.history_id);
+      const count = await deltaSync(client, accountId, account.history_id);
+      return { storedCount: count };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err ?? "");
       if (message === "HISTORY_EXPIRED") {
-        // Fallback to full sync
+        // Fallback to full sync — always triggers UI refresh
         await initialSync(client, accountId, daysBack, (progress) => {
           statusCallback?.(accountId, "syncing", progress);
         });
+        return {};
       } else {
         throw err;
       }
@@ -78,13 +81,16 @@ async function syncGmailAccount(accountId: string): Promise<void> {
     await initialSync(client, accountId, daysBack, (progress) => {
       statusCallback?.(accountId, "syncing", progress);
     });
+    return {};
   }
 }
 
 /**
  * Run a sync for a single IMAP account (initial or delta).
+ * Returns storedCount = number of new messages saved (0 = nothing new).
+ * Returns undefined for initial syncs to always trigger a UI refresh.
  */
-async function syncImapAccount(accountId: string): Promise<void> {
+async function syncImapAccount(accountId: string): Promise<{ storedCount?: number }> {
   const account = await getAccount(accountId);
 
   if (!account) {
@@ -109,7 +115,7 @@ async function syncImapAccount(accountId: string): Promise<void> {
     // Recovery: if delta sync found nothing new but the DB has no threads,
     // the previous initial sync likely failed or stored data incorrectly.
     // Force a full re-sync to recover.
-    if (result.messages.length === 0) {
+    if ((result.storedCount ?? result.messages.length) === 0) {
       const threadCount = await getThreadCountForAccount(accountId);
       if (threadCount === 0) {
         console.warn(`[syncManager] IMAP delta sync returned 0 new messages and DB has 0 threads for ${accountId} — forcing full re-sync`);
@@ -122,8 +128,10 @@ async function syncImapAccount(accountId: string): Promise<void> {
             total: progress.total,
           });
         });
+        return {}; // initial sync always triggers UI refresh (storedCount undefined)
       }
     }
+    return { storedCount: result.storedCount ?? result.messages.length };
   } else {
     // First time — full initial sync
     await imapInitialSync(accountId, daysBack, (progress) => {
@@ -133,6 +141,7 @@ async function syncImapAccount(accountId: string): Promise<void> {
         total: progress.total,
       });
     });
+    return {}; // initial sync always triggers UI refresh (storedCount undefined)
   }
 }
 
@@ -216,6 +225,7 @@ async function syncCalendarForAccount(accountId: string): Promise<void> {
  */
 async function syncAccountInternal(accountId: string): Promise<void> {
   let accountLabel = accountId;
+  const _cycleStart = Date.now();
   try {
     const account = await getAccount(accountId);
 
@@ -226,7 +236,7 @@ async function syncAccountInternal(accountId: string): Promise<void> {
     accountLabel = `${account.email} (${accountId})`;
     statusCallback?.(accountId, "syncing");
 
-    console.log(`[syncManager] Syncing account ${accountLabel} (provider=${account.provider}, history_id=${account.history_id ?? "null"})`);
+    console.log(`[sync] start ${accountLabel} provider=${account.provider}`);
 
     if (account.provider === "caldav") {
       // CalDAV-only accounts — skip email sync, only sync calendar
@@ -235,16 +245,18 @@ async function syncAccountInternal(accountId: string): Promise<void> {
       return;
     }
 
+    let storedCount: number | undefined;
     if (account.provider === "imap") {
-      await syncImapAccount(accountId);
+      ({ storedCount } = await syncImapAccount(accountId));
     } else {
-      await syncGmailAccount(accountId);
+      ({ storedCount } = await syncGmailAccount(accountId));
     }
 
     // Always emit "done" when an initial sync completes (clears the bar).
     // Also emit for delta syncs that fell back to initial (recovery re-sync)
     // since those emit progress via statusCallback inside syncImapAccount.
-    statusCallback?.(accountId, "done");
+    console.log(`[sync] done ${accountLabel} stored=${storedCount ?? "?"} ms=${Date.now() - _cycleStart}`);
+    statusCallback?.(accountId, "done", undefined, undefined, storedCount);
 
     // Sync calendar alongside email (non-blocking — calendar errors don't affect email sync)
     syncCalendarForAccount(accountId).catch((err) => {
@@ -252,7 +264,7 @@ async function syncAccountInternal(accountId: string): Promise<void> {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err ?? "Unknown error");
-    console.error(`[syncManager] Sync failed for account ${accountLabel}:`, message);
+    console.error(`[sync] error ${accountLabel} ms=${Date.now() - _cycleStart}:`, message);
     statusCallback?.(accountId, "error", undefined, message);
   }
 }

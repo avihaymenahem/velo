@@ -21,6 +21,7 @@ export interface SyncResult {
     modseq?: number;
   };
   latestSyncToken?: string;
+  storedCount?: number;
 }
 
 export interface EmailProvider {

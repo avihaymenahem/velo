@@ -11,9 +11,8 @@ export async function getDb(): Promise<Database> {
     await db.execute("PRAGMA synchronous = NORMAL", []);
     // 16 MB page cache — sufficient for local email DB with WAL mode
     await db.execute("PRAGMA cache_size = -16384", []);
-    // Only auto-checkpoint after 10 000 WAL pages (~40 MB); default 1 000 pages
-    // causes frequent reader-blocking checkpoints under heavy IMAP sync load
-    await db.execute("PRAGMA wal_autocheckpoint = 10000", []);
+    // Checkpoint at 1000 pages (~4 MB) — keeps WAL small and reads fast
+    await db.execute("PRAGMA wal_autocheckpoint = 1000", []);
     await db.execute("PRAGMA temp_store = MEMORY", []);
   }
   return db;

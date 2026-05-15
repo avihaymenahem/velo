@@ -1,9 +1,8 @@
 import { GmailClient } from "./client";
 import { parseGmailMessage, type ParsedMessage } from "./messageParser";
+import { gmailStoreThread, type GmailAttachment } from "./tauriCommands";
 import { upsertLabel } from "../db/labels";
-import { upsertThread, setThreadLabels, deleteThread, markThreadUnreadInDb } from "../db/threads";
-import { upsertMessage } from "../db/messages";
-import { upsertAttachment } from "../db/attachments";
+import { setThreadLabels, deleteThread, markThreadUnreadInDb } from "../db/threads";
 import { updateAccountSyncState } from "../db/accounts";
 import { shouldNotifyForMessage, queueNewEmailNotification } from "../notifications/notificationManager";
 import { applyFiltersToMessages } from "../filters/filterEngine";
@@ -11,7 +10,7 @@ import { getSetting } from "../db/settings";
 import { getMutedThreadIds } from "../db/threads";
 import { getThreadCategory } from "../db/threadCategories";
 import { getVipSenders } from "../db/notificationVips";
-import { getPendingOpsForResource } from "../db/pendingOperations";
+import { getPendingOpResourceIds } from "../db/pendingOperations";
 import { processThreadUrgency } from "@/services/ai/urgencyPipeline";
 
 async function loadAutoArchiveCategories(): Promise<Set<string>> {
@@ -54,9 +53,24 @@ async function processAndStoreThread(
   const isImportant = allLabelIds.has("IMPORTANT");
   const hasAttachments = parsedMessages.some((m) => m.hasAttachments);
 
-  await upsertThread({
-    id: thread.id,
+  const attachments: GmailAttachment[] = parsedMessages.flatMap((msg) =>
+    msg.attachments.map((att) => ({
+      id: `${msg.id}_${att.gmailAttachmentId}`,
+      message_id: msg.id,
+      filename: att.filename,
+      mime_type: att.mimeType,
+      size: att.size,
+      gmail_attachment_id: att.gmailAttachmentId,
+      content_id: att.contentId,
+      is_inline: att.isInline,
+    })),
+  );
+
+  // Single IPC call: thread + labels + all messages (bodies included) + attachments
+  // Written directly to SQLite via rusqlite — WebKit never holds the body data.
+  await gmailStoreThread({
     accountId,
+    threadId: thread.id,
     subject: firstMessage.subject,
     snippet: lastMessage.snippet,
     lastMessageAt: lastMessage.date,
@@ -65,8 +79,35 @@ async function processAndStoreThread(
     isStarred,
     isImportant,
     hasAttachments,
+    labelIds: [...allLabelIds],
+    messages: parsedMessages.map((msg) => ({
+      id: msg.id,
+      from_address: msg.fromAddress,
+      from_name: msg.fromName,
+      to_addresses: msg.toAddresses,
+      cc_addresses: msg.ccAddresses,
+      bcc_addresses: msg.bccAddresses,
+      reply_to: msg.replyTo,
+      subject: msg.subject,
+      snippet: msg.snippet,
+      date: msg.date,
+      is_read: msg.isRead,
+      is_starred: msg.isStarred,
+      body_html: msg.bodyHtml,
+      body_text: msg.bodyText,
+      raw_size: msg.rawSize,
+      internal_date: msg.internalDate,
+      list_unsubscribe: msg.listUnsubscribe,
+      list_unsubscribe_post: msg.listUnsubscribePost,
+      auth_results: msg.authResults,
+      message_id_header: null,
+      references_header: null,
+      in_reply_to_header: null,
+    })),
+    attachments,
   });
 
+  // Fire-and-forget urgency scoring (lightweight — no body data needed)
   processThreadUrgency({
     accountId,
     threadId: thread.id,
@@ -78,9 +119,7 @@ async function processAndStoreThread(
     labelIds: [...allLabelIds],
   }).catch(() => {});
 
-  await setThreadLabels(accountId, thread.id, [...allLabelIds]);
-
-  // Rule-based categorization for inbox threads
+  // Rule-based categorization for inbox threads (lightweight — no body data)
   if (allLabelIds.has("INBOX")) {
     const { getThreadCategoryWithManual, setThreadCategory } = await import("@/services/db/threadCategories");
     const existing = await getThreadCategoryWithManual(accountId, thread.id);
@@ -121,47 +160,6 @@ async function processAndStoreThread(
       }
     }
   }
-
-  await Promise.all(parsedMessages.map(async (parsed) => {
-    await upsertMessage({
-      id: parsed.id,
-      accountId,
-      threadId: parsed.threadId,
-      fromAddress: parsed.fromAddress,
-      fromName: parsed.fromName,
-      toAddresses: parsed.toAddresses,
-      ccAddresses: parsed.ccAddresses,
-      bccAddresses: parsed.bccAddresses,
-      replyTo: parsed.replyTo,
-      subject: parsed.subject,
-      snippet: parsed.snippet,
-      date: parsed.date,
-      isRead: parsed.isRead,
-      isStarred: parsed.isStarred,
-      bodyHtml: parsed.bodyHtml,
-      bodyText: parsed.bodyText,
-      rawSize: parsed.rawSize,
-      internalDate: parsed.internalDate,
-      listUnsubscribe: parsed.listUnsubscribe,
-      listUnsubscribePost: parsed.listUnsubscribePost,
-      authResults: parsed.authResults,
-    });
-
-    await Promise.all(parsed.attachments.map((att) =>
-      upsertAttachment({
-        id: `${parsed.id}_${att.gmailAttachmentId}`,
-        messageId: parsed.id,
-        accountId,
-        filename: att.filename,
-        mimeType: att.mimeType,
-        size: att.size,
-        gmailAttachmentId: att.gmailAttachmentId,
-        imapPartId: null,
-        contentId: att.contentId,
-        isInline: att.isInline,
-      }),
-    ));
-  }));
 }
 
 /**
@@ -262,7 +260,7 @@ export async function initialSync(
         console.error(`Failed to sync thread ${stub.id}:`, err);
       }
     }),
-    10,
+    3,
   );
 
   // Store the latest history ID for delta sync
@@ -307,7 +305,7 @@ export async function deltaSync(
   client: GmailClient,
   accountId: string,
   lastHistoryId: string,
-): Promise<void> {
+): Promise<number> {
   try {
     // Paginate through all history pages
     const affectedThreadIds = new Set<string>();
@@ -367,7 +365,7 @@ export async function deltaSync(
 
     if (affectedThreadIds.size === 0) {
       await updateAccountSyncState(accountId, latestHistoryId);
-      return;
+      return 0;
     }
 
     // Load settings once for the whole sync cycle
@@ -379,17 +377,16 @@ export async function deltaSync(
     );
     const vipSenders = smartNotifications ? await getVipSenders(accountId) : new Set<string>();
 
-    // Re-fetch affected threads in parallel (max 5 concurrent)
+    // One batch query for all pending ops — avoids 1 IPC call per thread inside the loop
+    const pendingResourceIds = await getPendingOpResourceIds(accountId);
+
+    // Re-fetch affected threads in parallel (max 3 concurrent to reduce WebKit IPC pressure)
     const threadIds = [...affectedThreadIds];
     await parallelLimit(
       threadIds.map((threadId) => async () => {
         try {
-          // Skip metadata overwrite for threads with pending local changes
-          // But always process threads - pending operations are for individual messages
-          // and the server state should still be synced
-          const pendingOps = await getPendingOpsForResource(accountId, threadId);
-          if (pendingOps.length > 0) {
-            console.log(`[deltaSync] Processing thread ${threadId} despite ${pendingOps.length} pending local ops`);
+          if (pendingResourceIds.has(threadId)) {
+            console.log(`[deltaSync] Processing thread ${threadId} despite pending local ops`);
           }
 
           let thread;
@@ -473,7 +470,7 @@ export async function deltaSync(
           console.error(`Failed to re-sync thread ${threadId}:`, err);
         }
       }),
-      10,
+      3,
     );
 
     await updateAccountSyncState(accountId, latestHistoryId);
@@ -482,6 +479,8 @@ export async function deltaSync(
     import("@/services/ai/categorizationManager")
       .then(({ categorizeNewThreads }) => categorizeNewThreads(accountId))
       .catch((err) => console.error("Categorization error:", err));
+
+    return affectedThreadIds.size;
   } catch (err) {
     // historyId might be too old — need full re-sync
     const message = err instanceof Error ? err.message : String(err);

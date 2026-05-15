@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImapConfig {
@@ -21,6 +23,71 @@ pub struct ImapFolder {
     pub special_use: Option<String>, // "\Sent", "\Trash", "\Drafts", "\Junk", "\Archive", "\All"
     pub exists: u32,
     pub unseen: u32,
+}
+
+/// Single entry in the body cache.
+/// Both fields are stored together so one rusqlite UPDATE writes both.
+#[derive(Debug, Clone)]
+pub struct BodyEntry {
+    pub body_html: Option<String>,
+    pub body_text: Option<String>,
+}
+
+/// Global semaphore for limiting concurrent IMAP sync/download tasks.
+/// Prevents memory exhaustion by limiting how many email bodies (often several MBs)
+/// are held in the heap simultaneously.
+pub struct SyncSemaphore {
+    pub semaphore: tokio::sync::Semaphore,
+}
+
+impl SyncSemaphore {
+    pub fn new(permits: usize) -> Self {
+        Self {
+            semaphore: tokio::sync::Semaphore::new(permits),
+        }
+    }
+}
+
+/// Body cache: Rust intercepts BOTH body_html and body_text before they cross the
+/// Tauri IPC bridge, holding them here until imap_flush_bodies writes them directly
+/// to SQLite via rusqlite — WebKit never touches any body content.
+/// Key: (folder_path, uid). Populated by imap_fetch_messages_buffered; drained by imap_flush_bodies.
+pub type BodyCache = Arc<Mutex<HashMap<(String, u32), BodyEntry>>>;
+
+/// Header-only message transmitted over IPC during sync.
+/// body_html and body_text are both absent — they go Rust BodyCache → rusqlite → SQLite
+/// without ever touching the WebKit heap.
+/// snippet (first 200 chars of plain text) IS included and used for AI urgency scoring.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImapMessageMeta {
+    pub uid: u32,
+    pub folder: String,
+    pub message_id: Option<String>,
+    pub in_reply_to: Option<String>,
+    pub references: Option<String>,
+    pub from_address: Option<String>,
+    pub from_name: Option<String>,
+    pub to_addresses: Option<String>,
+    pub cc_addresses: Option<String>,
+    pub bcc_addresses: Option<String>,
+    pub reply_to: Option<String>,
+    pub subject: Option<String>,
+    pub date: i64,
+    pub is_read: bool,
+    pub is_starred: bool,
+    pub is_draft: bool,
+    pub snippet: Option<String>,
+    pub raw_size: u32,
+    pub list_unsubscribe: Option<String>,
+    pub list_unsubscribe_post: Option<String>,
+    pub auth_results: Option<String>,
+    pub attachments: Vec<ImapAttachment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImapFetchResultMeta {
+    pub messages: Vec<ImapMessageMeta>,
+    pub folder_status: ImapFolderStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,4 +174,96 @@ pub struct DeltaCheckResult {
     pub uidvalidity: u32,
     pub new_uids: Vec<u32>,
     pub uidvalidity_changed: bool,
+}
+
+/// Minimal data returned per message after Rust has persisted the batch to SQLite.
+/// Only what JWZ threading needs — ~200 bytes per message, ~2 KB per batch of 10.
+/// WebKit never sees message bodies or full metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImapSyncHeader {
+    pub local_id: String,
+    pub message_id: Option<String>,
+    pub in_reply_to: Option<String>,
+    pub references: Option<String>,
+    pub subject: Option<String>,
+    pub date: i64,
+    pub label_id: String,
+    pub is_read: bool,
+    pub is_starred: bool,
+    pub is_draft: bool,
+    pub has_attachments: bool,
+    pub snippet: String,
+    pub from_address: Option<String>,
+    pub from_name: Option<String>,
+    /// True when the message was stored to DB; false when skipped (duplicate RFC ID).
+    /// TypeScript still uses skipped headers for cross-folder label accumulation.
+    pub stored: bool,
+}
+
+/// Thread data sent from TypeScript to Rust after JWZ threading completes.
+/// Contains pre-computed aggregate values — Rust writes them directly without SQL aggregates.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImapThreadUpdate {
+    pub thread_id: String,
+    pub message_ids: Vec<String>,
+    pub subject: Option<String>,
+    pub snippet: Option<String>,
+    pub last_message_at: i64,
+    pub is_read: bool,
+    pub is_starred: bool,
+    pub has_attachments: bool,
+    pub label_ids: Vec<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Gmail zero-IPC types
+// ---------------------------------------------------------------------------
+
+/// A single Gmail message, sent from TypeScript to Rust for direct rusqlite storage.
+/// Body data (body_html, body_text) goes Rust → SQLite without bouncing through WebKit.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GmailMessage {
+    pub id: String,
+    pub from_address: Option<String>,
+    pub from_name: Option<String>,
+    pub to_addresses: Option<String>,
+    pub cc_addresses: Option<String>,
+    pub bcc_addresses: Option<String>,
+    pub reply_to: Option<String>,
+    pub subject: Option<String>,
+    pub snippet: Option<String>,
+    pub date: i64,
+    pub is_read: bool,
+    pub is_starred: bool,
+    pub body_html: Option<String>,
+    pub body_text: Option<String>,
+    pub raw_size: Option<u32>,
+    pub internal_date: Option<i64>,
+    pub list_unsubscribe: Option<String>,
+    pub list_unsubscribe_post: Option<String>,
+    pub auth_results: Option<String>,
+    pub message_id_header: Option<String>,
+    pub references_header: Option<String>,
+    pub in_reply_to_header: Option<String>,
+}
+
+/// A Gmail attachment, bundled alongside its parent message.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GmailAttachment {
+    pub id: String,
+    pub message_id: String,
+    pub filename: Option<String>,
+    pub mime_type: Option<String>,
+    pub size: Option<u32>,
+    pub gmail_attachment_id: Option<String>,
+    pub content_id: Option<String>,
+    pub is_inline: bool,
+}
+
+/// Minimal acknowledgement returned by gmail_store_thread.
+/// TypeScript only needs to know the thread was persisted — no body data returns.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GmailStoredHeader {
+    pub thread_id: String,
+    pub message_count: u32,
 }

@@ -418,7 +418,6 @@ export default function App() {
           startBackgroundSync(activeIds);
         }
 
-        // Start snooze, scheduled send, follow-up, bundle, and queue checkers
         startSnoozeChecker();
         startScheduledSendChecker();
         startFollowUpChecker();
@@ -481,7 +480,7 @@ export default function App() {
   // Listen for sync status updates
   const backfillDoneRef = useRef(false);
   useEffect(() => {
-    const unsub = onSyncStatus((accountId, status, progress, error) => {
+    const unsub = onSyncStatus((accountId, status, progress, error, storedCount) => {
       if (status === "syncing") {
         if (progress) {
           if (progress.phase === "messages") {
@@ -499,13 +498,20 @@ export default function App() {
           setSyncStatus("Syncing...");
         }
       } else if (status === "done") {
-        setSyncStatus("Sync complete");
-        setTimeout(() => setSyncStatus(null), 2_000);
-        window.dispatchEvent(new Event("velo-sync-done"));
+        // Only show "Sync complete" and reload UI when something actually changed.
+        // storedCount === undefined means Gmail or initial sync — always reload.
+        // storedCount === 0 means idle delta sync — skip to avoid GC churn every 60s.
+        if (storedCount === undefined || storedCount > 0) {
+          setSyncStatus("Sync complete");
+          setTimeout(() => setSyncStatus(null), 2_000);
+          window.dispatchEvent(new Event("velo-sync-done"));
+        } else {
+          setSyncStatus(null);
+        }
         updateBadgeCount();
 
-        // Resume embedding backfill if new messages arrived since the last run
-        if (!isEmbeddingBackfillRunning()) {
+        // Resume embedding backfill only when new messages arrived
+        if ((storedCount === undefined || storedCount > 0) && !isEmbeddingBackfillRunning()) {
           runEmbeddingBackfill().catch(() => {});
         }
 

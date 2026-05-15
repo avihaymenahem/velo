@@ -1848,11 +1848,10 @@ fn parse_message(
     let section_map = build_imap_section_map(&message);
 
     log::debug!(
-        "IMAP parse UID {uid}: {} parts, {} attachment indices {:?}, section_map: {:?}",
+        "IMAP parse UID {uid}: {} parts, {} attachment indices {:?}",
         message.parts.len(),
         message.attachments.len(),
         message.attachments,
-        section_map,
     );
 
     // Attachments

@@ -144,6 +144,21 @@ export async function getPendingOpsForResource(
   );
 }
 
+/**
+ * Return the set of resource_ids that have at least one pending operation.
+ * One DB query instead of N per-thread queries — used during threading to skip
+ * threads with local changes that should not be overwritten by sync.
+ */
+export async function getPendingOpResourceIds(accountId: string): Promise<Set<string>> {
+  const db = await getDb();
+  const rows = await db.select<{ resource_id: string }[]>(
+    `SELECT DISTINCT resource_id FROM pending_operations
+     WHERE account_id = $1 AND status = 'pending'`,
+    [accountId],
+  );
+  return new Set(rows.map((r) => r.resource_id));
+}
+
 export async function compactQueue(accountId?: string): Promise<number> {
   const db = await getDb();
 

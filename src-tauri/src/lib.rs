@@ -406,6 +406,11 @@ pub fn run() {
             commands::imap_sync_folder,
             commands::imap_raw_fetch_diagnostic,
             commands::imap_delta_check,
+            commands::imap_fetch_messages_buffered,
+            commands::imap_flush_bodies,
+            commands::imap_fetch_and_store,
+            commands::imap_store_threads,
+            commands::gmail_store_thread,
             commands::smtp_send_email,
             commands::smtp_test_connection,
             vector_search::store_embedding,
@@ -413,6 +418,24 @@ pub fn run() {
         ])
         .setup(|app| {
             app.manage(crate::imap::pool::ImapSessionPool::new());
+            app.manage(crate::imap::types::SyncSemaphore::new(3));
+            app.manage(crate::imap::types::BodyCache::default());
+
+            // Diagnostic reporter: log BodyCache size and a heartbeat every 30s.
+            // Remove once the RAM leak is identified.
+            {
+                let body_cache: crate::imap::types::BodyCache =
+                    app.state::<crate::imap::types::BodyCache>().inner().clone();
+                tauri::async_runtime::spawn(async move {
+                    let mut interval =
+                        tokio::time::interval(std::time::Duration::from_secs(30));
+                    loop {
+                        interval.tick().await;
+                        let cache_len = body_cache.lock().map(|c| c.len()).unwrap_or(0);
+                        log::info!("[DIAG] heartbeat | BodyCache={cache_len} entries");
+                    }
+                });
+            }
 
             {
                 let level = if cfg!(debug_assertions) {

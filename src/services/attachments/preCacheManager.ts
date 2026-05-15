@@ -10,8 +10,20 @@ const RECENT_DAYS = 7;
 const BATCH_LIMIT = 20;
 
 let checker: BackgroundChecker | null = null;
+let isRunning = false;
 
 async function preCacheRecent(): Promise<void> {
+  // Prevent concurrent runs (React StrictMode double-init causes two simultaneous starts)
+  if (isRunning) return;
+  isRunning = true;
+  try {
+    await preCacheRecentInner();
+  } finally {
+    isRunning = false;
+  }
+}
+
+async function preCacheRecentInner(): Promise<void> {
   // Skip if offline
   if (!useUIStore.getState().isOnline) return;
 
@@ -74,10 +86,13 @@ async function preCacheRecent(): Promise<void> {
   }
 }
 
+const STARTUP_DELAY_MS = 2 * 60 * 1000; // 2 minutes — let app settle before pre-caching
+
 export function startPreCacheManager(): void {
   if (checker) return;
   checker = createBackgroundChecker("AttachmentPreCache", preCacheRecent, 900_000);
-  checker.start();
+  // Delay first run so it doesn't compete with app startup and initial sync
+  setTimeout(() => checker?.start(), STARTUP_DELAY_MS);
 }
 
 export function stopPreCacheManager(): void {
