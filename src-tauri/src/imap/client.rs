@@ -257,7 +257,7 @@ pub async fn fetch_messages(
     // Some IMAP servers return empty streams for UID FETCH despite valid UIDs.
     let fetches = tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
         let stream = session
-            .uid_fetch(uid_range, "UID FLAGS INTERNALDATE BODY.PEEK[]")
+            .uid_fetch(uid_range, "UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[]<0.51200>")
             .await
             .map_err(|e| format!("UID FETCH {folder} uids={uid_range} failed: {e}"))?;
         Ok::<_, String>(stream.collect::<Vec<_>>().await)
@@ -297,9 +297,7 @@ pub async fn fetch_messages(
             None => { log::warn!("IMAP FETCH {folder}: UID {uid} has no body"); continue; }
         };
 
-        let raw_size = raw.len() as u32;
-
-        // Parse flags
+        let raw_size = fetch.size.unwrap_or(raw.len() as u32);
         let flags: Vec<_> = fetch.flags().collect();
 
         // Skip messages marked \Deleted but not yet expunged (ghost drafts / tombstones)
@@ -1008,9 +1006,9 @@ pub async fn sync_folder(
 
         let fetches = tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
             let stream = session
-                .uid_fetch(&uid_set, "UID FLAGS INTERNALDATE BODY.PEEK[]")
+                .uid_fetch(&uid_set, "UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[]<0.51200>")
                 .await
-                .map_err(|e| format!("UID FETCH {folder} uids={uid_set} failed: {e}"))?;
+                .map_err(|e| format!("UID FETCH for search results failed: {e}"))?;
             Ok::<_, String>(stream.collect::<Vec<_>>().await)
         })
         .await
@@ -1028,7 +1026,7 @@ pub async fn sync_folder(
                         Some(b) => b,
                         None => { log::warn!("IMAP sync_folder {folder}: UID {uid} has no body"); continue; }
                     };
-                    let raw_size = raw.len() as u32;
+                    let raw_size = f.size.unwrap_or(raw.len() as u32);
                     let flags: Vec<_> = f.flags().collect();
 
                     // Skip messages marked \Deleted but not yet expunged

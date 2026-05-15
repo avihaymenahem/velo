@@ -1003,6 +1003,11 @@ const MIGRATIONS = [
         ON thread_categories(account_id, thread_id);
     `,
   },
+  {
+    version: 41,
+    description: "Add is_truncated flag to messages for lazy body fetching in IMAP accounts",
+    sql: `ALTER TABLE messages ADD COLUMN is_truncated INTEGER DEFAULT 0;`,
+  },
 ];
 
 /**

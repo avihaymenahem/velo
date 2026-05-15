@@ -46,10 +46,11 @@ interface MessageItemProps {
   isSpam?: boolean;
   focused?: boolean;
   onSelect?: (messageId: string) => void;
+  onNeedBody?: () => Promise<void>;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(function MessageItem({ message, isLast, blockImages, senderAllowlisted, accountId, threadId, isSpam, focused, onSelect, onContextMenu }, ref) {
+export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(function MessageItem({ message, isLast, blockImages, senderAllowlisted, accountId, threadId, isSpam, focused, onSelect, onNeedBody, onContextMenu }, ref) {
   const [expanded, setExpanded] = useState(isLast);
   const [attachments, setAttachments] = useState<DbAttachment[]>([]);
   const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
@@ -161,8 +162,11 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
     }
   }, [focused, message.id, onSelect]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleToggle = () => {
+  const handleToggle = async () => {
     const willExpand = !expanded;
+    if (willExpand && (message.is_truncated === 1 || (message.body_html === null && message.body_text === null))) {
+      await onNeedBody?.();
+    }
     setExpanded(willExpand);
     if (willExpand) {
       loadAttachments();

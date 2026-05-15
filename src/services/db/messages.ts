@@ -28,6 +28,7 @@ export interface DbMessage {
   in_reply_to_header: string | null;
   imap_uid: number | null;
   imap_folder: string | null;
+  is_truncated: number;
 }
 
 export async function getMessagesForThread(
@@ -39,6 +40,90 @@ export async function getMessagesForThread(
     "SELECT * FROM messages WHERE account_id = $1 AND thread_id = $2 ORDER BY date ASC",
     [accountId, threadId],
   );
+}
+
+// Loads messages without body_html/body_text to reduce memory — bodies are fetched lazily on expand.
+// Mirrors Thunderbird's msgHdr vs body separation pattern.
+export async function getMessagesMetaForThread(
+  accountId: string,
+  threadId: string,
+): Promise<DbMessage[]> {
+  const db = await getDb();
+  const rows = await db.select<Omit<DbMessage, "body_html" | "body_text">[]>(
+    `SELECT id, account_id, thread_id, from_address, from_name, to_addresses,
+     cc_addresses, bcc_addresses, reply_to, subject, snippet, date, is_read,
+     is_starred, body_cached, raw_size, internal_date, list_unsubscribe,
+     list_unsubscribe_post, auth_results, message_id_header, references_header,
+     in_reply_to_header, imap_uid, imap_folder
+     FROM messages WHERE account_id = $1 AND thread_id = $2 ORDER BY date ASC`,
+    [accountId, threadId],
+  );
+  return rows.map((r) => ({ ...r, body_html: null, body_text: null }));
+}
+
+/**
+ * Fetch metadata for a specific list of message IDs.
+ * Used during the threading phase to avoid keeping all metadata in RAM.
+ */
+export async function getMessagesByIds(
+  accountId: string,
+  messageIds: string[],
+): Promise<DbMessage[]> {
+  const db = await getDb();
+  // SQLite variable limit is 999
+  const results: DbMessage[] = [];
+  for (let i = 0; i < messageIds.length; i += 500) {
+    const chunk = messageIds.slice(i, i + 500);
+    const placeholders = chunk.map((_, idx) => `$${idx + 2}`).join(", ");
+    const rows = await db.select<Omit<DbMessage, "body_html" | "body_text">[]>(
+      `SELECT id, account_id, thread_id, from_address, from_name, to_addresses,
+       cc_addresses, bcc_addresses, reply_to, subject, snippet, date, is_read,
+       is_starred, body_cached, raw_size, internal_date, list_unsubscribe,
+       list_unsubscribe_post, auth_results, message_id_header, references_header,
+       in_reply_to_header, imap_uid, imap_folder
+       FROM messages WHERE account_id = $1 AND id IN (${placeholders})`,
+      [accountId, ...chunk],
+    );
+    results.push(...rows.map((r) => ({ ...r, body_html: null, body_text: null })));
+  }
+  return results;
+}
+
+export async function getMessageBody(
+  accountId: string,
+  messageId: string,
+): Promise<{ body_html: string | null; body_text: string | null; is_truncated: number }> {
+  const db = await getDb();
+  const row = await db.select<{ body_html: string | null; body_text: string | null; is_truncated: number }[]>(
+    "SELECT body_html, body_text, is_truncated FROM messages WHERE account_id = $1 AND id = $2",
+    [accountId, messageId],
+  );
+  return row[0] ?? { body_html: null, body_text: null, is_truncated: 0 };
+}
+
+/**
+ * Check which of the given RFC Message-IDs already exist in the database.
+ * Returns a Set of IDs that are already present.
+ */
+export async function getExistingRfcIds(
+  accountId: string,
+  rfcIds: string[],
+): Promise<Set<string>> {
+  if (rfcIds.length === 0) return new Set();
+  const db = await getDb();
+  const results = new Set<string>();
+  for (let i = 0; i < rfcIds.length; i += 500) {
+    const chunk = rfcIds.slice(i, i + 500);
+    const placeholders = chunk.map((_, idx) => `$${idx + 2}`).join(", ");
+    const rows = await db.select<{ message_id_header: string }[]>(
+      `SELECT message_id_header FROM messages WHERE account_id = $1 AND message_id_header IN (${placeholders})`,
+      [accountId, ...chunk],
+    );
+    for (const row of rows) {
+      if (row.message_id_header) results.add(row.message_id_header);
+    }
+  }
+  return results;
 }
 
 export async function upsertMessage(msg: {
@@ -68,11 +153,12 @@ export async function upsertMessage(msg: {
   inReplyToHeader?: string | null;
   imapUid?: number | null;
   imapFolder?: string | null;
+  isTruncated?: boolean;
 }): Promise<void> {
   await withTransaction(async (db) => {
     await db.execute(
-      `INSERT INTO messages (id, account_id, thread_id, from_address, from_name, to_addresses, cc_addresses, bcc_addresses, reply_to, subject, snippet, date, is_read, is_starred, body_html, body_text, body_cached, raw_size, internal_date, list_unsubscribe, list_unsubscribe_post, auth_results, message_id_header, references_header, in_reply_to_header, imap_uid, imap_folder)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+      `INSERT INTO messages (id, account_id, thread_id, from_address, from_name, to_addresses, cc_addresses, bcc_addresses, reply_to, subject, snippet, date, is_read, is_starred, body_html, body_text, body_cached, raw_size, internal_date, list_unsubscribe, list_unsubscribe_post, auth_results, message_id_header, references_header, in_reply_to_header, imap_uid, imap_folder, is_truncated)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
        ON CONFLICT(account_id, id) DO UPDATE SET
          from_address = $4, from_name = $5, to_addresses = $6, cc_addresses = $7,
          bcc_addresses = $8, reply_to = $9, subject = $10, snippet = $11,
@@ -83,7 +169,8 @@ export async function upsertMessage(msg: {
          auth_results = $22, message_id_header = COALESCE($23, message_id_header),
          references_header = COALESCE($24, references_header),
          in_reply_to_header = COALESCE($25, in_reply_to_header),
-         imap_uid = COALESCE($26, imap_uid), imap_folder = COALESCE($27, imap_folder)`,
+         imap_uid = COALESCE($26, imap_uid), imap_folder = COALESCE($27, imap_folder),
+         is_truncated = COALESCE($28, is_truncated)`,
       [
         msg.id,
         msg.accountId,
@@ -112,6 +199,7 @@ export async function upsertMessage(msg: {
         msg.inReplyToHeader ?? null,
         msg.imapUid ?? null,
         msg.imapFolder ?? null,
+        msg.isTruncated ? 1 : 0,
       ],
     );
   });

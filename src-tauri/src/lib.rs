@@ -1,3 +1,10 @@
+// jemalloc returns freed memory to the OS more aggressively than the default
+// system allocator (libmalloc on macOS), which can otherwise hold onto pages
+// indefinitely after large IMAP sync operations.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 #[cfg(not(target_os = "linux"))]
 use tauri::{
     menu::{Menu, MenuItem},

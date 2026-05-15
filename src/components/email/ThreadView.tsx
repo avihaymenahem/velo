@@ -1,7 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { MessageItem } from "./MessageItem";
 import { ActionBar } from "./ActionBar";
-import { getMessagesForThread, type DbMessage } from "@/services/db/messages";
+import {
+  getMessagesForThread,
+  getMessagesMetaForThread,
+  getMessageBody,
+  type DbMessage,
+} from "@/services/db/messages";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useThreadStore, type Thread } from "@/stores/threadStore";
@@ -24,6 +29,8 @@ import { AiTaskExtractDialog } from "@/components/tasks/AiTaskExtractDialog";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { MessageSkeleton } from "@/components/ui/Skeleton";
 import { RawMessageModal } from "./RawMessageModal";
+
+const INITIAL_MESSAGES_TO_SHOW = 20;
 
 interface ThreadViewProps {
   thread: Thread;
@@ -87,14 +94,44 @@ const updateThread = useThreadStore((s) => s.updateThread);
     getSetting("block_remote_images").then((val) => setBlockImages(val !== "false"));
   }, []);
 
-// Load messages
+// Load messages — lean first (no body), then immediately patch body for the last message.
+   // This mirrors Thunderbird's msgHdr vs body separation: avoid loading all bodies upfront.
    useEffect(() => {
      if (!activeAccountId) return;
      setLoading(true);
-     getMessagesForThread(activeAccountId, thread.id)
-       .then((msgs) => {
+     getMessagesMetaForThread(activeAccountId, thread.id)
+       .then(async (msgs) => {
+         // Patch body for the last message immediately (it's the only one expanded by default)
+          const last = msgs[msgs.length - 1];
+          if (last) {
+            let body = await getMessageBody(activeAccountId, last.id);
+            if (body.is_truncated === 1) {
+              try {
+                const { getEmailProvider } = await import("@/services/email/providerFactory");
+                const { upsertMessage } = await import("@/services/db/messages");
+                const provider = await getEmailProvider(activeAccountId);
+                const fullMsg = await provider.fetchMessage(last.id);
+                if (fullMsg) {
+                  await upsertMessage({
+                    ...fullMsg,
+                    accountId: activeAccountId,
+                    isTruncated: false,
+                  });
+                  body = {
+                    body_html: fullMsg.bodyHtml,
+                    body_text: fullMsg.bodyText,
+                    is_truncated: 0,
+                  };
+                }
+              } catch (err) {
+                console.error("[ThreadView] Failed to lazy-fetch last message body:", err);
+              }
+            }
+            if (body.body_html || body.body_text) {
+              msgs = msgs.map((m) => (m.id === last.id ? { ...m, ...body } : m));
+            }
+          }
          setMessages(msgs);
-         // If a messageId was set from citation click, verify it exists
          if (storeSelectedMessageId && msgs.some(m => m.id === storeSelectedMessageId)) {
            setLocalSelectedMessageId(storeSelectedMessageId);
          }
@@ -161,11 +198,54 @@ const updateThread = useThreadStore((s) => s.updateThread);
 // Get selected message - either explicitly selected or last message as fallback
   const selectedMessage = messages.find(m => m.id === selectedMessageId) || lastMessage;
 
-  const handleReply = useCallback(() => {
+  // Fetch and patch body for a single message into the messages state
+  const loadBodyForMessage = useCallback(async (messageId: string) => {
+    if (!activeAccountId) return;
+    let body = await getMessageBody(activeAccountId, messageId);
+    if (!body) return;
+
+    // If truncated (IMAP optimization), fetch full body from server and update DB
+    if (body.is_truncated === 1) {
+      try {
+        const { getEmailProvider } = await import("@/services/email/providerFactory");
+        const { upsertMessage } = await import("@/services/db/messages");
+        const provider = await getEmailProvider(activeAccountId);
+        const fullMsg = await provider.fetchMessage(messageId);
+        
+        if (fullMsg) {
+          await upsertMessage({
+            ...fullMsg,
+            accountId: activeAccountId,
+            isTruncated: false
+          });
+          body = {
+            body_html: fullMsg.bodyHtml,
+            body_text: fullMsg.bodyText,
+            is_truncated: 0
+          };
+        }
+      } catch (err) {
+        console.error("[ThreadView] Failed to lazy-fetch full message body:", err);
+      }
+    }
+
+    setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, ...body } : m));
+  }, [activeAccountId]);
+
+  // For reply/forward/export/print: ensure all messages have bodies loaded before proceeding
+  const ensureFullMessages = useCallback(async (): Promise<DbMessage[]> => {
+    if (!activeAccountId) return messages;
+    const needsFetch = messages.some((m) => m.body_html === null && m.body_text === null);
+    if (!needsFetch) return messages;
+    return getMessagesForThread(activeAccountId, thread.id);
+  }, [messages, activeAccountId, thread.id]);
+
+  const handleReply = useCallback(async () => {
     if (!selectedMessage) return;
+    const fullMessages = await ensureFullMessages();
     const replyTo = selectedMessage.reply_to ?? selectedMessage.from_address;
-    const msgIndex = messages.findIndex(m => m.id === selectedMessage.id);
-    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
+    const msgIndex = fullMessages.findIndex(m => m.id === selectedMessage.id);
+    const quotedMessages = msgIndex >= 0 ? fullMessages.slice(0, msgIndex + 1) : fullMessages;
     openComposer({
       mode: "reply",
       to: replyTo ? [replyTo] : [],
@@ -174,10 +254,11 @@ const updateThread = useThreadStore((s) => s.updateThread);
       threadId: selectedMessage.thread_id,
       inReplyToMessageId: selectedMessage.id,
     });
-  }, [selectedMessage, messages, openComposer]);
+  }, [selectedMessage, ensureFullMessages, openComposer]);
 
-  const handleReplyAll = useCallback(() => {
+  const handleReplyAll = useCallback(async () => {
     if (!selectedMessage || !activeAccount) return;
+    const fullMessages = await ensureFullMessages();
     const replyTo = selectedMessage.reply_to ?? selectedMessage.from_address;
     const allRecipients = new Set<string>();
     if (replyTo) allRecipients.add(replyTo);
@@ -193,13 +274,9 @@ const updateThread = useThreadStore((s) => s.updateThread);
       });
     }
 
-    // Always remove all self emails from 'to' if they were added from replyTo
     for (const email of myEmails) {
       allRecipients.delete(email);
     }
-    // Also delete normalized version just in case (though Set is case-sensitive, so we should be careful)
-    // Wait, allRecipients stores the original strings.
-    // Let's do it better.
 
     const ccList: string[] = [];
     if (selectedMessage.cc_addresses) {
@@ -211,8 +288,8 @@ const updateThread = useThreadStore((s) => s.updateThread);
       });
     }
 
-    const msgIndex = messages.findIndex(m => m.id === selectedMessage.id);
-    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
+    const msgIndex = fullMessages.findIndex(m => m.id === selectedMessage.id);
+    const quotedMessages = msgIndex >= 0 ? fullMessages.slice(0, msgIndex + 1) : fullMessages;
 
     openComposer({
       mode: "replyAll",
@@ -223,12 +300,13 @@ const updateThread = useThreadStore((s) => s.updateThread);
       threadId: selectedMessage.thread_id,
       inReplyToMessageId: selectedMessage.id,
     });
-  }, [selectedMessage, messages, openComposer, activeAccount, accounts]);
+  }, [selectedMessage, ensureFullMessages, openComposer, activeAccount, accounts]);
 
-const handleForward = useCallback(() => {
+const handleForward = useCallback(async () => {
     if (!selectedMessage) return;
-    const msgIndex = messages.findIndex(m => m.id === selectedMessage.id);
-    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
+    const fullMessages = await ensureFullMessages();
+    const msgIndex = fullMessages.findIndex(m => m.id === selectedMessage.id);
+    const quotedMessages = msgIndex >= 0 ? fullMessages.slice(0, msgIndex + 1) : fullMessages;
     openComposer({
       mode: "forward",
       to: [],
@@ -237,7 +315,7 @@ const handleForward = useCallback(() => {
       threadId: selectedMessage.thread_id,
       inReplyToMessageId: selectedMessage.id,
     });
-  }, [selectedMessage, messages, openComposer]);
+  }, [selectedMessage, ensureFullMessages, openComposer]);
 
 const handlePrint = useCallback(async () => {
     if (messages.length === 0) {
@@ -412,6 +490,21 @@ const handlePrint = useCallback(async () => {
     return () => window.removeEventListener("keydown", handler);
   }, [messages.length, readingPanePosition]);
 
+  const [visibleStart, setVisibleStart] = useState(0);
+
+  // Reset visible window when thread changes
+  useEffect(() => {
+    setVisibleStart(0);
+  }, [thread.id]);
+
+  // Compute visible slice — always shows last INITIAL_MESSAGES_TO_SHOW messages,
+  // expanding upward when the user loads earlier messages.
+  const visibleMessages = messages.length <= INITIAL_MESSAGES_TO_SHOW
+    ? messages
+    : messages.slice(messages.length - INITIAL_MESSAGES_TO_SHOW - visibleStart);
+
+  const hiddenCount = messages.length - visibleMessages.length;
+
   const [rawMessageTarget, setRawMessageTarget] = useState<{
     messageId: string;
     accountId: string;
@@ -482,7 +575,8 @@ const handlePrint = useCallback(async () => {
       const { save } = await import("@tauri-apps/plugin-dialog");
       const { writeTextFile } = await import("@tauri-apps/plugin-fs");
 
-      const emlParts = messages.map((msg) => {
+      const fullMessages = await ensureFullMessages();
+      const emlParts = fullMessages.map((msg) => {
         const date = new Date(msg.date).toUTCString();
         const from = msg.from_name
           ? `${msg.from_name} <${msg.from_address}>`
@@ -581,20 +675,34 @@ const handlePrint = useCallback(async () => {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           <ErrorBoundary name="MessageList">
-            {messages.map((msg, i) => (
-              <MessageItem
-                key={msg.id}
-                ref={(el) => { messageRefs.current[i] = el; }}
-                message={msg}
-                isLast={i === messages.length - 1}
-                focused={i === focusedMsgIdx}
-                onSelect={setSelectedMessageId}
-                blockImages={blockImages}
-                senderAllowlisted={msg.from_address ? allowlistedSenders.has(normalizeEmail(msg.from_address)) : false}
-                isSpam={thread.labelIds.includes("SPAM")}
-                onContextMenu={(e) => handleMessageContextMenu(e, msg)}
-              />
-            ))}
+            {hiddenCount > 0 && (
+              <div className="px-6 py-3 border-b border-border-secondary">
+                <button
+                  onClick={() => setVisibleStart((s) => s + INITIAL_MESSAGES_TO_SHOW)}
+                  className="text-xs text-accent hover:text-accent-hover transition-colors"
+                >
+                  Load {Math.min(hiddenCount, INITIAL_MESSAGES_TO_SHOW)} earlier message{Math.min(hiddenCount, INITIAL_MESSAGES_TO_SHOW) !== 1 ? "s" : ""} ({hiddenCount} hidden)
+                </button>
+              </div>
+            )}
+            {visibleMessages.map((msg, i) => {
+              const globalIdx = messages.length - visibleMessages.length + i;
+              return (
+                <MessageItem
+                  key={msg.id}
+                  ref={(el) => { messageRefs.current[globalIdx] = el; }}
+                  message={msg}
+                  isLast={globalIdx === messages.length - 1}
+                  focused={globalIdx === focusedMsgIdx}
+                  onSelect={setSelectedMessageId}
+                  onNeedBody={() => loadBodyForMessage(msg.id)}
+                  blockImages={blockImages}
+                  senderAllowlisted={msg.from_address ? allowlistedSenders.has(normalizeEmail(msg.from_address)) : false}
+                  isSpam={thread.labelIds.includes("SPAM")}
+                  onContextMenu={(e) => handleMessageContextMenu(e, msg)}
+                />
+              );
+            })}
           </ErrorBoundary>
 
           {/* Smart Reply Suggestions */}

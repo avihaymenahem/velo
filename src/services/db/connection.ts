@@ -9,8 +9,8 @@ export async function getDb(): Promise<Database> {
     await db.execute("PRAGMA journal_mode = WAL", []);
     // NORMAL is safe with WAL and much faster than FULL (no fsync on every write)
     await db.execute("PRAGMA synchronous = NORMAL", []);
-    // 64 MB page cache — reduces repeated I/O for hot tables like messages/threads
-    await db.execute("PRAGMA cache_size = -65536", []);
+    // 16 MB page cache — sufficient for local email DB with WAL mode
+    await db.execute("PRAGMA cache_size = -16384", []);
     // Only auto-checkpoint after 10 000 WAL pages (~40 MB); default 1 000 pages
     // causes frequent reader-blocking checkpoints under heavy IMAP sync load
     await db.execute("PRAGMA wal_autocheckpoint = 10000", []);
