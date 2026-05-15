@@ -9,7 +9,7 @@ use super::types::ImapConfig;
 
 type ImapSession = Session<ImapStream>;
 
-const MAX_SESSIONS_PER_KEY: usize = 2;
+const MAX_SESSIONS_PER_KEY: usize = 4;
 const NOOP_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Global IMAP session pool. Stored as Tauri managed state so every command shares

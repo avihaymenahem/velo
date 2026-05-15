@@ -11,14 +11,17 @@ import { AuthWarningBanner } from "./AuthWarningBanner";
 
 // ---------------------------------------------------------------------------
 // Module-level IMAP fetch semaphore — caps concurrent attachment/CID fetches
-// at 2 to prevent server-side "Connection Reset" (OS Error 54) under load.
+// to prevent server-side "Connection Reset" (OS Error 54) under load.
+// Limit raised to 6 (3 per account for a typical 2-account setup) to allow
+// parallel CID image fetching, matching Thunderbird's default of 5 connections.
 // ---------------------------------------------------------------------------
 let _imapFetchActive = 0;
 const _imapFetchWaiters: Array<() => void> = [];
+const IMAP_FETCH_LIMIT = 6;
 function _acquireImapSlot(): Promise<void> {
   return new Promise((resolve) => {
     const tryAcquire = () => {
-      if (_imapFetchActive < 2) {
+      if (_imapFetchActive < IMAP_FETCH_LIMIT) {
         _imapFetchActive++;
         resolve();
       } else {
@@ -58,60 +61,69 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
     const html = message.body_html;
     if (!html || !/\bcid:/i.test(html)) return;
 
-    const cidAtts = atts.filter((a) => a.content_id && (a.gmail_attachment_id || a.imap_part_id));
+    const cidAtts = atts.filter(
+      (a) => a.content_id && (a.gmail_attachment_id || a.imap_part_id) &&
+        new RegExp(`cid:${escapeCid(a.content_id)}`, "i").test(html),
+    );
     if (cidAtts.length === 0) return;
 
     try {
-      const { getEmailProvider } = await import("@/services/email/providerFactory");
+      const [{ getEmailProvider }, { loadCachedAttachment, cacheAttachment }] = await Promise.all([
+        import("@/services/email/providerFactory"),
+        import("@/services/attachments/cacheManager"),
+      ]);
       const provider = await getEmailProvider(message.account_id);
 
-      const newMap = new Map<string, string>();
-      const failed: string[] = [];
-
-      for (const att of cidAtts) {
-        if (!att.content_id || (!att.gmail_attachment_id && !att.imap_part_id)) continue;
-        if (!new RegExp(`cid:${escapeCid(att.content_id)}`, "i").test(html)) continue;
-
+      const results = await Promise.all(cidAtts.map(async (att) => {
         const attachmentId = att.gmail_attachment_id ?? att.imap_part_id!;
+        // Strip angle brackets — MIME Content-ID headers use <uuid> but the HTML
+        // cid: URI and our data-cid attribute never include them.
+        const cidKey = att.content_id!.replace(/[<>]/g, "").trim();
+        const mimeType = att.mime_type ?? "application/octet-stream";
 
-        let data: string | null = null;
-        const t0 = Date.now();
-        console.log(`[CID-DBG] fetching cid="${att.content_id}" attachmentId="${attachmentId}" msgId="${message.id}"`);
+        // Fast path: serve from disk cache without an IMAP round-trip.
+        if (att.local_path) {
+          const cached = await loadCachedAttachment(att.local_path);
+          if (cached) {
+            return { cidKey, dataUri: `data:${mimeType};base64,${uint8ArrayToBase64(cached)}` };
+          }
+        }
+
         await _acquireImapSlot();
+        let data: string | null = null;
         try {
           ({ data } = await provider.fetchAttachment(message.id, attachmentId));
-          console.log(`[CID-DBG] fetch OK in ${Date.now() - t0}ms, data.length=${data.length}`);
-        } catch (err) {
-          console.warn(`[CID-DBG] fetch attempt 1 failed in ${Date.now() - t0}ms:`, err);
+        } catch {
           try {
             ({ data } = await provider.fetchAttachment(message.id, attachmentId));
-            console.log(`[CID-DBG] retry OK in ${Date.now() - t0}ms, data.length=${data.length}`);
-          } catch (err2) {
-            console.error(`[CID-DBG] retry also failed:`, err2);
+          } catch {
+            // both attempts failed
           }
         } finally {
           _releaseImapSlot();
         }
 
-        if (!data) {
-          console.warn(`[CID-DBG] no data for cid="${att.content_id}" → marking failed`);
-          failed.push(att.content_id.replace(/[<>]/g, "").trim());
-          continue;
-        }
+        if (!data) return { cidKey, dataUri: null };
 
         const base64 = data.includes("-") || data.includes("_")
           ? data.replace(/-/g, "+").replace(/_/g, "/")
           : data;
+
+        // Persist to disk cache so future opens are instant.
+        cacheAttachment(att.id, base64ToUint8Array(base64)).catch(() => {});
+
         // Use data: URI — WKWebView sandboxed iframes cannot load blob URLs from the
         // parent window's registry, but data: URIs set via DOM are fine.
-        const dataUri = `data:${att.mime_type ?? "application/octet-stream"};base64,${base64}`;
-        // Strip angle brackets — MIME Content-ID headers use <uuid> but the HTML
-        // cid: URI and our data-cid attribute never include them.
-        const cidKey = att.content_id.replace(/[<>]/g, "").trim();
-        newMap.set(cidKey, dataUri);
+        return { cidKey, dataUri: `data:${mimeType};base64,${base64}` };
+      }));
+
+      const newMap = new Map<string, string>();
+      const failed: string[] = [];
+      for (const { cidKey, dataUri } of results) {
+        if (dataUri) newMap.set(cidKey, dataUri);
+        else failed.push(cidKey);
       }
 
-      console.log(`[CID-DBG] done — resolved=${newMap.size} failed=${failed.length}`, [...newMap.keys()]);
       if (newMap.size > 0) setCidMap(newMap);
       if (failed.length > 0) setCidFailed(new Set(failed));
     } catch {
@@ -268,6 +280,22 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
 
 function escapeCid(cid: string): string {
   return cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function uint8ArrayToBase64(data: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < data.length; i += chunkSize) {
+    binary += String.fromCharCode(...data.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 export function parseUnsubscribeUrl(header: string): string | null {
