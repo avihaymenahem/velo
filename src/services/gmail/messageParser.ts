@@ -35,7 +35,6 @@ export interface ParsedMessage {
   listUnsubscribe: string | null;
   listUnsubscribePost: string | null;
   authResults: string | null;
-  isTruncated?: boolean;
 }
 
 export function parseGmailMessage(msg: GmailMessage): ParsedMessage {

@@ -164,7 +164,7 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
 
   const handleToggle = async () => {
     const willExpand = !expanded;
-    if (willExpand && (message.is_truncated === 1 || (message.body_html === null && message.body_text === null))) {
+    if (willExpand && (message.body_html === null && message.body_text === null)) {
       await onNeedBody?.();
     }
     setExpanded(willExpand);

@@ -351,7 +351,6 @@ async function writeDeltaMsgToDB(
     inReplyToHeader: msg.in_reply_to ?? null,
     imapUid: msg.uid ?? null,
     imapFolder: msg.folder ?? null,
-    isTruncated: (msg.raw_size ?? 0) > 51200,
   });
   for (const att of parsed.attachments) {
     await upsertAttachment({
@@ -770,7 +769,6 @@ export async function imapInitialSync(
                   inReplyToHeader: msg.in_reply_to ?? null,
                   imapUid: msg.uid ?? null,
                   imapFolder: msg.folder ?? null,
-                  isTruncated: (msg.raw_size ?? 0) > 51200,
                 });
 
                 // Store attachments

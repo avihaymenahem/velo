@@ -3,8 +3,6 @@ import { MessageItem } from "./MessageItem";
 import { ActionBar } from "./ActionBar";
 import {
   getMessagesForThread,
-  getMessagesMetaForThread,
-  getMessageBody,
   type DbMessage,
 } from "@/services/db/messages";
 import { useAccountStore } from "@/stores/accountStore";
@@ -94,51 +92,20 @@ const updateThread = useThreadStore((s) => s.updateThread);
     getSetting("block_remote_images").then((val) => setBlockImages(val !== "false"));
   }, []);
 
-// Load messages — lean first (no body), then immediately patch body for the last message.
-   // This mirrors Thunderbird's msgHdr vs body separation: avoid loading all bodies upfront.
-   useEffect(() => {
-     if (!activeAccountId) return;
-     setLoading(true);
-     getMessagesMetaForThread(activeAccountId, thread.id)
-       .then(async (msgs) => {
-         // Patch body for the last message immediately (it's the only one expanded by default)
-          const last = msgs[msgs.length - 1];
-          if (last) {
-            let body = await getMessageBody(activeAccountId, last.id);
-            if (body.is_truncated === 1) {
-              try {
-                const { getEmailProvider } = await import("@/services/email/providerFactory");
-                const { upsertMessage } = await import("@/services/db/messages");
-                const provider = await getEmailProvider(activeAccountId);
-                const fullMsg = await provider.fetchMessage(last.id);
-                if (fullMsg) {
-                  await upsertMessage({
-                    ...fullMsg,
-                    accountId: activeAccountId,
-                    isTruncated: false,
-                  });
-                  body = {
-                    body_html: fullMsg.bodyHtml,
-                    body_text: fullMsg.bodyText,
-                    is_truncated: 0,
-                  };
-                }
-              } catch (err) {
-                console.error("[ThreadView] Failed to lazy-fetch last message body:", err);
-              }
-            }
-            if (body.body_html || body.body_text) {
-              msgs = msgs.map((m) => (m.id === last.id ? { ...m, ...body } : m));
-            }
-          }
-         setMessages(msgs);
-         if (storeSelectedMessageId && msgs.some(m => m.id === storeSelectedMessageId)) {
-           setLocalSelectedMessageId(storeSelectedMessageId);
-         }
-       })
-       .catch(console.error)
-       .finally(() => setLoading(false));
-   }, [activeAccountId, thread.id]);
+  // Load all messages for the thread immediately.
+  useEffect(() => {
+    if (!activeAccountId) return;
+    setLoading(true);
+    getMessagesForThread(activeAccountId, thread.id)
+      .then((msgs) => {
+        setMessages(msgs);
+        if (storeSelectedMessageId && msgs.some((m) => m.id === storeSelectedMessageId)) {
+          setLocalSelectedMessageId(storeSelectedMessageId);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [activeAccountId, thread.id]);
 
 // Check per-sender allowlist (single batch query instead of N queries)
    useEffect(() => {
@@ -198,54 +165,12 @@ const updateThread = useThreadStore((s) => s.updateThread);
 // Get selected message - either explicitly selected or last message as fallback
   const selectedMessage = messages.find(m => m.id === selectedMessageId) || lastMessage;
 
-  // Fetch and patch body for a single message into the messages state
-  const loadBodyForMessage = useCallback(async (messageId: string) => {
-    if (!activeAccountId) return;
-    let body = await getMessageBody(activeAccountId, messageId);
-    if (!body) return;
-
-    // If truncated (IMAP optimization), fetch full body from server and update DB
-    if (body.is_truncated === 1) {
-      try {
-        const { getEmailProvider } = await import("@/services/email/providerFactory");
-        const { upsertMessage } = await import("@/services/db/messages");
-        const provider = await getEmailProvider(activeAccountId);
-        const fullMsg = await provider.fetchMessage(messageId);
-        
-        if (fullMsg) {
-          await upsertMessage({
-            ...fullMsg,
-            accountId: activeAccountId,
-            isTruncated: false
-          });
-          body = {
-            body_html: fullMsg.bodyHtml,
-            body_text: fullMsg.bodyText,
-            is_truncated: 0
-          };
-        }
-      } catch (err) {
-        console.error("[ThreadView] Failed to lazy-fetch full message body:", err);
-      }
-    }
-
-    setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, ...body } : m));
-  }, [activeAccountId]);
-
-  // For reply/forward/export/print: ensure all messages have bodies loaded before proceeding
-  const ensureFullMessages = useCallback(async (): Promise<DbMessage[]> => {
-    if (!activeAccountId) return messages;
-    const needsFetch = messages.some((m) => m.body_html === null && m.body_text === null);
-    if (!needsFetch) return messages;
-    return getMessagesForThread(activeAccountId, thread.id);
-  }, [messages, activeAccountId, thread.id]);
 
   const handleReply = useCallback(async () => {
     if (!selectedMessage) return;
-    const fullMessages = await ensureFullMessages();
     const replyTo = selectedMessage.reply_to ?? selectedMessage.from_address;
-    const msgIndex = fullMessages.findIndex(m => m.id === selectedMessage.id);
-    const quotedMessages = msgIndex >= 0 ? fullMessages.slice(0, msgIndex + 1) : fullMessages;
+    const msgIndex = messages.findIndex(m => m.id === selectedMessage.id);
+    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
     openComposer({
       mode: "reply",
       to: replyTo ? [replyTo] : [],
@@ -254,11 +179,10 @@ const updateThread = useThreadStore((s) => s.updateThread);
       threadId: selectedMessage.thread_id,
       inReplyToMessageId: selectedMessage.id,
     });
-  }, [selectedMessage, ensureFullMessages, openComposer]);
+  }, [selectedMessage, openComposer, messages]);
 
   const handleReplyAll = useCallback(async () => {
     if (!selectedMessage || !activeAccount) return;
-    const fullMessages = await ensureFullMessages();
     const replyTo = selectedMessage.reply_to ?? selectedMessage.from_address;
     const allRecipients = new Set<string>();
     if (replyTo) allRecipients.add(replyTo);
@@ -288,8 +212,8 @@ const updateThread = useThreadStore((s) => s.updateThread);
       });
     }
 
-    const msgIndex = fullMessages.findIndex(m => m.id === selectedMessage.id);
-    const quotedMessages = msgIndex >= 0 ? fullMessages.slice(0, msgIndex + 1) : fullMessages;
+    const msgIndex = messages.findIndex(m => m.id === selectedMessage.id);
+    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
 
     openComposer({
       mode: "replyAll",
@@ -297,16 +221,13 @@ const updateThread = useThreadStore((s) => s.updateThread);
       cc: ccList,
       subject: `Re: ${selectedMessage.subject ?? ""}`,
       quotedHtml: buildThreadQuote(quotedMessages),
-      threadId: selectedMessage.thread_id,
-      inReplyToMessageId: selectedMessage.id,
     });
-  }, [selectedMessage, ensureFullMessages, openComposer, activeAccount, accounts]);
+  }, [selectedMessage, openComposer, activeAccount, accounts, messages]);
 
 const handleForward = useCallback(async () => {
     if (!selectedMessage) return;
-    const fullMessages = await ensureFullMessages();
-    const msgIndex = fullMessages.findIndex(m => m.id === selectedMessage.id);
-    const quotedMessages = msgIndex >= 0 ? fullMessages.slice(0, msgIndex + 1) : fullMessages;
+    const msgIndex = messages.findIndex(m => m.id === selectedMessage.id);
+    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
     openComposer({
       mode: "forward",
       to: [],
@@ -315,7 +236,7 @@ const handleForward = useCallback(async () => {
       threadId: selectedMessage.thread_id,
       inReplyToMessageId: selectedMessage.id,
     });
-  }, [selectedMessage, ensureFullMessages, openComposer]);
+  }, [selectedMessage, openComposer, messages]);
 
 const handlePrint = useCallback(async () => {
     if (messages.length === 0) {
@@ -575,8 +496,7 @@ const handlePrint = useCallback(async () => {
       const { save } = await import("@tauri-apps/plugin-dialog");
       const { writeTextFile } = await import("@tauri-apps/plugin-fs");
 
-      const fullMessages = await ensureFullMessages();
-      const emlParts = fullMessages.map((msg) => {
+      const emlParts = messages.map((msg) => {
         const date = new Date(msg.date).toUTCString();
         const from = msg.from_name
           ? `${msg.from_name} <${msg.from_address}>`
@@ -695,7 +615,7 @@ const handlePrint = useCallback(async () => {
                   isLast={globalIdx === messages.length - 1}
                   focused={globalIdx === focusedMsgIdx}
                   onSelect={setSelectedMessageId}
-                  onNeedBody={() => loadBodyForMessage(msg.id)}
+                  onNeedBody={async () => {}}
                   blockImages={blockImages}
                   senderAllowlisted={msg.from_address ? allowlistedSenders.has(normalizeEmail(msg.from_address)) : false}
                   isSpam={thread.labelIds.includes("SPAM")}

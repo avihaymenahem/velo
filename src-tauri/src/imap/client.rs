@@ -257,7 +257,7 @@ pub async fn fetch_messages(
     // Some IMAP servers return empty streams for UID FETCH despite valid UIDs.
     let fetches = tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
         let stream = session
-            .uid_fetch(uid_range, "UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[]<0.51200>")
+            .uid_fetch(uid_range, "UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[]")
             .await
             .map_err(|e| format!("UID FETCH {folder} uids={uid_range} failed: {e}"))?;
         Ok::<_, String>(stream.collect::<Vec<_>>().await)
@@ -1006,7 +1006,7 @@ pub async fn sync_folder(
 
         let fetches = tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
             let stream = session
-                .uid_fetch(&uid_set, "UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[]<0.51200>")
+                .uid_fetch(&uid_set, "UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[]")
                 .await
                 .map_err(|e| format!("UID FETCH for search results failed: {e}"))?;
             Ok::<_, String>(stream.collect::<Vec<_>>().await)
