@@ -101,7 +101,7 @@ const updateThread = useThreadStore((s) => s.updateThread);
        })
        .catch(console.error)
        .finally(() => setLoading(false));
-   }, [activeAccountId, thread.id, storeSelectedMessageId]);
+   }, [activeAccountId, thread.id]);
 
 // Check per-sender allowlist (single batch query instead of N queries)
    useEffect(() => {
