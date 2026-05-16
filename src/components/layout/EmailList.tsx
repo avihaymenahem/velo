@@ -77,7 +77,6 @@ import {
 import { scrollTracker } from "@/utils/scrollTracker";
 
 const PAGE_SIZE = 50;
-const MAX_THREAD_STORE_SIZE = 500;
 
 // Map sidebar labels to Gmail label IDs
 const LABEL_MAP: Record<string, string> = {
@@ -595,11 +594,6 @@ const [hasMore, setHasMore] = useState(true);
 
   const loadMore = useCallback(async () => {
     if (!activeAccountId || loadingMore || !hasMore) return;
-    if (threads.length >= MAX_THREAD_STORE_SIZE) {
-      setHasMore(false);
-      return;
-    }
-
     setLoadingMore(true);
     try {
       const offset = threads.length;
@@ -1115,9 +1109,7 @@ return (
             )}
             {!hasMore && threads.length > PAGE_SIZE && (
               <div className="px-4 py-3 text-center text-xs text-text-tertiary">
-                {threads.length >= MAX_THREAD_STORE_SIZE
-                  ? `Showing ${MAX_THREAD_STORE_SIZE} conversations. Use search to find older ones.`
-                  : "All conversations loaded"}
+                All conversations loaded
               </div>
             )}
           </>
