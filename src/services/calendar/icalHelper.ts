@@ -10,7 +10,7 @@ export function generateVEvent(event: CreateEventInput | UpdateEventInput, uid?:
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Velo Mail//CalDAV Client//EN",
+    "PRODID:-//Melo Mail//CalDAV Client//EN",
     "BEGIN:VEVENT",
     `UID:${eventUid}`,
     `DTSTAMP:${now}`,

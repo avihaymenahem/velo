@@ -1035,7 +1035,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "Task manager",
         summary: "Full task management with priorities, due dates, and subtasks.",
         description:
-          "Velo includes a built-in task manager accessible from the sidebar or via the g then k shortcut. Create tasks with titles, descriptions, priorities (none, low, medium, high, urgent), due dates, and tags. Tasks can have one level of subtasks for breaking down complex items. Drag to reorder tasks, filter by status or priority, and group by priority, due date, or tag. Completed tasks can be shown or hidden. The task sidebar panel shows tasks linked to the current email thread.",
+          "Melo includes a built-in task manager accessible from the sidebar or via the g then k shortcut. Create tasks with titles, descriptions, priorities (none, low, medium, high, urgent), due dates, and tags. Tasks can have one level of subtasks for breaking down complex items. Drag to reorder tasks, filter by status or priority, and group by priority, due date, or tag. Completed tasks can be shown or hidden. The task sidebar panel shows tasks linked to the current email thread.",
         tips: [
           { text: "Go to Tasks page", shortcut: "g k" },
           { text: "Open tasks from the Tasks item in the sidebar." },

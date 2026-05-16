@@ -136,7 +136,7 @@ export function queueNewEmailNotification(
       });
     } else if (pendingCount > 1) {
       sendNotification({
-        title: "Velo",
+        title: "Melo",
         body: `${pendingCount} new emails`,
         actionTypeId: "email",
       });

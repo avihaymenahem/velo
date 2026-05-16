@@ -682,7 +682,7 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                   <Section title="Startup">
                     <ToggleRow
                       label="Launch at login"
-                      description="Start Velo automatically when you log in (minimized to tray)"
+                      description="Start Melo automatically when you log in (minimized to tray)"
                       checked={autostartEnabled}
                       onToggle={handleAutostartToggle}
                     />
@@ -1649,7 +1649,7 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
 
                   <Section title="Behavioral Intelligence">
                     <p className="text-xs text-text-tertiary mb-3">
-                      Controls whether Velo tracks sender patterns, urgency signals, and reputation to adapt inbox prioritization to your behavior.
+                      Controls whether Melo tracks sender patterns, urgency signals, and reputation to adapt inbox prioritization to your behavior.
                     </p>
                     <ToggleRow
                       label="Enable Behavioral Intelligence"
@@ -1686,7 +1686,7 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                     <>
                       <Section title="Sender Reputation">
                         <p className="text-xs text-text-tertiary mb-3">
-                          Velo tracks when you silence urgency from a sender. Senders muted repeatedly within the forgiveness window receive a lower urgency weight automatically.
+                          Melo tracks when you silence urgency from a sender. Senders muted repeatedly within the forgiveness window receive a lower urgency weight automatically.
                         </p>
                         <div className="flex items-start gap-4">
                           <div className="flex-1">
@@ -1735,7 +1735,7 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                       <Section title="Automation">
                         <ToggleRow
                           label="Smart Auto-Extinguish on Reply"
-                          description="When you reply to an urgent thread, Velo uses AI to evaluate if the reply resolves the concern — and clears the urgency indicator only if it does"
+                          description="When you reply to an urgent thread, Melo uses AI to evaluate if the reply resolves the concern — and clears the urgency indicator only if it does"
                           checked={urgencyAutoExtinguish}
                           onToggle={async () => {
                             const next = !urgencyAutoExtinguish;
@@ -1755,7 +1755,7 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                     <div className="rounded-md bg-bg-tertiary border border-border-primary px-3 py-3 text-sm text-text-secondary leading-relaxed">
                       <p className="font-medium text-text-primary mb-1">100% On-device — no data leaves your machine</p>
                       <p className="text-xs">
-                        Velo uses a local Ollama server (<code className="bg-bg-secondary px-1 rounded">localhost:11434</code>) to generate vector embeddings of your emails.
+                        Melo uses a local Ollama server (<code className="bg-bg-secondary px-1 rounded">localhost:11434</code>) to generate vector embeddings of your emails.
                         These embeddings are stored in the local SQLite database and never sent to any external server.
                         Semantic search uses cosine similarity computed in-process.
                       </p>
@@ -2658,11 +2658,11 @@ function AboutTab() {
 
   return (
     <>
-      <Section title="Velo Mail">
+      <Section title="Melo Mail">
         <div className="flex items-center gap-3 mb-2">
-          <img src={appIcon} alt="Velo" className="w-12 h-12 rounded-xl" />
+          <img src={appIcon} alt="Melo" className="w-12 h-12 rounded-xl" />
           <div>
-            <h3 className="text-base font-semibold text-text-primary">Velo</h3>
+            <h3 className="text-base font-semibold text-text-primary">Melo</h3>
             <p className="text-sm text-text-tertiary">
               {appVersion ? `Version ${appVersion}` : "Loading..."}
             </p>
@@ -2729,7 +2729,7 @@ function AboutTab() {
             </button>
           </p>
           <p className="text-xs text-text-tertiary leading-relaxed">
-            Copyright 2025 Velo Mail. You may use, distribute, and modify this software under the terms of the Apache 2.0 license. This software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND.
+            Copyright 2025 Melo Mail. You may use, distribute, and modify this software under the terms of the Apache 2.0 license. This software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND.
           </p>
         </div>
       </Section>

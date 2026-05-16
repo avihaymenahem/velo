@@ -34,8 +34,8 @@ export function TitleBar() {
     >
       <div data-tauri-drag-region className="flex items-center gap-2 pl-4">
         <span data-tauri-drag-region className="text-xs font-semibold text-sidebar-text tracking-wide">
-          Velo
-        </span>
+          Melo
+</span>
       </div>
 
       <div className="flex items-center h-full">
