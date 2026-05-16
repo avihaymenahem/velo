@@ -128,6 +128,9 @@ export function createMockGmailAccount(
     calendar_provider: null,
     accept_invalid_certs: 0,
     rag_enabled: 0,
+    color: null,
+    include_in_global: 1,
+    sort_order: 0,
     ...overrides,
   };
 }
@@ -171,6 +174,9 @@ export function createMockImapAccount(
     calendar_provider: null,
     accept_invalid_certs: 0,
     rag_enabled: 0,
+    color: null,
+    include_in_global: 1,
+    sort_order: 0,
     ...overrides,
   };
 }
@@ -214,6 +220,9 @@ export function createMockDbAccount(
     calendar_provider: null,
     accept_invalid_certs: 0,
     rag_enabled: 0,
+    color: null,
+    include_in_global: 1,
+    sort_order: 0,
     ...overrides,
   };
 }

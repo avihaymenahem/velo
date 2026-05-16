@@ -178,8 +178,9 @@ const updateThread = useThreadStore((s) => s.updateThread);
       quotedHtml: buildThreadQuote(quotedMessages),
       threadId: selectedMessage.thread_id,
       inReplyToMessageId: selectedMessage.id,
+      accountId: thread.accountId,
     });
-  }, [selectedMessage, openComposer, messages]);
+  }, [selectedMessage, openComposer, messages, thread.accountId]);
 
   const handleReplyAll = useCallback(async () => {
     if (!selectedMessage || !activeAccount) return;
@@ -221,8 +222,9 @@ const updateThread = useThreadStore((s) => s.updateThread);
       cc: ccList,
       subject: `Re: ${selectedMessage.subject ?? ""}`,
       quotedHtml: buildThreadQuote(quotedMessages),
+      accountId: thread.accountId,
     });
-  }, [selectedMessage, openComposer, activeAccount, accounts, messages]);
+  }, [selectedMessage, openComposer, activeAccount, accounts, messages, thread.accountId]);
 
 const handleForward = useCallback(async () => {
     if (!selectedMessage) return;
@@ -235,8 +237,9 @@ const handleForward = useCallback(async () => {
       quotedHtml: buildThreadForwardQuote(quotedMessages),
       threadId: selectedMessage.thread_id,
       inReplyToMessageId: selectedMessage.id,
+      accountId: thread.accountId,
     });
-  }, [selectedMessage, openComposer, messages]);
+  }, [selectedMessage, openComposer, messages, thread.accountId]);
 
 const handlePrint = useCallback(async () => {
     if (messages.length === 0) {

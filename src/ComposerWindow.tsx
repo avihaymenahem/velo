@@ -94,6 +94,9 @@ export default function ComposerWindow() {
           avatarUrl: a.avatar_url,
           isActive: a.is_active === 1,
           provider: a.provider,
+          color: a.color ?? null,
+          includeInGlobal: a.include_in_global !== 0,
+          sortOrder: a.sort_order ?? 0,
         }));
         const savedAccountId = await getSetting("active_account_id");
         setAccounts(mapped, savedAccountId);

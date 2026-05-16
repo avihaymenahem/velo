@@ -49,6 +49,8 @@ export interface ComposerState {
     threadId?: string | null;
     inReplyToMessageId?: string | null;
     draftId?: string | null;
+    /** Force a specific account for this compose session (overrides activeAccountId). */
+    accountId?: string;
   }) => void;
   closeComposer: () => void;
   setTo: (to: string[]) => void;
@@ -129,7 +131,7 @@ openComposer: (opts) => {
         // Thread window uses modal (no drag region / pt-7), compose window uses fullpage
         viewMode: isFullComposerWindow && !isTest ? "fullpage" : "modal",
         fromEmail: null,
-        composerAccountId: null,
+        composerAccountId: opts?.accountId ?? null,
         attachments: [],
         lastSavedAt: null,
         isSaving: false,
@@ -157,6 +159,7 @@ openComposer: (opts) => {
         if (opts?.threadId) params.set("threadId", opts.threadId);
         if (opts?.inReplyToMessageId) params.set("inReplyToMessageId", opts.inReplyToMessageId);
         if (opts?.draftId) params.set("draftId", opts.draftId);
+        if (opts?.accountId) params.set("accountId", opts.accountId);
 
         // quotedHtml is too large for URLs — write to SQLite (shared across all windows)
         if (opts?.quotedHtml || opts?.bodyHtml) {

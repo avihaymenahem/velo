@@ -1003,6 +1003,18 @@ const MIGRATIONS = [
         ON thread_categories(account_id, thread_id);
     `,
   },
+  {
+    version: 41,
+    description: "Add per-account color, include_in_global flag, sort_order for Spark-style multi-account sidebar; index messages for unified inbox subquery",
+    sql: `
+      ALTER TABLE accounts ADD COLUMN color TEXT DEFAULT NULL;
+      ALTER TABLE accounts ADD COLUMN include_in_global INTEGER DEFAULT 1;
+      ALTER TABLE accounts ADD COLUMN sort_order INTEGER DEFAULT 0;
+
+      CREATE INDEX IF NOT EXISTS idx_messages_thread_account_date
+        ON messages (thread_id, account_id, date DESC);
+    `,
+  },
 ];
 
 /**

@@ -331,6 +331,7 @@ export function InlineReply({
       quotedHtml,
       threadId: thread.id,
       inReplyToMessageId: lastMessage.id,
+      accountId,
     });
 
     // Reset inline state

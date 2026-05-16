@@ -10,6 +10,7 @@ import { Search, X, FolderPlus, Pencil } from "lucide-react";
 export function SearchBar() {
   const searchQuery = useThreadStore((s) => s.searchQuery);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const accounts = useAccountStore((s) => s.accounts);
   const openComposer = useComposerStore((s) => s.openComposer);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -115,7 +116,12 @@ export function SearchBar() {
         )}
       </div>
       <button
-        onClick={() => openComposer()}
+        onClick={() => {
+          const fallbackAccountId = activeAccountId
+            ?? accounts.find((a) => a.includeInGlobal)?.id
+            ?? undefined;
+          openComposer({ accountId: fallbackAccountId });
+        }}
         className="flex items-center justify-center w-8 h-8 rounded-full bg-accent hover:bg-accent-hover text-white transition-colors shrink-0"
         title="Compose new email"
       >

@@ -8,13 +8,17 @@ export interface Account {
   avatarUrl: string | null;
   isActive: boolean;
   provider?: string;
+  color: string | null;
+  includeInGlobal: boolean;
+  sortOrder: number;
 }
 
 interface AccountState {
   accounts: Account[];
   activeAccountId: string | null;
   setAccounts: (accounts: Account[], restoredId?: string | null) => void;
-  setActiveAccount: (id: string) => void;
+  /** Pass null to enter unified-inbox context (no single active account). */
+  setActiveAccount: (id: string | null) => void;
   addAccount: (account: Account) => void;
   removeAccount: (id: string) => void;
 }
@@ -31,7 +35,9 @@ export const useAccountStore = create<AccountState>((set) => ({
   },
 
   setActiveAccount: (activeAccountId) => {
-    setSetting("active_account_id", activeAccountId).catch(() => {});
+    if (activeAccountId !== null) {
+      setSetting("active_account_id", activeAccountId).catch(() => {});
+    }
     set({ activeAccountId });
   },
 

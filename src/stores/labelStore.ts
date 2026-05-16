@@ -35,43 +35,70 @@ export function isSystemLabel(id: string): boolean {
 
 interface LabelState {
   labels: Label[];
+  /** All labels keyed by accountId — loaded for every account in multi-account mode */
+  allAccountLabels: Record<string, Label[]>;
   unreadCounts: Record<string, number>;
   categoryUnreadCounts: Record<string, number>;
+  /** Cross-account unread counts: accountId → labelId → count */
+  globalUnreadCounts: Record<string, Record<string, number>>;
   isLoading: boolean;
   loadLabels: (accountId: string) => Promise<void>;
+  loadAllAccountLabels: (accountIds: string[]) => Promise<void>;
   refreshUnreadCounts: (accountId: string) => Promise<void>;
+  refreshGlobalUnreadCounts: (accountIds: string[]) => Promise<void>;
   clearLabels: () => void;
   createLabel: (accountId: string, name: string, color?: { textColor: string; backgroundColor: string }) => Promise<void>;
   updateLabel: (accountId: string, labelId: string, updates: { name?: string; color?: { textColor: string; backgroundColor: string } | null }) => Promise<void>;
   deleteLabel: (accountId: string, labelId: string) => Promise<void>;
   reorderLabels: (accountId: string, labelIds: string[]) => Promise<void>;
+  /** Internal: refresh allAccountLabels for a single account after mutations */
+  _reloadAccountLabels: (accountId: string) => Promise<void>;
+}
+
+function mapDbLabels(dbLabels: Awaited<ReturnType<typeof getLabelsForAccount>>): Label[] {
+  return dbLabels
+    .filter((l) => !isSystemLabel(l.id))
+    .map((l) => ({
+      id: l.id,
+      accountId: l.account_id,
+      name: l.name,
+      type: l.type,
+      colorBg: l.color_bg,
+      colorFg: l.color_fg,
+      sortOrder: l.sort_order,
+    }));
 }
 
 export const useLabelStore = create<LabelState>((set, get) => ({
   labels: [],
+  allAccountLabels: {},
   unreadCounts: {},
   categoryUnreadCounts: {},
+  globalUnreadCounts: {},
   isLoading: false,
 
   loadLabels: async (accountId: string) => {
     set({ isLoading: true });
     try {
       const dbLabels = await getLabelsForAccount(accountId);
-      const labels: Label[] = dbLabels
-        .filter((l) => !isSystemLabel(l.id))
-        .map((l) => ({
-          id: l.id,
-          accountId: l.account_id,
-          name: l.name,
-          type: l.type,
-          colorBg: l.color_bg,
-          colorFg: l.color_fg,
-          sortOrder: l.sort_order,
-        }));
+      const labels = mapDbLabels(dbLabels);
       set({ labels, isLoading: false });
     } catch (err) {
       console.error("Failed to load labels:", err);
       set({ isLoading: false });
+    }
+  },
+
+  loadAllAccountLabels: async (accountIds: string[]) => {
+    try {
+      const results = await Promise.all(accountIds.map((id) => getLabelsForAccount(id)));
+      const allAccountLabels: Record<string, Label[]> = {};
+      accountIds.forEach((id, i) => {
+        allAccountLabels[id] = mapDbLabels(results[i] ?? []);
+      });
+      set({ allAccountLabels });
+    } catch (err) {
+      console.error("Failed to load all account labels:", err);
     }
   },
 
@@ -88,7 +115,21 @@ export const useLabelStore = create<LabelState>((set, get) => ({
     }
   },
 
-  clearLabels: () => set({ labels: [], unreadCounts: {}, categoryUnreadCounts: {}, isLoading: false }),
+  refreshGlobalUnreadCounts: async (accountIds: string[]) => {
+    try {
+      const { getGlobalUnreadCounts } = await import("@/services/db/threads");
+      const countsMap = await getGlobalUnreadCounts(accountIds);
+      const globalUnreadCounts: Record<string, Record<string, number>> = {};
+      for (const [accountId, labelMap] of countsMap) {
+        globalUnreadCounts[accountId] = Object.fromEntries(labelMap);
+      }
+      set({ globalUnreadCounts });
+    } catch (err) {
+      console.error("Failed to refresh global unread counts:", err);
+    }
+  },
+
+  clearLabels: () => set({ labels: [], allAccountLabels: {}, unreadCounts: {}, categoryUnreadCounts: {}, globalUnreadCounts: {}, isLoading: false }),
 
   createLabel: async (accountId: string, name: string, color?: { textColor: string; backgroundColor: string }) => {
     const client = await getGmailClient(accountId);
@@ -102,6 +143,7 @@ export const useLabelStore = create<LabelState>((set, get) => ({
       colorFg: gmailLabel.color?.textColor ?? null,
     });
     await get().loadLabels(accountId);
+    await get()._reloadAccountLabels(accountId);
   },
 
   updateLabel: async (accountId: string, labelId: string, updates: { name?: string; color?: { textColor: string; backgroundColor: string } | null }) => {
@@ -116,6 +158,7 @@ export const useLabelStore = create<LabelState>((set, get) => ({
       colorFg: gmailLabel.color?.textColor ?? null,
     });
     await get().loadLabels(accountId);
+    await get()._reloadAccountLabels(accountId);
   },
 
   deleteLabel: async (accountId: string, labelId: string) => {
@@ -123,11 +166,21 @@ export const useLabelStore = create<LabelState>((set, get) => ({
     await client.deleteLabel(labelId);
     await dbDeleteLabel(accountId, labelId);
     await get().loadLabels(accountId);
+    await get()._reloadAccountLabels(accountId);
   },
 
   reorderLabels: async (accountId: string, labelIds: string[]) => {
     const labelOrders = labelIds.map((id, index) => ({ id, sortOrder: index }));
     await updateLabelSortOrder(accountId, labelOrders);
     await get().loadLabels(accountId);
+    await get()._reloadAccountLabels(accountId);
+  },
+
+  _reloadAccountLabels: async (accountId: string) => {
+    try {
+      const dbLabels = await getLabelsForAccount(accountId);
+      const labels = mapDbLabels(dbLabels);
+      set((s) => ({ allAccountLabels: { ...s.allAccountLabels, [accountId]: labels } }));
+    } catch { /* silent */ }
   },
 }));

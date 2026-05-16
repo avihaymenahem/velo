@@ -18,6 +18,7 @@ import { navigateToThread, navigateToLabel } from "@/router/navigate";
 import {
   getThreadsForAccount,
   getThreadsForCategory,
+  getUnifiedInboxThreads,
   getThreadById,
   getThreadLabelIds,
   getThreadIdsForLabel,
@@ -109,6 +110,7 @@ const selectThread = useThreadStore((s) => s.selectThread);
    const setSelectedMessageId = useThreadStore((s) => s.setSelectedMessageId);
   const selectAll = useThreadStore((s) => s.selectAll);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const accounts = useAccountStore((s) => s.accounts);
   const activeLabel = useActiveLabel();
   const readFilter = useUIStore((s) => s.readFilter);
   const setReadFilter = useUIStore((s) => s.setReadFilter);
@@ -248,7 +250,8 @@ const [hasMore, setHasMore] = useState(true);
   );
 
   const handleBulkDelete = async () => {
-    if (!activeAccountId || multiSelectCount === 0) return;
+    if (!isUnifiedInbox && !activeAccountId) return;
+    if (multiSelectCount === 0) return;
     const isTrashView = activeLabel === "trash";
     const ids = [...selectedThreadIds];
 
@@ -260,11 +263,13 @@ const [hasMore, setHasMore] = useState(true);
     try {
       await Promise.all(
         ids.map(async (id) => {
+          const accountId = threads.find((t) => t.id === id)?.accountId ?? activeAccountId;
+          if (!accountId) return;
           if (isTrashView) {
-            await permanentDeleteThread(activeAccountId, id, []);
-            await deleteThreadFromDb(activeAccountId, id);
+            await permanentDeleteThread(accountId, id, []);
+            await deleteThreadFromDb(accountId, id);
           } else {
-            await trashThread(activeAccountId, id, []);
+            await trashThread(accountId, id, []);
           }
         }),
       );
@@ -275,14 +280,19 @@ const [hasMore, setHasMore] = useState(true);
   };
 
   const handleBulkArchive = async () => {
-    if (!activeAccountId || multiSelectCount === 0) return;
+    if (!isUnifiedInbox && !activeAccountId) return;
+    if (multiSelectCount === 0) return;
     const ids = [...selectedThreadIds];
     removeThreads(ids);
     clearMultiSelect();
 
     try {
       await Promise.all(
-        ids.map((id) => archiveThread(activeAccountId, id, [])),
+        ids.map((id) => {
+          const accountId = threads.find((t) => t.id === id)?.accountId ?? activeAccountId;
+          if (!accountId) return Promise.resolve();
+          return archiveThread(accountId, id, []);
+        }),
       );
     } catch (err) {
       console.error("Bulk archive failed:", err);
@@ -290,7 +300,8 @@ const [hasMore, setHasMore] = useState(true);
   };
 
   const handleBulkSpam = async () => {
-    if (!activeAccountId || multiSelectCount === 0) return;
+    if (!isUnifiedInbox && !activeAccountId) return;
+    if (multiSelectCount === 0) return;
     const ids = [...selectedThreadIds];
     const isSpamView = activeLabel === "spam";
     removeThreads(ids);
@@ -298,7 +309,11 @@ const [hasMore, setHasMore] = useState(true);
 
     try {
       await Promise.all(
-        ids.map((id) => spamThread(activeAccountId, id, [], !isSpamView)),
+        ids.map((id) => {
+          const accountId = threads.find((t) => t.id === id)?.accountId ?? activeAccountId;
+          if (!accountId) return Promise.resolve();
+          return spamThread(accountId, id, [], !isSpamView);
+        }),
       );
     } catch (err) {
       console.error("Bulk spam failed:", err);
@@ -306,12 +321,17 @@ const [hasMore, setHasMore] = useState(true);
   };
 
   const handleBulkMarkRead = async (read: boolean) => {
-    if (!activeAccountId || multiSelectCount === 0) return;
+    if (!isUnifiedInbox && !activeAccountId) return;
+    if (multiSelectCount === 0) return;
     const ids = [...selectedThreadIds];
     clearMultiSelect();
     try {
       await Promise.all(
-        ids.map((id) => markThreadRead(activeAccountId, id, [], read)),
+        ids.map((id) => {
+          const accountId = threads.find((t) => t.id === id)?.accountId ?? activeAccountId;
+          if (!accountId) return Promise.resolve();
+          return markThreadRead(accountId, id, [], read);
+        }),
       );
     } catch (err) {
       console.error(`Bulk mark ${read ? "read" : "unread"} failed:`, err);
@@ -529,7 +549,30 @@ const [hasMore, setHasMore] = useState(true);
     }
   }, [activeAccountId, threadMap, addThreads, selectThread, clearMultiSelect, setSelectedMessageId]);
 
+  const isUnifiedInbox = activeLabel === "unified-inbox";
+
   const loadThreads = useCallback(async (keepSearch = false) => {
+    // Unified inbox: load across all opted-in accounts (activeAccountId may be null)
+    if (isUnifiedInbox) {
+      const globalAccountIds = accounts
+        .filter((a) => a.includeInGlobal)
+        .map((a) => a.id);
+      if (!keepSearch) clearSearch();
+      setLoading(true);
+      setHasMore(true);
+      try {
+        const dbThreads = await getUnifiedInboxThreads(globalAccountIds, PAGE_SIZE, 0);
+        const mapped = await mapDbThreads(dbThreads);
+        setThreads(mapped);
+        setHasMore(dbThreads.length === PAGE_SIZE);
+      } catch (err) {
+        console.error("Failed to load unified inbox threads:", err);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!activeAccountId) {
       setThreads([]);
       return;
@@ -581,6 +624,8 @@ const [hasMore, setHasMore] = useState(true);
       setLoading(false);
     }
   }, [
+    isUnifiedInbox,
+    accounts,
     activeAccountId,
     activeLabel,
     activeCategory,
@@ -593,10 +638,28 @@ const [hasMore, setHasMore] = useState(true);
   ]);
 
   const loadMore = useCallback(async () => {
-    if (!activeAccountId || loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
       const offset = threads.length;
+
+      if (isUnifiedInbox) {
+        const globalAccountIds = accounts
+          .filter((a) => a.includeInGlobal)
+          .map((a) => a.id);
+        const dbThreads = await getUnifiedInboxThreads(globalAccountIds, PAGE_SIZE, offset);
+        const mapped = await mapDbThreads(dbThreads);
+        if (mapped.length > 0) {
+          const existingIds = new Set(threads.map((t) => t.id));
+          const newThreads = mapped.filter((t) => !existingIds.has(t.id));
+          if (newThreads.length > 0) setThreads([...threads, ...newThreads]);
+        }
+        setHasMore(dbThreads.length === PAGE_SIZE);
+        return;
+      }
+
+      if (!activeAccountId) return;
+
       let dbThreads;
       if (activeLabel === "inbox" && activeCategory !== "All") {
         dbThreads = await getThreadsForCategory(
@@ -632,6 +695,8 @@ const [hasMore, setHasMore] = useState(true);
       setLoadingMore(false);
     }
   }, [
+    isUnifiedInbox,
+    accounts,
     activeAccountId,
     activeLabel,
     activeCategory,
@@ -1076,12 +1141,18 @@ const [hasMore, setHasMore] = useState(true);
             {visibleThreads.map((thread, idx) => {
               const prevThread = idx > 0 ? filteredThreads[idx - 1] : undefined;
               const showDivider = prevThread?.isPinned && !thread.isPinned;
+              const accountColor = isUnifiedInbox
+                ? (accounts.find((a) => a.id === thread.accountId)?.color ?? null)
+                : null;
 return (
                  <div
                    key={thread.id}
                    data-thread-id={thread.id}
-                   className={idx < 15 ? "stagger-in" : undefined}
-                   style={idx < 15 ? { animationDelay: `${idx * 30}ms` } : undefined}
+                   className={`${idx < 15 ? "stagger-in" : ""} ${accountColor ? "border-l-[3px]" : ""}`}
+                   style={{
+                     ...(idx < 15 ? { animationDelay: `${idx * 30}ms` } : {}),
+                     ...(accountColor ? { "--account-color": accountColor, borderLeftColor: "var(--account-color)" } as React.CSSProperties : {}),
+                   }}
                  >
                   {showDivider && (
                     <div className="px-4 py-1.5 text-xs font-medium text-text-tertiary uppercase tracking-wider bg-bg-tertiary/50 border-b border-border-secondary">

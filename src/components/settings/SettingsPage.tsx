@@ -5,7 +5,8 @@ import { navigateToLabel, navigateToSettings } from "@/router/navigate";
 import { useAccountStore } from "@/stores/accountStore";
 import { getSetting, setSetting, getSecureSetting, setSecureSetting } from "@/services/db/settings";
 import { PROVIDER_MODELS } from "@/services/ai/types";
-import { deleteAccount } from "@/services/db/accounts";
+import { deleteAccount, updateAccountMeta, getAllAccounts } from "@/services/db/accounts";
+import { ACCOUNT_COLOR_PRESETS } from "@/constants/accountColors";
 import { removeClient, reauthorizeAccount } from "@/services/gmail/tokenManager";
 import { triggerSync, forceFullSync, resyncAccount } from "@/services/gmail/syncManager";
 import { syncGoogleContacts } from "@/services/contacts/googleContacts";
@@ -1054,13 +1055,36 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                       <div className="space-y-2">
                         {accounts.filter((a) => a.provider !== "caldav").map((account) => {
                           const providerLabel = account.provider === "imap" ? "IMAP" : "Gmail";
+                          const handleAccountMetaChange = async (fields: { color?: string | null; includeInGlobal?: boolean }) => {
+                            await updateAccountMeta(account.id, fields);
+                            const dbAccounts = await getAllAccounts();
+                            useAccountStore.getState().setAccounts(
+                              dbAccounts.map((a) => ({
+                                id: a.id,
+                                email: a.email,
+                                displayName: a.display_name,
+                                avatarUrl: a.avatar_url,
+                                isActive: a.is_active === 1,
+                                provider: a.provider,
+                                color: a.color ?? null,
+                                includeInGlobal: a.include_in_global !== 0,
+                                sortOrder: a.sort_order ?? 0,
+                              })),
+                              useAccountStore.getState().activeAccountId ?? undefined,
+                            );
+                            window.dispatchEvent(new CustomEvent("velo-sync-done"));
+                          };
                           return (
                             <div
                               key={account.id}
-                              className="flex items-center justify-between py-2.5 px-4 bg-bg-secondary rounded-lg"
+                              className="py-2.5 px-4 bg-bg-secondary rounded-lg space-y-2"
                             >
+                              <div className="flex items-center justify-between">
                               <div>
                                 <div className="text-sm font-medium text-text-primary flex items-center gap-2">
+                                  {account.color && (
+                                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
+                                  )}
                                   {account.displayName ?? account.email}
                                   <span className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-tertiary">
                                     {providerLabel}
@@ -1119,6 +1143,36 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                                   className="text-xs text-danger hover:text-danger/80 transition-colors"
                                 >
                                   Remove
+                                </button>
+                              </div>
+                              </div>
+                              {/* Color + unified inbox row */}
+                              <div className="flex items-center gap-4 flex-wrap pt-1">
+                                <div className="flex items-center gap-1.5">
+                                  {ACCOUNT_COLOR_PRESETS.map((color) => (
+                                    <button
+                                      key={color}
+                                      type="button"
+                                      onClick={() => handleAccountMetaChange({ color: account.color === color ? null : color })}
+                                      className="w-5 h-5 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-1 focus:ring-accent"
+                                      style={{ backgroundColor: color }}
+                                      title={color}
+                                    >
+                                      {account.color === color && <Check size={10} className="text-white" strokeWidth={3} />}
+                                    </button>
+                                  ))}
+                                </div>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={account.includeInGlobal}
+                                  onClick={() => handleAccountMetaChange({ includeInGlobal: !account.includeInGlobal })}
+                                  className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
+                                >
+                                  <span className={`relative w-7 h-4 rounded-full transition-colors ${account.includeInGlobal ? "bg-accent" : "bg-border-primary"}`}>
+                                    <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${account.includeInGlobal ? "translate-x-3" : "translate-x-0"}`} />
+                                  </span>
+                                  Unified inbox
                                 </button>
                               </div>
                             </div>

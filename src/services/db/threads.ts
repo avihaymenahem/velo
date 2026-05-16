@@ -485,3 +485,61 @@ export async function setManualUrgencyOverride(
     [override, accountId, threadId],
   );
 }
+
+export async function getUnifiedInboxThreads(
+  accountIds: string[],
+  limit = 50,
+  offset = 0,
+): Promise<DbThread[]> {
+  if (accountIds.length === 0) return [];
+  const db = await getDb();
+  const placeholders = accountIds.map((_, i) => `$${i + 1}`).join(", ");
+  const limitParam = `$${accountIds.length + 1}`;
+  const offsetParam = `$${accountIds.length + 2}`;
+  return db.select<DbThread[]>(
+    `SELECT t.*, m.from_name, m.from_address
+     FROM threads t
+     INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
+     LEFT JOIN messages m ON m.thread_id = t.id AND m.account_id = t.account_id
+       AND m.id = (
+         SELECT id FROM messages
+         WHERE thread_id = t.id AND account_id = t.account_id
+         ORDER BY date DESC LIMIT 1
+       )
+     WHERE t.account_id IN (${placeholders})
+       AND tl.label_id = 'INBOX'
+     GROUP BY t.account_id, t.id
+     ORDER BY t.is_pinned DESC, t.last_message_at DESC
+     LIMIT ${limitParam} OFFSET ${offsetParam}`,
+    [...accountIds, limit, offset],
+  );
+}
+
+export async function getGlobalUnreadCounts(
+  accountIds: string[],
+): Promise<Map<string, Map<string, number>>> {
+  const result = new Map<string, Map<string, number>>();
+  if (accountIds.length === 0) return result;
+  const db = await getDb();
+  const placeholders = accountIds.map((_, i) => `$${i + 1}`).join(", ");
+  type Row = { account_id: string; label_id: string; unread_count: number };
+  const rows = await db.select<Row[]>(
+    `SELECT tl.account_id, tl.label_id, COUNT(*) AS unread_count
+     FROM thread_labels tl
+     INNER JOIN threads t ON t.id = tl.thread_id AND t.account_id = tl.account_id
+     WHERE tl.account_id IN (${placeholders})
+       AND t.is_read = 0
+       AND t.is_archived = 0
+     GROUP BY tl.account_id, tl.label_id`,
+    accountIds,
+  );
+  for (const row of rows) {
+    let byLabel = result.get(row.account_id);
+    if (!byLabel) {
+      byLabel = new Map();
+      result.set(row.account_id, byLabel);
+    }
+    byLabel.set(row.label_id, row.unread_count);
+  }
+  return result;
+}

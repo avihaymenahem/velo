@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Check } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import { getAccount } from "@/services/db/accounts";
-import { updateImapAccount } from "@/services/db/accounts";
+import { getAccount, updateImapAccount, updateAccountMeta, getAllAccounts } from "@/services/db/accounts";
 import { getDefaultImapPort, getDefaultSmtpPort, type SecurityType } from "@/services/imap/autoDiscovery";
+import { ACCOUNT_COLOR_PRESETS } from "@/constants/accountColors";
+import { useAccountStore } from "@/stores/accountStore";
 
 interface EditImapAccountProps {
   accountId: string;
@@ -25,6 +26,8 @@ interface FormState {
   smtpPort: number;
   smtpSecurity: SecurityType;
   acceptInvalidCerts: boolean;
+  color: string | null;
+  includeInGlobal: boolean;
 }
 
 type TestStatus = { state: "idle" | "testing" | "success" | "error"; message?: string };
@@ -57,6 +60,8 @@ export function EditImapAccount({ accountId, onClose, onSaved }: EditImapAccount
     smtpPort: 465,
     smtpSecurity: "ssl",
     acceptInvalidCerts: false,
+    color: null,
+    includeInGlobal: true,
   });
   const [imapTest, setImapTest] = useState<TestStatus>({ state: "idle" });
   const [smtpTest, setSmtpTest] = useState<TestStatus>({ state: "idle" });
@@ -81,6 +86,8 @@ export function EditImapAccount({ accountId, onClose, onSaved }: EditImapAccount
         smtpPort: account.smtp_port ?? 465,
         smtpSecurity: (account.smtp_security as SecurityType) ?? "ssl",
         acceptInvalidCerts: account.accept_invalid_certs === 1,
+        color: account.color ?? null,
+        includeInGlobal: account.include_in_global !== 0,
       });
       setLoading(false);
     });
@@ -157,6 +164,28 @@ export function EditImapAccount({ accountId, onClose, onSaved }: EditImapAccount
         smtpSameAsImap: form.smtpSameAsImap,
         acceptInvalidCerts: form.acceptInvalidCerts,
       });
+      await updateAccountMeta(accountId, {
+        color: form.color,
+        includeInGlobal: form.includeInGlobal,
+      });
+      // Refresh account store so color/includeInGlobal propagate immediately
+      const dbAccounts = await getAllAccounts();
+      useAccountStore.getState().setAccounts(
+        dbAccounts.map((a) => ({
+          id: a.id,
+          email: a.email,
+          displayName: a.display_name,
+          avatarUrl: a.avatar_url,
+          isActive: a.is_active === 1,
+          provider: a.provider,
+          color: a.color ?? null,
+          includeInGlobal: a.include_in_global !== 0,
+          sortOrder: a.sort_order ?? 0,
+        })),
+        useAccountStore.getState().activeAccountId ?? undefined,
+      );
+      // Force reload of thread list if user is on unified inbox
+      window.dispatchEvent(new CustomEvent("velo-sync-done"));
       onSaved();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err));
@@ -203,6 +232,50 @@ export function EditImapAccount({ accountId, onClose, onSaved }: EditImapAccount
               placeholder="Your Name"
               className={inputClass}
             />
+          </div>
+          {/* Account color */}
+          <div>
+            <label className={labelClass}>Account Color</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {ACCOUNT_COLOR_PRESETS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => update("color", form.color === color ? null : color)}
+                  className="w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-accent"
+                  style={{ backgroundColor: color }}
+                  title={color}
+                >
+                  {form.color === color && <Check size={12} className="text-white" strokeWidth={3} />}
+                </button>
+              ))}
+              {form.color && (
+                <button
+                  type="button"
+                  onClick={() => update("color", null)}
+                  className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+          {/* Include in global/unified inbox */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={form.includeInGlobal}
+              onClick={() => update("includeInGlobal", !form.includeInGlobal)}
+              className={`relative w-9 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 ${form.includeInGlobal ? "bg-accent" : "bg-border-primary"}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.includeInGlobal ? "translate-x-4" : "translate-x-0"}`}
+              />
+            </button>
+            <label className="text-sm text-text-secondary cursor-pointer select-none" onClick={() => update("includeInGlobal", !form.includeInGlobal)}>
+              Include in unified inbox
+            </label>
           </div>
           {!isOAuth && (
             <>

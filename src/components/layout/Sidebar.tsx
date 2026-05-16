@@ -10,6 +10,7 @@ import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { useSmartFolderStore } from "@/stores/smartFolderStore";
 import { useActiveLabel, useActiveCategory } from "@/hooks/useRouteNavigation";
 import { navigateToLabel } from "@/router/navigate";
+import { AccountSection } from "./AccountSection";
 import {
   Inbox,
   Star,
@@ -25,6 +26,7 @@ import {
   Plus,
   Tag,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   HelpCircle,
   PanelLeftClose,
@@ -39,6 +41,7 @@ import {
   Paperclip,
   FolderSearch,
   Loader2,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 
@@ -228,6 +231,8 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
   const activeCategory = useActiveCategory();
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const setActiveAccount = useAccountStore((s) => s.setActiveAccount);
+  const accounts = useAccountStore((s) => s.accounts);
   const [isScrolling, setIsScrolling] = useState(false);
 
   useEffect(() => {
@@ -249,10 +254,14 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     };
   }, []);
   const labels = useLabelStore((s) => s.labels);
+  const allAccountLabels = useLabelStore((s) => s.allAccountLabels);
   const loadLabels = useLabelStore((s) => s.loadLabels);
+  const loadAllAccountLabels = useLabelStore((s) => s.loadAllAccountLabels);
   const unreadCounts = useLabelStore((s) => s.unreadCounts);
   const categoryUnreadCounts = useLabelStore((s) => s.categoryUnreadCounts);
+  const globalUnreadCounts = useLabelStore((s) => s.globalUnreadCounts);
   const refreshLabelUnreadCounts = useLabelStore((s) => s.refreshUnreadCounts);
+  const refreshGlobalUnreadCounts = useLabelStore((s) => s.refreshGlobalUnreadCounts);
   const deleteLabel = useLabelStore((s) => s.deleteLabel);
   const smartFolders = useSmartFolderStore((s) => s.folders);
   const smartFolderCounts = useSmartFolderStore((s) => s.unreadCounts);
@@ -303,6 +312,24 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   }, [sidebarNavConfig]);
 
   const [labelsExpanded, setLabelsExpanded] = useState(false);
+  const [collapsedLabelGroups, setCollapsedLabelGroups] = useState<Set<string>>(new Set());
+
+  const toggleLabelGroup = useCallback((accountId: string) => {
+    setCollapsedLabelGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(accountId)) next.delete(accountId);
+      else next.add(accountId);
+      return next;
+    });
+  }, []);
+
+  const handleAccountLabelClick = useCallback(
+    (accountId: string, labelId: string) => {
+      setActiveAccount(accountId);
+      navigateToLabel(labelId);
+    },
+    [setActiveAccount],
+  );
 
   // Inline label editing state
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
@@ -327,6 +354,18 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     }
   }, [activeAccountId, loadLabels, refreshLabelUnreadCounts]);
 
+  // Load labels for all accounts (for the per-account labels section)
+  useEffect(() => {
+    const allIds = accounts.map((a) => a.id);
+    if (allIds.length > 0) loadAllAccountLabels(allIds);
+  }, [accounts, loadAllAccountLabels]);
+
+  // Load global unread counts for all accounts (for per-account sidebar sections)
+  useEffect(() => {
+    const allIds = accounts.map((a) => a.id);
+    if (allIds.length > 0) refreshGlobalUnreadCounts(allIds);
+  }, [accounts, refreshGlobalUnreadCounts]);
+
   // Load smart folders when active account changes
   useEffect(() => {
     loadSmartFolders(activeAccountId ?? undefined);
@@ -335,7 +374,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     }
   }, [activeAccountId, loadSmartFolders, refreshSmartFolderCounts]);
 
-  // Reload labels and smart folder counts on sync completion (debounced to avoid waterfall from multiple emitters)
+  // Reload labels, smart folder counts, and global counts on sync completion
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const handler = () => {
@@ -346,6 +385,11 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           refreshLabelUnreadCounts(activeAccountId);
           refreshSmartFolderCounts(activeAccountId);
         }
+        const allIds = useAccountStore.getState().accounts.map((a) => a.id);
+        if (allIds.length > 0) {
+          refreshGlobalUnreadCounts(allIds);
+          loadAllAccountLabels(allIds);
+        }
         useUIStore.getState().setSyncingFolder(null);
       }, 500);
     };
@@ -354,7 +398,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       window.removeEventListener("velo-sync-done", handler);
       if (timer) clearTimeout(timer);
     };
-  }, [activeAccountId, loadLabels, refreshSmartFolderCounts]);
+  }, [activeAccountId, loadLabels, loadAllAccountLabels, refreshSmartFolderCounts, refreshGlobalUnreadCounts]);
 
   const handleDeleteLabel = useCallback(
     async (labelId: string) => {
@@ -373,6 +417,20 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
     setEditingLabelId(null);
     setShowNewLabelForm(false);
   }, []);
+
+  const handleAccountFolderClick = useCallback(
+    (accountId: string, folder: string) => {
+      setActiveAccount(accountId);
+      navigateToLabel(folder);
+    },
+    [setActiveAccount],
+  );
+
+  const globalAccounts = useMemo(
+    () => accounts.filter((a) => a.includeInGlobal),
+    [accounts],
+  );
+  const hasGlobal = globalAccounts.length >= 2;
 
   const handleEditLabel = useCallback((labelId: string) => {
     setShowNewLabelForm(false);
@@ -420,6 +478,76 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       <AccountSwitcher collapsed={collapsed} onAddAccount={onAddAccount} />
 
       <nav className={`flex-1 overflow-y-auto py-2 ${isScrolling ? 'scrollbar-visible' : 'scrollbar-hidden'}`}>
+
+        {/* ─── Global / Unified Inbox ─── */}
+        {hasGlobal && (
+          <>
+            {!collapsed && (
+              <div className="px-3 pt-2 pb-1">
+                <span className="text-xs font-medium text-sidebar-text/50 uppercase tracking-wider">
+                  Global
+                </span>
+              </div>
+            )}
+            <DroppableNavItem
+              id="unified-inbox"
+              isActive={activeLabel === "unified-inbox"}
+              collapsed={collapsed}
+              onClick={() => {
+                setActiveAccount(null);
+                navigateToLabel("unified-inbox");
+              }}
+              title={collapsed ? "Unified Inbox" : undefined}
+            >
+              {() => (
+                <>
+                  <Layers size={18} className="shrink-0" />
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1 truncate">Unified Inbox</span>
+                      {(() => {
+                        const total = globalAccounts.reduce(
+                          (sum, a) => sum + (globalUnreadCounts[a.id]?.["INBOX"] ?? 0),
+                          0,
+                        );
+                        return total > 0 ? (
+                          <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
+                            {total}
+                          </span>
+                        ) : null;
+                      })()}
+                    </>
+                  )}
+                </>
+              )}
+            </DroppableNavItem>
+            {!collapsed && <div className="mx-3 my-2 border-t border-border-primary/50" />}
+          </>
+        )}
+
+        {/* ─── Per-account sections ─── */}
+        {accounts.length > 1 && (
+          <>
+            {!collapsed && (
+              <div className="px-3 pt-1 pb-1">
+                <span className="text-xs font-medium text-sidebar-text/50 uppercase tracking-wider">
+                  Accounts
+                </span>
+              </div>
+            )}
+            {accounts.map((account) => (
+              <AccountSection
+                key={account.id}
+                account={account}
+                sidebarCollapsed={collapsed}
+                unreadCounts={globalUnreadCounts[account.id] ?? {}}
+                onFolderClick={handleAccountFolderClick}
+              />
+            ))}
+            {!collapsed && <div className="mx-3 my-2 border-t border-border-primary/50" />}
+          </>
+        )}
+
         {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isInbox = item.id === "inbox";
@@ -598,14 +726,14 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           </>
         )}
 
-        {/* User labels — hidden when collapsed (all labels share the same icon and would be indistinguishable) */}
+        {/* User labels — hidden when collapsed */}
         {showLabels && !collapsed && (
           <>
-            {!collapsed && (
-              <div className="flex items-center justify-between px-3 pt-4 pb-1">
-                <span className="text-xs font-medium text-sidebar-text/60 uppercase tracking-wider">
-                  Labels
-                </span>
+            <div className="flex items-center justify-between px-3 pt-4 pb-1">
+              <span className="text-xs font-medium text-sidebar-text/60 uppercase tracking-wider">
+                Labels
+              </span>
+              {activeAccountId && (
                 <button
                   onClick={handleAddLabel}
                   className="p-0.5 text-sidebar-text/40 hover:text-sidebar-text transition-colors"
@@ -613,85 +741,149 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                 >
                   <Plus size={14} />
                 </button>
-              </div>
-            )}
-            {/* Always-visible labels */}
-            {labels.slice(0, LABELS_COLLAPSED_COUNT).map((label: Label) => (
-              <div key={label.id}>
-                <DroppableLabelItem
-                  label={label}
-                  isActive={activeLabel === label.id}
-                  collapsed={collapsed}
-                  onClick={() => navigateToLabel(label.id)}
-                  onContextMenu={(e) => handleLabelContextMenu(e, label.id)}
-                  onEditClick={() => handleEditLabel(label.id)}
-                  unreadCount={unreadCounts[label.id]}
-                />
-                {editingLabelId === label.id &&
-                  activeAccountId &&
-                  !collapsed && (
-                    <LabelForm
-                      accountId={activeAccountId}
-                      label={editingLabel}
-                      onDone={handleFormDone}
-                      variant="sidebar"
-                    />
-                  )}
-              </div>
-            ))}
-            {/* Collapsible labels with accordion animation */}
-            {labels.length > LABELS_COLLAPSED_COUNT && (
-              <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-out ${labelsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
-              >
-                <div className="overflow-hidden">
-                  {labels.slice(LABELS_COLLAPSED_COUNT).map((label: Label) => (
-                    <div key={label.id}>
-                      <DroppableLabelItem
-                        label={label}
-                        isActive={activeLabel === label.id}
-                        collapsed={collapsed}
-                        onClick={() => navigateToLabel(label.id)}
-                        onContextMenu={(e) =>
-                          handleLabelContextMenu(e, label.id)
-                        }
-                        onEditClick={() => handleEditLabel(label.id)}
-                        unreadCount={unreadCounts[label.id]}
-                      />
-                      {editingLabelId === label.id &&
-                        activeAccountId &&
-                        !collapsed && (
-                          <LabelForm
-                            accountId={activeAccountId}
-                            label={editingLabel}
-                            onDone={handleFormDone}
-                            variant="sidebar"
-                          />
+              )}
+            </div>
+
+            {accounts.length > 1 ? (
+              /* ── Multi-account: grouped by account ── */
+              <>
+                {accounts.map((account) => {
+                  const accountLabels = allAccountLabels[account.id] ?? [];
+                  if (accountLabels.length === 0) return null;
+                  const isGroupCollapsed = collapsedLabelGroups.has(account.id);
+                  const accountColor = account.color ?? undefined;
+                  return (
+                    <div key={account.id}>
+                      {/* Account group header */}
+                      <button
+                        onClick={() => toggleLabelGroup(account.id)}
+                        className="flex items-center gap-2 w-full px-3 py-1.5 text-[0.75rem] text-sidebar-text/60 hover:text-sidebar-text transition-colors"
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={accountColor ? { backgroundColor: accountColor } : undefined}
+                        />
+                        <span className="flex-1 truncate text-left">
+                          {account.displayName ?? account.email}
+                        </span>
+                        {isGroupCollapsed ? (
+                          <ChevronRight size={11} className="shrink-0" />
+                        ) : (
+                          <ChevronDown size={11} className="shrink-0" />
                         )}
+                      </button>
+                      <div
+                        className={`grid transition-[grid-template-rows] duration-200 ease-out ${isGroupCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+                      >
+                        <div className="overflow-hidden">
+                          {accountLabels.map((label: Label) => {
+                            const labelUnread =
+                              account.id === activeAccountId
+                                ? (unreadCounts[label.id] ?? 0)
+                                : (globalUnreadCounts[account.id]?.[label.id] ?? 0);
+                            return (
+                              <div key={label.id}>
+                                <DroppableLabelItem
+                                  label={label}
+                                  isActive={activeLabel === label.id && activeAccountId === account.id}
+                                  collapsed={false}
+                                  onClick={() => handleAccountLabelClick(account.id, label.id)}
+                                  onContextMenu={(e) => handleLabelContextMenu(e, label.id)}
+                                  onEditClick={() => handleEditLabel(label.id)}
+                                  unreadCount={labelUnread}
+                                />
+                                {editingLabelId === label.id && !collapsed && (
+                                  <LabelForm
+                                    accountId={account.id}
+                                    label={editingLabel}
+                                    onDone={handleFormDone}
+                                    variant="sidebar"
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {!collapsed && labels.length > LABELS_COLLAPSED_COUNT && (
-              <button
-                onClick={() => setLabelsExpanded((v) => !v)}
-                className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-sidebar-text/60 hover:text-sidebar-text transition-colors"
-              >
-                {labelsExpanded ? (
-                  <>
-                    <ChevronUp size={12} />
-                    <span>Show less</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown size={12} />
-                    <span>{labels.length - LABELS_COLLAPSED_COUNT} more</span>
-                  </>
+                  );
+                })}
+              </>
+            ) : (
+              /* ── Single account: flat list ── */
+              <>
+                {labels.slice(0, LABELS_COLLAPSED_COUNT).map((label: Label) => (
+                  <div key={label.id}>
+                    <DroppableLabelItem
+                      label={label}
+                      isActive={activeLabel === label.id}
+                      collapsed={collapsed}
+                      onClick={() => navigateToLabel(label.id)}
+                      onContextMenu={(e) => handleLabelContextMenu(e, label.id)}
+                      onEditClick={() => handleEditLabel(label.id)}
+                      unreadCount={unreadCounts[label.id]}
+                    />
+                    {editingLabelId === label.id && activeAccountId && !collapsed && (
+                      <LabelForm
+                        accountId={activeAccountId}
+                        label={editingLabel}
+                        onDone={handleFormDone}
+                        variant="sidebar"
+                      />
+                    )}
+                  </div>
+                ))}
+                {labels.length > LABELS_COLLAPSED_COUNT && (
+                  <div
+                    className={`grid transition-[grid-template-rows] duration-300 ease-out ${labelsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+                  >
+                    <div className="overflow-hidden">
+                      {labels.slice(LABELS_COLLAPSED_COUNT).map((label: Label) => (
+                        <div key={label.id}>
+                          <DroppableLabelItem
+                            label={label}
+                            isActive={activeLabel === label.id}
+                            collapsed={collapsed}
+                            onClick={() => navigateToLabel(label.id)}
+                            onContextMenu={(e) => handleLabelContextMenu(e, label.id)}
+                            onEditClick={() => handleEditLabel(label.id)}
+                            unreadCount={unreadCounts[label.id]}
+                          />
+                          {editingLabelId === label.id && activeAccountId && !collapsed && (
+                            <LabelForm
+                              accountId={activeAccountId}
+                              label={editingLabel}
+                              onDone={handleFormDone}
+                              variant="sidebar"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </button>
+                {labels.length > LABELS_COLLAPSED_COUNT && (
+                  <button
+                    onClick={() => setLabelsExpanded((v) => !v)}
+                    className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-sidebar-text/60 hover:text-sidebar-text transition-colors"
+                  >
+                    {labelsExpanded ? (
+                      <>
+                        <ChevronUp size={12} />
+                        <span>Show less</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown size={12} />
+                        <span>{labels.length - LABELS_COLLAPSED_COUNT} more</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </>
             )}
-            {/* New label form at bottom of list */}
+
+            {/* New label form at bottom */}
             {showNewLabelForm && activeAccountId && !collapsed && (
               <LabelForm
                 accountId={activeAccountId}

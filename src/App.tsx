@@ -202,7 +202,11 @@ export default function App() {
   useEffect(() => {
     async function init() {
       try {
-        await runMigrations();
+        try {
+          await runMigrations();
+        } catch (migErr) {
+          console.error("Migration failed, continuing with existing schema:", migErr);
+        }
 
         const ui = useUIStore.getState();
 
@@ -385,6 +389,9 @@ export default function App() {
           avatarUrl: a.avatar_url,
           isActive: a.is_active === 1,
           provider: a.provider,
+          color: a.color ?? null,
+          includeInGlobal: a.include_in_global !== 0,
+          sortOrder: a.sort_order ?? 0,
         }));
         const savedAccountId = await getSetting("active_account_id");
         useAccountStore.getState().setAccounts(mapped, savedAccountId);
@@ -633,6 +640,9 @@ export default function App() {
       avatarUrl: a.avatar_url,
       isActive: a.is_active === 1,
       provider: a.provider,
+      color: a.color ?? null,
+      includeInGlobal: a.include_in_global !== 0,
+      sortOrder: a.sort_order ?? 0,
     }));
     useAccountStore.getState().setAccounts(mapped);
 

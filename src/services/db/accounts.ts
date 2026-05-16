@@ -37,6 +37,9 @@ export interface DbAccount {
   calendar_provider: string | null;
   accept_invalid_certs: number;
   rag_enabled: number;
+  color: string | null;
+  include_in_global: number;
+  sort_order: number;
 }
 
 async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
@@ -87,10 +90,57 @@ async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
 
 export async function getAllAccounts(): Promise<DbAccount[]> {
   const db = await getDb();
-  const accounts = await db.select<DbAccount[]>(
-    "SELECT * FROM accounts ORDER BY created_at ASC",
-  );
+  let accounts: DbAccount[];
+  try {
+    accounts = await db.select<DbAccount[]>(
+      "SELECT * FROM accounts ORDER BY sort_order ASC, email ASC",
+    );
+  } catch {
+    // sort_order column may not exist yet if migration v41 hasn't run
+    accounts = await db.select<DbAccount[]>(
+      "SELECT * FROM accounts ORDER BY email ASC",
+    );
+  }
   return Promise.all(accounts.map(decryptAccountTokens));
+}
+
+export async function updateAccountMeta(
+  accountId: string,
+  fields: {
+    color?: string | null;
+    includeInGlobal?: boolean;
+    sortOrder?: number;
+    displayName?: string | null;
+  },
+): Promise<void> {
+  const db = await getDb();
+  const setClauses: string[] = [];
+  const params: unknown[] = [];
+
+  if ("color" in fields) {
+    params.push(fields.color ?? null);
+    setClauses.push(`color = $${params.length}`);
+  }
+  if ("includeInGlobal" in fields) {
+    params.push(fields.includeInGlobal ? 1 : 0);
+    setClauses.push(`include_in_global = $${params.length}`);
+  }
+  if ("sortOrder" in fields) {
+    params.push(fields.sortOrder);
+    setClauses.push(`sort_order = $${params.length}`);
+  }
+  if ("displayName" in fields) {
+    params.push(fields.displayName ?? null);
+    setClauses.push(`display_name = $${params.length}`);
+  }
+  if (setClauses.length === 0) return;
+
+  setClauses.push("updated_at = unixepoch()");
+  params.push(accountId);
+  await db.execute(
+    `UPDATE accounts SET ${setClauses.join(", ")} WHERE id = $${params.length}`,
+    params,
+  );
 }
 
 export async function getAccount(id: string): Promise<DbAccount | null> {
