@@ -220,7 +220,15 @@ pub struct ImapThreadUpdate {
 // ---------------------------------------------------------------------------
 
 /// One CID image to fetch and cache — passed from JS to imap_batch_resolve_cid_images.
+///
+/// `rename_all = "camelCase"` is REQUIRED. Without it, serde looks for snake_case
+/// keys in the JSON payload (`attachment_db_id`), but Tauri's invoke ships the
+/// JS object verbatim (`attachmentDbId`). The whole command silently fails
+/// deserialization, falls back to per-image `imap_fetch_attachment`, and on
+/// DavMail-fronted servers melts the renderer with BODY.PEEK[part_id] buffer
+/// runaway.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CidImageRequest {
     pub attachment_db_id: String,
     pub message_id: String,
@@ -235,7 +243,10 @@ pub struct CidImageRequest {
 }
 
 /// Result for one CID image — only the local cache path is returned to JS (no binary).
+/// `rename_all = "camelCase"` keeps the serialized keys consistent with the rest of
+/// the JS interop layer (`attachmentDbId`, `localPath`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CidImageResult {
     pub attachment_db_id: String,
     pub local_path: String,

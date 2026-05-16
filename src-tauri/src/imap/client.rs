@@ -739,73 +739,89 @@ pub async fn fetch_attachment(
     Ok(base64_str)
 }
 
-/// Fetch a CID inline image by Content-ID, using BODY.PEEK[] (full message) instead
-/// of BODY.PEEK[part_id]. The full-message FETCH command is the same one the sync
-/// loop uses; servers/gateways (notably DavMail bridging to Exchange/EWS) that
-/// mangle part-specific FETCH responses handle the full-message form correctly.
+/// Fetch a CID inline image via RAW TCP — bypasses async-imap completely.
 ///
-/// The MIME part is extracted client-side via mail-parser by matching its
-/// `Content-ID` header against the requested `content_id`. The returned string is
-/// base64-encoded so the caller can write it to disk identically to the legacy
-/// `fetch_attachment` path.
-pub async fn fetch_attachment_by_cid(
-    session: &mut ImapSession,
+/// Diagnosis: with DavMail (Exchange/EWS → IMAP), even the full `BODY.PEEK[]`
+/// FETCH hangs inside async-imap's response parser (the parser keeps buffering
+/// without producing items, defeating `tokio::time::timeout`). The same UID
+/// fetched through the raw-TCP path (`raw_fetch_messages`) works fine — which
+/// is how the body got into the DB in the first place. So for CID resolution
+/// we use the raw path too.
+///
+/// Behaviour: opens a fresh TCP/TLS connection (no session pool), logs in,
+/// SELECTs the folder, fetches `BODY.PEEK[]` for the single UID, parses the
+/// raw bytes with mail-parser, and returns the base64-encoded contents of the
+/// MIME part whose Content-ID header matches `content_id`.
+pub async fn raw_fetch_cid_attachment(
+    config: &ImapConfig,
     folder: &str,
     uid: u32,
     content_id: &str,
 ) -> Result<String, String> {
-    tokio::time::timeout(IMAP_CMD_TIMEOUT, session.select(folder))
-        .await
-        .map_err(|_| format!("SELECT {folder} timed out after {}s", IMAP_CMD_TIMEOUT.as_secs()))?
-        .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
+    log::debug!("[raw_fetch_cid_attachment] folder={folder} uid={uid} cid={content_id}");
 
-    let uid_str = uid.to_string();
-    let fetches: Vec<_> = tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
-        let stream = session
-            .uid_fetch(&uid_str, "BODY.PEEK[]")
-            .await
-            .map_err(|e| format!("UID FETCH BODY.PEEK[] failed: {e}"))?;
-        Ok::<_, String>(stream.collect::<Vec<_>>().await)
-    })
-    .await
-    .map_err(|_| format!("UID FETCH BODY.PEEK[] timed out after {}s", IMAP_FETCH_TIMEOUT.as_secs()))?
-    ?
-    .into_iter()
-    .filter_map(|r| r.ok())
-    .collect();
+    let stream = if config.security == "starttls" {
+        raw_connect_starttls(config).await?
+    } else {
+        connect_stream(config).await?
+    };
+    let mut reader = BufReader::new(stream);
 
-    let fetch = fetches
-        .first()
-        .ok_or_else(|| format!("No response for UID {uid}"))?;
+    // Read greeting (non-STARTTLS only — STARTTLS path already consumed it)
+    if config.security != "starttls" {
+        let mut line = String::new();
+        reader.read_line(&mut line).await.map_err(|e| format!("greeting: {e}"))?;
+    }
 
-    let raw = fetch
-        .body()
-        .ok_or_else(|| format!("No body for UID {uid}"))?;
+    // LOGIN
+    let login_cmd = if config.auth_method == "oauth2" {
+        let xoauth2 = format!("user={}\x01auth=Bearer {}\x01\x01", config.username, config.password);
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, xoauth2.as_bytes());
+        format!("a1 AUTHENTICATE XOAUTH2 {b64}\r\n")
+    } else {
+        let esc_user = config.username.replace('\\', "\\\\").replace('"', "\\\"");
+        let esc_pass = config.password.replace('\\', "\\\\").replace('"', "\\\"");
+        format!("a1 LOGIN \"{esc_user}\" \"{esc_pass}\"\r\n")
+    };
+    raw_send_and_wait(&mut reader, login_cmd.as_bytes(), "a1").await?;
 
+    // SELECT folder (read-only would be nice via EXAMINE, but SELECT matches
+    // the rest of the codebase and keeps server-side state consistent)
+    let select_cmd = format!("a2 SELECT \"{folder}\"\r\n");
+    raw_send_and_wait(&mut reader, select_cmd.as_bytes(), "a2").await?;
+
+    // FETCH full body for the single UID
+    let fetch_cmd = format!("a3 UID FETCH {uid} BODY.PEEK[]\r\n");
+    reader.get_mut().write_all(fetch_cmd.as_bytes()).await
+        .map_err(|e| format!("FETCH write: {e}"))?;
+
+    let raw_messages = raw_parse_fetch_responses(&mut reader, "a3").await?;
+    let _ = reader.get_mut().write_all(b"a4 LOGOUT\r\n").await;
+
+    let raw_msg = raw_messages.into_iter().next()
+        .ok_or_else(|| format!("No message returned for UID {uid}"))?;
+
+    // Parse RFC822 client-side and locate the part with matching Content-ID.
+    // Walk EVERY MIME part — `attachments()` / `html_bodies()` / `text_bodies()`
+    // each miss inline parts (Content-Disposition: inline), which is what CID
+    // images are. Direct `parts` iteration catches them all.
     let parser = MessageParser::default();
     let message = parser
-        .parse(raw)
-        .ok_or_else(|| format!("Failed to parse RFC822 for UID {uid}"))?;
+        .parse(raw_msg.body.as_slice())
+        .ok_or_else(|| format!("mail-parser failed for UID {uid}"))?;
 
-    // Normalize Content-ID: strip angle brackets and whitespace.
     let target = content_id.trim().trim_matches(|c| c == '<' || c == '>');
 
-    // Walk all MIME parts (attachments + inline parts) looking for matching Content-ID.
-    for part in message.attachments().chain(message.html_bodies()).chain(message.text_bodies()) {
+    for part in &message.parts {
         let part_cid = part
             .content_id()
             .map(|c| c.trim().trim_matches(|ch| ch == '<' || ch == '>'));
-
         if part_cid == Some(target) {
-            // Encode the part's raw bytes as base64 (matching the legacy
-            // fetch_attachment return shape — caller will decode it).
             return Ok(base64::engine::general_purpose::STANDARD.encode(part.contents()));
         }
     }
 
-    Err(format!(
-        "Content-ID {target} not found in message UID {uid} (folder {folder})"
-    ))
+    Err(format!("Content-ID {target} not found in UID {uid}"))
 }
 
 /// Fetch the raw RFC822 source of a single message by UID.

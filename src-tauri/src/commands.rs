@@ -382,17 +382,9 @@ fn to_base36(mut n: u32) -> String {
 #[tauri::command]
 pub async fn imap_batch_resolve_cid_images(
     app: tauri::AppHandle,
-    pool: tauri::State<'_, ImapSessionPool>,
     config: ImapConfig,
     requests: Vec<CidImageRequest>,
 ) -> Result<Vec<CidImageResult>, String> {
-    eprintln!("[CID-RS-ENTRY] requests.len={}", requests.len());
-    for (i, req) in requests.iter().enumerate() {
-        log::warn!(
-            "[CID-RS-ENTRY]   #{i} att={} msg={} part={} cid={:?}",
-            req.attachment_db_id, req.message_id, req.part_id, req.content_id
-        );
-    }
     if requests.is_empty() {
         return Ok(vec![]);
     }
@@ -416,7 +408,6 @@ pub async fn imap_batch_resolve_cid_images(
     let mut results: Vec<CidImageResult> = Vec::with_capacity(requests.len());
 
     for req in &requests {
-        eprintln!("[CID-RS] loop iter att={}", req.attachment_db_id);
         // --- Phase 1: synchronous DB lookup (no await, conn safe to use) ---
         let lookup: Result<(String, u32), String> = conn
             .query_row(
@@ -431,45 +422,25 @@ pub async fn imap_batch_resolve_cid_images(
             Err(e) => { log::warn!("[CID] skip {}: {e}", req.attachment_db_id); continue; }
         };
 
-        // --- Phase 2: async IMAP fetch (conn NOT held across these awaits) ---
-        let (mut session, key) = match pool.acquire(&config).await {
-            Ok(v) => v,
-            Err(e) => { log::warn!("[CID] skip {}: {e}", req.attachment_db_id); continue; }
+        // --- Phase 2: RAW TCP fetch (bypasses async-imap and the session pool) ---
+        //
+        // The async-imap-based paths hang on DavMail (Exchange/EWS → IMAP gateway):
+        // BODY.PEEK[part_id] mangles the per-part response, and BODY.PEEK[] also
+        // gets stuck for some UIDs because the parser doesn't yield to the runtime
+        // (defeating tokio::time::timeout). Raw TCP + manual literal parsing —
+        // the same path the sync fallback uses — completes reliably.
+        //
+        // Tradeoff: a fresh TCP/TLS handshake per inline image. For typical
+        // signatures (1-3 CIDs per email) this is fine and far better than the
+        // alternative of pegging the renderer to 32 GB RSS in seconds.
+        let fetch_result = match req.content_id.as_deref().filter(|s| !s.is_empty()) {
+            Some(cid) => imap_client::raw_fetch_cid_attachment(&config, &folder, uid, cid).await,
+            None => continue,
         };
 
-        // Prefer `fetch_attachment_by_cid` (full BODY.PEEK[] + client-side part
-        // extraction) whenever we have a Content-ID. The BODY.PEEK[part_id]
-        // pathway used by `fetch_attachment` is unsafe with DavMail and other
-        // Exchange/EWS IMAP gateways: they mangle the per-part FETCH response,
-        // which sends async-imap's parser into an unbounded buffer loop (32 GB
-        // RSS in seconds observed). BODY.PEEK[] is the same command the sync
-        // loop already uses successfully.
-        eprintln!("[CID-RS] before fetch att={} cid={:?}", req.attachment_db_id, req.content_id);
-        let fetch_result = if let Some(cid) = req.content_id.as_deref().filter(|s| !s.is_empty()) {
-            eprintln!("[CID-RS] using fetch_attachment_by_cid");
-            imap_client::fetch_attachment_by_cid(&mut session, &folder, uid, cid).await
-        } else {
-            eprintln!("[CID-RS] using legacy fetch_attachment (no content_id)");
-            imap_client::fetch_attachment(&mut session, &folder, uid, &req.part_id).await
-        };
-        log::warn!(
-            "[CID-RS] after fetch att={} ok={} bytes={}",
-            req.attachment_db_id,
-            fetch_result.is_ok(),
-            fetch_result.as_ref().map(|s| s.len()).unwrap_or(0)
-        );
-
-        // Only return healthy sessions to the pool. On error the session may be
-        // mid-stream with unread bytes; recycling it would feed the parser stale
-        // data on the next request. Dropping the session closes the TCP/TLS
-        // connection cleanly and `pool.acquire` will mint a fresh one next time.
         let base64_str = match fetch_result {
-            Ok(s) => {
-                pool.release(key, session).await;
-                s
-            }
+            Ok(s) => s,
             Err(e) => {
-                drop(session);
                 log::warn!("[CID] skip {}: {e}", req.attachment_db_id);
                 continue;
             }

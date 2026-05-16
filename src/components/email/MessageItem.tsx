@@ -60,20 +60,11 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
     const html = message.body_html;
     if (!html || !/\bcid:/i.test(html)) return;
 
-    console.log(
-      `[CID] start msg=${message.id} body=${(html.length / 1024).toFixed(0)}KB atts=${atts.length}`,
-    );
-    console.time(`[CID] ${message.id}`);
-
     const cidAtts = atts.filter(
       (a) => a.content_id && (a.gmail_attachment_id || a.imap_part_id) &&
         new RegExp(`cid:${escapeCid(a.content_id)}`, "i").test(html),
     );
-    if (cidAtts.length === 0) {
-      console.timeEnd(`[CID] ${message.id}`);
-      return;
-    }
-    console.log(`[CID] msg=${message.id} cidAtts.length=${cidAtts.length}`);
+    if (cidAtts.length === 0) return;
 
     try {
       // IMAP batch path: one Rust command for all uncached IMAP CIDs.
@@ -94,9 +85,8 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
             const resolved = pathMap.get(att.id);
             if (resolved) att.local_path = resolved;
           }
-        } catch (e) {
-          // Log so we know WHY the batch failed instead of silently falling through.
-          console.error(`[CID] batch resolver threw for msg=${message.id}:`, e);
+        } catch {
+          // Non-fatal — images will show placeholders below.
         }
       }
 
@@ -133,9 +123,6 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
         // an IMAP attachment, the batch resolver already failed or didn't set
         // local_path — fall back to a placeholder instead of triggering the crash.
         if (att.imap_part_id) {
-          console.warn(
-            `[CID] IMAP attachment ${att.id} not resolved by batch — showing placeholder`,
-          );
           return { cidKey, dataUri: null as string | null };
         }
 
@@ -177,11 +164,8 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
 
       if (newMap.size > 0) setCidMap(newMap);
       if (failed.length > 0) setCidFailed(new Set(failed));
-      console.timeEnd(`[CID] ${message.id}`);
-      console.log(`[CID] done msg=${message.id} resolved=${newMap.size} failed=${failed.length}`);
-    } catch (e) {
-      console.error(`[CID] error msg=${message.id}`, e);
-      try { console.timeEnd(`[CID] ${message.id}`); } catch {}
+    } catch {
+      // Silently fall back to placeholders for any unexpected failure.
     }
   };
 
