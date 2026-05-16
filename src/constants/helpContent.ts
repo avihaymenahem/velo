@@ -1117,10 +1117,10 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "Accent colors",
         summary: "8 color presets to personalize the app.",
         description:
-          "Choose from 8 accent color presets to personalize the look of the app: Indigo (default), Rose, Emerald, Amber, Sky, Violet, Orange, or Slate. Each preset has separate light and dark mode variants that are optimized for readability. The accent color is used for buttons, active states, links, badges, and highlights throughout the app. Accent colors are independent of the light/dark theme.",
+          "Choose from 8 accent color presets to personalize the look of the app: Amber (default), Ink Black, Prussian Blue, Sage, Iris, Claret, Persimmon, or Slate. Each preset has separate light and dark mode variants that are optimized for readability. The accent color is used for buttons, active states, links, badges, and highlights throughout the app. Accent colors are independent of the light/dark theme.",
         tips: [
           { text: "Change accent color in Settings > General." },
-          { text: "8 presets: Indigo, Rose, Emerald, Amber, Sky, Violet, Orange, Slate." },
+          { text: "8 presets: Amber (default), Ink Black, Prussian Blue, Sage, Iris, Claret, Persimmon, Slate." },
           { text: "Each color has optimized light and dark variants." },
           { text: "Accent color is independent of light/dark theme." },
         ],

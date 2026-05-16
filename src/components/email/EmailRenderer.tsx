@@ -30,7 +30,6 @@ export function EmailRenderer({
   cidFailed,
 }: EmailRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const listenerRef = useRef<((e: MessageEvent) => void) | null>(null);
   const rafRef = useRef<number>(0);
   // Tracks the active Blob URL for the iframe document so we can revoke it
   // deterministically on unmount (instead of waiting for JS GC).
@@ -171,56 +170,31 @@ export function EmailRenderer({
 </html>`;
   }, [bodyHtml, isDark, isPlainText]);
 
+  // Unmount cleanup: navigate to about:blank to force WebKit to destroy the
+  // document and release all decoded image textures and GPU allocations immediately.
   useEffect(() => {
     return () => {
-      if (listenerRef.current) window.removeEventListener("message", listenerRef.current);
       cancelAnimationFrame(rafRef.current);
-      // Navigate to about:blank: forces WebKit to destroy the document, releasing all
-      // decoded image textures and GPU allocations immediately.
       const iframe = iframeRef.current;
       if (iframe) iframe.src = "about:blank";
     };
   }, []);
 
-  // Blob URL management: replaces srcDoc to give deterministic memory control.
+  // Blob URL management + message handling.
   //
-  // srcdoc keeps the full HTML string bound to a DOM attribute; WebKit may keep
-  // it alive in its back/forward cache long after the component re-renders.
-  // With a Blob URL, we call URL.revokeObjectURL() and the native memory is freed
-  // immediately — no waiting for JavaScriptCore's GC cycle.
+  // The message listener is attached BEFORE setting iframe.src so we never miss
+  // the initial ResizeObserver height report that fires as soon as the iframe
+  // document renders — previously the listener was attached in onLoad (too late).
   //
   // Security: sandbox="allow-scripts" is preserved. A sandboxed iframe always gets
-  // null origin regardless of whether the src is srcdoc or blob:, so the security
-  // model is identical. postMessage with targetOrigin="*" continues to work. ✓
+  // null origin regardless of blob: vs srcdoc, so the model is identical. ✓
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
 
-    // Revoke the previous blob before creating a new one — immediate release.
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
     }
-
-    const blob = new Blob([srcdoc], { type: "text/html; charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    blobUrlRef.current = url;
-    iframe.src = url;
-
-    return () => {
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-        blobUrlRef.current = null;
-      }
-    };
-  }, [srcdoc]);
-
-
-  const handleLoad = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    // Remove stale listener from previous load
-    if (listenerRef.current) window.removeEventListener("message", listenerRef.current);
 
     const onMessage = (e: MessageEvent) => {
       if (e.source !== iframe.contentWindow) return;
@@ -243,11 +217,30 @@ export function EmailRenderer({
       }
     };
 
-    listenerRef.current = onMessage;
+    // Attach before setting src — ResizeObserver inside the iframe fires early
     window.addEventListener("message", onMessage);
 
-    iframe.contentWindow?.postMessage({ type: "getHeight" }, "*");
-  }, []);
+    // Belt-and-suspenders: explicitly request height after load in case the
+    // ResizeObserver message arrived before the listener was ready
+    const onLoad = () => {
+      iframe.contentWindow?.postMessage({ type: "getHeight" }, "*");
+    };
+    iframe.addEventListener("load", onLoad);
+
+    const blob = new Blob([srcdoc], { type: "text/html; charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    blobUrlRef.current = url;
+    iframe.src = url;
+
+    return () => {
+      window.removeEventListener("message", onMessage);
+      iframe.removeEventListener("load", onLoad);
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, [srcdoc]);
 
   const handleLoadImages = useCallback(() => {
     setOverrideShow(true);
@@ -287,7 +280,6 @@ export function EmailRenderer({
       <iframe
         ref={iframeRef}
         sandbox="allow-scripts"
-        onLoad={handleLoad}
         className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
         style={{ overflow: "hidden", minHeight: "120px" }}
         title="Email content"

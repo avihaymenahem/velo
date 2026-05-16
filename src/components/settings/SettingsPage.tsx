@@ -105,8 +105,8 @@ export function SettingsPage() {
   const setComposerFontFamily = useUIStore((s) => s.setComposerFontFamily);
   const composerFontSize = useUIStore((s) => s.composerFontSize);
   const setComposerFontSize = useUIStore((s) => s.setComposerFontSize);
-  const reduceMotion = useUIStore((s) => s.reduceMotion);
-  const setReduceMotion = useUIStore((s) => s.setReduceMotion);
+  const backgroundMode = useUIStore((s) => s.backgroundMode);
+  const setBackgroundMode = useUIStore((s) => s.setBackgroundMode);
   const accounts = useAccountStore((s) => s.accounts);
   const removeAccountFromStore = useAccountStore((s) => s.removeAccount);
   const { tab } = useParams({ strict: false }) as { tab?: string };
@@ -664,12 +664,17 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                         <option value="split">Split (Categories)</option>
                       </select>
                     </SettingRow>
-                    <ToggleRow
-                      label="Reduce motion"
-                      description="Disable animated background effects (fixes flickering on some GPUs)"
-                      checked={reduceMotion}
-                      onToggle={() => setReduceMotion(!reduceMotion)}
-                    />
+                    <SettingRow label="Background style">
+                      <select
+                        value={backgroundMode}
+                        onChange={(e) => setBackgroundMode(e.target.value as "flat" | "aurora" | "spotlight")}
+                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                      >
+                        <option value="flat">Flat (no animation)</option>
+                        <option value="aurora">Aurora (subtle glow)</option>
+                        <option value="spotlight">Spotlight (follows cursor)</option>
+                      </select>
+                    </SettingRow>
                   </Section>
 
                   <SidebarNavEditor />

@@ -14,7 +14,7 @@
       {
         "label": "main",
         "title": "",
-        "width": 1680,
+        "width": 1800,
         "height": 800,
         "minWidth": 1120,
         "minHeight": 600,
@@ -43,7 +43,9 @@
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src ipc://localhost http://ipc.localhost https://www.googleapis.com https://oauth2.googleapis.com https://people.googleapis.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://www.gravatar.com https://login.microsoftonline.com https://graph.microsoft.com https://api.login.yahoo.com http://localhost:11434 http://localhost:1234 http://127.0.0.1:11434 http://127.0.0.1:1234 https://models.github.ai; img-src * data: blob: asset: https:; font-src 'self' data: https://fonts.gstatic.com; frame-src 'self'",
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPDATA/attachment_cache/**"]
+        "scope": [
+          "$APPDATA/attachment_cache/**"
+        ]
       }
     },
     "trayIcon": null

@@ -198,18 +198,22 @@ describe("uiStore", () => {
     expect(useUIStore.getState().inboxViewMode).toBe("unified");
   });
 
-  it("reduceMotion should default to false", () => {
-    expect(useUIStore.getState().reduceMotion).toBe(false);
+  it("backgroundMode should default to flat", () => {
+    expect(useUIStore.getState().backgroundMode).toBe("flat");
   });
 
-  it("setReduceMotion should persist to DB and update state", () => {
-    useUIStore.getState().setReduceMotion(true);
-    expect(setSetting).toHaveBeenCalledWith("reduce_motion", "true");
-    expect(useUIStore.getState().reduceMotion).toBe(true);
+  it("setBackgroundMode should persist to DB and update state", () => {
+    useUIStore.getState().setBackgroundMode("aurora");
+    expect(setSetting).toHaveBeenCalledWith("background_mode", "aurora");
+    expect(useUIStore.getState().backgroundMode).toBe("aurora");
 
-    useUIStore.getState().setReduceMotion(false);
-    expect(setSetting).toHaveBeenCalledWith("reduce_motion", "false");
-    expect(useUIStore.getState().reduceMotion).toBe(false);
+    useUIStore.getState().setBackgroundMode("spotlight");
+    expect(setSetting).toHaveBeenCalledWith("background_mode", "spotlight");
+    expect(useUIStore.getState().backgroundMode).toBe("spotlight");
+
+    useUIStore.getState().setBackgroundMode("flat");
+    expect(setSetting).toHaveBeenCalledWith("background_mode", "flat");
+    expect(useUIStore.getState().backgroundMode).toBe("flat");
   });
 
 });

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { setSetting } from "@/services/db/settings";
-import type { ColorThemeId } from "@/constants/themes";
+import { DEFAULT_COLOR_THEME, type ColorThemeId } from "@/constants/themes";
 
 type Theme = "light" | "dark" | "system";
 type ReadingPanePosition = "right" | "bottom" | "hidden";
@@ -9,6 +9,7 @@ export type EmailDensity = "compact" | "default" | "spacious";
 export type DefaultReplyMode = "reply" | "replyAll";
 export type MarkAsReadBehavior = "instant" | "2s" | "manual";
 export type FontScale = "small" | "default" | "large" | "xlarge";
+export type BackgroundMode = "flat" | "aurora" | "spotlight";
 export type ComposerFontFamily =
   | "system"
   | "arial"
@@ -52,7 +53,7 @@ interface UIState {
   inboxViewMode: InboxViewMode;
   taskSidebarVisible: boolean;
   sidebarNavConfig: SidebarNavItem[] | null;
-  reduceMotion: boolean;
+  backgroundMode: BackgroundMode;
   isOnline: boolean;
   pendingOpsCount: number;
   isSyncingFolder: string | null;
@@ -77,7 +78,7 @@ interface UIState {
   setTaskSidebarVisible: (visible: boolean) => void;
   setSidebarNavConfig: (config: SidebarNavItem[]) => void;
   restoreSidebarNavConfig: (config: SidebarNavItem[]) => void;
-  setReduceMotion: (reduce: boolean) => void;
+  setBackgroundMode: (mode: BackgroundMode) => void;
   setOnline: (online: boolean) => void;
   setPendingOpsCount: (count: number) => void;
   setSyncingFolder: (folder: string | null) => void;
@@ -94,14 +95,14 @@ export const useUIStore = create<UIState>((set) => ({
   defaultReplyMode: "reply",
   markAsReadBehavior: "instant",
   fontScale: "default",
-  colorTheme: "night_bordeaux",
+  colorTheme: DEFAULT_COLOR_THEME,
   sendAndArchive: false,
   composerFontFamily: "system",
   composerFontSize: "14px",
   inboxViewMode: "unified",
   taskSidebarVisible: false,
   sidebarNavConfig: null,
-  reduceMotion: false,
+  backgroundMode: "flat",
   isOnline: true,
   pendingOpsCount: 0,
   isSyncingFolder: null,
@@ -184,9 +185,9 @@ export const useUIStore = create<UIState>((set) => ({
     set({ sidebarNavConfig });
   },
   restoreSidebarNavConfig: (sidebarNavConfig) => set({ sidebarNavConfig }),
-  setReduceMotion: (reduceMotion) => {
-    setSetting("reduce_motion", String(reduceMotion)).catch(() => {});
-    set({ reduceMotion });
+  setBackgroundMode: (backgroundMode) => {
+    setSetting("background_mode", backgroundMode).catch(() => {});
+    set({ backgroundMode });
   },
   setOnline: (isOnline) => set({ isOnline }),
   setPendingOpsCount: (pendingOpsCount) => set({ pendingOpsCount }),

@@ -104,7 +104,7 @@ export default function App() {
   const theme = useUIStore((s) => s.theme);
   const fontScale = useUIStore((s) => s.fontScale);
   const colorTheme = useUIStore((s) => s.colorTheme);
-  const reduceMotion = useUIStore((s) => s.reduceMotion);
+  const backgroundMode = useUIStore((s) => s.backgroundMode);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -343,10 +343,10 @@ export default function App() {
           ui.setInboxViewMode(savedViewMode);
         }
 
-        // Restore reduce motion preference
-        const savedReduceMotion = await getSetting("reduce_motion");
-        if (savedReduceMotion === "true") {
-          ui.setReduceMotion(true);
+        // Restore background mode preference
+        const savedBgMode = await getSetting("background_mode");
+        if (savedBgMode === "aurora" || savedBgMode === "spotlight" || savedBgMode === "flat") {
+          ui.setBackgroundMode(savedBgMode);
         }
 
         // Restore task sidebar visibility
@@ -577,11 +577,24 @@ export default function App() {
     root.classList.add(`font-scale-${fontScale}`);
   }, [fontScale]);
 
-  // Sync reduce-motion class to <html> element
+  // Sync background mode classes to <html> element
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle("reduce-motion", reduceMotion);
-  }, [reduceMotion]);
+    root.classList.remove("bg-aurora", "bg-spotlight");
+    if (backgroundMode === "aurora") root.classList.add("bg-aurora");
+    else if (backgroundMode === "spotlight") root.classList.add("bg-spotlight");
+  }, [backgroundMode]);
+
+  // Spotlight: track cursor position in CSS vars
+  useEffect(() => {
+    if (backgroundMode !== "spotlight") return;
+    const handler = (e: MouseEvent) => {
+      document.documentElement.style.setProperty("--mx", `${e.clientX}px`);
+      document.documentElement.style.setProperty("--my", `${e.clientY}px`);
+    };
+    window.addEventListener("mousemove", handler);
+    return () => window.removeEventListener("mousemove", handler);
+  }, [backgroundMode]);
 
   // Apply color theme CSS custom properties to <html>
   useEffect(() => {
@@ -670,14 +683,7 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen overflow-hidden text-text-primary">
       <OfflineBanner />
-      {/* Animated gradient blobs for glassmorphism effect */}
-      <div className="animated-bg" aria-hidden="true">
-        <div className="blob" />
-        <div className="blob" />
-        <div className="blob" />
-        <div className="blob" />
-        <div className="blob" />
-      </div>
+      <div className="animated-bg" aria-hidden="true" />
       <TitleBar />
       <div className="flex flex-1 min-w-0 overflow-hidden">
         <DndProvider>
