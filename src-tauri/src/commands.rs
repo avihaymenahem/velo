@@ -386,6 +386,13 @@ pub async fn imap_batch_resolve_cid_images(
     config: ImapConfig,
     requests: Vec<CidImageRequest>,
 ) -> Result<Vec<CidImageResult>, String> {
+    eprintln!("[CID-RS-ENTRY] requests.len={}", requests.len());
+    for (i, req) in requests.iter().enumerate() {
+        log::warn!(
+            "[CID-RS-ENTRY]   #{i} att={} msg={} part={} cid={:?}",
+            req.attachment_db_id, req.message_id, req.part_id, req.content_id
+        );
+    }
     if requests.is_empty() {
         return Ok(vec![]);
     }
@@ -409,6 +416,7 @@ pub async fn imap_batch_resolve_cid_images(
     let mut results: Vec<CidImageResult> = Vec::with_capacity(requests.len());
 
     for req in &requests {
+        eprintln!("[CID-RS] loop iter att={}", req.attachment_db_id);
         // --- Phase 1: synchronous DB lookup (no await, conn safe to use) ---
         let lookup: Result<(String, u32), String> = conn
             .query_row(
@@ -428,14 +436,43 @@ pub async fn imap_batch_resolve_cid_images(
             Ok(v) => v,
             Err(e) => { log::warn!("[CID] skip {}: {e}", req.attachment_db_id); continue; }
         };
-        // Always release before doing anything else — even on error.
-        let fetch_result =
-            imap_client::fetch_attachment(&mut session, &folder, uid, &req.part_id).await;
-        pool.release(key, session).await;
 
+        // Prefer `fetch_attachment_by_cid` (full BODY.PEEK[] + client-side part
+        // extraction) whenever we have a Content-ID. The BODY.PEEK[part_id]
+        // pathway used by `fetch_attachment` is unsafe with DavMail and other
+        // Exchange/EWS IMAP gateways: they mangle the per-part FETCH response,
+        // which sends async-imap's parser into an unbounded buffer loop (32 GB
+        // RSS in seconds observed). BODY.PEEK[] is the same command the sync
+        // loop already uses successfully.
+        eprintln!("[CID-RS] before fetch att={} cid={:?}", req.attachment_db_id, req.content_id);
+        let fetch_result = if let Some(cid) = req.content_id.as_deref().filter(|s| !s.is_empty()) {
+            eprintln!("[CID-RS] using fetch_attachment_by_cid");
+            imap_client::fetch_attachment_by_cid(&mut session, &folder, uid, cid).await
+        } else {
+            eprintln!("[CID-RS] using legacy fetch_attachment (no content_id)");
+            imap_client::fetch_attachment(&mut session, &folder, uid, &req.part_id).await
+        };
+        log::warn!(
+            "[CID-RS] after fetch att={} ok={} bytes={}",
+            req.attachment_db_id,
+            fetch_result.is_ok(),
+            fetch_result.as_ref().map(|s| s.len()).unwrap_or(0)
+        );
+
+        // Only return healthy sessions to the pool. On error the session may be
+        // mid-stream with unread bytes; recycling it would feed the parser stale
+        // data on the next request. Dropping the session closes the TCP/TLS
+        // connection cleanly and `pool.acquire` will mint a fresh one next time.
         let base64_str = match fetch_result {
-            Ok(s) => s,
-            Err(e) => { log::warn!("[CID] skip {}: {e}", req.attachment_db_id); continue; }
+            Ok(s) => {
+                pool.release(key, session).await;
+                s
+            }
+            Err(e) => {
+                drop(session);
+                log::warn!("[CID] skip {}: {e}", req.attachment_db_id);
+                continue;
+            }
         };
 
         // --- Phase 3: synchronous decode + write + DB update (no await, conn safe) ---
@@ -480,6 +517,116 @@ pub async fn imap_batch_resolve_cid_images(
     }
 
     Ok(results)
+}
+
+#[derive(serde::Deserialize)]
+struct GmailAttachmentResponse {
+    data: String,
+}
+
+/// Fetch a Gmail attachment via Rust HTTP client and cache it directly.
+/// Eliminates passing massive base64 JSON strings across the Tauri IPC bridge.
+#[tauri::command]
+pub async fn gmail_fetch_and_cache_attachment(
+    app: tauri::AppHandle,
+    access_token: String,
+    message_id: String,
+    gmail_attachment_id: String,
+    attachment_db_id: String,
+) -> Result<String, String> {
+    use base64::Engine;
+
+    let url = format!(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages/{}/attachments/{}",
+        message_id, gmail_attachment_id
+    );
+
+    let client = reqwest::Client::new();
+    let res = client
+        .get(&url)
+        .bearer_auth(access_token)
+        .send()
+        .await
+        .map_err(|e| format!("HTTP error: {}", e))?;
+
+    if !res.status().is_success() {
+        return Err(format!("Gmail API error: {}", res.status()));
+    }
+
+    let attachment: GmailAttachmentResponse = res
+        .json()
+        .await
+        .map_err(|e| format!("JSON parse error: {}", e))?;
+
+    // Normalize URL-safe base64 -> standard
+    let base64_data = attachment.data.replace('-', "+").replace('_', "/");
+    
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let cache_dir = app_data.join("attachment_cache");
+    std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
+
+    let file_name = djb2_hash(&attachment_db_id);
+    let rel_path = format!("attachment_cache/{}", file_name);
+
+    {
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(base64_data.as_bytes())
+            .map_err(|e| format!("Base64 decode error: {}", e))?;
+        let size = bytes.len() as i64;
+        std::fs::write(app_data.join(&rel_path), &bytes).map_err(|e| e.to_string())?;
+
+        let db_path = app_data.join("velo.db");
+        let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+        conn.busy_timeout(std::time::Duration::from_secs(10)).map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE attachments SET local_path=?1, cached_at=unixepoch(), cache_size=?2 WHERE id=?3",
+            rusqlite::params![rel_path, size, attachment_db_id],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    jemalloc_purge_all();
+    Ok(rel_path)
+}
+
+/// Cache a Gmail attachment entirely in Rust: decode base64 → write to disk → update DB.
+///
+/// Eliminates the JS-side Uint8Array allocation and the XPC binary transfer that
+/// writeFile (Tauri FS plugin) would otherwise require. JS only sends the base64
+/// string it already has from the Gmail API response — no additional allocations.
+#[tauri::command]
+pub async fn cache_attachment_b64(
+    app: tauri::AppHandle,
+    att_id: String,
+    base64_data: String,
+) -> Result<String, String> {
+    use base64::Engine;
+
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let cache_dir = app_data.join("attachment_cache");
+    std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
+
+    let file_name = djb2_hash(&att_id);
+    let rel_path = format!("attachment_cache/{file_name}");
+
+    {
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(base64_data.as_bytes())
+            .map_err(|e| e.to_string())?;
+        let size = bytes.len() as i64;
+        std::fs::write(app_data.join(&rel_path), &bytes).map_err(|e| e.to_string())?;
+        // `bytes` drops here — jemalloc marks pages free before DB write below
+
+        let db_path = app_data.join("velo.db");
+        let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+        conn.busy_timeout(std::time::Duration::from_secs(10)).map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE attachments SET local_path=?1, cached_at=unixepoch(), cache_size=?2 WHERE id=?3",
+            rusqlite::params![rel_path, size, att_id],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    jemalloc_purge_all();
+    Ok(rel_path)
 }
 
 #[tauri::command]

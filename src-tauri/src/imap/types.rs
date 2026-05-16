@@ -228,6 +228,10 @@ pub struct CidImageRequest {
     /// MIME type (e.g. "image/png") — used to pick the file extension so WebKit
     /// can skip MIME sniffing and route the asset directly through CoreGraphics.
     pub mime_type: Option<String>,
+    /// Content-ID header value of the inline part (without angle brackets).
+    /// Used to match the part inside a full BODY.PEEK[] fetch, avoiding the
+    /// BODY.PEEK[part_id] code path that DavMail mangles.
+    pub content_id: Option<String>,
 }
 
 /// Result for one CID image — only the local cache path is returned to JS (no binary).

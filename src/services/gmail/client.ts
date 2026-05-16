@@ -30,7 +30,7 @@ export class GmailClient {
     this.tokenInfo = tokenInfo;
   }
 
-  private async getValidToken(): Promise<string> {
+  async getValidToken(): Promise<string> {
     const now = getCurrentUnixTimestamp();
     // Refresh if token expires within 5 minutes
     if (this.tokenInfo.expiresAt - now < 300) {

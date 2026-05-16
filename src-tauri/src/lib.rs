@@ -5,6 +5,20 @@
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
+// Conservative jemalloc init-time configuration. Just two decay knobs that
+// shorten how long freed pages stay resident before being returned to the OS.
+// We deliberately DON'T touch `narenas` or `tcache` — disabling those triggered
+// a runaway-allocation regression with reqwest/rusqlite/async-imap whose internal
+// hot paths assume tcache is available; without it, small-allocation traffic
+// caused catastrophic interaction and 30GB+ RSS in seconds.
+//
+//   dirty_decay_ms:1000   — return dirty pages to OS after 1s (default 10s)
+//   muzzy_decay_ms:0      — return muzzy pages immediately (no MADV_FREE limbo)
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[allow(non_upper_case_globals)]
+#[export_name = "_rjem_malloc_conf"]
+pub static malloc_conf: &[u8] = b"dirty_decay_ms:1000,muzzy_decay_ms:0\0";
+
 #[cfg(not(target_os = "linux"))]
 use tauri::{
     menu::{Menu, MenuItem},
@@ -403,6 +417,8 @@ pub fn run() {
             commands::imap_fetch_attachment,
             commands::imap_cache_attachment,
             commands::imap_batch_resolve_cid_images,
+            commands::gmail_fetch_and_cache_attachment,
+            commands::cache_attachment_b64,
             commands::imap_append_message,
             commands::imap_search_folder,
             commands::imap_sync_folder,

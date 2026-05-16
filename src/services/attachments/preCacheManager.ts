@@ -1,8 +1,8 @@
 import { createBackgroundChecker, type BackgroundChecker } from "../backgroundCheckers";
 import { getDb } from "../db/connection";
+import { getAccount } from "../db/accounts";
 import { getSetting } from "../db/settings";
 import { getEmailProvider } from "../email/providerFactory";
-import { cacheAttachment } from "./cacheManager";
 import { useUIStore } from "@/stores/uiStore";
 
 const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024; // 5MB
@@ -76,18 +76,46 @@ async function preCacheRecentInner(): Promise<void> {
     if (runningSize + (att.size ?? 0) > maxCacheBytes) break;
 
     try {
-      const provider = await getEmailProvider(att.account_id);
-      const result = await provider.fetchAttachment(att.message_id, att.gmail_attachment_id);
+      // Belt-and-suspenders: skip if the account is IMAP (the SQL filter already
+      // enforces gmail_attachment_id IS NOT NULL, but a schema migration edge-case
+      // or future code change could slip an IMAP record through — IMAP fetches
+      // allocate large jemalloc buffers per-thread that compound across 20 iterations).
+      const account = await getAccount(att.account_id);
+      if (!account || account.imap_host) continue;
 
-      const base64 = result.data.includes("-") || result.data.includes("_")
-        ? result.data.replace(/-/g, "+").replace(/_/g, "/")
-        : result.data;
-      const binary = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-      await cacheAttachment(att.id, binary);
-      runningSize += binary.length;
+      const provider = await getEmailProvider(att.account_id);
+      
+      if (provider.getValidToken) {
+        const token = await provider.getValidToken();
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("gmail_fetch_and_cache_attachment", {
+          accessToken: token,
+          messageId: att.message_id,
+          gmailAttachmentId: att.gmail_attachment_id,
+          attachmentDbId: att.id
+        });
+      } else {
+        // Fallback for non-Gmail or if token is unavailable
+        const result = await provider.fetchAttachment(att.message_id, att.gmail_attachment_id);
+
+        const base64 = result.data.includes("-") || result.data.includes("_")
+          ? result.data.replace(/-/g, "+").replace(/_/g, "/")
+          : result.data;
+
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("cache_attachment_b64", { attId: att.id, base64Data: base64 });
+      }
+
+      runningSize += att.size ?? 0;
     } catch {
       // Silently skip — will retry next interval
     }
+
+    // Yield to event loop between iterations: gives JavaScriptCore's GC a chance
+    // to reclaim the base64 string and Uint8Array from the previous iteration
+    // before the next one allocates. Without this, V8/JSC may defer GC until
+    // the loop finishes, keeping all intermediate buffers alive simultaneously.
+    await new Promise((r) => setTimeout(r, 0));
   }
 }
 

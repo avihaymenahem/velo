@@ -60,11 +60,20 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
     const html = message.body_html;
     if (!html || !/\bcid:/i.test(html)) return;
 
+    console.log(
+      `[CID] start msg=${message.id} body=${(html.length / 1024).toFixed(0)}KB atts=${atts.length}`,
+    );
+    console.time(`[CID] ${message.id}`);
+
     const cidAtts = atts.filter(
       (a) => a.content_id && (a.gmail_attachment_id || a.imap_part_id) &&
         new RegExp(`cid:${escapeCid(a.content_id)}`, "i").test(html),
     );
-    if (cidAtts.length === 0) return;
+    if (cidAtts.length === 0) {
+      console.timeEnd(`[CID] ${message.id}`);
+      return;
+    }
+    console.log(`[CID] msg=${message.id} cidAtts.length=${cidAtts.length}`);
 
     try {
       // IMAP batch path: one Rust command for all uncached IMAP CIDs.
@@ -85,8 +94,9 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
             const resolved = pathMap.get(att.id);
             if (resolved) att.local_path = resolved;
           }
-        } catch {
-          // Non-fatal — fall through to per-image Gmail path or show broken imgs
+        } catch (e) {
+          // Log so we know WHY the batch failed instead of silently falling through.
+          console.error(`[CID] batch resolver threw for msg=${message.id}:`, e);
         }
       }
 
@@ -105,7 +115,6 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
 
       const results = await Promise.all(cidAtts.map(async (att) => {
         const cidKey = att.content_id!.replace(/[<>]/g, "").trim();
-        const attachmentId = att.gmail_attachment_id ?? att.imap_part_id!;
 
         // Fast path: file already on disk → WebKit native IO, zero JS heap alloc.
         if (att.local_path) {
@@ -115,8 +124,24 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
           };
         }
 
-        // Gmail fallback: fetch → write to disk → serve via asset://.
-        // The transient Uint8Array is GC-eligible as soon as cacheAttachment returns.
+        // IMAP attachments MUST NOT reach `provider.fetchAttachment` here.
+        // For IMAP that call hits `imap_fetch_attachment` Rust command which uses
+        // `BODY.PEEK[part_id]` — and DavMail (Exchange/EWS → IMAP gateway) mangles
+        // that response, sending async-imap's parser into an unbounded buffer loop
+        // (32 GB RSS in seconds). The only sanctioned IMAP CID path is the batch
+        // resolver above, which uses BODY.PEEK[] + mail-parser. If we got here for
+        // an IMAP attachment, the batch resolver already failed or didn't set
+        // local_path — fall back to a placeholder instead of triggering the crash.
+        if (att.imap_part_id) {
+          console.warn(
+            `[CID] IMAP attachment ${att.id} not resolved by batch — showing placeholder`,
+          );
+          return { cidKey, dataUri: null as string | null };
+        }
+
+        // Gmail-only path: provider.fetchAttachment here is the Gmail HTTPS API,
+        // not IMAP. Safe to call.
+        const attachmentId = att.gmail_attachment_id!;
         await _acquireImapSlot();
         try {
           const provider = await getEmailProvider(message.account_id);
@@ -152,8 +177,11 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
 
       if (newMap.size > 0) setCidMap(newMap);
       if (failed.length > 0) setCidFailed(new Set(failed));
-    } catch {
-      // Silently fall back to original HTML
+      console.timeEnd(`[CID] ${message.id}`);
+      console.log(`[CID] done msg=${message.id} resolved=${newMap.size} failed=${failed.length}`);
+    } catch (e) {
+      console.error(`[CID] error msg=${message.id}`, e);
+      try { console.timeEnd(`[CID] ${message.id}`); } catch {}
     }
   };
 

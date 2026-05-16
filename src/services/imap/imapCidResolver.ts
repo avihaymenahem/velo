@@ -9,6 +9,7 @@ interface CidImageRequest {
   messageId: string;
   partId: string;
   mimeType: string | null;
+  contentId: string | null;
 }
 
 interface CidImageResult {
@@ -41,12 +42,18 @@ export async function resolveImapCidImages(
     messageId,
     partId: att.imap_part_id!,
     mimeType: att.mime_type ?? null,
+    // Strip angle brackets — mail-parser stores Content-ID without them.
+    contentId: att.content_id ? att.content_id.replace(/[<>]/g, "").trim() : null,
   }));
 
+  console.log(`[CID-RS] invoke start msg=${messageId} requests=${requests.length}`);
+  console.time(`[CID-RS] ${messageId}`);
   const results = await invoke<CidImageResult[]>(
     "imap_batch_resolve_cid_images",
     { config, requests },
   );
+  console.timeEnd(`[CID-RS] ${messageId}`);
+  console.log(`[CID-RS] invoke done msg=${messageId} results=${results.length}`);
 
   return new Map(results.map((r) => [r.attachmentDbId, r.localPath]));
 }

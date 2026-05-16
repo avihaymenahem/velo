@@ -739,6 +739,75 @@ pub async fn fetch_attachment(
     Ok(base64_str)
 }
 
+/// Fetch a CID inline image by Content-ID, using BODY.PEEK[] (full message) instead
+/// of BODY.PEEK[part_id]. The full-message FETCH command is the same one the sync
+/// loop uses; servers/gateways (notably DavMail bridging to Exchange/EWS) that
+/// mangle part-specific FETCH responses handle the full-message form correctly.
+///
+/// The MIME part is extracted client-side via mail-parser by matching its
+/// `Content-ID` header against the requested `content_id`. The returned string is
+/// base64-encoded so the caller can write it to disk identically to the legacy
+/// `fetch_attachment` path.
+pub async fn fetch_attachment_by_cid(
+    session: &mut ImapSession,
+    folder: &str,
+    uid: u32,
+    content_id: &str,
+) -> Result<String, String> {
+    tokio::time::timeout(IMAP_CMD_TIMEOUT, session.select(folder))
+        .await
+        .map_err(|_| format!("SELECT {folder} timed out after {}s", IMAP_CMD_TIMEOUT.as_secs()))?
+        .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
+
+    let uid_str = uid.to_string();
+    let fetches: Vec<_> = tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
+        let stream = session
+            .uid_fetch(&uid_str, "BODY.PEEK[]")
+            .await
+            .map_err(|e| format!("UID FETCH BODY.PEEK[] failed: {e}"))?;
+        Ok::<_, String>(stream.collect::<Vec<_>>().await)
+    })
+    .await
+    .map_err(|_| format!("UID FETCH BODY.PEEK[] timed out after {}s", IMAP_FETCH_TIMEOUT.as_secs()))?
+    ?
+    .into_iter()
+    .filter_map(|r| r.ok())
+    .collect();
+
+    let fetch = fetches
+        .first()
+        .ok_or_else(|| format!("No response for UID {uid}"))?;
+
+    let raw = fetch
+        .body()
+        .ok_or_else(|| format!("No body for UID {uid}"))?;
+
+    let parser = MessageParser::default();
+    let message = parser
+        .parse(raw)
+        .ok_or_else(|| format!("Failed to parse RFC822 for UID {uid}"))?;
+
+    // Normalize Content-ID: strip angle brackets and whitespace.
+    let target = content_id.trim().trim_matches(|c| c == '<' || c == '>');
+
+    // Walk all MIME parts (attachments + inline parts) looking for matching Content-ID.
+    for part in message.attachments().chain(message.html_bodies()).chain(message.text_bodies()) {
+        let part_cid = part
+            .content_id()
+            .map(|c| c.trim().trim_matches(|ch| ch == '<' || ch == '>'));
+
+        if part_cid == Some(target) {
+            // Encode the part's raw bytes as base64 (matching the legacy
+            // fetch_attachment return shape — caller will decode it).
+            return Ok(base64::engine::general_purpose::STANDARD.encode(part.contents()));
+        }
+    }
+
+    Err(format!(
+        "Content-ID {target} not found in message UID {uid} (folder {folder})"
+    ))
+}
+
 /// Fetch the raw RFC822 source of a single message by UID.
 /// Returns the full message as a UTF-8 string (lossy conversion for non-UTF-8 bytes).
 pub async fn fetch_raw_message(

@@ -276,4 +276,8 @@ export class GmailApiProvider implements EmailProvider {
     const profile = await this.client.getProfile();
     return { email: profile.emailAddress };
   }
+
+  async getValidToken(): Promise<string> {
+    return this.client.getValidToken();
+  }
 }

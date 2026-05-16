@@ -45,7 +45,28 @@ export function EmailRenderer({
 
   const sanitizedBody = useMemo(() => {
     if (!html) return null;
-    return sanitizeHtml(html);
+
+    // Hard safety cap: bodies above this threshold are not rendered as HTML.
+    // The plain-text fallback path takes over (sanitizedBody === null below
+    // triggers the `<pre>${escapeHtml(text)}</pre>` branch in `bodyHtml`).
+    // This is the last line of defence against pathological email content that
+    // makes DOMPurify / DOMParser / WebKit spin the renderer thread.
+    const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10 MB
+    if (html.length > MAX_BODY_BYTES) {
+      console.warn(
+        `[EmailRenderer] body ${(html.length / 1024 / 1024).toFixed(1)}MB > 10MB cap — falling back to plain text`,
+      );
+      return null;
+    }
+
+    console.time("[EmailRenderer] sanitize");
+    console.log(`[EmailRenderer] body input length: ${html.length} bytes`);
+    const stripped = stripOversizedDataImages(html);
+    console.log(`[EmailRenderer] after strip: ${stripped.length} bytes`);
+    const result = sanitizeHtml(stripped);
+    console.log(`[EmailRenderer] after sanitize: ${result.length} bytes`);
+    console.timeEnd("[EmailRenderer] sanitize");
+    return result;
   }, [html]);
 
   const isPlainText = !sanitizedBody;
@@ -80,7 +101,18 @@ export function EmailRenderer({
     // Rewrite anchor hrefs to data-link so the iframe never navigates; clicks
     // are forwarded to the parent via postMessage.
     if (sanitizedBody) {
+      console.time("[EmailRenderer] rewriteLinks");
       body = rewriteLinksForSrcdoc(body);
+      console.timeEnd("[EmailRenderer] rewriteLinks");
+    }
+
+    // Hint WebKit to defer image decode and skip off-screen images. Without these,
+    // every <img> in the document is decoded eagerly on iframe load, producing a
+    // full RGBA texture resident in the WebContent process — even for images far
+    // below the fold. With lazy loading + async decoding, WebKit only allocates
+    // texture memory for images currently intersecting the viewport.
+    if (sanitizedBody) {
+      body = body.replace(/<img\b(?![^>]*\bloading=)/gi, '<img loading="lazy" decoding="async"');
     }
 
     return body;
@@ -187,8 +219,11 @@ export function EmailRenderer({
       URL.revokeObjectURL(blobUrlRef.current);
     }
 
+    console.log(`[EmailRenderer] srcdoc size: ${srcdoc.length} bytes`);
+    console.time("[EmailRenderer] createBlob");
     const blob = new Blob([srcdoc], { type: "text/html; charset=utf-8" });
     const url = URL.createObjectURL(blob);
+    console.timeEnd("[EmailRenderer] createBlob");
     blobUrlRef.current = url;
     iframe.src = url;
 
@@ -279,6 +314,26 @@ export function EmailRenderer({
         title="Email content"
       />
     </div>
+  );
+}
+
+// Threshold above which an inline base64 image is considered "oversized" and replaced
+// with a 1×1 placeholder. 100 KB of base64 ≈ 75 KB of decoded image — large enough to
+// fit normal small icons / button graphics, small enough to never accumulate to the
+// tens-of-MB scale that quoted reply chains produce.
+const MAX_INLINE_DATA_URI_LEN = 100_000;
+
+// Pure string scan that replaces `src="data:image/...;base64,..."` whose payload
+// exceeds the threshold with a transparent-GIF data URI. The regex's character class
+// `[^"']+` is fully linear (no backtracking), so even on a 50 MB body it finishes
+// in milliseconds without touching the DOM.
+function stripOversizedDataImages(html: string): string {
+  return html.replace(
+    /\ssrc\s*=\s*["']data:image\/[^;"']+;base64,([^"']+)["']/gi,
+    (match, payload: string) => {
+      if (payload.length <= MAX_INLINE_DATA_URI_LEN) return match;
+      return ` src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"`;
+    },
   );
 }
 
