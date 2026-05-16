@@ -401,6 +401,8 @@ pub fn run() {
             commands::imap_delete_messages,
             commands::imap_get_folder_status,
             commands::imap_fetch_attachment,
+            commands::imap_cache_attachment,
+            commands::imap_batch_resolve_cid_images,
             commands::imap_append_message,
             commands::imap_search_folder,
             commands::imap_sync_folder,
@@ -420,22 +422,6 @@ pub fn run() {
             app.manage(crate::imap::pool::ImapSessionPool::new());
             app.manage(crate::imap::types::SyncSemaphore::new(3));
             app.manage(crate::imap::types::BodyCache::default());
-
-            // Diagnostic reporter: log BodyCache size and a heartbeat every 30s.
-            // Remove once the RAM leak is identified.
-            {
-                let body_cache: crate::imap::types::BodyCache =
-                    app.state::<crate::imap::types::BodyCache>().inner().clone();
-                tauri::async_runtime::spawn(async move {
-                    let mut interval =
-                        tokio::time::interval(std::time::Duration::from_secs(30));
-                    loop {
-                        interval.tick().await;
-                        let cache_len = body_cache.lock().map(|c| c.len()).unwrap_or(0);
-                        log::info!("[DIAG] heartbeat | BodyCache={cache_len} entries");
-                    }
-                });
-            }
 
             {
                 let level = if cfg!(debug_assertions) {

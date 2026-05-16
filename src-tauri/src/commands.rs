@@ -1,12 +1,15 @@
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+extern crate tikv_jemalloc_sys;
+
 use tauri::Manager;
 
 use crate::imap::client as imap_client;
 use crate::imap::pool::ImapSessionPool;
 use crate::imap::types::{
-    BodyCache, BodyEntry, DeltaCheckRequest, DeltaCheckResult, GmailAttachment, GmailMessage,
-    GmailStoredHeader, ImapConfig, ImapFetchResult, ImapFetchResultMeta, ImapFolder,
-    ImapFolderSearchResult, ImapFolderStatus, ImapFolderSyncResult, ImapMessage, ImapMessageMeta,
-    ImapSyncHeader, ImapThreadUpdate, SyncSemaphore,
+    BodyCache, BodyEntry, CidImageRequest, CidImageResult, DeltaCheckRequest, DeltaCheckResult,
+    GmailAttachment, GmailMessage, GmailStoredHeader, ImapConfig, ImapFetchResult,
+    ImapFetchResultMeta, ImapFolder, ImapFolderSearchResult, ImapFolderStatus, ImapFolderSyncResult,
+    ImapMessage, ImapMessageMeta, ImapSyncHeader, ImapThreadUpdate, SyncSemaphore,
 };
 use crate::smtp::client as smtp_client;
 use crate::smtp::types::{SmtpConfig, SmtpSendResult};
@@ -37,7 +40,7 @@ pub async fn imap_fetch_messages(
     if uids.is_empty() {
         return Err("No UIDs provided".to_string());
     }
-    log::info!("[DIAG] imap_fetch_messages: folder={folder} uids={}", uids.len());
+    log::debug!("[imap_fetch_messages: folder={folder} uids={}", uids.len());
 
     let _permit = sync_semaphore.semaphore.acquire().await
         .map_err(|e| format!("semaphore acquire: {e}"))?;
@@ -95,7 +98,7 @@ pub async fn imap_fetch_message_body(
     folder: String,
     uid: u32,
 ) -> Result<ImapMessage, String> {
-    log::info!("[DIAG] imap_fetch_message_body: folder={folder} uid={uid}");
+    log::debug!("[imap_fetch_message_body: folder={folder} uid={uid}");
     let _permit = sync_semaphore.semaphore.acquire().await
         .map_err(|e| format!("semaphore acquire: {e}"))?;
 
@@ -227,7 +230,7 @@ pub async fn imap_fetch_attachment(
     uid: u32,
     part_id: String,
 ) -> Result<String, String> {
-    log::info!("[DIAG] imap_fetch_attachment: folder={folder} uid={uid} part={part_id}");
+    log::debug!("[imap_fetch_attachment: folder={folder} uid={uid} part={part_id}");
     let t0 = std::time::Instant::now();
     let (mut session, key) = pool.acquire(&config).await?;
     log::debug!("[CID-DBG] pool.acquire in {}ms key={key}", t0.elapsed().as_millis());
@@ -244,6 +247,239 @@ pub async fn imap_fetch_attachment(
             Err(e)
         }
     }
+}
+
+/// Background attachment pre-caching: fetch from IMAP and write to disk entirely in Rust.
+/// The binary data never crosses the WKWebView IPC bridge, which prevents the ~70MB-per-MB
+/// memory explosion caused by base64 JSON serialisation over XPC.
+#[tauri::command]
+pub async fn imap_cache_attachment(
+    app: tauri::AppHandle,
+    pool: tauri::State<'_, ImapSessionPool>,
+    config: ImapConfig,
+    message_id: String,
+    part_id: String,
+    attachment_db_id: String,
+) -> Result<u32, String> {
+    use base64::Engine;
+
+    // Look up imap_folder + imap_uid stored in the messages table.
+    let db_path = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("velo.db");
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    conn.busy_timeout(std::time::Duration::from_secs(10))
+        .map_err(|e| e.to_string())?;
+
+    let (folder, uid): (String, u32) = conn
+        .query_row(
+            "SELECT imap_folder, imap_uid FROM messages WHERE id = ?1",
+            rusqlite::params![message_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?)),
+        )
+        .map_err(|e| format!("message not found or missing IMAP metadata: {e}"))?;
+
+    // Fetch the attachment body via IMAP — result is a base64 string (stays in Rust).
+    let (mut session, key) = pool.acquire(&config).await?;
+    let base64_str = match imap_client::fetch_attachment(&mut session, &folder, uid, &part_id).await {
+        Ok(s) => { pool.release(key, session).await; s }
+        Err(e) => return Err(e),
+    };
+
+    // Decode base64 → raw bytes (still in Rust, never touches WKWebView).
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(base64_str.as_bytes())
+        .map_err(|e| format!("base64 decode failed: {e}"))?;
+    let size = bytes.len() as u32;
+
+    // Write to AppData/attachment_cache/{hash}.
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let cache_dir = app_data.join("attachment_cache");
+    std::fs::create_dir_all(&cache_dir).map_err(|e| format!("create cache dir: {e}"))?;
+
+    let file_name = djb2_hash(&attachment_db_id);
+    let rel_path = format!("attachment_cache/{file_name}");
+    std::fs::write(app_data.join(&rel_path), &bytes)
+        .map_err(|e| format!("write attachment cache: {e}"))?;
+
+    // Update attachments table — mirrors what cacheManager.ts does from JS.
+    conn.execute(
+        "UPDATE attachments SET local_path = ?1, cached_at = unixepoch(), cache_size = ?2 WHERE id = ?3",
+        rusqlite::params![rel_path, size as i64, attachment_db_id],
+    )
+    .map_err(|e| format!("DB update failed: {e}"))?;
+
+    Ok(size)
+}
+
+/// Map MIME type to a file extension so WebKit can skip MIME sniffing and route
+/// the asset through CoreGraphics hardware acceleration immediately.
+fn mime_to_ext(mime: Option<&str>) -> &'static str {
+    match mime {
+        Some(m) if m.starts_with("image/jpeg") || m.starts_with("image/jpg") => ".jpg",
+        Some(m) if m.starts_with("image/png")  => ".png",
+        Some(m) if m.starts_with("image/gif")  => ".gif",
+        Some(m) if m.starts_with("image/webp") => ".webp",
+        Some(m) if m.starts_with("image/svg")  => ".svg",
+        _ => ".img",
+    }
+}
+
+/// Force jemalloc to immediately return all dirty pages to the OS via MADV_DONTNEED.
+/// Counteracts macOS MADV_FREE behaviour where freed pages stay in physical footprint
+/// until the OS decides to reclaim them (which it doesn't under abundant RAM).
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn jemalloc_purge_all() {
+    // arena index 4294967295 == MALLCTL_ARENAS_ALL — applies to every arena
+    unsafe {
+        tikv_jemalloc_sys::mallctl(
+            b"arena.4294967295.purge\0".as_ptr() as *const _,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            0,
+        );
+    }
+}
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn jemalloc_purge_all() {}
+
+/// DJB2 double-hash → base-36 filename, matching the JS `hashFileName()` in cacheManager.ts.
+fn djb2_hash(id: &str) -> String {
+    let mut h1: u32 = 5381;
+    let mut h2: u32 = 52711;
+    for cu in id.encode_utf16() {
+        let cu = cu as u32;
+        h1 = h1.wrapping_mul(33) ^ cu;
+        h2 = h2.wrapping_mul(33) ^ cu;
+    }
+    format!("{}_{}", to_base36(h1), to_base36(h2))
+}
+
+fn to_base36(mut n: u32) -> String {
+    if n == 0 { return "0".to_string(); }
+    let digits: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+    let mut buf = Vec::new();
+    while n > 0 {
+        buf.push(digits[(n % 36) as usize]);
+        n /= 36;
+    }
+    buf.reverse();
+    String::from_utf8(buf).unwrap()
+}
+
+/// Fetch and cache all CID inline images for one email in a single Rust command.
+///
+/// By processing all images inside one `async fn` we stay on (mostly) the same
+/// Tokio thread throughout, which means a single jemalloc arena is used for every
+/// iteration. Pages freed after iteration N are reused by iteration N+1 — the
+/// physical-memory footprint is O(max_image_size), not O(sum_of_all_images).
+///
+/// JS receives only local file paths (strings); binary data never crosses the
+/// WKWebView XPC bridge.
+#[tauri::command]
+pub async fn imap_batch_resolve_cid_images(
+    app: tauri::AppHandle,
+    pool: tauri::State<'_, ImapSessionPool>,
+    config: ImapConfig,
+    requests: Vec<CidImageRequest>,
+) -> Result<Vec<CidImageResult>, String> {
+    if requests.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let db_path = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("velo.db");
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let cache_dir = app_data.join("attachment_cache");
+    std::fs::create_dir_all(&cache_dir).map_err(|e| format!("create cache dir: {e}"))?;
+
+    // rusqlite::Connection contains RefCell (not Sync) so it must never be held
+    // across an .await point. We open it once and use it only in synchronous sections
+    // (before and after each async IMAP fetch) to satisfy the Send bound on the future.
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+    conn.busy_timeout(std::time::Duration::from_secs(10))
+        .map_err(|e| e.to_string())?;
+
+    let mut results: Vec<CidImageResult> = Vec::with_capacity(requests.len());
+
+    for req in &requests {
+        // --- Phase 1: synchronous DB lookup (no await, conn safe to use) ---
+        let lookup: Result<(String, u32), String> = conn
+            .query_row(
+                "SELECT imap_folder, imap_uid FROM messages WHERE id = ?1",
+                rusqlite::params![req.message_id],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?)),
+            )
+            .map_err(|e| format!("message lookup: {e}"));
+
+        let (folder, uid) = match lookup {
+            Ok(v) => v,
+            Err(e) => { log::warn!("[CID] skip {}: {e}", req.attachment_db_id); continue; }
+        };
+
+        // --- Phase 2: async IMAP fetch (conn NOT held across these awaits) ---
+        let (mut session, key) = match pool.acquire(&config).await {
+            Ok(v) => v,
+            Err(e) => { log::warn!("[CID] skip {}: {e}", req.attachment_db_id); continue; }
+        };
+        // Always release before doing anything else — even on error.
+        let fetch_result =
+            imap_client::fetch_attachment(&mut session, &folder, uid, &req.part_id).await;
+        pool.release(key, session).await;
+
+        let base64_str = match fetch_result {
+            Ok(s) => s,
+            Err(e) => { log::warn!("[CID] skip {}: {e}", req.attachment_db_id); continue; }
+        };
+
+        // --- Phase 3: synchronous decode + write + DB update (no await, conn safe) ---
+        let outcome: Result<CidImageResult, String> = (|| {
+            use base64::Engine;
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(base64_str.as_bytes())
+                .map_err(|e| format!("base64 decode: {e}"))?;
+            drop(base64_str); // explicit early free before the write allocation
+            let size = bytes.len() as u32;
+
+            // Include MIME-derived extension so WebKit identifies the image type
+            // immediately (CoreGraphics fast-path) without MIME sniffing the raw bytes.
+            let ext = mime_to_ext(req.mime_type.as_deref());
+            let file_name = djb2_hash(&req.attachment_db_id);
+            let rel_path = format!("attachment_cache/{file_name}{ext}");
+            std::fs::write(app_data.join(&rel_path), &bytes)
+                .map_err(|e| format!("write cache: {e}"))?;
+            drop(bytes); // explicit early free — pages now available to jemalloc
+
+            conn.execute(
+                "UPDATE attachments SET local_path = ?1, cached_at = unixepoch(), cache_size = ?2 WHERE id = ?3",
+                rusqlite::params![rel_path, size as i64, req.attachment_db_id],
+            )
+            .map_err(|e| format!("DB update: {e}"))?;
+
+            Ok(CidImageResult {
+                attachment_db_id: req.attachment_db_id.clone(),
+                local_path: rel_path,
+            })
+        })();
+
+        match outcome {
+            Ok(r) => results.push(r),
+            Err(e) => log::warn!("[CID] skip {}: {e}", req.attachment_db_id),
+        }
+
+        // Force jemalloc to return dirty pages to OS via MADV_DONTNEED after every
+        // image. Counteracts macOS MADV_FREE: without this, freed pages from iteration
+        // N accumulate in physical footprint even though Rust has dropped the data.
+        jemalloc_purge_all();
+    }
+
+    Ok(results)
 }
 
 #[tauri::command]
@@ -316,7 +552,7 @@ pub async fn imap_delta_check(
     config: ImapConfig,
     folders: Vec<DeltaCheckRequest>,
 ) -> Result<Vec<DeltaCheckResult>, String> {
-    log::info!("[DIAG] imap_delta_check: {} folders", folders.len());
+    log::debug!("[imap_delta_check: {} folders", folders.len());
     let mut session = imap_client::connect(&config).await?;
     let results = imap_client::delta_check_folders(&mut session, &folders).await?;
     let _ = session.logout().await;
@@ -340,7 +576,7 @@ pub async fn imap_fetch_messages_buffered(
     if uids.is_empty() {
         return Err("No UIDs provided".to_string());
     }
-    log::info!("[DIAG] imap_fetch_messages_buffered: folder={folder} uids={}", uids.len());
+    log::debug!("[imap_fetch_messages_buffered: folder={folder} uids={}", uids.len());
 
     let _permit = sync_semaphore.semaphore.acquire().await
         .map_err(|e| format!("semaphore acquire: {e}"))?;
@@ -510,7 +746,7 @@ pub async fn imap_fetch_and_store(
     if uids.is_empty() {
         return Ok(vec![]);
     }
-    log::info!("[DIAG] imap_fetch_and_store: folder={folder} uids={}", uids.len());
+    log::debug!("[imap_fetch_and_store: folder={folder} uids={}", uids.len());
 
     let _permit = sync_semaphore.semaphore.acquire().await
         .map_err(|e| format!("semaphore acquire: {e}"))?;
@@ -901,7 +1137,7 @@ pub async fn gmail_store_thread(
     messages: Vec<GmailMessage>,
     attachments: Vec<GmailAttachment>,
 ) -> Result<GmailStoredHeader, String> {
-    log::info!("[DIAG] gmail_store_thread: thread={thread_id} msgs={}", messages.len());
+    log::debug!("[gmail_store_thread: thread={thread_id} msgs={}", messages.len());
     let db_path = app
         .path()
         .app_data_dir()

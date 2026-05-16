@@ -32,9 +32,9 @@ export function EmailRenderer({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const listenerRef = useRef<((e: MessageEvent) => void) | null>(null);
   const rafRef = useRef<number>(0);
-  // Refs so the stable handleLoad callback can always read the latest values.
-  const cidMapRef = useRef(cidMap);
-  const cidFailedRef = useRef(cidFailed);
+  // Tracks the active Blob URL for the iframe document so we can revoke it
+  // deterministically on unmount (instead of waiting for JS GC).
+  const blobUrlRef = useRef<string | null>(null);
   const [overrideShow, setOverrideShow] = useState(false);
 
   const theme = useUIStore((s) => s.theme);
@@ -58,16 +58,21 @@ export function EmailRenderer({
       body = stripRemoteImages(body);
     }
 
-    // Replace cid: src with a 1×1 transparent GIF placeholder + data-cid attribute.
-    // Using a real src keeps the img element fully alive in WebKit's render tree so
-    // that querySelectorAll('img[data-cid]') finds it; the srcdoc script then
-    // replaces it with the actual data: URI via postMessage.
+    // Replace cid: references inline before building the Blob URL — no postMessage needed.
+    // If already resolved: embed the asset:// URL directly.
+    // If failed: embed an SVG placeholder.
+    // Otherwise: transparent GIF so the img element exists in the DOM (height tracking).
     if (sanitizedBody) {
       body = body.replace(
         /\ssrc\s*=\s*["']cid:([^"']+)["']/gi,
         (_, rawCid: string) => {
           const cid = rawCid.trim().replace(/[<>]/g, "");
-          return ` src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-cid="${cid}"`;
+          const resolved = cidMap?.get(cid);
+          if (resolved) return ` src="${resolved}"`;
+          if (cidFailed?.has(cid)) {
+            return ` src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' fill='%23e5e7eb' rx='4'/%3E%3Cpath d='M4 17l4-4 3 3 4-5 5 6H4z' fill='%239ca3af'/%3E%3C/svg%3E" style="opacity:0.4;width:48px;height:48px;object-fit:contain"`;
+          }
+          return ` src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"`;
         }
       );
     }
@@ -79,7 +84,7 @@ export function EmailRenderer({
     }
 
     return body;
-  }, [sanitizedBody, text, shouldBlock]);
+  }, [sanitizedBody, text, shouldBlock, cidMap, cidFailed]);
 
   const blocked = useMemo(() => {
     if (!shouldBlock || !sanitizedBody) return false;
@@ -130,31 +135,9 @@ export function EmailRenderer({
       window.parent.postMessage({ type: 'link', href: a.getAttribute('data-link') || '' }, '*');
     });
 
-    // 2. Messages from parent — CID injection and height requests
+    // 2. Height request from parent (sent once on load for initial sizing)
     window.addEventListener('message', function(e) {
-      var d = e.data;
-      if (!d) return;
-      if (d.type === 'cid') {
-        var imgs = document.querySelectorAll('img[data-cid]');
-        console.log('[CID-DBG iframe] got cid msg, img[data-cid] count:', imgs.length, 'map keys:', Object.keys(d.map));
-        imgs.forEach(function(img) {
-          var cid = (img.getAttribute('data-cid') || '').replace(/[<>]/g, '').trim();
-          var found = !!(cid && d.map[cid]);
-          console.log('[CID-DBG iframe] cid="' + cid + '" → match=' + found);
-          if (found) img.setAttribute('src', d.map[cid]);
-        });
-      } else if (d.type === 'cidFailed') {
-        var failed = d.cids || [];
-        document.querySelectorAll('img[data-cid]').forEach(function(img) {
-          var cid = (img.getAttribute('data-cid') || '').replace(/[<>]/g, '').trim();
-          if (failed.indexOf(cid) === -1) return;
-          img.setAttribute('src', "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' fill='%23e5e7eb' rx='4'/%3E%3Cpath d='M4 17l4-4 3 3 4-5 5 6H4z' fill='%239ca3af'/%3E%3C/svg%3E");
-          img.style.opacity = '0.4';
-          img.style.width = '48px';
-          img.style.height = '48px';
-          img.style.objectFit = 'contain';
-        });
-      } else if (d.type === 'getHeight') {
+      if (e.data && e.data.type === 'getHeight') {
         window.parent.postMessage({ type: 'height', h: document.documentElement.scrollHeight }, '*');
       }
     });
@@ -178,27 +161,45 @@ export function EmailRenderer({
     return () => {
       if (listenerRef.current) window.removeEventListener("message", listenerRef.current);
       cancelAnimationFrame(rafRef.current);
+      // Navigate to about:blank: forces WebKit to destroy the document, releasing all
+      // decoded image textures and GPU allocations immediately.
+      const iframe = iframeRef.current;
+      if (iframe) iframe.src = "about:blank";
     };
   }, []);
 
-  // Keep cidMapRef current and push updates to the iframe whenever cidMap changes.
+  // Blob URL management: replaces srcDoc to give deterministic memory control.
+  //
+  // srcdoc keeps the full HTML string bound to a DOM attribute; WebKit may keep
+  // it alive in its back/forward cache long after the component re-renders.
+  // With a Blob URL, we call URL.revokeObjectURL() and the native memory is freed
+  // immediately — no waiting for JavaScriptCore's GC cycle.
+  //
+  // Security: sandbox="allow-scripts" is preserved. A sandboxed iframe always gets
+  // null origin regardless of whether the src is srcdoc or blob:, so the security
+  // model is identical. postMessage with targetOrigin="*" continues to work. ✓
   useEffect(() => {
-    cidMapRef.current = cidMap;
-    if (!cidMap || cidMap.size === 0) return;
-    console.log(`[CID-DBG] sending postMessage cid to iframe, keys:`, [...cidMap.keys()]);
-    const win = iframeRef.current?.contentWindow;
-    if (!win) { console.warn("[CID-DBG] iframe contentWindow null — message not sent"); return; }
-    win.postMessage({ type: "cid", map: Object.fromEntries(cidMap) }, "*");
-  }, [cidMap]);
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
-  // Push failed CIDs to the iframe so it can render a placeholder.
-  useEffect(() => {
-    cidFailedRef.current = cidFailed;
-    if (!cidFailed || cidFailed.size === 0) return;
-    iframeRef.current?.contentWindow?.postMessage(
-      { type: "cidFailed", cids: [...cidFailed] }, "*"
-    );
-  }, [cidFailed]);
+    // Revoke the previous blob before creating a new one — immediate release.
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+    }
+
+    const blob = new Blob([srcdoc], { type: "text/html; charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    blobUrlRef.current = url;
+    iframe.src = url;
+
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, [srcdoc]);
+
 
   const handleLoad = useCallback(() => {
     const iframe = iframeRef.current;
@@ -231,19 +232,8 @@ export function EmailRenderer({
     listenerRef.current = onMessage;
     window.addEventListener("message", onMessage);
 
-    // By the time the iframe `load` event fires, its inline script has already run
-    // and set up its own message listener — so we can send directly here without
-    // waiting for the 'ready' postMessage (which fires before our listener is active).
     iframe.contentWindow?.postMessage({ type: "getHeight" }, "*");
-    const map = cidMapRef.current;
-    if (map && map.size > 0) {
-      iframe.contentWindow?.postMessage({ type: "cid", map: Object.fromEntries(map) }, "*");
-    }
-    const failed = cidFailedRef.current;
-    if (failed && failed.size > 0) {
-      iframe.contentWindow?.postMessage({ type: "cidFailed", cids: [...failed] }, "*");
-    }
-  }, []); // stable — dynamic values accessed via refs
+  }, []);
 
   const handleLoadImages = useCallback(() => {
     setOverrideShow(true);
@@ -283,7 +273,6 @@ export function EmailRenderer({
       <iframe
         ref={iframeRef}
         sandbox="allow-scripts"
-        srcDoc={srcdoc}
         onLoad={handleLoad}
         className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
         style={{ overflow: "hidden", minHeight: "120px" }}

@@ -10,10 +10,8 @@ import { AuthBadge } from "./AuthBadge";
 import { AuthWarningBanner } from "./AuthWarningBanner";
 
 // ---------------------------------------------------------------------------
-// Module-level IMAP fetch semaphore — caps concurrent attachment/CID fetches
-// to prevent server-side "Connection Reset" (OS Error 54) under load.
-// Limit raised to 6 (3 per account for a typical 2-account setup) to allow
-// parallel CID image fetching, matching Thunderbird's default of 5 connections.
+// Module-level semaphore — caps concurrent Gmail CID fetches.
+// IMAP CIDs use the single-command batch resolver and don't need this.
 // ---------------------------------------------------------------------------
 let _imapFetchActive = 0;
 const _imapFetchWaiters: Array<() => void> = [];
@@ -69,53 +67,80 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
     if (cidAtts.length === 0) return;
 
     try {
-      const [{ getEmailProvider }, { loadCachedAttachment, cacheAttachment }] = await Promise.all([
+      // IMAP batch path: one Rust command for all uncached IMAP CIDs.
+      // Binary data stays in Rust → disk; JS receives only file paths.
+      // Single tokio task → same jemalloc arena → no MADV_FREE accumulation.
+      const imapUncached = cidAtts.filter((a) => a.imap_part_id && !a.local_path);
+      if (imapUncached.length > 0) {
+        try {
+          const { resolveImapCidImages } = await import(
+            "@/services/imap/imapCidResolver"
+          );
+          const pathMap = await resolveImapCidImages(
+            message.account_id,
+            message.id,
+            imapUncached,
+          );
+          for (const att of imapUncached) {
+            const resolved = pathMap.get(att.id);
+            if (resolved) att.local_path = resolved;
+          }
+        } catch {
+          // Non-fatal — fall through to per-image Gmail path or show broken imgs
+        }
+      }
+
+      // Resolve appDataDir once — it's an async IPC call, do it outside the map.
+      const [{ convertFileSrc }, { appDataDir }] = await Promise.all([
+        import("@tauri-apps/api/core"),
+        import("@tauri-apps/api/path"),
+      ]);
+      const baseDir = await appDataDir();
+      const sep = baseDir.endsWith("/") ? "" : "/";
+
+      const [{ getEmailProvider }, { cacheAttachment }] = await Promise.all([
         import("@/services/email/providerFactory"),
         import("@/services/attachments/cacheManager"),
       ]);
-      const provider = await getEmailProvider(message.account_id);
 
       const results = await Promise.all(cidAtts.map(async (att) => {
-        const attachmentId = att.gmail_attachment_id ?? att.imap_part_id!;
-        // Strip angle brackets — MIME Content-ID headers use <uuid> but the HTML
-        // cid: URI and our data-cid attribute never include them.
         const cidKey = att.content_id!.replace(/[<>]/g, "").trim();
-        const mimeType = att.mime_type ?? "application/octet-stream";
+        const attachmentId = att.gmail_attachment_id ?? att.imap_part_id!;
 
-        // Fast path: serve from disk cache without an IMAP round-trip.
+        // Fast path: file already on disk → WebKit native IO, zero JS heap alloc.
         if (att.local_path) {
-          const cached = await loadCachedAttachment(att.local_path);
-          if (cached) {
-            return { cidKey, dataUri: `data:${mimeType};base64,${uint8ArrayToBase64(cached)}` };
-          }
+          return {
+            cidKey,
+            dataUri: convertFileSrc(`${baseDir}${sep}${att.local_path}`),
+          };
         }
 
+        // Gmail fallback: fetch → write to disk → serve via asset://.
+        // The transient Uint8Array is GC-eligible as soon as cacheAttachment returns.
         await _acquireImapSlot();
-        let data: string | null = null;
         try {
-          ({ data } = await provider.fetchAttachment(message.id, attachmentId));
-        } catch {
+          const provider = await getEmailProvider(message.account_id);
+          let result;
           try {
-            ({ data } = await provider.fetchAttachment(message.id, attachmentId));
+            result = await provider.fetchAttachment(message.id, attachmentId);
           } catch {
-            // both attempts failed
+            try {
+              result = await provider.fetchAttachment(message.id, attachmentId);
+            } catch {
+              return { cidKey, dataUri: null as string | null };
+            }
           }
+          const base64 = result.data.includes("-") || result.data.includes("_")
+            ? result.data.replace(/-/g, "+").replace(/_/g, "/")
+            : result.data;
+          const relPath = await cacheAttachment(att.id, base64ToUint8Array(base64));
+          return {
+            cidKey,
+            dataUri: convertFileSrc(`${baseDir}${sep}${relPath}`),
+          };
         } finally {
           _releaseImapSlot();
         }
-
-        if (!data) return { cidKey, dataUri: null };
-
-        const base64 = data.includes("-") || data.includes("_")
-          ? data.replace(/-/g, "+").replace(/_/g, "/")
-          : data;
-
-        // Persist to disk cache so future opens are instant.
-        cacheAttachment(att.id, base64ToUint8Array(base64)).catch(() => {});
-
-        // Use data: URI — WKWebView sandboxed iframes cannot load blob URLs from the
-        // parent window's registry, but data: URIs set via DOM are fine.
-        return { cidKey, dataUri: `data:${mimeType};base64,${base64}` };
       }));
 
       const newMap = new Map<string, string>();
@@ -249,6 +274,7 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
 
           {blockImages != null ? (
             <EmailRenderer
+              key={message.id}
               html={message.body_html}
               text={message.body_text}
               blockImages={blockImages}
@@ -284,15 +310,6 @@ export const MessageItem = memo(forwardRef<HTMLDivElement, MessageItemProps>(fun
 
 function escapeCid(cid: string): string {
   return cid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function uint8ArrayToBase64(data: Uint8Array): string {
-  let binary = "";
-  const chunkSize = 8192;
-  for (let i = 0; i < data.length; i += chunkSize) {
-    binary += String.fromCharCode(...data.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
 }
 
 function base64ToUint8Array(base64: string): Uint8Array {

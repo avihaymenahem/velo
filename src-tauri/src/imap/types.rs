@@ -216,6 +216,28 @@ pub struct ImapThreadUpdate {
 }
 
 // ---------------------------------------------------------------------------
+// CID image batch resolver types
+// ---------------------------------------------------------------------------
+
+/// One CID image to fetch and cache — passed from JS to imap_batch_resolve_cid_images.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CidImageRequest {
+    pub attachment_db_id: String,
+    pub message_id: String,
+    pub part_id: String,
+    /// MIME type (e.g. "image/png") — used to pick the file extension so WebKit
+    /// can skip MIME sniffing and route the asset directly through CoreGraphics.
+    pub mime_type: Option<String>,
+}
+
+/// Result for one CID image — only the local cache path is returned to JS (no binary).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CidImageResult {
+    pub attachment_db_id: String,
+    pub local_path: String,
+}
+
+// ---------------------------------------------------------------------------
 // Gmail zero-IPC types
 // ---------------------------------------------------------------------------
 
