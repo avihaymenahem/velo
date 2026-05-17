@@ -115,6 +115,7 @@ const selectThread = useThreadStore((s) => s.selectThread);
    const setSelectedMessageId = useThreadStore((s) => s.setSelectedMessageId);
   const selectAll = useThreadStore((s) => s.selectAll);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const setActiveAccount = useAccountStore((s) => s.setActiveAccount);
   const accounts = useAccountStore((s) => s.accounts);
   const activeLabel = useActiveLabel();
   const readFilter = useUIStore((s) => s.readFilter);
@@ -249,13 +250,16 @@ const [hasMore, setHasMore] = useState(true);
 
   const handleThreadClick = useCallback(
     (thread: Thread) => {
+      if (thread.accountId && thread.accountId !== activeAccountId) {
+        setActiveAccount(thread.accountId);
+      }
       if (activeLabel === "drafts") {
         handleDraftClick(thread);
       } else {
         navigateToThread(thread.id);
       }
     },
-    [activeLabel, handleDraftClick],
+    [activeLabel, activeAccountId, setActiveAccount, handleDraftClick],
   );
 
   const handleBulkDelete = async () => {
@@ -597,6 +601,29 @@ const [hasMore, setHasMore] = useState(true);
         setHasMore(dbThreads.length === PAGE_SIZE);
       } catch (err) {
         console.error("Failed to load unified folder threads:", err);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Unified smart folder: query across all opted-in accounts
+    if (isSmartFolder && activeSmartFolder && !activeAccountId) {
+      if (!keepSearch) clearSearch();
+      setLoading(true);
+      setHasMore(false);
+      try {
+        const { sql, params } = getSmartFolderSearchQuery(
+          activeSmartFolder.query,
+          globalAccountIds,
+          PAGE_SIZE,
+        );
+        const db = await getDb();
+        const rows = await db.select<SmartFolderRow[]>(sql, params);
+        const mapped = await mapSmartFolderRows(rows);
+        setThreads(mapped);
+      } catch (err) {
+        console.error("Failed to load unified smart folder threads:", err);
       } finally {
         setLoading(false);
       }
@@ -1185,7 +1212,7 @@ const [hasMore, setHasMore] = useState(true);
             {visibleThreads.map((thread, idx) => {
               const prevThread = idx > 0 ? filteredThreads[idx - 1] : undefined;
               const showDivider = prevThread?.isPinned && !thread.isPinned;
-              const accountColor = (isUnifiedInbox || isUnifiedFolder)
+              const accountColor = (isUnifiedInbox || isUnifiedFolder || isSmartFolder)
                 ? (accounts.find((a) => a.id === thread.accountId)?.color ?? null)
                 : null;
 return (
@@ -1266,7 +1293,8 @@ function EmptyStateForContext({
     );
   }
   const isUnifiedFolderCtx = !activeAccountId && UNIFIED_FOLDER_LABELS.has(activeLabel);
-  if (!activeAccountId && !isUnifiedFolderCtx) {
+  const isSmartFolderCtx = activeLabel.startsWith("smart-folder:");
+  if (!activeAccountId && !isUnifiedFolderCtx && !isSmartFolderCtx) {
     return (
       <EmptyState
         illustration={NoAccountIllustration}
@@ -1374,9 +1402,9 @@ function EmptyStateForContext({
       if (activeLabel.startsWith("smart-folder:")) {
         return (
           <EmptyState
-            icon={FolderSearch}
+            illustration={GenericEmptyIllustration}
             title="No matching emails"
-            subtitle="Try adjusting the smart folder query"
+            subtitle="No emails match this smart folder"
           />
         );
       }

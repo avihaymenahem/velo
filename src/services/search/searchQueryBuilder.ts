@@ -14,7 +14,7 @@ interface BuiltQuery {
  */
 export function buildSearchQuery(
   parsed: ParsedSearchQuery,
-  accountId?: string,
+  accountId?: string | string[],
   limit = 50,
   excludeSystemLabels = false,
 ): BuiltQuery {
@@ -37,7 +37,14 @@ export function buildSearchQuery(
   }
 
   // Account filter
-  if (accountId) {
+  if (Array.isArray(accountId)) {
+    if (accountId.length > 0) {
+      const placeholders = accountId.map((_, i) => `$${paramIdx + i}`).join(", ");
+      whereClauses.push(`m.account_id IN (${placeholders})`);
+      params.push(...accountId);
+      paramIdx += accountId.length;
+    }
+  } else if (accountId) {
     whereClauses.push(`m.account_id = $${paramIdx}`);
     params.push(accountId);
     paramIdx++;

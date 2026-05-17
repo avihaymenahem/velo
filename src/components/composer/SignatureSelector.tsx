@@ -70,7 +70,7 @@ export function SignatureSelector() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute left-0 top-full mt-1 py-1 w-64 rounded-lg border border-border-primary bg-bg-primary shadow-lg z-50 glass-panel">
+        <div className="absolute left-0 bottom-full mb-1 py-1 w-64 rounded-lg border border-border-primary bg-bg-primary shadow-lg z-50 glass-panel">
           <div
             className="px-3 py-1.5 text-[0.625rem] font-medium text-text-tertiary uppercase tracking-wider"
             onClick={(e) => {
