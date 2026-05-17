@@ -1,4 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useParams } from "@tanstack/react-router";
 import { useUIStore, type ComposerFontFamily, type ComposerFontSize } from "@/stores/uiStore";
 import { navigateToLabel, navigateToSettings } from "@/router/navigate";
@@ -38,6 +53,7 @@ import {
   ChevronDown,
   RotateCcw,
   CheckSquare,
+  GripVertical,
   type LucideIcon,
 } from "lucide-react";
 import { SignatureEditor } from "./SignatureEditor";
@@ -66,6 +82,28 @@ import type { SidebarNavItem } from "@/stores/uiStore";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
+
+function SortableAccountRow({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      className="flex items-center gap-1"
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="text-text-tertiary/40 hover:text-text-tertiary transition-colors cursor-grab active:cursor-grabbing touch-none p-1 shrink-0"
+        tabIndex={-1}
+        aria-label="Drag to reorder"
+      >
+        <GripVertical size={15} />
+      </button>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  );
+}
 
 type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "people" | "accounts" | "shortcuts" | "ai" | "intelligence" | "tasks" | "about";
 
@@ -110,6 +148,8 @@ export function SettingsPage() {
   const setBackgroundMode = useUIStore((s) => s.setBackgroundMode);
   const accounts = useAccountStore((s) => s.accounts);
   const removeAccountFromStore = useAccountStore((s) => s.removeAccount);
+  const reorderAccounts = useAccountStore((s) => s.reorderAccounts);
+  const accountSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const { tab } = useParams({ strict: false }) as { tab?: string };
   const activeTab = (tab && tabs.some((t) => t.id === tab) ? tab : "general") as SettingsTab;
   const setActiveTab = (t: SettingsTab) => navigateToSettings(t);
@@ -1011,83 +1051,97 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                       <p className="text-sm text-text-tertiary">
                         No mail accounts connected
                       </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {accounts.filter((a) => a.provider !== "caldav").map((account) => {
-                          const providerLabel = account.provider === "imap" ? "IMAP" : "Gmail";
-                          return (
-                            <div
-                              key={account.id}
-                              className="py-2.5 px-4 bg-bg-secondary rounded-lg"
-                            >
-                              <div className="flex items-center justify-between">
-                              <div>
-                                <div className="text-sm font-medium text-text-primary flex items-center gap-2">
-                                  {account.color && (
-                                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
-                                  )}
-                                  {account.label ?? account.displayName ?? account.email}
-                                  <span className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-tertiary">
-                                    {providerLabel}
-                                  </span>
-                                </div>
-                                <div className="text-xs text-text-tertiary">
-                                  {account.email}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                {account.provider === "imap" && (
-                                  <button
-                                    onClick={() => setEditingImapAccountId(account.id)}
-                                    className="text-xs text-accent hover:text-accent-hover transition-colors"
-                                  >
-                                    Edit
-                                  </button>
-                                )}
-                                {account.provider !== "imap" && (
-                                  <button
-                                    onClick={() => setEditingGmailAccount({ id: account.id, email: account.email, displayName: account.displayName, color: account.color, includeInGlobal: account.includeInGlobal, label: account.label })}
-                                    className="text-xs text-accent hover:text-accent-hover transition-colors"
-                                  >
-                                    Edit
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleResyncAccount(account.id)}
-                                  disabled={resyncStatus[account.id] === "syncing"}
-                                  className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
-                                >
-                                  {resyncStatus[account.id] === "syncing" && "Resyncing..."}
-                                  {resyncStatus[account.id] === "done" && "Done!"}
-                                  {resyncStatus[account.id] === "error" && "Failed"}
-                                  {(!resyncStatus[account.id] || resyncStatus[account.id] === "idle") && "Resync"}
-                                </button>
-                                {account.provider === "gmail_api" && (
-                                  <button
-                                    onClick={() => handleSyncGoogleContacts(account.id)}
-                                    disabled={resyncStatus[account.id] === "syncing"}
-                                    className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
-                                  >
-                                    {resyncStatus[account.id] === "syncing"
-                                      ? contactsProgress
-                                        ? `Syncing ${contactsProgress.current} contacts...`
-                                        : "Syncing contacts..."
-                                      : "Sync Contacts"}
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleRemoveAccount(account.id)}
-                                  className="text-xs text-danger hover:text-danger/80 transition-colors"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                              </div>
+                    ) : (() => {
+                      const mailAccounts = accounts.filter((a) => a.provider !== "caldav");
+                      const handleDragEnd = (event: DragEndEvent) => {
+                        const { active, over } = event;
+                        if (!over || active.id === over.id) return;
+                        const oldIndex = mailAccounts.findIndex((a) => a.id === active.id);
+                        const newIndex = mailAccounts.findIndex((a) => a.id === over.id);
+                        const reordered = arrayMove(mailAccounts, oldIndex, newIndex);
+                        reorderAccounts(reordered.map((a) => a.id));
+                      };
+                      return (
+                        <DndContext sensors={accountSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                          <SortableContext items={mailAccounts.map((a) => a.id)} strategy={verticalListSortingStrategy}>
+                            <div className="space-y-2">
+                              {mailAccounts.map((account) => {
+                                const providerLabel = account.provider === "imap" ? "IMAP" : "Gmail";
+                                return (
+                                  <SortableAccountRow key={account.id} id={account.id}>
+                                    <div className="py-2.5 px-4 bg-bg-secondary rounded-lg">
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <div className="text-sm font-medium text-text-primary flex items-center gap-2">
+                                            {account.color && (
+                                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
+                                            )}
+                                            {account.label ?? account.displayName ?? account.email}
+                                            <span className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-tertiary">
+                                              {providerLabel}
+                                            </span>
+                                          </div>
+                                          <div className="text-xs text-text-tertiary">
+                                            {account.email}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                          {account.provider === "imap" && (
+                                            <button
+                                              onClick={() => setEditingImapAccountId(account.id)}
+                                              className="text-xs text-accent hover:text-accent-hover transition-colors"
+                                            >
+                                              Edit
+                                            </button>
+                                          )}
+                                          {account.provider !== "imap" && (
+                                            <button
+                                              onClick={() => setEditingGmailAccount({ id: account.id, email: account.email, displayName: account.displayName, color: account.color, includeInGlobal: account.includeInGlobal, label: account.label })}
+                                              className="text-xs text-accent hover:text-accent-hover transition-colors"
+                                            >
+                                              Edit
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={() => handleResyncAccount(account.id)}
+                                            disabled={resyncStatus[account.id] === "syncing"}
+                                            className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                                          >
+                                            {resyncStatus[account.id] === "syncing" && "Resyncing..."}
+                                            {resyncStatus[account.id] === "done" && "Done!"}
+                                            {resyncStatus[account.id] === "error" && "Failed"}
+                                            {(!resyncStatus[account.id] || resyncStatus[account.id] === "idle") && "Resync"}
+                                          </button>
+                                          {account.provider === "gmail_api" && (
+                                            <button
+                                              onClick={() => handleSyncGoogleContacts(account.id)}
+                                              disabled={resyncStatus[account.id] === "syncing"}
+                                              className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                                            >
+                                              {resyncStatus[account.id] === "syncing"
+                                                ? contactsProgress
+                                                  ? `Syncing ${contactsProgress.current} contacts...`
+                                                  : "Syncing contacts..."
+                                                : "Sync Contacts"}
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={() => handleRemoveAccount(account.id)}
+                                            className="text-xs text-danger hover:text-danger/80 transition-colors"
+                                          >
+                                            Remove
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </SortableAccountRow>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                          </SortableContext>
+                        </DndContext>
+                      );
+                    })()}
                   </Section>
 
                   {accounts.some((a) => a.provider === "caldav") && (
