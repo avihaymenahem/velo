@@ -136,11 +136,16 @@ export default function ComposerWindow() {
         if (fromEmail) {
           useComposerStore.getState().setFromEmail(fromEmail);
         }
-        if (accountId) {
-          useComposerStore.getState().setComposerAccountId(accountId);
-        }
 
-        const opts = { mode, to, cc, bcc, subject, bodyHtml, quotedHtml, threadId, inReplyToMessageId, draftId };
+        // Lock composerAccountId so effectiveAccountId is deterministic for the
+        // entire lifetime of this window — prevents tombstone/delete mismatch when
+        // the composer window has no explicit accountId in the URL (e.g. keyboard
+        // shortcut, command palette) and activeAccountId would be stale or null.
+        // We pass it into opts so openComposer() sets composerAccountId atomically
+        // (it would otherwise reset it to null if opts.accountId is undefined).
+        const resolvedAccountId = accountId ?? savedAccountId ?? undefined;
+
+        const opts = { mode, to, cc, bcc, subject, bodyHtml, quotedHtml, threadId, inReplyToMessageId, draftId, accountId: resolvedAccountId };
 
         // Open composer with parsed state
         useComposerStore.getState().openComposer(opts);

@@ -191,15 +191,18 @@ const [hasMore, setHasMore] = useState(true);
         const draftMsg = messages[messages.length - 1];
         if (!draftMsg) return;
 
-        // Look up the Gmail draft ID so auto-save can update the existing draft
-        let draftId: string | null = null;
+        // Look up the Gmail draft ID so auto-save can update the existing draft.
+        // For IMAP accounts, draftMsg.id is already the correct IMAP draft ID
+        // (format: imap-{accountId}-{folder}-{uid}) — use it as the default so
+        // discarding an IMAP draft always tombstones the right UID on the server.
+        let draftId: string | null = draftMsg.id.startsWith("imap-") ? draftMsg.id : null;
         try {
           const client = await getGmailClient(activeAccountId);
           const drafts = await client.listDrafts();
           const match = drafts.find((d: any) => d.message.id === draftMsg.id);
           if (match) draftId = match.id;
         } catch {
-          // If we can't get draft ID, composer will create a new draft on save
+          // Non-Gmail account: keep the IMAP draftId set above (or null for unknown providers)
         }
 
         const to = draftMsg.to_addresses
@@ -230,6 +233,7 @@ const [hasMore, setHasMore] = useState(true);
           bodyHtml: draftMsg.body_html ?? draftMsg.body_text ?? "",
           threadId: thread.id,
           draftId,
+          accountId: activeAccountId,
         });
       } catch (err) {
         console.error("Failed to open draft:", err);

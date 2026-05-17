@@ -582,12 +582,30 @@ export function updateDraft(
   });
 }
 
+/**
+ * Extract the accountId embedded in an IMAP draftId (format: imap-{uuid}-{folder}-{uid}).
+ * Returns null for non-IMAP IDs or if the UUID segment is not recognizable.
+ */
+function extractImapDraftAccountId(draftId: string): string | null {
+  if (!draftId.startsWith("imap-")) return null;
+  const afterPrefix = draftId.slice("imap-".length);
+  // UUID is exactly 36 chars: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  if (afterPrefix.length < 37) return null;
+  const candidate = afterPrefix.slice(0, 36);
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidPattern.test(candidate) ? candidate : null;
+}
+
 export function deleteDraft(
   accountId: string,
   draftId: string,
   threadId?: string,
 ): Promise<ActionResult> {
-  return executeEmailAction(accountId, {
+  // For IMAP drafts the draftId encodes the real accountId. If separate Tauri windows
+  // caused a mismatch (openComposer called without accountId param), recover here so
+  // the tombstone is always written against the correct account.
+  const resolvedAccountId = extractImapDraftAccountId(draftId) ?? accountId;
+  return executeEmailAction(resolvedAccountId, {
     type: "deleteDraft",
     draftId,
     threadId,
