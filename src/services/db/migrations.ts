@@ -1015,6 +1015,15 @@ const MIGRATIONS = [
         ON messages (thread_id, account_id, date DESC);
     `,
   },
+  {
+    version: 42,
+    description: "Ensure accounts.color/include_in_global/sort_order columns exist (repair for v41 partial failures)",
+    sql: `
+      ALTER TABLE accounts ADD COLUMN color TEXT DEFAULT NULL;
+      ALTER TABLE accounts ADD COLUMN include_in_global INTEGER DEFAULT 1;
+      ALTER TABLE accounts ADD COLUMN sort_order INTEGER DEFAULT 0;
+    `,
+  },
 ];
 
 /**
@@ -1142,6 +1151,37 @@ export async function runMigrations(): Promise<void> {
       console.warn("Migration v38 marked applied but message_embeddings.embedding is NOT NULL — re-running v38");
       await db.execute("DELETE FROM _migrations WHERE version = 38");
       appliedVersions.delete(38);
+    }
+  }
+
+  // Repair: if migration 41 is marked applied but color column is missing from accounts
+  // (can happen when the multi-statement ALTER TABLE block only partially persisted)
+  if (appliedVersions.has(41)) {
+    const cols = await db.select<{ name: string }[]>(
+      "SELECT name FROM pragma_table_info('accounts') WHERE name = 'color'",
+    );
+    if (cols.length === 0) {
+      console.warn("Migration v41 marked applied but accounts.color column missing — re-running v41");
+      await db.execute("DELETE FROM _migrations WHERE version = 41");
+      appliedVersions.delete(41);
+    }
+  }
+
+  // Pre-apply v42 without DDL if the color column already exists.
+  // v42 re-runs the same ALTER TABLE ADD COLUMN statements as v41. Running them
+  // inside BEGIN acquires a write lock even when they fail with "duplicate column",
+  // blocking other connections for the full busy-timeout. Detecting up-front avoids
+  // the lock entirely for users who already have the columns.
+  if (!appliedVersions.has(42)) {
+    const colorCols = await db.select<{ name: string }[]>(
+      "SELECT name FROM pragma_table_info('accounts') WHERE name = 'color'",
+    );
+    if (colorCols.length > 0) {
+      await db.execute(
+        "INSERT OR IGNORE INTO _migrations (version, description) VALUES ($1, $2)",
+        [42, "Ensure accounts.color/include_in_global/sort_order columns exist (repair for v41 partial failures)"],
+      );
+      appliedVersions.add(42);
     }
   }
 

@@ -5,9 +5,8 @@ import { navigateToLabel, navigateToSettings } from "@/router/navigate";
 import { useAccountStore } from "@/stores/accountStore";
 import { getSetting, setSetting, getSecureSetting, setSecureSetting } from "@/services/db/settings";
 import { PROVIDER_MODELS } from "@/services/ai/types";
-import { deleteAccount, updateAccountMeta, getAllAccounts } from "@/services/db/accounts";
-import { ACCOUNT_COLOR_PRESETS } from "@/constants/accountColors";
-import { removeClient, reauthorizeAccount } from "@/services/gmail/tokenManager";
+import { deleteAccount } from "@/services/db/accounts";
+import { removeClient } from "@/services/gmail/tokenManager";
 import { triggerSync, forceFullSync, resyncAccount } from "@/services/gmail/syncManager";
 import { syncGoogleContacts } from "@/services/contacts/googleContacts";
 import {
@@ -53,6 +52,7 @@ import { SmartLabelEditor } from "./SmartLabelEditor";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { SoulEditorDialog } from "./SoulEditorDialog";
 import { EditImapAccount } from "@/components/accounts/EditImapAccount";
+import { EditGmailAccount } from "@/components/accounts/EditGmailAccount";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
 import {
@@ -115,9 +115,6 @@ export function SettingsPage() {
   const setActiveTab = (t: SettingsTab) => navigateToSettings(t);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [undoSendDelay, setUndoSendDelay] = useState("5");
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-  const [apiSettingsSaved, setApiSettingsSaved] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncPeriodDays, setSyncPeriodDays] = useState("365");
   const [blockRemoteImages, setBlockRemoteImages] = useState(true);
@@ -148,7 +145,6 @@ export function SettingsPage() {
   const [cacheMaxMb, setCacheMaxMb] = useState("500");
   const [cacheSizeMb, setCacheSizeMb] = useState<number | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
-  const [reauthStatus, setReauthStatus] = useState<Record<string, "idle" | "authorizing" | "done" | "error">>({});
   const [resyncStatus, setResyncStatus] = useState<Record<string, "idle" | "syncing" | "done" | "error">>({});
   const [autoArchiveCategories, setAutoArchiveCategories] = useState<Set<string>>(() => new Set());
   const [smartNotifications, setSmartNotifications] = useState(true);
@@ -158,6 +154,7 @@ export function SettingsPage() {
   const [aiLanguage, setAiLanguage] = useState("English");
   const [soulEditorOpen, setSoulEditorOpen] = useState(false);
   const [editingImapAccountId, setEditingImapAccountId] = useState<string | null>(null);
+  const [editingGmailAccount, setEditingGmailAccount] = useState<{ id: string; email: string; displayName?: string | null; color?: string | null; includeInGlobal?: boolean } | null>(null);
   const [taskRetentionDeleted, setTaskRetentionDeleted] = useState("7");
   const [taskAutoArchiveHours, setTaskAutoArchiveHours] = useState("24");
   const [taskRetentionCompleted, setTaskRetentionCompleted] = useState("30");
@@ -194,10 +191,6 @@ const [ragProgress, setRagProgress] = useState<{ indexed: number; total: number 
       setNotificationsEnabled(notif !== "false");
       const delay = await getSetting("undo_send_delay_seconds");
       setUndoSendDelay(delay ?? "5");
-      const id = await getSetting("google_client_id");
-      setClientId(id ?? "");
-      const secret = await getSecureSetting("google_client_secret");
-      setClientSecret(secret ?? "");
       const blockImg = await getSetting("block_remote_images");
       setBlockRemoteImages(blockImg !== "false");
       const phishingEnabled = await getSetting("phishing_detection_enabled");
@@ -384,19 +377,6 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
     await setSetting("undo_send_delay_seconds", value);
   }, []);
 
-  const handleSaveApiSettings = useCallback(async () => {
-    const trimmedId = clientId.trim();
-    if (trimmedId) {
-      await setSetting("google_client_id", trimmedId);
-    }
-    const trimmedSecret = clientSecret.trim();
-    if (trimmedSecret) {
-      await setSecureSetting("google_client_secret", trimmedSecret);
-    }
-    setApiSettingsSaved(true);
-    setTimeout(() => setApiSettingsSaved(false), 2000);
-  }, [clientId, clientSecret]);
-
   const handleManualSync = useCallback(async () => {
     const activeIds = accounts.filter((a) => a.isActive).map((a) => a.id);
     if (activeIds.length === 0) return;
@@ -440,26 +420,6 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
       removeAccountFromStore(accountId);
     },
     [removeAccountFromStore],
-  );
-
-  const handleReauthorizeAccount = useCallback(
-    async (accountId: string, email: string) => {
-      setReauthStatus((prev) => ({ ...prev, [accountId]: "authorizing" }));
-      try {
-        await reauthorizeAccount(accountId, email);
-        setReauthStatus((prev) => ({ ...prev, [accountId]: "done" }));
-        setTimeout(() => {
-          setReauthStatus((prev) => ({ ...prev, [accountId]: "idle" }));
-        }, 3000);
-      } catch (err) {
-        console.error("Re-authorization failed:", err);
-        setReauthStatus((prev) => ({ ...prev, [accountId]: "error" }));
-        setTimeout(() => {
-          setReauthStatus((prev) => ({ ...prev, [accountId]: "idle" }));
-        }, 3000);
-      }
-    },
-    [],
   );
 
   const handleResyncAccount = useCallback(
@@ -1055,29 +1015,10 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                       <div className="space-y-2">
                         {accounts.filter((a) => a.provider !== "caldav").map((account) => {
                           const providerLabel = account.provider === "imap" ? "IMAP" : "Gmail";
-                          const handleAccountMetaChange = async (fields: { color?: string | null; includeInGlobal?: boolean }) => {
-                            await updateAccountMeta(account.id, fields);
-                            const dbAccounts = await getAllAccounts();
-                            useAccountStore.getState().setAccounts(
-                              dbAccounts.map((a) => ({
-                                id: a.id,
-                                email: a.email,
-                                displayName: a.display_name,
-                                avatarUrl: a.avatar_url,
-                                isActive: a.is_active === 1,
-                                provider: a.provider,
-                                color: a.color ?? null,
-                                includeInGlobal: a.include_in_global !== 0,
-                                sortOrder: a.sort_order ?? 0,
-                              })),
-                              useAccountStore.getState().activeAccountId ?? undefined,
-                            );
-                            window.dispatchEvent(new CustomEvent("velo-sync-done"));
-                          };
                           return (
                             <div
                               key={account.id}
-                              className="py-2.5 px-4 bg-bg-secondary rounded-lg space-y-2"
+                              className="py-2.5 px-4 bg-bg-secondary rounded-lg"
                             >
                               <div className="flex items-center justify-between">
                               <div>
@@ -1105,14 +1046,10 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                                 )}
                                 {account.provider !== "imap" && (
                                   <button
-                                    onClick={() => handleReauthorizeAccount(account.id, account.email)}
-                                    disabled={reauthStatus[account.id] === "authorizing"}
-                                    className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                                    onClick={() => setEditingGmailAccount({ id: account.id, email: account.email, displayName: account.displayName, color: account.color, includeInGlobal: account.includeInGlobal })}
+                                    className="text-xs text-accent hover:text-accent-hover transition-colors"
                                   >
-                                    {reauthStatus[account.id] === "authorizing" && "Waiting..."}
-                                    {reauthStatus[account.id] === "done" && "Done!"}
-                                    {reauthStatus[account.id] === "error" && "Failed"}
-                                    {(!reauthStatus[account.id] || reauthStatus[account.id] === "idle") && "Re-authorize"}
+                                    Edit
                                   </button>
                                 )}
                                 <button
@@ -1145,35 +1082,6 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                                   Remove
                                 </button>
                               </div>
-                              </div>
-                              {/* Color + unified inbox row */}
-                              <div className="flex items-center gap-4 flex-wrap pt-1">
-                                <div className="flex items-center gap-1.5">
-                                  {ACCOUNT_COLOR_PRESETS.map((color) => (
-                                    <button
-                                      key={color}
-                                      type="button"
-                                      onClick={() => handleAccountMetaChange({ color: account.color === color ? null : color })}
-                                      className="w-5 h-5 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-1 focus:ring-accent"
-                                      style={{ backgroundColor: color }}
-                                      title={color}
-                                    >
-                                      {account.color === color && <Check size={10} className="text-white" strokeWidth={3} />}
-                                    </button>
-                                  ))}
-                                </div>
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={account.includeInGlobal}
-                                  onClick={() => handleAccountMetaChange({ includeInGlobal: !account.includeInGlobal })}
-                                  className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
-                                >
-                                  <span className={`relative w-7 h-4 rounded-full transition-colors ${account.includeInGlobal ? "bg-accent" : "bg-border-primary"}`}>
-                                    <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${account.includeInGlobal ? "translate-x-3" : "translate-x-0"}`} />
-                                  </span>
-                                  Unified inbox
-                                </button>
                               </div>
                             </div>
                           );
@@ -1216,35 +1124,6 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                   <SendAsAliasesSection />
 
                   <ImapCalDavSection />
-
-                  <Section title="Google API">
-                    <div className="space-y-3">
-                      <TextField
-                        label="Client ID"
-                        size="md"
-                        type="text"
-                        value={clientId}
-                        onChange={(e) => setClientId(e.target.value)}
-                        placeholder="Google OAuth Client ID"
-                      />
-                      <TextField
-                        label="Client Secret"
-                        size="md"
-                        type="password"
-                        value={clientSecret}
-                        onChange={(e) => setClientSecret(e.target.value)}
-                        placeholder="Google OAuth Client Secret"
-                      />
-                      <Button
-                        variant="primary"
-                        size="md"
-                        onClick={handleSaveApiSettings}
-                        disabled={!clientId.trim()}
-                      >
-                        {apiSettingsSaved ? "Saved!" : "Save"}
-                      </Button>
-                    </div>
-                  </Section>
 
                   <Section title="Sync">
                     <div className="flex items-center justify-between">
@@ -2370,6 +2249,17 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
           accountId={editingImapAccountId}
           onClose={() => setEditingImapAccountId(null)}
           onSaved={() => setEditingImapAccountId(null)}
+        />
+      )}
+
+      {editingGmailAccount && (
+        <EditGmailAccount
+          accountId={editingGmailAccount.id}
+          email={editingGmailAccount.email}
+          displayName={editingGmailAccount.displayName}
+          initialColor={editingGmailAccount.color}
+          initialIncludeInGlobal={editingGmailAccount.includeInGlobal}
+          onClose={() => setEditingGmailAccount(null)}
         />
       )}
     </div>
