@@ -515,6 +515,63 @@ export async function getUnifiedInboxThreads(
   );
 }
 
+export async function getUnifiedFolderThreads(
+  accountIds: string[],
+  labelId: string,
+  limit = 50,
+  offset = 0,
+): Promise<DbThread[]> {
+  if (accountIds.length === 0) return [];
+  const db = await getDb();
+  const placeholders = accountIds.map((_, i) => `$${i + 1}`).join(", ");
+
+  if (!labelId) {
+    // "All Mail" — no label filter, exclude trash and drafts
+    const limitParam = `$${accountIds.length + 1}`;
+    const offsetParam = `$${accountIds.length + 2}`;
+    return db.select<DbThread[]>(
+      `SELECT t.*, m.from_name, m.from_address
+       FROM threads t
+       LEFT JOIN messages m ON m.thread_id = t.id AND m.account_id = t.account_id
+         AND m.id = (
+           SELECT id FROM messages
+           WHERE thread_id = t.id AND account_id = t.account_id
+           ORDER BY date DESC LIMIT 1
+         )
+       WHERE t.account_id IN (${placeholders})
+         AND NOT EXISTS (
+           SELECT 1 FROM thread_labels tl_ex
+           WHERE tl_ex.account_id = t.account_id AND tl_ex.thread_id = t.id
+             AND tl_ex.label_id IN ('DRAFT', 'TRASH')
+         )
+       ORDER BY t.is_pinned DESC, t.last_message_at DESC
+       LIMIT ${limitParam} OFFSET ${offsetParam}`,
+      [...accountIds, limit, offset],
+    );
+  }
+
+  const labelParam = `$${accountIds.length + 1}`;
+  const limitParam = `$${accountIds.length + 2}`;
+  const offsetParam = `$${accountIds.length + 3}`;
+  return db.select<DbThread[]>(
+    `SELECT t.*, m.from_name, m.from_address
+     FROM threads t
+     INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
+     LEFT JOIN messages m ON m.thread_id = t.id AND m.account_id = t.account_id
+       AND m.id = (
+         SELECT id FROM messages
+         WHERE thread_id = t.id AND account_id = t.account_id
+         ORDER BY date DESC LIMIT 1
+       )
+     WHERE t.account_id IN (${placeholders})
+       AND tl.label_id = ${labelParam}
+     GROUP BY t.account_id, t.id
+     ORDER BY t.is_pinned DESC, t.last_message_at DESC
+     LIMIT ${limitParam} OFFSET ${offsetParam}`,
+    [...accountIds, labelId, limit, offset],
+  );
+}
+
 export async function getGlobalUnreadCounts(
   accountIds: string[],
 ): Promise<Map<string, Map<string, number>>> {

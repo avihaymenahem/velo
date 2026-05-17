@@ -116,6 +116,74 @@ function DroppableNavItem({
   );
 }
 
+function ExpandableNavItem({
+  id,
+  label,
+  isActive,
+  collapsed,
+  expanded,
+  onNavigate,
+  onToggleExpand,
+  children,
+}: {
+  id: string;
+  label?: string;
+  isActive: boolean;
+  collapsed: boolean;
+  expanded: boolean;
+  onNavigate: () => void;
+  onToggleExpand: () => void;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  if (collapsed) {
+    return (
+      <button
+        ref={setNodeRef}
+        onClick={onNavigate}
+        title={label}
+        className={`flex items-center justify-center w-full py-2 text-sm transition-colors press-scale ${
+          isOver
+            ? "bg-accent/20 ring-1 ring-accent"
+            : isActive
+              ? "bg-accent/10 text-accent font-medium"
+              : "hover:bg-sidebar-hover text-sidebar-text"
+        }`}
+      >
+        {children}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex items-center w-full text-sm transition-colors ${
+        isOver
+          ? "bg-accent/20 ring-1 ring-accent"
+          : isActive
+            ? "bg-accent/10 text-accent font-medium"
+            : "hover:bg-sidebar-hover text-sidebar-text"
+      }`}
+    >
+      <button
+        onClick={onNavigate}
+        className="flex items-center gap-3 flex-1 py-2 pl-3 pr-1 text-left text-sm transition-colors press-scale min-w-0"
+      >
+        {children}
+      </button>
+      <button
+        onClick={onToggleExpand}
+        className="py-2 pr-3 pl-1 text-sidebar-text/40 hover:text-sidebar-text transition-colors shrink-0"
+        title={expanded ? "Collapse accounts" : "Expand accounts"}
+      >
+        {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+      </button>
+    </div>
+  );
+}
+
 function DroppableLabelItem({
   label,
   isActive,
@@ -222,6 +290,26 @@ function getSmartFolderIcon(iconName: string): LucideIcon {
 
 const LABELS_COLLAPSED_COUNT = 3;
 
+const FOLDER_UNREAD_KEY: Record<string, string> = {
+  sent: "SENT",
+  drafts: "DRAFT",
+  trash: "TRASH",
+  spam: "SPAM",
+};
+
+const GLOBAL_FOLDER_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
+  { id: "starred",     label: "Starred",     icon: Star },
+  { id: "snoozed",     label: "Snoozed",     icon: Clock },
+  { id: "sent",        label: "Sent",        icon: Send },
+  { id: "drafts",      label: "Drafts",      icon: FileEdit },
+  { id: "trash",       label: "Trash",       icon: Trash2 },
+  { id: "spam",        label: "Spam",        icon: Ban },
+  { id: "all",         label: "All Mail",    icon: Mail },
+  { id: "tasks",       label: "Tasks",       icon: CheckSquare },
+  { id: "calendar",    label: "Calendar",    icon: Calendar },
+  { id: "attachments", label: "Attachments", icon: Paperclip },
+];
+
 export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const activeLabel = useActiveLabel();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
@@ -234,6 +322,11 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const setActiveAccount = useAccountStore((s) => s.setActiveAccount);
   const accounts = useAccountStore((s) => s.accounts);
   const [isScrolling, setIsScrolling] = useState(false);
+  const [expandedGlobalItems, setExpandedGlobalItems] = useState<Record<string, boolean>>({});
+  const toggleGlobalItem = useCallback(
+    (id: string) => setExpandedGlobalItems((prev) => ({ ...prev, [id]: !prev[id] })),
+    [],
+  );
 
   useEffect(() => {
     let scrollTimer: ReturnType<typeof setTimeout>;
@@ -489,38 +582,158 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                 </span>
               </div>
             )}
-            <DroppableNavItem
+            <ExpandableNavItem
               id="unified-inbox"
+              label="Inbox"
               isActive={activeLabel === "unified-inbox"}
               collapsed={collapsed}
-              onClick={() => {
+              expanded={!!expandedGlobalItems["unified-inbox"]}
+              onNavigate={() => {
                 setActiveAccount(null);
                 navigateToLabel("unified-inbox");
               }}
-              title={collapsed ? "Unified Inbox" : undefined}
+              onToggleExpand={() => toggleGlobalItem("unified-inbox")}
             >
-              {() => (
+              <Inbox size={18} className="shrink-0" />
+              {!collapsed && (
                 <>
-                  <Layers size={18} className="shrink-0" />
-                  {!collapsed && (
-                    <>
-                      <span className="flex-1 truncate">Unified Inbox</span>
-                      {(() => {
-                        const total = globalAccounts.reduce(
-                          (sum, a) => sum + (globalUnreadCounts[a.id]?.["INBOX"] ?? 0),
-                          0,
-                        );
-                        return total > 0 ? (
-                          <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
-                            {total}
-                          </span>
-                        ) : null;
-                      })()}
-                    </>
-                  )}
+                  <span className="flex-1 truncate">Inbox</span>
+                  {(() => {
+                    const total = globalAccounts.reduce(
+                      (sum, a) => sum + (globalUnreadCounts[a.id]?.["INBOX"] ?? 0),
+                      0,
+                    );
+                    return total > 0 ? (
+                      <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
+                        {total}
+                      </span>
+                    ) : null;
+                  })()}
                 </>
               )}
-            </DroppableNavItem>
+            </ExpandableNavItem>
+            {!collapsed && (
+              <div
+                className={`grid transition-[grid-template-rows] duration-200 ease-out ${expandedGlobalItems["unified-inbox"] ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+              >
+                <div className="overflow-hidden">
+                  {globalAccounts.map((account) => {
+                    const color = account.color ?? "#3182CE";
+                    const displayName = account.label ?? account.displayName ?? account.email;
+                    const unread = globalUnreadCounts[account.id]?.["INBOX"] ?? 0;
+                    const isAccountActive =
+                      activeLabel === "inbox" &&
+                      activeAccountId === account.id;
+                    return (
+                      <button
+                        key={account.id}
+                        onClick={() => {
+                          setActiveAccount(account.id);
+                          navigateToLabel("inbox");
+                        }}
+                        className={`flex items-center gap-2 w-full py-1.5 pl-7 pr-3 text-left text-[0.8125rem] transition-colors ${
+                          isAccountActive
+                            ? "text-accent font-medium bg-accent/10"
+                            : "text-sidebar-text/80 hover:text-sidebar-text hover:bg-sidebar-hover"
+                        }`}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="flex-1 truncate">{displayName}</span>
+                        {unread > 0 && (
+                          <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
+                            {unread}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {/* ─── Other global folder items ─── */}
+            {GLOBAL_FOLDER_ITEMS.filter((gi) =>
+              visibleNavItems.some((vi) => vi.id === gi.id)
+            ).map((gi) => {
+              const GIcon = gi.icon;
+              const unreadKey = FOLDER_UNREAD_KEY[gi.id];
+              const globalTotal = unreadKey
+                ? globalAccounts.reduce(
+                    (sum, a) => sum + (globalUnreadCounts[a.id]?.[unreadKey] ?? 0),
+                    0,
+                  )
+                : 0;
+              return (
+                <div key={`global-${gi.id}`}>
+                  <ExpandableNavItem
+                    id={`global-${gi.id}`}
+                    label={gi.label}
+                    isActive={activeLabel === gi.id && activeAccountId === null}
+                    collapsed={collapsed}
+                    expanded={!!expandedGlobalItems[`global-${gi.id}`]}
+                    onNavigate={() => {
+                      setActiveAccount(null);
+                      navigateToLabel(gi.id);
+                    }}
+                    onToggleExpand={() => toggleGlobalItem(`global-${gi.id}`)}
+                  >
+                    <GIcon size={18} className="shrink-0" />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 truncate">{gi.label}</span>
+                        {globalTotal > 0 && (
+                          <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
+                            {globalTotal}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </ExpandableNavItem>
+                  {!collapsed && (
+                    <div
+                      className={`grid transition-[grid-template-rows] duration-200 ease-out ${expandedGlobalItems[`global-${gi.id}`] ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+                    >
+                      <div className="overflow-hidden">
+                        {globalAccounts.map((account) => {
+                          const color = account.color ?? "#3182CE";
+                          const displayName = account.label ?? account.displayName ?? account.email;
+                          const unread = unreadKey ? (globalUnreadCounts[account.id]?.[unreadKey] ?? 0) : 0;
+                          const isAccountActive =
+                            activeLabel === gi.id && activeAccountId === account.id;
+                          return (
+                            <button
+                              key={account.id}
+                              onClick={() => {
+                                setActiveAccount(account.id);
+                                navigateToLabel(gi.id);
+                              }}
+                              className={`flex items-center gap-2 w-full py-1.5 pl-7 pr-3 text-left text-[0.8125rem] transition-colors ${
+                                isAccountActive
+                                  ? "text-accent font-medium bg-accent/10"
+                                  : "text-sidebar-text/80 hover:text-sidebar-text hover:bg-sidebar-hover"
+                              }`}
+                            >
+                              <span
+                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: color }}
+                              />
+                              <span className="flex-1 truncate">{displayName}</span>
+                              {unread > 0 && (
+                                <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
+                                  {unread}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {!collapsed && <div className="mx-3 my-2 border-t border-border-primary/50" />}
           </>
         )}

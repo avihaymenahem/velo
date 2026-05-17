@@ -19,6 +19,7 @@ import {
   getThreadsForAccount,
   getThreadsForCategory,
   getUnifiedInboxThreads,
+  getUnifiedFolderThreads,
   getThreadById,
   getThreadLabelIds,
   getThreadIdsForLabel,
@@ -90,6 +91,10 @@ const LABEL_MAP: Record<string, string> = {
   snoozed: "SNOOZED",
   all: "", // no filter
 };
+
+const UNIFIED_FOLDER_LABELS = new Set([
+  "starred", "snoozed", "sent", "drafts", "trash", "spam", "all",
+]);
 
 export function EmailList({
   width,
@@ -554,13 +559,15 @@ const [hasMore, setHasMore] = useState(true);
   }, [activeAccountId, threadMap, addThreads, selectThread, clearMultiSelect, setSelectedMessageId]);
 
   const isUnifiedInbox = activeLabel === "unified-inbox";
+  const isUnifiedFolder = activeAccountId === null && UNIFIED_FOLDER_LABELS.has(activeLabel);
+  const globalAccountIds = useMemo(
+    () => accounts.filter((a) => a.includeInGlobal).map((a) => a.id),
+    [accounts],
+  );
 
   const loadThreads = useCallback(async (keepSearch = false) => {
     // Unified inbox: load across all opted-in accounts (activeAccountId may be null)
     if (isUnifiedInbox) {
-      const globalAccountIds = accounts
-        .filter((a) => a.includeInGlobal)
-        .map((a) => a.id);
       if (!keepSearch) clearSearch();
       setLoading(true);
       setHasMore(true);
@@ -571,6 +578,25 @@ const [hasMore, setHasMore] = useState(true);
         setHasMore(dbThreads.length === PAGE_SIZE);
       } catch (err) {
         console.error("Failed to load unified inbox threads:", err);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Unified folder (starred, snoozed, sent, drafts, trash, spam, all) across all global accounts
+    if (isUnifiedFolder) {
+      if (!keepSearch) clearSearch();
+      setLoading(true);
+      setHasMore(true);
+      try {
+        const labelId = LABEL_MAP[activeLabel] ?? activeLabel;
+        const dbThreads = await getUnifiedFolderThreads(globalAccountIds, labelId, PAGE_SIZE, 0);
+        const mapped = await mapDbThreads(dbThreads);
+        setThreads(mapped);
+        setHasMore(dbThreads.length === PAGE_SIZE);
+      } catch (err) {
+        console.error("Failed to load unified folder threads:", err);
       } finally {
         setLoading(false);
       }
@@ -629,6 +655,8 @@ const [hasMore, setHasMore] = useState(true);
     }
   }, [
     isUnifiedInbox,
+    isUnifiedFolder,
+    globalAccountIds,
     accounts,
     activeAccountId,
     activeLabel,
@@ -648,10 +676,20 @@ const [hasMore, setHasMore] = useState(true);
       const offset = threads.length;
 
       if (isUnifiedInbox) {
-        const globalAccountIds = accounts
-          .filter((a) => a.includeInGlobal)
-          .map((a) => a.id);
         const dbThreads = await getUnifiedInboxThreads(globalAccountIds, PAGE_SIZE, offset);
+        const mapped = await mapDbThreads(dbThreads);
+        if (mapped.length > 0) {
+          const existingIds = new Set(threads.map((t) => t.id));
+          const newThreads = mapped.filter((t) => !existingIds.has(t.id));
+          if (newThreads.length > 0) setThreads([...threads, ...newThreads]);
+        }
+        setHasMore(dbThreads.length === PAGE_SIZE);
+        return;
+      }
+
+      if (isUnifiedFolder) {
+        const labelId = LABEL_MAP[activeLabel] ?? activeLabel;
+        const dbThreads = await getUnifiedFolderThreads(globalAccountIds, labelId, PAGE_SIZE, offset);
         const mapped = await mapDbThreads(dbThreads);
         if (mapped.length > 0) {
           const existingIds = new Set(threads.map((t) => t.id));
@@ -700,6 +738,8 @@ const [hasMore, setHasMore] = useState(true);
     }
   }, [
     isUnifiedInbox,
+    isUnifiedFolder,
+    globalAccountIds,
     accounts,
     activeAccountId,
     activeLabel,
@@ -1145,7 +1185,7 @@ const [hasMore, setHasMore] = useState(true);
             {visibleThreads.map((thread, idx) => {
               const prevThread = idx > 0 ? filteredThreads[idx - 1] : undefined;
               const showDivider = prevThread?.isPinned && !thread.isPinned;
-              const accountColor = isUnifiedInbox
+              const accountColor = (isUnifiedInbox || isUnifiedFolder)
                 ? (accounts.find((a) => a.id === thread.accountId)?.color ?? null)
                 : null;
 return (
@@ -1225,7 +1265,8 @@ function EmptyStateForContext({
       />
     );
   }
-  if (!activeAccountId) {
+  const isUnifiedFolderCtx = !activeAccountId && UNIFIED_FOLDER_LABELS.has(activeLabel);
+  if (!activeAccountId && !isUnifiedFolderCtx) {
     return (
       <EmptyState
         illustration={NoAccountIllustration}

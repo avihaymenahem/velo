@@ -43,6 +43,8 @@ export function EditGmailAccount({
     getSecureSetting("google_client_secret").then((v) => setClientSecret(v ?? ""));
   }, []);
 
+  const [saving, setSaving] = useState(false);
+
   const refreshAccountStore = async () => {
     const dbAccounts = await getAllAccounts();
     useAccountStore.getState().setAccounts(
@@ -63,17 +65,16 @@ export function EditGmailAccount({
     window.dispatchEvent(new CustomEvent("velo-sync-done"));
   };
 
-  const handleColorChange = async (newColor: string | null) => {
-    setColor(newColor);
-    await updateAccountMeta(accountId, { color: newColor });
+  const handleSave = async () => {
+    setSaving(true);
+    await updateAccountMeta(accountId, {
+      color,
+      includeInGlobal,
+      label: label.trim() || null,
+    });
     await refreshAccountStore();
-  };
-
-  const handleIncludeInGlobalChange = async () => {
-    const next = !includeInGlobal;
-    setIncludeInGlobal(next);
-    await updateAccountMeta(accountId, { includeInGlobal: next });
-    await refreshAccountStore();
+    setSaving(false);
+    onClose();
   };
 
   const handleReauthorize = async () => {
@@ -101,11 +102,6 @@ export function EditGmailAccount({
     setTimeout(() => setApiSaved(false), 2000);
   };
 
-  const handleLabelSave = async () => {
-    await updateAccountMeta(accountId, { label: label.trim() || null });
-    await refreshAccountStore();
-  };
-
   return (
     <Modal isOpen title={displayName ?? email} onClose={onClose} width="w-96">
       <div className="p-4 space-y-6 max-h-[80vh] overflow-y-auto">
@@ -114,23 +110,13 @@ export function EditGmailAccount({
         {/* Display label */}
         <div>
           <label className={labelClass}>Display Label</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. Work, Personal…"
-              className="flex-1 px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm text-text-primary outline-none focus:border-accent transition-colors"
-              onKeyDown={(e) => { if (e.key === "Enter") handleLabelSave(); }}
-            />
-            <button
-              type="button"
-              onClick={handleLabelSave}
-              className="px-3 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
-            >
-              Save
-            </button>
-          </div>
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Work, Personal…"
+            className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm text-text-primary outline-none focus:border-accent transition-colors"
+          />
           <p className="text-xs text-text-tertiary mt-1">Shown instead of your name in the sidebar and account switcher.</p>
         </div>
 
@@ -142,7 +128,7 @@ export function EditGmailAccount({
               <button
                 key={preset}
                 type="button"
-                onClick={() => handleColorChange(color === preset ? null : preset)}
+                onClick={() => setColor(color === preset ? null : preset)}
                 className="w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-accent"
                 style={{ backgroundColor: preset }}
                 title={preset}
@@ -153,7 +139,7 @@ export function EditGmailAccount({
             {color && (
               <button
                 type="button"
-                onClick={() => handleColorChange(null)}
+                onClick={() => setColor(null)}
                 className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
               >
                 Clear
@@ -168,7 +154,7 @@ export function EditGmailAccount({
             type="button"
             role="switch"
             aria-checked={includeInGlobal}
-            onClick={handleIncludeInGlobalChange}
+            onClick={() => setIncludeInGlobal((v) => !v)}
             className={`relative w-9 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 ${includeInGlobal ? "bg-accent" : "bg-border-primary"}`}
           >
             <span
@@ -177,7 +163,7 @@ export function EditGmailAccount({
           </button>
           <label
             className="text-sm text-text-secondary cursor-pointer select-none"
-            onClick={handleIncludeInGlobalChange}
+            onClick={() => setIncludeInGlobal((v) => !v)}
           >
             Include in unified inbox
           </label>
@@ -229,6 +215,21 @@ export function EditGmailAccount({
           >
             {apiSaved ? "Saved!" : "Save"}
           </Button>
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
         </div>
       </div>
     </Modal>
