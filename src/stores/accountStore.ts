@@ -11,6 +11,7 @@ export interface Account {
   color: string | null;
   includeInGlobal: boolean;
   sortOrder: number;
+  label: string | null;
 }
 
 interface AccountState {

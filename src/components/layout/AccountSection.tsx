@@ -36,14 +36,14 @@ export function AccountSection({
     return (
       <button
         onClick={() => onFolderClick(account.id, "inbox")}
-        title={account.displayName ?? account.email}
+        title={account.label ?? account.displayName ?? account.email}
         className="relative flex items-center justify-center w-full py-2"
       >
         <span
           className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
           style={{ backgroundColor: color }}
         >
-          {(account.displayName ?? account.email)[0]?.toUpperCase()}
+          {(account.label ?? account.displayName ?? account.email)[0]?.toUpperCase()}
         </span>
         {inboxUnread > 0 && (
           <span className="absolute top-1 right-2 text-[0.5rem] bg-accent text-white px-1 rounded-full leading-normal">
@@ -65,7 +65,7 @@ export function AccountSection({
           style={{ backgroundColor: color }}
         />
         <span className="flex-1 truncate text-left text-[0.8125rem]">
-          {account.displayName ?? account.email}
+          {account.label ?? account.displayName ?? account.email}
         </span>
         {!expanded && (unreadCounts["INBOX"] ?? 0) > 0 && (
           <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">

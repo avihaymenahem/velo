@@ -15,6 +15,7 @@ interface EditImapAccountProps {
 
 interface FormState {
   displayName: string;
+  label: string;
   imapUsername: string;
   password: string;
   smtpPassword: string;
@@ -49,6 +50,7 @@ export function EditImapAccount({ accountId, onClose, onSaved }: EditImapAccount
   const [authMethod, setAuthMethod] = useState("password");
   const [form, setForm] = useState<FormState>({
     displayName: "",
+    label: "",
     imapUsername: "",
     password: "",
     smtpPassword: "",
@@ -75,6 +77,7 @@ export function EditImapAccount({ accountId, onClose, onSaved }: EditImapAccount
       setAuthMethod(account.auth_method);
       setForm({
         displayName: account.display_name ?? "",
+        label: account.label ?? "",
         imapUsername: account.imap_username ?? "",
         password: account.imap_password ?? "",
         smtpPassword: account.smtp_password ?? "",
@@ -167,6 +170,7 @@ export function EditImapAccount({ accountId, onClose, onSaved }: EditImapAccount
       await updateAccountMeta(accountId, {
         color: form.color,
         includeInGlobal: form.includeInGlobal,
+        label: form.label.trim() || null,
       });
       // Refresh account store so color/includeInGlobal propagate immediately
       const dbAccounts = await getAllAccounts();
@@ -181,6 +185,7 @@ export function EditImapAccount({ accountId, onClose, onSaved }: EditImapAccount
           color: a.color ?? null,
           includeInGlobal: a.include_in_global !== 0,
           sortOrder: a.sort_order ?? 0,
+          label: a.label ?? null,
         })),
         useAccountStore.getState().activeAccountId ?? undefined,
       );
@@ -232,6 +237,17 @@ export function EditImapAccount({ accountId, onClose, onSaved }: EditImapAccount
               placeholder="Your Name"
               className={inputClass}
             />
+          </div>
+          <div>
+            <label className={labelClass}>Display Label (optional)</label>
+            <input
+              type="text"
+              value={form.label}
+              onChange={(e) => update("label", e.target.value)}
+              placeholder="e.g. Work, Personal…"
+              className={inputClass}
+            />
+            <p className="text-xs text-text-tertiary mt-1">Shown instead of your name in the sidebar and account switcher.</p>
           </div>
           {/* Account color */}
           <div>

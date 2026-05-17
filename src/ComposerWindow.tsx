@@ -97,6 +97,7 @@ export default function ComposerWindow() {
           color: a.color ?? null,
           includeInGlobal: a.include_in_global !== 0,
           sortOrder: a.sort_order ?? 0,
+          label: a.label ?? null,
         }));
         const savedAccountId = await getSetting("active_account_id");
         setAccounts(mapped, savedAccountId);

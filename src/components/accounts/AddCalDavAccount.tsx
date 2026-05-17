@@ -87,6 +87,7 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
         color: null,
         includeInGlobal: true,
         sortOrder: 0,
+        label: null,
       });
 
       setStep("done");

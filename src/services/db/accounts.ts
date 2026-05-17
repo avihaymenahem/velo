@@ -40,6 +40,7 @@ export interface DbAccount {
   color: string | null;
   include_in_global: number;
   sort_order: number;
+  label: string | null;
 }
 
 async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
@@ -111,6 +112,7 @@ export async function updateAccountMeta(
     includeInGlobal?: boolean;
     sortOrder?: number;
     displayName?: string | null;
+    label?: string | null;
   },
 ): Promise<void> {
   const db = await getDb();
@@ -132,6 +134,10 @@ export async function updateAccountMeta(
   if ("displayName" in fields) {
     params.push(fields.displayName ?? null);
     setClauses.push(`display_name = $${params.length}`);
+  }
+  if ("label" in fields) {
+    params.push(fields.label ?? null);
+    setClauses.push(`label = $${params.length}`);
   }
   if (setClauses.length === 0) return;
 

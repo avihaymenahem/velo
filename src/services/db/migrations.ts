@@ -1024,6 +1024,13 @@ const MIGRATIONS = [
       ALTER TABLE accounts ADD COLUMN sort_order INTEGER DEFAULT 0;
     `,
   },
+  {
+    version: 43,
+    description: "Add display label column to accounts for custom in-app identification (e.g. Work, Personal)",
+    sql: `
+      ALTER TABLE accounts ADD COLUMN label TEXT DEFAULT NULL;
+    `,
+  },
 ];
 
 /**

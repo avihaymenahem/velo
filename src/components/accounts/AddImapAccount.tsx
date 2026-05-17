@@ -400,6 +400,7 @@ export function AddImapAccount({
         color: null,
         includeInGlobal: true,
         sortOrder: 0,
+        label: null,
       });
 
       onSuccess();

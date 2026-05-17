@@ -80,6 +80,7 @@ export default function ThreadWindow() {
           color: a.color ?? null,
           includeInGlobal: a.include_in_global !== 0,
           sortOrder: a.sort_order ?? 0,
+          label: a.label ?? null,
         }));
         setAccounts(mapped);
 

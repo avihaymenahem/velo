@@ -59,6 +59,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
         color: null,
         includeInGlobal: true,
         sortOrder: 0,
+        label: null,
       });
 
       onSuccess();

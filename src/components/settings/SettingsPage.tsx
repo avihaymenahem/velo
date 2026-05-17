@@ -154,7 +154,7 @@ export function SettingsPage() {
   const [aiLanguage, setAiLanguage] = useState("English");
   const [soulEditorOpen, setSoulEditorOpen] = useState(false);
   const [editingImapAccountId, setEditingImapAccountId] = useState<string | null>(null);
-  const [editingGmailAccount, setEditingGmailAccount] = useState<{ id: string; email: string; displayName?: string | null; color?: string | null; includeInGlobal?: boolean } | null>(null);
+  const [editingGmailAccount, setEditingGmailAccount] = useState<{ id: string; email: string; displayName?: string | null; color?: string | null; includeInGlobal?: boolean; label?: string | null } | null>(null);
   const [taskRetentionDeleted, setTaskRetentionDeleted] = useState("7");
   const [taskAutoArchiveHours, setTaskAutoArchiveHours] = useState("24");
   const [taskRetentionCompleted, setTaskRetentionCompleted] = useState("30");
@@ -1026,7 +1026,7 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                                   {account.color && (
                                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
                                   )}
-                                  {account.displayName ?? account.email}
+                                  {account.label ?? account.displayName ?? account.email}
                                   <span className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-tertiary">
                                     {providerLabel}
                                   </span>
@@ -1046,7 +1046,7 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
                                 )}
                                 {account.provider !== "imap" && (
                                   <button
-                                    onClick={() => setEditingGmailAccount({ id: account.id, email: account.email, displayName: account.displayName, color: account.color, includeInGlobal: account.includeInGlobal })}
+                                    onClick={() => setEditingGmailAccount({ id: account.id, email: account.email, displayName: account.displayName, color: account.color, includeInGlobal: account.includeInGlobal, label: account.label })}
                                     className="text-xs text-accent hover:text-accent-hover transition-colors"
                                   >
                                     Edit
@@ -2259,6 +2259,7 @@ const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
           displayName={editingGmailAccount.displayName}
           initialColor={editingGmailAccount.color}
           initialIncludeInGlobal={editingGmailAccount.includeInGlobal}
+          initialLabel={editingGmailAccount.label}
           onClose={() => setEditingGmailAccount(null)}
         />
       )}

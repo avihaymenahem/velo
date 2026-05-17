@@ -66,7 +66,7 @@ export function AccountSwitcher({
           <>
             <div className="flex-1 min-w-0 text-left">
               <div className="text-sm font-medium text-sidebar-text truncate leading-tight">
-                {activeAccount.displayName || activeAccount.email.split("@")[0]}
+                {activeAccount.label || activeAccount.displayName || activeAccount.email.split("@")[0]}
               </div>
               <div className="text-xs text-sidebar-text/50 truncate leading-tight">
                 {activeAccount.email}
@@ -109,7 +109,7 @@ export function AccountSwitcher({
                 <AccountAvatarSmall account={account} isActive={isActive} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate leading-tight flex items-center gap-1.5">
-                    {account.displayName || account.email.split("@")[0]}
+                    {account.label || account.displayName || account.email.split("@")[0]}
                     {account.provider === "caldav" && (
                       <Calendar size={12} className="shrink-0 text-text-tertiary" />
                     )}
@@ -147,7 +147,7 @@ function ActiveAvatar({ account }: { account: Account | undefined }) {
   if (!account) return null;
 
   const initial = (
-    account.displayName?.[0] ?? account.email[0] ?? "?"
+    account.label?.[0] ?? account.displayName?.[0] ?? account.email[0] ?? "?"
   ).toUpperCase();
   const showImg = account.avatarUrl && !imgError;
 
@@ -179,7 +179,7 @@ function AccountAvatarSmall({
   const [imgError, setImgError] = useState(false);
 
   const initial = (
-    account.displayName?.[0] ?? account.email[0] ?? "?"
+    account.label?.[0] ?? account.displayName?.[0] ?? account.email[0] ?? "?"
   ).toUpperCase();
   const showImg = account.avatarUrl && !imgError;
 

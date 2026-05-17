@@ -131,6 +131,7 @@ export function createMockGmailAccount(
     color: null,
     include_in_global: 1,
     sort_order: 0,
+    label: null,
     ...overrides,
   };
 }
@@ -177,6 +178,7 @@ export function createMockImapAccount(
     color: null,
     include_in_global: 1,
     sort_order: 0,
+    label: null,
     ...overrides,
   };
 }
@@ -223,6 +225,7 @@ export function createMockDbAccount(
     color: null,
     include_in_global: 1,
     sort_order: 0,
+    label: null,
     ...overrides,
   };
 }

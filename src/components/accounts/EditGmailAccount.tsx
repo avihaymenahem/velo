@@ -17,6 +17,7 @@ interface EditGmailAccountProps {
   displayName?: string | null;
   initialColor?: string | null;
   initialIncludeInGlobal?: boolean;
+  initialLabel?: string | null;
   onClose: () => void;
 }
 
@@ -26,6 +27,7 @@ export function EditGmailAccount({
   displayName,
   initialColor = null,
   initialIncludeInGlobal = true,
+  initialLabel = null,
   onClose,
 }: EditGmailAccountProps) {
   const [clientId, setClientId] = useState("");
@@ -34,6 +36,7 @@ export function EditGmailAccount({
   const [reauthStatus, setReauthStatus] = useState<"idle" | "authorizing" | "done" | "error">("idle");
   const [color, setColor] = useState<string | null>(initialColor);
   const [includeInGlobal, setIncludeInGlobal] = useState(initialIncludeInGlobal);
+  const [label, setLabel] = useState(initialLabel ?? "");
 
   useEffect(() => {
     getSetting("google_client_id").then((v) => setClientId(v ?? ""));
@@ -53,6 +56,7 @@ export function EditGmailAccount({
         color: a.color ?? null,
         includeInGlobal: a.include_in_global !== 0,
         sortOrder: a.sort_order ?? 0,
+        label: a.label ?? null,
       })),
       useAccountStore.getState().activeAccountId ?? undefined,
     );
@@ -97,10 +101,38 @@ export function EditGmailAccount({
     setTimeout(() => setApiSaved(false), 2000);
   };
 
+  const handleLabelSave = async () => {
+    await updateAccountMeta(accountId, { label: label.trim() || null });
+    await refreshAccountStore();
+  };
+
   return (
     <Modal isOpen title={displayName ?? email} onClose={onClose} width="w-96">
       <div className="p-4 space-y-6 max-h-[80vh] overflow-y-auto">
         <div className="text-xs text-text-tertiary -mt-2">{email}</div>
+
+        {/* Display label */}
+        <div>
+          <label className={labelClass}>Display Label</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="e.g. Work, Personal…"
+              className="flex-1 px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm text-text-primary outline-none focus:border-accent transition-colors"
+              onKeyDown={(e) => { if (e.key === "Enter") handleLabelSave(); }}
+            />
+            <button
+              type="button"
+              onClick={handleLabelSave}
+              className="px-3 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
+            >
+              Save
+            </button>
+          </div>
+          <p className="text-xs text-text-tertiary mt-1">Shown instead of your name in the sidebar and account switcher.</p>
+        </div>
 
         {/* Account color */}
         <div>
