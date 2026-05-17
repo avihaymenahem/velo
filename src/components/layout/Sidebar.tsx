@@ -124,6 +124,7 @@ function ExpandableNavItem({
   expanded,
   onNavigate,
   onToggleExpand,
+  leftBorderColor,
   children,
 }: {
   id: string;
@@ -133,6 +134,7 @@ function ExpandableNavItem({
   expanded: boolean;
   onNavigate: () => void;
   onToggleExpand: () => void;
+  leftBorderColor?: string;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -159,6 +161,7 @@ function ExpandableNavItem({
   return (
     <div
       ref={setNodeRef}
+      style={leftBorderColor ? { borderLeft: `3px solid ${leftBorderColor}` } : undefined}
       className={`flex items-center w-full text-sm transition-colors ${
         isOver
           ? "bg-accent/20 ring-1 ring-accent"
@@ -170,6 +173,7 @@ function ExpandableNavItem({
       <button
         onClick={onNavigate}
         className="flex items-center gap-3 flex-1 py-2 pl-3 pr-1 text-left text-sm transition-colors press-scale min-w-0"
+        style={leftBorderColor ? { paddingLeft: "0.625rem" } : undefined}
       >
         {children}
       </button>
@@ -734,6 +738,81 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                 </div>
               );
             })}
+            {/* ─── Smart folders in Global section ─── */}
+            {showSmartFolders && smartFolders.length > 0 && !collapsed && (
+              <div className="mx-3 mt-2 mb-1 flex items-center gap-2">
+                <div className="flex-1 border-t border-border-primary/50" />
+                <span className="text-[0.65rem] font-medium text-sidebar-text/40 uppercase tracking-wider">Smart Folders</span>
+                <div className="flex-1 border-t border-border-primary/50" />
+              </div>
+            )}
+            {showSmartFolders && smartFolders.map((folder) => {
+              const GIcon = getSmartFolderIcon(folder.icon);
+              const count = smartFolderCounts[folder.id] ?? 0;
+              return (
+                <div key={`global-smart-${folder.id}`}>
+                  <ExpandableNavItem
+                    id={`global-smart-${folder.id}`}
+                    label={folder.name}
+                    isActive={activeLabel === `smart-folder:${folder.id}` && activeAccountId === null}
+                    collapsed={collapsed}
+                    expanded={!!expandedGlobalItems[`global-smart-${folder.id}`]}
+                    onNavigate={() => {
+                      setActiveAccount(null);
+                      navigateToLabel(`smart-folder:${folder.id}`);
+                    }}
+                    onToggleExpand={() => toggleGlobalItem(`global-smart-${folder.id}`)}
+                    leftBorderColor={folder.color ?? undefined}
+                  >
+                    <GIcon size={18} className="shrink-0" style={folder.color ? { color: folder.color } : undefined} />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 truncate">{folder.name}</span>
+                        {count > 0 && (
+                          <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
+                            {count}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </ExpandableNavItem>
+                  {!collapsed && (
+                    <div
+                      className={`grid transition-[grid-template-rows] duration-200 ease-out ${expandedGlobalItems[`global-smart-${folder.id}`] ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+                    >
+                      <div className="overflow-hidden">
+                        {globalAccounts.map((account) => {
+                          const color = account.color ?? "#3182CE";
+                          const displayName = account.label ?? account.displayName ?? account.email;
+                          const isAccountActive =
+                            activeLabel === `smart-folder:${folder.id}` && activeAccountId === account.id;
+                          return (
+                            <button
+                              key={account.id}
+                              onClick={() => {
+                                setActiveAccount(account.id);
+                                navigateToLabel(`smart-folder:${folder.id}`);
+                              }}
+                              className={`flex items-center gap-2 w-full py-1.5 pl-7 pr-3 text-left text-[0.8125rem] transition-colors ${
+                                isAccountActive
+                                  ? "text-accent font-medium bg-accent/10"
+                                  : "text-sidebar-text/80 hover:text-sidebar-text hover:bg-sidebar-hover"
+                              }`}
+                            >
+                              <span
+                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: color }}
+                              />
+                              <span className="flex-1 truncate">{displayName}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {!collapsed && <div className="mx-3 my-2 border-t border-border-primary/50" />}
           </>
         )}
@@ -755,13 +834,14 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                 sidebarCollapsed={collapsed}
                 unreadCounts={globalUnreadCounts[account.id] ?? {}}
                 onFolderClick={handleAccountFolderClick}
+                activeAccountId={activeAccountId}
               />
             ))}
             {!collapsed && <div className="mx-3 my-2 border-t border-border-primary/50" />}
           </>
         )}
 
-        {visibleNavItems.map((item) => {
+        {!hasGlobal && visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isInbox = item.id === "inbox";
 
@@ -886,8 +966,8 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
           );
         })}
 
-        {/* Smart Folders */}
-        {showSmartFolders && (smartFolders.length > 0 || !collapsed) && (
+        {/* Smart Folders — only when not already shown in Global section */}
+        {showSmartFolders && !hasGlobal && (smartFolders.length > 0 || !collapsed) && (
           <>
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">
@@ -977,7 +1057,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                           style={accountColor ? { backgroundColor: accountColor } : undefined}
                         />
                         <span className="flex-1 truncate text-left">
-                          {account.displayName ?? account.email}
+                          {account.label ?? account.displayName ?? account.email}
                         </span>
                         {isGroupCollapsed ? (
                           <ChevronRight size={11} className="shrink-0" />

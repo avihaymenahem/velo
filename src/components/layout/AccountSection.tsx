@@ -19,6 +19,7 @@ interface AccountSectionProps {
   sidebarCollapsed: boolean;
   unreadCounts: Record<string, number>;
   onFolderClick: (accountId: string, folder: string) => void;
+  activeAccountId: string | null;
 }
 
 export function AccountSection({
@@ -26,6 +27,7 @@ export function AccountSection({
   sidebarCollapsed,
   unreadCounts,
   onFolderClick,
+  activeAccountId,
 }: AccountSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const activeLabel = useActiveLabel();
@@ -85,7 +87,11 @@ export function AccountSection({
         <div className="overflow-hidden">
           {ACCOUNT_FOLDERS.map(({ id, label, labelId, icon: Icon }) => {
             const count = unreadCounts[labelId] ?? 0;
-            const isActive = activeLabel === id;
+            const isActive =
+              activeLabel === id &&
+              (activeAccountId === null
+                ? (account.includeInGlobal ?? false)
+                : activeAccountId === account.id);
             return (
               <button
                 key={id}
