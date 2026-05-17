@@ -118,6 +118,8 @@ export function createMockGmailAccount(
     oauth_client_id: null,
     oauth_client_secret: null,
     imap_username: null,
+    smtp_username: null,
+    smtp_password: null,
     caldav_url: null,
     caldav_username: null,
     caldav_password: null,
@@ -125,6 +127,11 @@ export function createMockGmailAccount(
     caldav_home_url: null,
     calendar_provider: null,
     accept_invalid_certs: 0,
+    rag_enabled: 0,
+    color: null,
+    include_in_global: 1,
+    sort_order: 0,
+    label: null,
     ...overrides,
   };
 }
@@ -158,6 +165,8 @@ export function createMockImapAccount(
     oauth_client_id: null,
     oauth_client_secret: null,
     imap_username: null,
+    smtp_username: null,
+    smtp_password: null,
     caldav_url: null,
     caldav_username: null,
     caldav_password: null,
@@ -165,6 +174,11 @@ export function createMockImapAccount(
     caldav_home_url: null,
     calendar_provider: null,
     accept_invalid_certs: 0,
+    rag_enabled: 0,
+    color: null,
+    include_in_global: 1,
+    sort_order: 0,
+    label: null,
     ...overrides,
   };
 }
@@ -198,6 +212,8 @@ export function createMockDbAccount(
     oauth_client_id: null,
     oauth_client_secret: null,
     imap_username: null,
+    smtp_username: null,
+    smtp_password: null,
     caldav_url: null,
     caldav_username: null,
     caldav_password: null,
@@ -205,6 +221,11 @@ export function createMockDbAccount(
     caldav_home_url: null,
     calendar_provider: null,
     accept_invalid_certs: 0,
+    rag_enabled: 0,
+    color: null,
+    include_in_global: 1,
+    sort_order: 0,
+    label: null,
     ...overrides,
   };
 }

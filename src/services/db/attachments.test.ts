@@ -5,6 +5,7 @@ vi.mock("@/services/db/connection", async (importOriginal) => {
   return {
     ...actual,
     getDb: vi.fn(),
+    withTransaction: vi.fn(async (fn: (db: any) => Promise<any>) => fn(mockDb)),
   };
 });
 
@@ -77,6 +78,7 @@ describe("attachments DB service", () => {
         mimeType: "application/pdf",
         size: 1024,
         gmailAttachmentId: "gid-1",
+        imapPartId: null,
         contentId: null,
         isInline: false,
       });
@@ -85,7 +87,7 @@ describe("attachments DB service", () => {
       const [sql, params] = mockDb.execute.mock.calls[0]!;
       expect(sql).toContain("INSERT INTO attachments");
       expect(sql).toContain("ON CONFLICT");
-      expect(params).toEqual(["att-1", "msg-1", "acc-1", "test.pdf", "application/pdf", 1024, "gid-1", null, 0]);
+      expect(params).toEqual(["att-1", "msg-1", "acc-1", "test.pdf", "application/pdf", 1024, "gid-1", null, null, 0]);
     });
   });
 

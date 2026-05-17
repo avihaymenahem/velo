@@ -31,7 +31,7 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 | **Backend** | Rust |
 | **Database** | SQLite (via tauri-plugin-sql) |
 | **Search** | FTS5 with trigram tokenizer |
-| **AI** | Anthropic Claude, OpenAI GPT, Google Gemini (user-selectable models per provider) |
+| **AI** | Anthropic Claude, OpenAI GPT, Google Gemini, Ollama (local) (user-selectable models per provider) |
 | **Icons** | Lucide React |
 | **Drag & Drop** | @dnd-kit |
 | **Testing** | Vitest + Testing Library |
@@ -135,7 +135,7 @@ The Rust layer (`src-tauri/src/`) handles system integration and performance-cri
 - **Custom titlebar** -- Overlay on macOS, frameless on Windows/Linux
 - **Windows AUMID** -- Set for proper notification identity
 
-**Tauri commands:** `start_oauth_server`, `close_splashscreen`, `set_tray_tooltip`, `open_devtools`, 11 IMAP commands (`imap_test_connection`, `imap_list_folders`, `imap_fetch_messages`, etc.), 2 SMTP commands (`smtp_send_email`, `smtp_test_connection`)
+**Tauri commands:** `start_oauth_server`, `oauth_exchange_token`, `oauth_refresh_token`, `close_splashscreen`, `set_tray_tooltip`, `open_devtools`, 17 IMAP commands (`imap_test_connection`, `imap_list_folders`, `imap_fetch_messages`, `imap_fetch_new_uids`, `imap_search_all_uids`, `imap_fetch_message_body`, `imap_fetch_raw_message`, `imap_set_flags`, `imap_move_messages`, `imap_delete_messages`, `imap_get_folder_status`, `imap_fetch_attachment`, `imap_append_message`, `imap_search_folder`, `imap_sync_folder`, `imap_raw_fetch_diagnostic`, `imap_delta_check`), 2 SMTP commands (`smtp_send_email`, `smtp_test_connection`)
 
 **Plugins (13):** sql, notification, opener, log, dialog, fs, http, single-instance, autostart, deep-link, global-shortcut
 
@@ -152,7 +152,7 @@ All business logic lives in `src/services/` as plain async functions (except `Gm
 | `gmail/` | Gmail client, token management, sync engine |
 | `imap/` | IMAP sync, folder-to-label mapping, auto-discovery, Tauri command wrappers |
 | `threading/` | JWZ threading algorithm for IMAP message grouping |
-| `ai/` | AI service with 3 providers (selectable models), categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction |
+| `ai/` | AI service with 5 providers — Claude, OpenAI, Gemini, Ollama (local) — selectable per feature, categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction |
 | `google/` | Google Calendar API |
 | `composer/` | Draft auto-save (3s debounce) |
 | `search/` | Gmail-style query parser, SQL builder |
@@ -190,9 +190,9 @@ Nine Zustand stores manage ephemeral UI state:
 
 ## Database
 
-SQLite via Tauri SQL plugin. 19 migrations, 35 tables total.
+SQLite via Tauri SQL plugin. 27 migrations (version-tracked in `_migrations`, transactional), 38 tables total.
 
-Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS5 index, `auth_results`, IMAP headers, `imap_uid`, `imap_folder`), `threads` (with `is_pinned`, `is_muted`), `thread_labels`, `labels` (with `imap_folder_path`, `imap_special_use`), `contacts`, `attachments` (with `imap_part_id`), `filter_rules`, `scheduled_emails`, `templates`, `signatures`, `image_allowlist`, `settings`, `ai_cache`, `thread_categories`, `calendar_events`, `follow_up_reminders`, `notification_vips`, `unsubscribe_actions`, `bundle_rules`, `bundled_threads`, `send_as_aliases`, `smart_folders`, `link_scan_results`, `phishing_allowlist`, `quick_steps`, `folder_sync_state` (IMAP sync tracking), `pending_operations` (offline action queue), `local_drafts` (offline draft persistence), `writing_style_profiles` (AI writing style per account), `tasks` (full task management with priorities, subtasks, recurrence), `task_tags` (custom task tag colors), `smart_label_rules` (AI-powered auto-labeling rules).
+Key tables: `accounts` (with `provider` "gmail_api"|"imap", IMAP/SMTP fields, encrypted `imap_password`, optional `imap_username`), `messages` (FTS5 index `messages_fts`, `auth_results`, IMAP headers, `imap_uid`, `imap_folder`), `threads` (`is_pinned`, `is_muted`), `thread_labels`, `labels` (`imap_folder_path`, `imap_special_use`), `contacts`, `attachments` (`imap_part_id`, `cached_at`, `cache_size`), `filter_rules` (criteria/actions as JSON), `scheduled_emails`, `templates`, `signatures`, `image_allowlist`, `settings` (key-value), `ai_cache`, `thread_categories`, `calendar_events`, `follow_up_reminders`, `notification_vips`, `unsubscribe_actions`, `bundle_rules`, `bundled_threads`, `send_as_aliases`, `smart_folders`, `link_scan_results`, `phishing_allowlist`, `quick_steps`, `folder_sync_state` (IMAP UIDVALIDITY/last_uid/modseq tracking), `pending_operations` (offline queue with retry/backoff), `local_drafts` (offline IMAP draft persistence), `deleted_imap_uids` (tombstone — prevents re-import of deleted messages during sync), `writing_style_profiles`, `tasks` (priorities, subtasks, recurrence), `task_tags`, `smart_label_rules`, `_migrations`.
 
 ## Startup Sequence
 

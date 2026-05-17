@@ -1,17 +1,23 @@
+/**
+ * Melo · Color Themes — v2
+ * IDs invariati per back-compat delle user prefs. Solo `name` e valori cambiano.
+ */
+
 export type ColorThemeId =
-  | "indigo"
-  | "rose"
-  | "emerald"
-  | "amber"
-  | "sky"
-  | "violet"
-  | "orange"
-  | "slate";
+  | "ink_black"
+  | "prussian_blue"
+  | "sage" // Now: Sage (verde)
+  | "midnight_violet" // Now: Iris (viola morbido)
+  | "night_bordeaux"  // Now: Claret
+  | "orange"          // Now: Persimmon
+  | "golden_bronze"   // Now: Amber (default Melo)
+  | "gunmetal";       // Now: Slate
 
 interface ThemeColors {
   accent: string;
   accentHover: string;
   accentLight: string;
+  accentLowerBar: string;
   bgSelected: string;
   sidebarActive: string;
 }
@@ -26,160 +32,176 @@ export interface ColorTheme {
 
 export const COLOR_THEMES: ColorTheme[] = [
   {
-    id: "indigo",
-    name: "Indigo",
-    swatch: "#4f46e5",
+    id: "ink_black",
+    name: "Ink Black",
+    swatch: "#1F1F23",
     light: {
-      accent: "#4f46e5",
-      accentHover: "#4338ca",
-      accentLight: "#e0e7ff",
-      bgSelected: "rgba(224, 231, 255, 0.65)",
-      sidebarActive: "#4f46e5",
+      accent: "#1F1F23",
+      accentHover: "#0A0A0C",
+      accentLight: "rgba(31, 31, 35, 0.08)",
+      accentLowerBar: "#1F1F23",
+      bgSelected: "rgba(31, 31, 35, 0.10)",
+      sidebarActive: "#1F1F23",
     },
     dark: {
-      accent: "#818cf8",
-      accentHover: "#6366f1",
-      accentLight: "#312e81",
-      bgSelected: "rgba(30, 58, 95, 0.55)",
-      sidebarActive: "#818cf8",
+      accent: "#D4D4D8",
+      accentHover: "#3B3B3B",
+      accentLight: "rgba(212, 212, 216, 0.12)",
+      accentLowerBar: "#2C2C2C",
+      bgSelected: "rgba(212, 212, 216, 0.10)",
+      sidebarActive: "#D4D4D8",
     },
   },
   {
-    id: "rose",
-    name: "Rose",
-    swatch: "#e11d48",
+    id: "prussian_blue",
+    name: "Prussian Blue",
+    swatch: "#1E3A5F",
     light: {
-      accent: "#e11d48",
-      accentHover: "#be123c",
-      accentLight: "#ffe4e6",
-      bgSelected: "rgba(255, 228, 230, 0.65)",
-      sidebarActive: "#e11d48",
+      accent: "#1E3A5F",
+      accentHover: "#122642",
+      accentLight: "rgba(30, 58, 95, 0.10)",
+      accentLowerBar: "#1E3A5F",
+      bgSelected: "rgba(30, 58, 95, 0.10)",
+      sidebarActive: "#1E3A5F",
     },
     dark: {
-      accent: "#fb7185",
-      accentHover: "#f43f5e",
-      accentLight: "#4c0519",
-      bgSelected: "rgba(76, 5, 25, 0.55)",
-      sidebarActive: "#fb7185",
+      accent: "#6B9BCC",
+      accentHover: "#87B0DA",
+      accentLight: "rgba(107, 155, 204, 0.14)",
+      accentLowerBar: "#1E3A5F",
+      bgSelected: "rgba(107, 155, 204, 0.10)",
+      sidebarActive: "#6B9BCC",
     },
   },
   {
-    id: "emerald",
-    name: "Emerald",
-    swatch: "#059669",
+    id: "sage",
+    name: "Sage",
+    swatch: "#4F6B3F",
     light: {
-      accent: "#059669",
-      accentHover: "#047857",
-      accentLight: "#d1fae5",
-      bgSelected: "rgba(209, 250, 229, 0.65)",
-      sidebarActive: "#059669",
+      accent: "#4F6B3F",
+      accentHover: "#3B5230",
+      accentLight: "rgba(79, 107, 63, 0.10)",
+      accentLowerBar: "#4F6B3F",
+      bgSelected: "rgba(79, 107, 63, 0.10)",
+      sidebarActive: "#4F6B3F",
     },
     dark: {
-      accent: "#34d399",
-      accentHover: "#10b981",
-      accentLight: "#064e3b",
-      bgSelected: "rgba(6, 78, 59, 0.55)",
-      sidebarActive: "#34d399",
+      accent: "#9BC287",
+      accentHover: "#B0D29B",
+      accentLight: "rgba(155, 194, 135, 0.14)",
+      accentLowerBar: "#9BC287",
+      bgSelected: "rgba(155, 194, 135, 0.10)",
+      sidebarActive: "#9BC287",
     },
   },
   {
-    id: "amber",
-    name: "Amber",
-    swatch: "#d97706",
+    id: "midnight_violet",
+    name: "Iris",
+    swatch: "#5E3A8C",
     light: {
-      accent: "#d97706",
-      accentHover: "#b45309",
-      accentLight: "#fef3c7",
-      bgSelected: "rgba(254, 243, 199, 0.65)",
-      sidebarActive: "#d97706",
+      accent: "#5E3A8C",
+      accentHover: "#472A6E",
+      accentLight: "rgba(94, 58, 140, 0.10)",
+      accentLowerBar: "#5E3A8C",
+      bgSelected: "rgba(94, 58, 140, 0.10)",
+      sidebarActive: "#5E3A8C",
     },
     dark: {
-      accent: "#fbbf24",
-      accentHover: "#f59e0b",
-      accentLight: "#78350f",
-      bgSelected: "rgba(120, 53, 15, 0.55)",
-      sidebarActive: "#fbbf24",
+      accent: "#B097D8",
+      accentHover: "#C2AEE0",
+      accentLight: "rgba(176, 151, 216, 0.14)",
+      accentLowerBar: "#B097D8",
+      bgSelected: "rgba(176, 151, 216, 0.10)",
+      sidebarActive: "#B097D8",
     },
   },
   {
-    id: "sky",
-    name: "Sky",
-    swatch: "#0284c7",
+    id: "night_bordeaux",
+    name: "Claret",
+    swatch: "#7C2530",
     light: {
-      accent: "#0284c7",
-      accentHover: "#0369a1",
-      accentLight: "#e0f2fe",
-      bgSelected: "rgba(224, 242, 254, 0.65)",
-      sidebarActive: "#0284c7",
+      accent: "#7C2530",
+      accentHover: "#5C1922",
+      accentLight: "rgba(124, 37, 48, 0.10)",
+      accentLowerBar: "#7C2530",
+      bgSelected: "rgba(124, 37, 48, 0.10)",
+      sidebarActive: "#7C2530",
     },
     dark: {
-      accent: "#38bdf8",
-      accentHover: "#0ea5e9",
-      accentLight: "#0c4a6e",
-      bgSelected: "rgba(12, 74, 110, 0.55)",
-      sidebarActive: "#38bdf8",
-    },
-  },
-  {
-    id: "violet",
-    name: "Violet",
-    swatch: "#7c3aed",
-    light: {
-      accent: "#7c3aed",
-      accentHover: "#6d28d9",
-      accentLight: "#ede9fe",
-      bgSelected: "rgba(237, 233, 254, 0.65)",
-      sidebarActive: "#7c3aed",
-    },
-    dark: {
-      accent: "#a78bfa",
-      accentHover: "#8b5cf6",
-      accentLight: "#2e1065",
-      bgSelected: "rgba(46, 16, 101, 0.55)",
-      sidebarActive: "#a78bfa",
+      accent: "#D85565",
+      accentHover: "#E1707E",
+      accentLight: "rgba(216, 85, 101, 0.14)",
+      accentLowerBar: "#D85565",
+      bgSelected: "rgba(216, 85, 101, 0.10)",
+      sidebarActive: "#D85565",
     },
   },
   {
     id: "orange",
-    name: "Orange",
-    swatch: "#ea580c",
+    name: "Persimmon",
+    swatch: "#C66020",
     light: {
-      accent: "#ea580c",
-      accentHover: "#c2410c",
-      accentLight: "#ffedd5",
-      bgSelected: "rgba(255, 237, 213, 0.65)",
-      sidebarActive: "#ea580c",
+      accent: "#C66020",
+      accentHover: "#9C4A15",
+      accentLight: "rgba(198, 96, 32, 0.10)",
+      accentLowerBar: "#C66020",
+      bgSelected: "rgba(198, 96, 32, 0.10)",
+      sidebarActive: "#C66020",
     },
     dark: {
-      accent: "#fb923c",
-      accentHover: "#f97316",
-      accentLight: "#7c2d12",
-      bgSelected: "rgba(124, 45, 18, 0.55)",
-      sidebarActive: "#fb923c",
+      accent: "#F2924D",
+      accentHover: "#F5A86A",
+      accentLight: "rgba(242, 146, 77, 0.14)",
+      accentLowerBar: "#F2924D",
+      bgSelected: "rgba(242, 146, 77, 0.10)",
+      sidebarActive: "#F2924D",
     },
   },
   {
-    id: "slate",
-    name: "Slate",
-    swatch: "#475569",
+    id: "golden_bronze",
+    name: "Amber",
+    swatch: "#C9A41C",
     light: {
-      accent: "#475569",
-      accentHover: "#334155",
-      accentLight: "#e2e8f0",
-      bgSelected: "rgba(226, 232, 240, 0.65)",
-      sidebarActive: "#475569",
+      accent: "#C9A41C",
+      accentHover: "#B08F15",
+      accentLight: "rgba(201, 164, 28, 0.10)",
+      accentLowerBar: "#C9A41C",
+      bgSelected: "rgba(201, 164, 28, 0.12)",
+      sidebarActive: "#C9A41C",
     },
     dark: {
-      accent: "#94a3b8",
-      accentHover: "#64748b",
-      accentLight: "#1e293b",
-      bgSelected: "rgba(30, 41, 59, 0.55)",
-      sidebarActive: "#94a3b8",
+      accent: "#E8C547",
+      accentHover: "#F4D75E",
+      accentLight: "rgba(232, 197, 71, 0.10)",
+      accentLowerBar: "#A18317",
+      bgSelected: "rgba(232, 197, 71, 0.10)",
+      sidebarActive: "#E8C547",
+    },
+  },
+  {
+    id: "gunmetal",
+    name: "Slate",
+    swatch: "#2F4858",
+    light: {
+      accent: "#2F4858",
+      accentHover: "#1F3340",
+      accentLight: "rgba(47, 72, 88, 0.10)",
+      accentLowerBar: "#2F4858",
+      bgSelected: "rgba(47, 72, 88, 0.10)",
+      sidebarActive: "#2F4858",
+    },
+    dark: {
+      accent: "#7B96AB",
+      accentHover: "#94ADBE",
+      accentLight: "rgba(123, 150, 171, 0.14)",
+      accentLowerBar: "#28343E",
+      bgSelected: "rgba(123, 150, 171, 0.10)",
+      sidebarActive: "#7B96AB",
     },
   },
 ];
 
-export const DEFAULT_COLOR_THEME: ColorThemeId = "indigo";
+export const DEFAULT_COLOR_THEME: ColorThemeId = "golden_bronze";
 
 export function getThemeById(id: string): ColorTheme {
   return (

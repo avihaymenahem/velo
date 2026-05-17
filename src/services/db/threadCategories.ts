@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { getDb, withTransaction } from "./connection";
 
 export type ThreadCategory = "Primary" | "Updates" | "Promotions" | "Social" | "Newsletters";
 
@@ -84,38 +84,53 @@ export async function getCategoriesForThreads(
   return map;
 }
 
+const NON_PRIMARY_CATEGORIES = new Set(["Updates", "Promotions", "Social", "Newsletters"]);
+
 export async function setThreadCategory(
   accountId: string,
   threadId: string,
   category: string,
   isManual = false,
 ): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    `INSERT INTO thread_categories (account_id, thread_id, category, is_manual)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT(account_id, thread_id) DO UPDATE SET
-       category = $3, is_manual = $4`,
-    [accountId, threadId, category, isManual ? 1 : 0],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      `INSERT INTO thread_categories (account_id, thread_id, category, is_manual)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT(account_id, thread_id) DO UPDATE SET
+         category = $3, is_manual = $4`,
+      [accountId, threadId, category, isManual ? 1 : 0],
+    );
+    // Urgency is only meaningful for Primary. If a thread (typically IMAP, where
+    // category is determined after sync) ends up non-Primary, clear any auto-scored
+    // urgency so it doesn't show badges in non-Primary views.
+    if (!isManual && NON_PRIMARY_CATEGORIES.has(category)) {
+      await db.execute(
+        `UPDATE threads SET urgency_score = 0, is_heat_extinguished = 0
+         WHERE account_id = $1 AND id = $2
+           AND (manual_urgency_override IS NULL OR manual_urgency_override = 0)`,
+        [accountId, threadId],
+      );
+    }
+  });
 }
 
 export async function setThreadCategoriesBatch(
   accountId: string,
   categories: Map<string, string>,
 ): Promise<void> {
-  const db = await getDb();
-  for (const [threadId, category] of categories) {
-    // Respect manual overrides — don't overwrite if is_manual = 1
-    await db.execute(
-      `INSERT INTO thread_categories (account_id, thread_id, category, is_manual)
-       VALUES ($1, $2, $3, 0)
-       ON CONFLICT(account_id, thread_id) DO UPDATE SET
-         category = $3
-       WHERE is_manual = 0`,
-      [accountId, threadId, category],
-    );
-  }
+  await withTransaction(async (db) => {
+    for (const [threadId, category] of categories) {
+      // Respect manual overrides — don't overwrite if is_manual = 1
+      await db.execute(
+        `INSERT INTO thread_categories (account_id, thread_id, category, is_manual)
+         VALUES ($1, $2, $3, 0)
+         ON CONFLICT(account_id, thread_id) DO UPDATE SET
+           category = $3
+         WHERE is_manual = 0`,
+        [accountId, threadId, category],
+      );
+    }
+  });
 }
 
 export async function getCategoryUnreadCounts(

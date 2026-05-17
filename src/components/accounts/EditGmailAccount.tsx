@@ -1,0 +1,237 @@
+import { useState, useEffect } from "react";
+import { Check } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/TextField";
+import { getSetting, setSetting, getSecureSetting, setSecureSetting } from "@/services/db/settings";
+import { reauthorizeAccount } from "@/services/gmail/tokenManager";
+import { updateAccountMeta, getAllAccounts } from "@/services/db/accounts";
+import { useAccountStore } from "@/stores/accountStore";
+import { ACCOUNT_COLOR_PRESETS } from "@/constants/accountColors";
+
+const labelClass = "block text-xs font-medium text-text-secondary mb-1";
+
+interface EditGmailAccountProps {
+  accountId: string;
+  email: string;
+  displayName?: string | null;
+  initialColor?: string | null;
+  initialIncludeInGlobal?: boolean;
+  initialLabel?: string | null;
+  onClose: () => void;
+}
+
+export function EditGmailAccount({
+  accountId,
+  email,
+  displayName,
+  initialColor = null,
+  initialIncludeInGlobal = true,
+  initialLabel = null,
+  onClose,
+}: EditGmailAccountProps) {
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [apiSaved, setApiSaved] = useState(false);
+  const [reauthStatus, setReauthStatus] = useState<"idle" | "authorizing" | "done" | "error">("idle");
+  const [color, setColor] = useState<string | null>(initialColor);
+  const [includeInGlobal, setIncludeInGlobal] = useState(initialIncludeInGlobal);
+  const [label, setLabel] = useState(initialLabel ?? "");
+
+  useEffect(() => {
+    getSetting("google_client_id").then((v) => setClientId(v ?? ""));
+    getSecureSetting("google_client_secret").then((v) => setClientSecret(v ?? ""));
+  }, []);
+
+  const [saving, setSaving] = useState(false);
+
+  const refreshAccountStore = async () => {
+    const dbAccounts = await getAllAccounts();
+    useAccountStore.getState().setAccounts(
+      dbAccounts.map((a) => ({
+        id: a.id,
+        email: a.email,
+        displayName: a.display_name,
+        avatarUrl: a.avatar_url,
+        isActive: a.is_active === 1,
+        provider: a.provider,
+        color: a.color ?? null,
+        includeInGlobal: a.include_in_global !== 0,
+        sortOrder: a.sort_order ?? 0,
+        label: a.label ?? null,
+      })),
+      useAccountStore.getState().activeAccountId ?? undefined,
+    );
+    window.dispatchEvent(new CustomEvent("velo-sync-done"));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await updateAccountMeta(accountId, {
+      color,
+      includeInGlobal,
+      label: label.trim() || null,
+    });
+    await refreshAccountStore();
+    setSaving(false);
+    onClose();
+  };
+
+  const handleReauthorize = async () => {
+    setReauthStatus("authorizing");
+    try {
+      await reauthorizeAccount(accountId, email);
+      setReauthStatus("done");
+      setTimeout(() => setReauthStatus("idle"), 3000);
+    } catch (err) {
+      console.error("Re-authorization failed:", err);
+      setReauthStatus("error");
+      setTimeout(() => setReauthStatus("idle"), 3000);
+    }
+  };
+
+  const handleSaveApi = async () => {
+    const trimmedId = clientId.trim();
+    if (!trimmedId) return;
+    await setSetting("google_client_id", trimmedId);
+    const trimmedSecret = clientSecret.trim();
+    if (trimmedSecret) {
+      await setSecureSetting("google_client_secret", trimmedSecret);
+    }
+    setApiSaved(true);
+    setTimeout(() => setApiSaved(false), 2000);
+  };
+
+  return (
+    <Modal isOpen title={displayName ?? email} onClose={onClose} width="w-96">
+      <div className="p-4 space-y-6 max-h-[80vh] overflow-y-auto">
+        <div className="text-xs text-text-tertiary -mt-2">{email}</div>
+
+        {/* Display label */}
+        <div>
+          <label className={labelClass}>Display Label</label>
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Work, Personal…"
+            className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-sm text-text-primary outline-none focus:border-accent transition-colors"
+          />
+          <p className="text-xs text-text-tertiary mt-1">Shown instead of your name in the sidebar and account switcher.</p>
+        </div>
+
+        {/* Account color */}
+        <div>
+          <label className={labelClass}>Account Color</label>
+          <div className="flex items-center gap-2 flex-wrap">
+            {ACCOUNT_COLOR_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setColor(color === preset ? null : preset)}
+                className="w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-accent"
+                style={{ backgroundColor: preset }}
+                title={preset}
+              >
+                {color === preset && <Check size={12} className="text-white" strokeWidth={3} />}
+              </button>
+            ))}
+            {color && (
+              <button
+                type="button"
+                onClick={() => setColor(null)}
+                className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Unified inbox */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={includeInGlobal}
+            onClick={() => setIncludeInGlobal((v) => !v)}
+            className={`relative w-9 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 ${includeInGlobal ? "bg-accent" : "bg-border-primary"}`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${includeInGlobal ? "translate-x-4" : "translate-x-0"}`}
+            />
+          </button>
+          <label
+            className="text-sm text-text-secondary cursor-pointer select-none"
+            onClick={() => setIncludeInGlobal((v) => !v)}
+          >
+            Include in unified inbox
+          </label>
+        </div>
+
+        {/* Authorization */}
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-text-secondary uppercase tracking-wide">Authorization</div>
+          <p className="text-xs text-text-tertiary">
+            Re-authorize if you're experiencing authentication errors.
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleReauthorize}
+            disabled={reauthStatus === "authorizing"}
+          >
+            {reauthStatus === "authorizing" && "Waiting..."}
+            {reauthStatus === "done" && "Done!"}
+            {reauthStatus === "error" && "Failed"}
+            {reauthStatus === "idle" && "Re-authorize"}
+          </Button>
+        </div>
+
+        {/* Google API */}
+        <div className="space-y-3">
+          <div className="text-xs font-medium text-text-secondary uppercase tracking-wide">Google API</div>
+          <TextField
+            label="Client ID"
+            size="md"
+            type="text"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            placeholder="Google OAuth Client ID"
+          />
+          <TextField
+            label="Client Secret"
+            size="md"
+            type="password"
+            value={clientSecret}
+            onChange={(e) => setClientSecret(e.target.value)}
+            placeholder="Google OAuth Client Secret"
+          />
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleSaveApi}
+            disabled={!clientId.trim()}
+          >
+            {apiSaved ? "Saved!" : "Save"}
+          </Button>
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}

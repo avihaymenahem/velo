@@ -20,6 +20,7 @@ export interface ComposerState {
   bcc: string[];
   subject: string;
   bodyHtml: string;
+  quotedHtml?: string; // Quotes for reply/forward (empty for new messages)
   threadId: string | null;
   inReplyToMessageId: string | null;
   showCcBcc: boolean;
@@ -29,10 +30,13 @@ export interface ComposerState {
   attachments: ComposerAttachment[];
   lastSavedAt: number | null;
   isSaving: boolean;
+  isSending: boolean;
   fromEmail: string | null;
+  composerAccountId: string | null; // Account selezionato nel compositor (null = usa activeAccountId)
   viewMode: ComposerViewMode;
   signatureHtml: string;
   signatureId: string | null;
+  aiSidebarOpen: boolean;
 
   openComposer: (opts?: {
     mode?: ComposerMode;
@@ -41,9 +45,12 @@ export interface ComposerState {
     bcc?: string[];
     subject?: string;
     bodyHtml?: string;
+    quotedHtml?: string; // Citazioni per reply/forward
     threadId?: string | null;
     inReplyToMessageId?: string | null;
     draftId?: string | null;
+    /** Force a specific account for this compose session (overrides activeAccountId). */
+    accountId?: string;
   }) => void;
   closeComposer: () => void;
   setTo: (to: string[]) => void;
@@ -60,13 +67,18 @@ export interface ComposerState {
   clearAttachments: () => void;
   setLastSavedAt: (ts: number | null) => void;
   setIsSaving: (saving: boolean) => void;
+  setIsSending: (sending: boolean) => void;
   setFromEmail: (email: string | null) => void;
+  setComposerAccountId: (accountId: string | null) => void;
   setViewMode: (mode: ComposerViewMode) => void;
   setSignatureHtml: (html: string) => void;
   setSignatureId: (id: string | null) => void;
+  setQuotedHtml: (html: string) => void;
+  setAiSidebarOpen: (open: boolean) => void;
+  toggleAiSidebar: () => void;
 }
 
-export const useComposerStore = create<ComposerState>((set) => ({
+export const useComposerStore = create<ComposerState>()((set) => ({
   isOpen: false,
   mode: "new",
   to: [],
@@ -83,32 +95,100 @@ export const useComposerStore = create<ComposerState>((set) => ({
   attachments: [],
   viewMode: "modal",
   fromEmail: null,
+  composerAccountId: null,
   lastSavedAt: null,
   isSaving: false,
+  isSending: false,
   signatureHtml: "",
   signatureId: null,
+  quotedHtml: "",
+  aiSidebarOpen: false,
 
-  openComposer: (opts) =>
-    set({
-      isOpen: true,
-      mode: opts?.mode ?? "new",
-      to: opts?.to ?? [],
-      cc: opts?.cc ?? [],
-      bcc: opts?.bcc ?? [],
-      subject: opts?.subject ?? "",
-      bodyHtml: opts?.bodyHtml ?? "",
-      threadId: opts?.threadId ?? null,
-      inReplyToMessageId: opts?.inReplyToMessageId ?? null,
-      showCcBcc: (opts?.cc?.length ?? 0) > 0 || (opts?.bcc?.length ?? 0) > 0,
-      draftId: opts?.draftId ?? null,
-      viewMode: "modal",
-      fromEmail: null,
-      attachments: [],
-      lastSavedAt: null,
-      isSaving: false,
-      signatureHtml: "",
-      signatureId: null,
-    }),
+openComposer: (opts) => {
+     const isTest = import.meta.env.MODE === 'test';
+     const urlParams = new URLSearchParams(window.location.search);
+     const isFullComposerWindow = urlParams.has("compose");
+     const isThreadWindow = urlParams.has("thread");
+     // Thread pop-out windows embed <Composer /> inline — treat them as in-window contexts
+     const isInlineContext = isFullComposerWindow || isThreadWindow || isTest;
+
+     if (isInlineContext) {
+      set({
+        isOpen: true,
+        mode: opts?.mode ?? "new",
+        to: opts?.to ?? [],
+        cc: opts?.cc ?? [],
+        bcc: opts?.bcc ?? [],
+        subject: opts?.subject ?? "",
+        bodyHtml: opts?.bodyHtml ?? "",
+        quotedHtml: opts?.quotedHtml ?? "",
+        threadId: opts?.threadId ?? null,
+        inReplyToMessageId: opts?.inReplyToMessageId ?? null,
+        showCcBcc: (opts?.cc?.length ?? 0) > 0 || (opts?.bcc?.length ?? 0) > 0,
+        draftId: opts?.draftId ?? null,
+        undoSendTimer: null,
+        undoSendVisible: false,
+        // Thread window uses modal (no drag region / pt-7), compose window uses fullpage
+        viewMode: isFullComposerWindow && !isTest ? "fullpage" : "modal",
+        fromEmail: null,
+        composerAccountId: opts?.accountId ?? null,
+        attachments: [],
+        lastSavedAt: null,
+        isSaving: false,
+        isSending: false,
+        signatureHtml: "",
+        signatureId: null,
+        aiSidebarOpen: false,
+      });
+} else { // main window — open a dedicated composer window
+      Promise.all([
+        import("@tauri-apps/api/webviewWindow"),
+        import("../services/db/settings"),
+      ]).then(async ([{ WebviewWindow }, { setSetting }]) => {
+        const windowLabel = `compose-${Date.now()}`;
+
+        // Pass small fields via URL (localStorage is NOT shared across Tauri webview windows)
+        const params = new URLSearchParams();
+        params.set("compose", "true");
+        params.set("windowLabel", windowLabel);
+        if (opts?.mode) params.set("mode", opts.mode);
+        if (opts?.subject) params.set("subject", opts.subject);
+        if (opts?.to?.length) params.set("to", opts.to.join(","));
+        if (opts?.cc?.length) params.set("cc", opts.cc.join(","));
+        if (opts?.bcc?.length) params.set("bcc", opts.bcc.join(","));
+        if (opts?.threadId) params.set("threadId", opts.threadId);
+        if (opts?.inReplyToMessageId) params.set("inReplyToMessageId", opts.inReplyToMessageId);
+        if (opts?.draftId) params.set("draftId", opts.draftId);
+        if (opts?.accountId) params.set("accountId", opts.accountId);
+
+        // quotedHtml is too large for URLs — write to SQLite (shared across all windows)
+        if (opts?.quotedHtml || opts?.bodyHtml) {
+          await setSetting(
+            `__composer_payload_${windowLabel}`,
+            JSON.stringify({ quotedHtml: opts?.quotedHtml ?? "", bodyHtml: opts?.bodyHtml ?? "" }),
+          );
+        }
+
+        const existing = await WebviewWindow.getByLabel(windowLabel).catch(() => null);
+        if (existing) {
+          existing.setFocus();
+        } else {
+          new WebviewWindow(windowLabel, {
+            url: `index.html?${params.toString()}`,
+            title: "",
+            width: 980,
+            height: 650,
+            center: true,
+            dragDropEnabled: false,
+            // @ts-ignore - titleBarStyle is valid for macOS in Tauri 2
+            titleBarStyle: "Overlay",
+          });
+        }
+      }).catch(err => {
+        console.error("Failed to pop out composer:", err);
+      });
+    }
+  },
   closeComposer: () =>
     set({
       isOpen: false,
@@ -118,17 +198,23 @@ export const useComposerStore = create<ComposerState>((set) => ({
       bcc: [],
       subject: "",
       bodyHtml: "",
+      quotedHtml: "",
       threadId: null,
       inReplyToMessageId: null,
       showCcBcc: false,
       draftId: null,
+      undoSendTimer: null,
+      undoSendVisible: false,
       viewMode: "modal",
       fromEmail: null,
+      composerAccountId: null,
       attachments: [],
       lastSavedAt: null,
       isSaving: false,
+      isSending: false,
       signatureHtml: "",
       signatureId: null,
+      aiSidebarOpen: false,
     }),
   setTo: (to) => set({ to }),
   setCc: (cc) => set({ cc }),
@@ -148,8 +234,13 @@ export const useComposerStore = create<ComposerState>((set) => ({
   clearAttachments: () => set({ attachments: [] }),
   setLastSavedAt: (lastSavedAt) => set({ lastSavedAt }),
   setIsSaving: (isSaving) => set({ isSaving }),
+  setIsSending: (isSending) => set({ isSending }),
   setFromEmail: (fromEmail) => set({ fromEmail }),
+  setComposerAccountId: (composerAccountId) => set({ composerAccountId }),
   setViewMode: (viewMode) => set({ viewMode }),
   setSignatureHtml: (signatureHtml) => set({ signatureHtml }),
   setSignatureId: (signatureId) => set({ signatureId }),
+  setQuotedHtml: (quotedHtml) => set({ quotedHtml }),
+  setAiSidebarOpen: (aiSidebarOpen) => set({ aiSidebarOpen }),
+  toggleAiSidebar: () => set((state) => ({ aiSidebarOpen: !state.aiSidebarOpen })),
 }));

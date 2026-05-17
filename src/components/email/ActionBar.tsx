@@ -3,14 +3,12 @@ import type { Thread } from "@/stores/threadStore";
 import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
-import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread } from "@/services/emailActions";
+import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, deleteDraftThread, deleteSingleMessage } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
-import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
-import { getGmailClient } from "@/services/gmail/tokenManager";
 import { SnoozeDialog } from "./SnoozeDialog";
 import { FollowUpDialog } from "./FollowUpDialog";
-import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, FolderInput, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen, ListTodo } from "lucide-react";
+import { Archive, Trash2, Trash, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, FolderInput, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen, ListTodo } from "lucide-react";
 import type { DbMessage } from "@/services/db/messages";
 import { insertFollowUpReminder, getFollowUpForThread, cancelFollowUpForThread } from "@/services/db/followUpReminders";
 import { Button } from "@/components/ui/Button";
@@ -39,6 +37,7 @@ function Separator() {
 export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply", contactSidebarVisible, taskSidebarVisible, onReply, onReplyAll, onForward, onPrint, onExport, onPopOut, onToggleContactSidebar, onToggleTaskSidebar }: ActionBarProps) {
   const updateThread = useThreadStore((s) => s.updateThread);
   const removeThread = useThreadStore((s) => s.removeThread);
+  const selectedMessageId = useThreadStore((s) => s.selectedMessageId);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const activeLabel = useActiveLabel();
   const [showSnooze, setShowSnooze] = useState(false);
@@ -57,37 +56,40 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
 
   const handleToggleRead = async () => {
     if (!activeAccountId) return;
-    await markThreadRead(activeAccountId, thread.id, [], !thread.isRead);
+    await markThreadRead(activeAccountId, thread.id, messages?.map(m => m.id) || [], !thread.isRead);
   };
 
   const handleToggleStar = async () => {
     if (!activeAccountId) return;
-    await starThread(activeAccountId, thread.id, [], !thread.isStarred);
+    await starThread(activeAccountId, thread.id, messages?.map(m => m.id) || [], !thread.isStarred);
   };
 
   const handleArchive = async () => {
     if (!activeAccountId) return;
-    await archiveThread(activeAccountId, thread.id, []);
+    await archiveThread(activeAccountId, thread.id, messages?.map(m => m.id) || []);
   };
 
   const handleDelete = async () => {
     if (!activeAccountId) return;
     const isTrashView = activeLabel === "trash";
     const isDraftsView = activeLabel === "drafts";
+    const msgIds = messages?.map((m) => m.id) || [];
     if (isTrashView) {
-      await permanentDeleteThread(activeAccountId, thread.id, []);
+      await permanentDeleteThread(activeAccountId, thread.id, msgIds);
       await deleteThreadFromDb(activeAccountId, thread.id);
     } else if (isDraftsView) {
       removeThread(thread.id);
-      try {
-        const client = await getGmailClient(activeAccountId);
-        await deleteDraftsForThread(client, activeAccountId, thread.id);
-      } catch (err) {
-        console.error("Failed to delete drafts:", err);
-      }
+      await deleteDraftThread(activeAccountId, thread.id);
     } else {
-      await trashThread(activeAccountId, thread.id, []);
+      await trashThread(activeAccountId, thread.id, msgIds);
     }
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!activeAccountId || !messages || messages.length === 0) return;
+    const isTrashView = activeLabel === "trash";
+    const msgId = selectedMessageId ?? messages[messages.length - 1]!.id;
+    await deleteSingleMessage(activeAccountId, thread.id, msgId, isTrashView);
   };
 
   const handleSnooze = async (until: number) => {
@@ -103,7 +105,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
 
   const handleSpam = async () => {
     if (!activeAccountId) return;
-    await spamThread(activeAccountId, thread.id, [], !isSpamView);
+    await spamThread(activeAccountId, thread.id, messages?.map(m => m.id) || [], !isSpamView);
   };
 
   // Find the first message with an unsubscribe header
@@ -203,7 +205,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
 
   return (
     <>
-      <div className="flex items-center gap-1 px-3 py-3 border-b border-border-secondary bg-bg-secondary">
+      <div className="action-bar flex items-center gap-1 px-3 py-3 border-b border-border-secondary bg-bg-secondary">
         {/* Reply / Forward group */}
         {hasLastMessage && (
           <>
@@ -238,7 +240,10 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
 
         {/* Core actions group */}
         <Button variant="secondary" iconOnly icon={<Archive size={15} />} onClick={handleArchive} title="Archive (e)" />
-        <Button variant="secondary" iconOnly icon={<Trash2 size={15} />} onClick={handleDelete} title="Delete (#)" />
+        <Button variant="secondary" iconOnly icon={<Trash2 size={15} />} onClick={handleDelete} title="Delete thread (#)" />
+        {messages && messages.length > 0 && (
+          <Button variant="secondary" iconOnly icon={<Trash size={15} />} onClick={handleDeleteMessage} title="Delete message (d)" />
+        )}
         <Button
           variant="secondary"
           iconOnly

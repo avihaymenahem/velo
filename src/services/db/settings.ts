@@ -18,6 +18,11 @@ export async function setSetting(key: string, value: string): Promise<void> {
   );
 }
 
+export async function deleteSetting(key: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM settings WHERE key = $1", [key]);
+}
+
 export async function getAllSettings(): Promise<Record<string, string>> {
   const db = await getDb();
   const rows = await db.select<{ key: string; value: string }[]>(

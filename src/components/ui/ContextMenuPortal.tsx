@@ -5,11 +5,9 @@ import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { getActiveLabel } from "@/router/navigate";
 import { useComposerStore } from "@/stores/composerStore";
-import { useLabelStore } from "@/stores/labelStore";
-import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, addThreadLabel, removeThreadLabel } from "@/services/emailActions";
+import { useLabelStore, type Label } from "@/stores/labelStore";
+import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, addThreadLabel, removeThreadLabel, deleteDraftThread, deleteSingleMessage } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
-import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
-import { getGmailClient } from "@/services/gmail/tokenManager";
 import { getMessagesForThread } from "@/services/db/messages";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { getEnabledQuickStepsForAccount, type DbQuickStep } from "@/services/db/quickSteps";
@@ -38,22 +36,36 @@ import {
   Zap,
   Code,
   RefreshCw,
+  Trash,
 } from "lucide-react";
 import { triggerSync } from "@/services/gmail/syncManager";
 import { useUIStore } from "@/stores/uiStore";
 import { setThreadCategory, ALL_CATEGORIES } from "@/services/db/threadCategories";
+import { normalizeEmail } from "@/utils/emailUtils";
+import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 
-function buildQuote(msg: { from_name: string | null; from_address: string | null; date: string | number; body_html: string | null; body_text: string | null }): string {
-  const date = new Date(msg.date).toLocaleString();
-  const from = msg.from_name
-    ? `${msg.from_name} &lt;${msg.from_address}&gt;`
-    : (msg.from_address ?? "Unknown");
-  return `<br><br><div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666">On ${date}, ${from} wrote:<br>${msg.body_html ?? msg.body_text ?? ""}</div>`;
+type QuotedMsg = { from_name: string | null; from_address: string | null; date: string | number; subject?: string | null; to_addresses?: string | null; body_html: string | null; body_text: string | null };
+
+function buildQuote(msgs: QuotedMsg[]): string {
+  if (msgs.length === 0) return "";
+  return "<br><br>" + [...msgs].reverse().map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    const from = msg.from_name
+      ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
+      : escapeHtml(msg.from_address ?? "Unknown");
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `<div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666;margin-bottom:8px">On ${date}, ${from} wrote:<br>${body}</div>`;
+  }).join("");
 }
 
-function buildForwardQuote(msg: { from_name: string | null; from_address: string | null; date: string | number; subject: string | null; to_addresses: string | null; body_html: string | null; body_text: string | null }): string {
-  const date = new Date(msg.date).toLocaleString();
-  return `<br><br>---------- Forwarded message ---------<br>From: ${msg.from_name ?? ""} &lt;${msg.from_address ?? ""}&gt;<br>Date: ${date}<br>Subject: ${msg.subject ?? ""}<br>To: ${msg.to_addresses ?? ""}<br><br>${msg.body_html ?? msg.body_text ?? ""}`;
+function buildForwardQuote(msgs: QuotedMsg[]): string {
+  if (msgs.length === 0) return "";
+  const parts = msgs.map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `From: ${escapeHtml(msg.from_name ?? "")} &lt;${escapeHtml(msg.from_address ?? "")}&gt;<br>Date: ${date}<br>Subject: ${escapeHtml(msg.subject ?? "")}<br>To: ${escapeHtml(msg.to_addresses ?? "")}<br><br>${body}`;
+  });
+  return `<br><br>---------- Forwarded message ---------<br><br>${parts.join("<br><br>---------- Previous message ---------<br><br>")}`;
 }
 
 export function ContextMenuPortal() {
@@ -250,7 +262,7 @@ function ThreadMenu({
       mode: "reply",
       to: replyTo ? [replyTo] : [],
       subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
+      quotedHtml: buildQuote(messages),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
@@ -263,19 +275,34 @@ function ThreadMenu({
     const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
     const allRecipients = new Set<string>();
     if (replyTo) allRecipients.add(replyTo);
+
+    const myEmails = new Set(useAccountStore.getState().accounts.map(a => normalizeEmail(a.email)));
+
     if (lastMessage.to_addresses) {
-      lastMessage.to_addresses.split(",").forEach((a) => allRecipients.add(a.trim()));
+      lastMessage.to_addresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          allRecipients.add(trimmed);
+        }
+      });
     }
+
     const ccList: string[] = [];
     if (lastMessage.cc_addresses) {
-      lastMessage.cc_addresses.split(",").forEach((a) => ccList.push(a.trim()));
+      lastMessage.cc_addresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          ccList.push(trimmed);
+        }
+      });
     }
+
     openComposer({
       mode: "replyAll",
-      to: Array.from(allRecipients),
+      to: Array.from(allRecipients).filter(r => !myEmails.has(normalizeEmail(r))),
       cc: ccList,
       subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
+      quotedHtml: buildQuote(messages),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
@@ -289,7 +316,7 @@ function ThreadMenu({
       mode: "forward",
       to: [],
       subject: `Fwd: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildForwardQuote(lastMessage),
+      quotedHtml: buildForwardQuote(messages),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
@@ -308,12 +335,7 @@ function ThreadMenu({
         await deleteThreadFromDb(activeAccountId, id);
       } else if (isDraftsView) {
         useThreadStore.getState().removeThread(id);
-        try {
-          const client = await getGmailClient(activeAccountId);
-          await deleteDraftsForThread(client, activeAccountId, id);
-        } catch (err) {
-          console.error("Failed to delete drafts:", err);
-        }
+        await deleteDraftThread(activeAccountId, id);
       } else {
         await trashThread(activeAccountId, id, []);
       }
@@ -392,6 +414,8 @@ function ThreadMenu({
         height: 700,
         center: true,
         dragDropEnabled: false,
+        // @ts-ignore - titleBarStyle is valid for macOS in Tauri 2
+        titleBarStyle: "Overlay",
       });
       win.once("tauri://error", (e) => {
         console.error("Failed to create pop-out window:", e);
@@ -421,7 +445,7 @@ function ThreadMenu({
   };
 
   // Build label submenu items
-  const labelItems: ContextMenuItem[] = labels.map((label) => {
+  const labelItems: ContextMenuItem[] = labels.map((label: Label) => {
     // For single thread, show checkmark if label is applied
     const isApplied = !isMulti && thread.labelIds.includes(label.id);
     return {
@@ -467,7 +491,7 @@ function ThreadMenu({
     },
     {
       id: "delete",
-      label: isTrashView ? "Delete Permanently" : "Delete",
+      label: isTrashView ? "Delete Permanently" : "Delete Thread",
       icon: Trash2,
       shortcut: "#",
       danger: isTrashView,
@@ -508,6 +532,18 @@ function ThreadMenu({
       shortcut: "m",
       action: handleToggleMute,
     },
+    ...(!isMulti && (thread.urgencyScore ?? 0) > 0 && !thread.isHeatExtinguished
+      ? [{
+          id: "mute-urgency",
+          label: "Mute Urgency",
+          icon: Zap,
+          action: async () => {
+            if (!thread.fromAddress) return;
+            const { muteUrgency } = await import("@/services/ai/heatExtinguisher");
+            await muteUrgency(activeAccountId, threadId, thread.fromAddress);
+          },
+        }]
+      : []),
     {
       id: "spam",
       label: isSpamView ? "Not Spam" : "Report Spam",
@@ -622,46 +658,83 @@ function MessageMenu({
 
   const msg = { from_name: fromName, from_address: fromAddress, date, body_html: bodyHtml, body_text: bodyText, subject, to_addresses: toAddresses };
 
-  const handleReply = () => {
+  const handleReply = async () => {
     const replyAddr = replyTo ?? fromAddress;
+    let msgs: QuotedMsg[] = [msg];
+    if (accountId) {
+      try {
+        const fetched = await getMessagesForThread(accountId, threadId);
+        const idx = fetched.findIndex(m => m.id === messageId);
+        msgs = idx >= 0 ? fetched.slice(0, idx + 1) : fetched;
+      } catch { /* fall back to single message */ }
+    }
     openComposer({
       mode: "reply",
       to: replyAddr ? [replyAddr] : [],
       subject: `Re: ${subject ?? ""}`,
-      bodyHtml: buildQuote(msg),
+      quotedHtml: buildQuote(msgs),
       threadId,
       inReplyToMessageId: messageId,
     });
   };
 
-  const handleReplyAll = () => {
+  const handleReplyAll = async () => {
     const replyAddr = replyTo ?? fromAddress;
     const allRecipients = new Set<string>();
     if (replyAddr) allRecipients.add(replyAddr);
+
+    const myEmails = new Set(useAccountStore.getState().accounts.map(a => normalizeEmail(a.email)));
+
     if (toAddresses) {
-      toAddresses.split(",").forEach((a) => allRecipients.add(a.trim()));
+      toAddresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          allRecipients.add(trimmed);
+        }
+      });
     }
     const ccList: string[] = [];
     if (ccAddresses) {
-      ccAddresses.split(",").forEach((a) => ccList.push(a.trim()));
+      ccAddresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          ccList.push(trimmed);
+        }
+      });
+    }
+    let msgs: QuotedMsg[] = [msg];
+    if (accountId) {
+      try {
+        const fetched = await getMessagesForThread(accountId, threadId);
+        const idx = fetched.findIndex(m => m.id === messageId);
+        msgs = idx >= 0 ? fetched.slice(0, idx + 1) : fetched;
+      } catch { /* fall back to single message */ }
     }
     openComposer({
       mode: "replyAll",
-      to: Array.from(allRecipients),
+      to: Array.from(allRecipients).filter(r => !myEmails.has(normalizeEmail(r))),
       cc: ccList,
       subject: `Re: ${subject ?? ""}`,
-      bodyHtml: buildQuote(msg),
+      quotedHtml: buildQuote(msgs),
       threadId,
       inReplyToMessageId: messageId,
     });
   };
 
-  const handleForward = () => {
+  const handleForward = async () => {
+    let msgs: QuotedMsg[] = [msg];
+    if (accountId) {
+      try {
+        const fetched = await getMessagesForThread(accountId, threadId);
+        const idx = fetched.findIndex(m => m.id === messageId);
+        msgs = idx >= 0 ? fetched.slice(0, idx + 1) : fetched;
+      } catch { /* fall back to single message */ }
+    }
     openComposer({
       mode: "forward",
       to: [],
       subject: `Fwd: ${subject ?? ""}`,
-      bodyHtml: buildForwardQuote(msg),
+      quotedHtml: buildForwardQuote(msgs),
       threadId,
       inReplyToMessageId: messageId,
     });
@@ -674,6 +747,15 @@ function MessageMenu({
     } catch {
       // Fallback: no-op in non-secure contexts
     }
+  };
+
+  const activeLabel = getActiveLabel();
+  const isTrashView = activeLabel === "trash";
+
+  const handleDeleteMessage = async () => {
+    if (!accountId) return;
+    onClose();
+    await deleteSingleMessage(accountId, threadId, messageId, isTrashView);
   };
 
   const items: ContextMenuItem[] = [
@@ -722,6 +804,15 @@ function MessageMenu({
           },
         ]
       : []),
+    { id: "sep-delete", label: "", separator: true },
+    {
+      id: "delete-message",
+      label: isTrashView ? "Delete Permanently" : "Delete Message",
+      icon: Trash,
+      shortcut: "d",
+      danger: isTrashView,
+      action: handleDeleteMessage,
+    },
   ];
 
   return <ContextMenu items={items} position={position} onClose={onClose} />;

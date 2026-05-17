@@ -5,6 +5,15 @@ let db: Database | null = null;
 export async function getDb(): Promise<Database> {
   if (!db) {
     db = await Database.load("sqlite:velo.db");
+    await db.execute("PRAGMA busy_timeout = 5000", []);
+    await db.execute("PRAGMA journal_mode = WAL", []);
+    // NORMAL is safe with WAL and much faster than FULL (no fsync on every write)
+    await db.execute("PRAGMA synchronous = NORMAL", []);
+    // 16 MB page cache — sufficient for local email DB with WAL mode
+    await db.execute("PRAGMA cache_size = -16384", []);
+    // Checkpoint at 1000 pages (~4 MB) — keeps WAL small and reads fast
+    await db.execute("PRAGMA wal_autocheckpoint = 1000", []);
+    await db.execute("PRAGMA temp_store = MEMORY", []);
   }
   return db;
 }
@@ -44,10 +53,22 @@ export function buildDynamicUpdate(
  * or "database is locked" errors.
  */
 let txQueue: Promise<void> = Promise.resolve();
+let txLevel = 0;
 
 export async function withTransaction(fn: (db: Database) => Promise<void>): Promise<void> {
-  // Queue this transaction behind any currently-running one.
-  // This serialises all transactions without blocking non-transactional reads.
+  // If we are already nested, just run the function.
+  // We rely on JS-side serialization to prevent concurrent writes.
+  if (txLevel > 0) {
+    txLevel++;
+    try {
+      const db = await getDb();
+      return await fn(db);
+    } finally {
+      txLevel--;
+    }
+  }
+
+  // Queue this operation behind any currently-running one.
   const prev = txQueue;
   let resolve!: () => void;
   txQueue = new Promise<void>((r) => {
@@ -55,29 +76,24 @@ export async function withTransaction(fn: (db: Database) => Promise<void>): Prom
   });
 
   try {
-    await prev; // wait for previous transaction to finish
+    await prev;
   } catch {
-    // previous transaction errored — that's fine, we can still proceed
+    // ignore previous task failures
   }
 
   const database = await getDb();
+  txLevel = 1;
   try {
-    await database.execute("BEGIN TRANSACTION", []);
-    try {
-      await fn(database);
-      await database.execute("COMMIT", []);
-    } catch (err) {
-      // SQLite may auto-rollback on certain errors — guard against
-      // "cannot rollback - no transaction is active"
-      try {
-        await database.execute("ROLLBACK", []);
-      } catch {
-        // ROLLBACK failed (already rolled back) — safe to ignore
-      }
-      throw err;
-    }
+    // We REMOVE manual BEGIN/COMMIT here because tauri-plugin-sql uses a connection pool.
+    // Raw SQL transactions can fail if queries are sent to different connections in the pool.
+    // By using txQueue, we still achieve serialization of writes at the JS level.
+    await fn(database);
+  } catch (err) {
+    console.error("[withTransaction] Operation failed:", err);
+    throw err;
   } finally {
-    resolve(); // always unblock the next queued transaction
+    txLevel = 0;
+    resolve();
   }
 }
 

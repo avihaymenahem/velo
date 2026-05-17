@@ -22,7 +22,13 @@ export interface ImapFolder {
   unseen: number;
 }
 
-export interface ImapMessage {
+/**
+ * Lightweight message returned by imap_fetch_messages_buffered.
+ * body_html AND body_text are both absent — Rust intercepts them into BodyCache
+ * and writes them directly to SQLite via imap_flush_bodies (awaited after each batch).
+ * snippet (first 200 chars of plain text) IS included for AI urgency scoring.
+ */
+export interface ImapMessageMeta {
   uid: number;
   folder: string;
   message_id: string | null;
@@ -39,14 +45,23 @@ export interface ImapMessage {
   is_read: boolean;
   is_starred: boolean;
   is_draft: boolean;
-  body_html: string | null;
-  body_text: string | null;
   snippet: string | null;
   raw_size: number;
   list_unsubscribe: string | null;
   list_unsubscribe_post: string | null;
   auth_results: string | null;
   attachments: ImapAttachment[];
+}
+
+/** Full message — only used for on-demand body fetch (open message). */
+export interface ImapMessage extends ImapMessageMeta {
+  body_html: string | null;
+  body_text: string | null;
+}
+
+export interface ImapFetchResultMeta {
+  messages: ImapMessageMeta[];
+  folder_status: ImapFolderStatus;
 }
 
 export interface ImapAttachment {
@@ -92,6 +107,8 @@ export interface DeltaCheckRequest {
   folder: string;
   last_uid: number;
   uidvalidity: number;
+  /** Unix timestamp of the last successful sync; used as SINCE-date fallback for DavMail/Exchange. */
+  last_sync_at: number | null;
 }
 
 export interface DeltaCheckResult {
@@ -138,6 +155,7 @@ export async function imapListFolders(config: ImapConfig): Promise<ImapFolder[]>
 /**
  * Fetch messages from a folder by UID list.
  * Returns parsed messages along with folder status metadata.
+ * NOTE: prefer imapFetchMessagesBuffered for sync — it avoids body_html crossing IPC.
  */
 export async function imapFetchMessages(
   config: ImapConfig,
@@ -145,6 +163,34 @@ export async function imapFetchMessages(
   uids: number[]
 ): Promise<ImapFetchResult> {
   return invoke<ImapFetchResult>('imap_fetch_messages', { config, folder, uids });
+}
+
+/**
+ * Fetch messages for sync: like imapFetchMessages but body_html is intercepted by Rust
+ * and stored in a BodyCache (never serialised through WebKit). Returns ImapFetchResultMeta
+ * (all header fields + body_text, no body_html). Call imapFlushBodies after writing
+ * the metadata rows to DB to have Rust write the HTML directly to SQLite.
+ */
+export async function imapFetchMessagesBuffered(
+  config: ImapConfig,
+  folder: string,
+  uids: number[]
+): Promise<ImapFetchResultMeta> {
+  return invoke<ImapFetchResultMeta>('imap_fetch_messages_buffered', { config, folder, uids });
+}
+
+/**
+ * Drain body_html entries for the given (folder, uid) pairs from Rust's BodyCache
+ * and write them directly to SQLite — bypassing the IPC bridge entirely.
+ * Must be called after the corresponding message rows exist in DB.
+ * Returns the count of rows updated.
+ */
+export async function imapFlushBodies(
+  accountId: string,
+  folder: string,
+  uids: number[]
+): Promise<number> {
+  return invoke<number>('imap_flush_bodies', { accountId, folder, uids });
 }
 
 /**
@@ -229,8 +275,8 @@ export async function imapAppendMessage(
   folder: string,
   rawMessage: string,
   flags?: string
-): Promise<void> {
-  return invoke<void>('imap_append_message', { config, folder, flags: flags ?? null, rawMessage });
+): Promise<number> {
+  return invoke<number>('imap_append_message', { config, folder, flags: flags ?? null, rawMessage });
 }
 
 /**
@@ -304,6 +350,89 @@ export async function imapSearchFolder(
   sinceDate?: string | null,
 ): Promise<ImapFolderSearchResult> {
   return invoke<ImapFolderSearchResult>('imap_search_folder', { config, folder, sinceDate: sinceDate ?? null });
+}
+
+// ---------- Zero-IPC sync types ----------
+
+/**
+ * Minimal data returned per message after Rust has persisted the batch to SQLite.
+ * Only what JWZ threading needs — ~200 bytes per message, regardless of body size.
+ * WebKit never receives or allocates memory for message bodies during sync.
+ */
+export interface ImapSyncHeader {
+  local_id: string;
+  message_id: string | null;
+  in_reply_to: string | null;
+  references: string | null;
+  subject: string | null;
+  date: number;
+  label_id: string;
+  is_read: boolean;
+  is_starred: boolean;
+  is_draft: boolean;
+  has_attachments: boolean;
+  snippet: string;
+  from_address: string | null;
+  from_name: string | null;
+  /** true = stored to DB; false = skipped (duplicate RFC ID from another folder). */
+  stored: boolean;
+}
+
+/**
+ * Thread data sent from TypeScript to Rust after JWZ threading completes.
+ * Pre-computed aggregate values — Rust writes them directly without SQL aggregates.
+ */
+export interface ImapThreadUpdate {
+  thread_id: string;
+  message_ids: string[];
+  subject: string | null;
+  snippet: string | null;
+  last_message_at: number;
+  is_read: boolean;
+  is_starred: boolean;
+  has_attachments: boolean;
+  label_ids: string[];
+}
+
+/**
+ * Fetch a batch of messages from IMAP and write thread, message (with full body),
+ * and attachments directly to SQLite via rusqlite — zero WebKit IPC for SQL writes.
+ * Returns only the minimal ImapSyncHeader slice needed for JWZ threading.
+ */
+export async function imapFetchAndStore(
+  config: ImapConfig,
+  accountId: string,
+  folder: string,
+  labelId: string,
+  uids: number[],
+  cutoffDate: number, // Unix seconds; 0 = no cutoff
+): Promise<ImapSyncHeader[]> {
+  return invoke<ImapSyncHeader[]>('imap_fetch_and_store', {
+    config,
+    accountId,
+    folder,
+    labelId,
+    uids,
+    cutoffDate,
+  });
+}
+
+/**
+ * Finalize threads after JWZ threading in TypeScript.
+ * Writes final thread records, thread_labels, and message thread_id updates via rusqlite.
+ * Also cleans up orphaned placeholder threads.
+ * Returns the number of threads stored.
+ */
+export async function imapStoreThreads(
+  accountId: string,
+  threadUpdates: ImapThreadUpdate[],
+  allLocalIds: string[],
+): Promise<number> {
+  return invoke<number>('imap_store_threads', {
+    accountId,
+    threadUpdates,
+    allLocalIds,
+  });
 }
 
 /**

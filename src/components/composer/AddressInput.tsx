@@ -92,7 +92,7 @@ export function AddressInput({
 
   return (
     <div className="flex items-start gap-2">
-      <span className="text-xs text-text-tertiary pt-1.5 w-8 shrink-0">
+      <span className="text-xs text-text-tertiary pt-1.5 w-12 shrink-0">
         {label}
       </span>
       <div className="flex-1 flex flex-wrap items-center gap-1 min-h-[32px] relative">

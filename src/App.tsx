@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Outlet } from "@tanstack/react-router";
 import { Sidebar } from "./components/layout/Sidebar";
 import { AddAccount } from "./components/accounts/AddAccount";
-import { Composer } from "./components/composer/Composer";
 import { UndoSendToast } from "./components/composer/UndoSendToast";
 import { CommandPalette } from "./components/search/CommandPalette";
 import { ShortcutsHelp } from "./components/search/ShortcutsHelp";
@@ -65,6 +64,7 @@ import { TitleBar } from "./components/layout/TitleBar";
 import { useShortcutStore } from "./stores/shortcutStore";
 import { getIncompleteTaskCount } from "./services/db/tasks";
 import { useTaskStore } from "./stores/taskStore";
+import { purgeOldDeletedTasks, purgeOldCompletedTasks } from "./services/tasks/taskManager";
 import { ContextMenuPortal } from "./components/ui/ContextMenuPortal";
 import { MoveToFolderDialog } from "./components/email/MoveToFolderDialog";
 import { OfflineBanner } from "./components/ui/OfflineBanner";
@@ -75,6 +75,12 @@ import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
 import { router } from "./router";
 import { getSelectedThreadId } from "./router/navigate";
+import { loadSoul, startSoulWatcher } from "./services/ai/soulService";
+import {
+  runEmbeddingBackfill,
+  stopEmbeddingBackfill,
+  isEmbeddingBackfillRunning,
+} from "./services/ai/embeddingBackfill";
 
 /**
  * Sync bridge: subscribes to router state changes and writes the selected
@@ -98,7 +104,7 @@ export default function App() {
   const theme = useUIStore((s) => s.theme);
   const fontScale = useUIStore((s) => s.fontScale);
   const colorTheme = useUIStore((s) => s.colorTheme);
-  const reduceMotion = useUIStore((s) => s.reduceMotion);
+  const backgroundMode = useUIStore((s) => s.backgroundMode);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -106,7 +112,10 @@ export default function App() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [showAskInbox, setShowAskInbox] = useState(false);
-  const [moveToFolderState, setMoveToFolderState] = useState<{ open: boolean; threadIds: string[] }>({ open: false, threadIds: [] });
+  const [moveToFolderState, setMoveToFolderState] = useState<{
+    open: boolean;
+    threadIds: string[];
+  }>({ open: false, threadIds: [] });
   const deepLinkCleanupRef = useRef<(() => void) | undefined>(undefined);
 
   // Sync bridge: router state → Zustand stores (temporary)
@@ -141,7 +150,8 @@ export default function App() {
   // Elements with data-native-context-menu opt out so the browser menu is available
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest?.("[data-native-context-menu]")) return;
+      if ((e.target as HTMLElement).closest?.("[data-native-context-menu]"))
+        return;
       e.preventDefault();
     };
     document.addEventListener("contextmenu", handler);
@@ -179,22 +189,34 @@ export default function App() {
         if (activeIds.length > 0) {
           triggerSync(activeIds);
         }
-      }).then((fn) => { unlisten = fn; });
+      }).then((fn) => {
+        unlisten = fn;
+      });
     });
-    return () => { unlisten?.(); };
+    return () => {
+      unlisten?.();
+    };
   }, []);
 
   // Initialize database, load accounts, start sync
   useEffect(() => {
     async function init() {
       try {
-        await runMigrations();
+        try {
+          await runMigrations();
+        } catch (migErr) {
+          console.error("Migration failed, continuing with existing schema:", migErr);
+        }
 
         const ui = useUIStore.getState();
 
         // Restore persisted theme
         const savedTheme = await getSetting("theme");
-        if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") {
+        if (
+          savedTheme === "light" ||
+          savedTheme === "dark" ||
+          savedTheme === "system"
+        ) {
           ui.setTheme(savedTheme);
         }
 
@@ -212,13 +234,21 @@ export default function App() {
 
         // Restore reading pane position
         const savedPanePos = await getSetting("reading_pane_position");
-        if (savedPanePos === "right" || savedPanePos === "bottom" || savedPanePos === "hidden") {
+        if (
+          savedPanePos === "right" ||
+          savedPanePos === "bottom" ||
+          savedPanePos === "hidden"
+        ) {
           ui.setReadingPanePosition(savedPanePos);
         }
 
         // Restore read filter
         const savedReadFilter = await getSetting("read_filter");
-        if (savedReadFilter === "all" || savedReadFilter === "read" || savedReadFilter === "unread") {
+        if (
+          savedReadFilter === "all" ||
+          savedReadFilter === "read" ||
+          savedReadFilter === "unread"
+        ) {
           ui.setReadFilter(savedReadFilter);
         }
 
@@ -231,7 +261,11 @@ export default function App() {
 
         // Restore email density
         const savedDensity = await getSetting("email_density");
-        if (savedDensity === "compact" || savedDensity === "default" || savedDensity === "spacious") {
+        if (
+          savedDensity === "compact" ||
+          savedDensity === "default" ||
+          savedDensity === "spacious"
+        ) {
           ui.setEmailDensity(savedDensity);
         }
 
@@ -243,7 +277,11 @@ export default function App() {
 
         // Restore mark-as-read behavior
         const savedMarkRead = await getSetting("mark_as_read_behavior");
-        if (savedMarkRead === "instant" || savedMarkRead === "2s" || savedMarkRead === "manual") {
+        if (
+          savedMarkRead === "instant" ||
+          savedMarkRead === "2s" ||
+          savedMarkRead === "manual"
+        ) {
           ui.setMarkAsReadBehavior(savedMarkRead);
         }
 
@@ -255,13 +293,51 @@ export default function App() {
 
         // Restore font scale
         const savedFontScale = await getSetting("font_size");
-        if (savedFontScale === "small" || savedFontScale === "default" || savedFontScale === "large" || savedFontScale === "xlarge") {
+        if (
+          savedFontScale === "small" ||
+          savedFontScale === "default" ||
+          savedFontScale === "large" ||
+          savedFontScale === "xlarge"
+        ) {
           ui.setFontScale(savedFontScale);
+        }
+
+        // Restore composer font family
+        const savedComposerFont = await getSetting("composer_font_family");
+        if (
+          savedComposerFont === "system" ||
+          savedComposerFont === "arial" ||
+          savedComposerFont === "calibri" ||
+          savedComposerFont === "times" ||
+          savedComposerFont === "courier" ||
+          savedComposerFont === "georgia" ||
+          savedComposerFont === "verdana" ||
+          savedComposerFont === "avenir" ||
+          savedComposerFont === "inter"
+        ) {
+          ui.setComposerFontFamily(savedComposerFont);
+        }
+
+        // Restore composer font size
+        const savedComposerSize = await getSetting("composer_font_size");
+        if (
+          savedComposerSize === "10px" ||
+          savedComposerSize === "12px" ||
+          savedComposerSize === "14px" ||
+          savedComposerSize === "16px" ||
+          savedComposerSize === "18px" ||
+          savedComposerSize === "20px" ||
+          savedComposerSize === "24px"
+        ) {
+          ui.setComposerFontSize(savedComposerSize);
         }
 
         // Restore color theme
         const savedColorTheme = await getSetting("color_theme");
-        if (savedColorTheme && COLOR_THEMES.some((t) => t.id === savedColorTheme)) {
+        if (
+          savedColorTheme &&
+          COLOR_THEMES.some((t) => t.id === savedColorTheme)
+        ) {
           ui.setColorTheme(savedColorTheme as ColorThemeId);
         }
 
@@ -271,10 +347,10 @@ export default function App() {
           ui.setInboxViewMode(savedViewMode);
         }
 
-        // Restore reduce motion preference
-        const savedReduceMotion = await getSetting("reduce_motion");
-        if (savedReduceMotion === "true") {
-          ui.setReduceMotion(true);
+        // Restore background mode preference
+        const savedBgMode = await getSetting("background_mode");
+        if (savedBgMode === "aurora" || savedBgMode === "spotlight" || savedBgMode === "flat") {
+          ui.setBackgroundMode(savedBgMode);
         }
 
         // Restore task sidebar visibility
@@ -289,7 +365,17 @@ export default function App() {
           try {
             const parsed = JSON.parse(savedNavConfig);
             if (Array.isArray(parsed)) ui.restoreSidebarNavConfig(parsed);
-          } catch { /* ignore malformed JSON */ }
+          } catch {
+            /* ignore malformed JSON */
+          }
+        }
+
+        // Apply app icon style (tray only now)
+        const savedAppIconStyle = (await getSetting("app_icon_style")) || "auto";
+        try {
+          await invoke("set_tray_icon_style", { style: savedAppIconStyle });
+        } catch {
+          // commands may not be available yet
         }
 
         // Load custom keyboard shortcuts
@@ -303,22 +389,35 @@ export default function App() {
           avatarUrl: a.avatar_url,
           isActive: a.is_active === 1,
           provider: a.provider,
+          color: a.color ?? null,
+          includeInGlobal: a.include_in_global !== 0,
+          sortOrder: a.sort_order ?? 0,
+          label: a.label ?? null,
         }));
         const savedAccountId = await getSetting("active_account_id");
         useAccountStore.getState().setAccounts(mapped, savedAccountId);
 
-        // Initialize Gmail clients for existing accounts
-        await initializeClients();
+// Initialize Gmail clients for existing accounts
+         await initializeClients();
 
-        // Fetch send-as aliases for each active email account (skip CalDAV-only)
+         // Load SOUL.md for AI personality
+         await loadSoul();
+         startSoulWatcher().catch(console.error);
+
+        // Fetch send-as aliases for Gmail API accounts only (IMAP and CalDAV have no OAuth tokens)
         const activeIds = mapped.filter((a) => a.isActive).map((a) => a.id);
-        const emailAccountIds = mapped.filter((a) => a.isActive && a.provider !== "caldav").map((a) => a.id);
-        for (const accountId of emailAccountIds) {
+        const gmailAccountIds = mapped
+          .filter((a) => a.isActive && a.provider === "gmail_api")
+          .map((a) => a.id);
+        for (const accountId of gmailAccountIds) {
           try {
             const client = await getGmailClient(accountId);
             await fetchSendAsAliases(client, accountId);
           } catch (err) {
-            console.warn(`Failed to fetch send-as aliases for ${accountId}:`, err);
+            console.warn(
+              `Failed to fetch send-as aliases for ${accountId}:`,
+              err,
+            );
           }
         }
 
@@ -327,7 +426,6 @@ export default function App() {
           startBackgroundSync(activeIds);
         }
 
-        // Start snooze, scheduled send, follow-up, bundle, and queue checkers
         startSnoozeChecker();
         startScheduledSendChecker();
         startFollowUpChecker();
@@ -353,9 +451,15 @@ export default function App() {
           const count = await getIncompleteTaskCount(activeAcct);
           useTaskStore.getState().setIncompleteCount(count);
         }
+        // Purge soft-deleted and completed tasks per user-configured retention settings — fire-and-forget
+        purgeOldDeletedTasks();
+        purgeOldCompletedTasks();
 
         // Start auto-update checker
         startUpdateChecker();
+
+        // Kick off embedding backfill (fire-and-forget; no-ops if rag_enabled != 'true')
+        runEmbeddingBackfill().catch(() => {});
       } catch (err) {
         console.error("Failed to initialize:", err);
       }
@@ -374,6 +478,7 @@ export default function App() {
       stopQueueProcessor();
       stopPreCacheManager();
       stopUpdateChecker();
+      stopEmbeddingBackfill();
       unregisterComposeShortcut();
       deepLinkCleanupRef.current?.();
     };
@@ -383,7 +488,7 @@ export default function App() {
   // Listen for sync status updates
   const backfillDoneRef = useRef(false);
   useEffect(() => {
-    const unsub = onSyncStatus((accountId, status, progress, error) => {
+    const unsub = onSyncStatus((accountId, status, progress, error, storedCount) => {
       if (status === "syncing") {
         if (progress) {
           if (progress.phase === "messages") {
@@ -393,26 +498,50 @@ export default function App() {
           } else if (progress.phase === "labels") {
             setSyncStatus("Syncing labels...");
           } else if (progress.phase === "threads") {
-            setSyncStatus(`Building threads... (${progress.current}/${progress.total})`);
+            setSyncStatus(
+              `Building threads... (${progress.current}/${progress.total})`,
+            );
           }
         } else {
           setSyncStatus("Syncing...");
         }
       } else if (status === "done") {
-        setSyncStatus("Sync complete");
-        setTimeout(() => setSyncStatus(null), 2_000);
-        window.dispatchEvent(new Event("velo-sync-done"));
+        // Only show "Sync complete" and reload UI when something actually changed.
+        // storedCount === undefined means Gmail or initial sync — always reload.
+        // storedCount === 0 means idle delta sync — skip to avoid GC churn every 60s.
+        if (storedCount === undefined || storedCount > 0) {
+          setSyncStatus("Sync complete");
+          setTimeout(() => setSyncStatus(null), 2_000);
+          window.dispatchEvent(new Event("velo-sync-done"));
+        } else {
+          setSyncStatus(null);
+        }
         updateBadgeCount();
+
+        // Resume embedding backfill only when new messages arrived
+        if ((storedCount === undefined || storedCount > 0) && !isEmbeddingBackfillRunning()) {
+          runEmbeddingBackfill().catch(() => {});
+        }
 
         // Backfill uncategorized threads after first successful sync
         if (!backfillDoneRef.current) {
           backfillDoneRef.current = true;
           import("./services/categorization/backfillService")
-            .then(({ backfillUncategorizedThreads }) => backfillUncategorizedThreads(accountId))
+            .then(({ backfillUncategorizedThreads }) =>
+              backfillUncategorizedThreads(accountId),
+            )
             .catch((err) => console.error("Backfill error:", err));
         }
       } else if (status === "error") {
-        setSyncStatus(error ? `Sync failed: ${formatSyncError(error)}` : "Sync failed");
+        const acct = useAccountStore
+          .getState()
+          .accounts.find((a) => a.id === accountId);
+        const acctLabel = acct ? acct.email : accountId;
+        setSyncStatus(
+          error
+            ? `Sync failed (${acctLabel}): ${formatSyncError(error)}`
+            : `Sync failed (${acctLabel})`,
+        );
         // Still dispatch sync-done so the UI refreshes with any partially stored data
         window.dispatchEvent(new Event("velo-sync-done"));
         // Auto-clear the error after 8 seconds
@@ -431,7 +560,7 @@ export default function App() {
       root.classList.remove("dark");
     } else {
       const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      const apply = () => {
+      const apply = async () => {
         if (mq.matches) {
           root.classList.add("dark");
         } else {
@@ -447,35 +576,49 @@ export default function App() {
   // Sync font-scale class to <html> element
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove("font-scale-small", "font-scale-default", "font-scale-large", "font-scale-xlarge");
+    root.classList.remove(
+      "font-scale-small",
+      "font-scale-default",
+      "font-scale-large",
+      "font-scale-xlarge",
+    );
     root.classList.add(`font-scale-${fontScale}`);
   }, [fontScale]);
 
-  // Sync reduce-motion class to <html> element
+  // Sync background mode classes to <html> element
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle("reduce-motion", reduceMotion);
-  }, [reduceMotion]);
+    root.classList.remove("bg-aurora", "bg-spotlight");
+    if (backgroundMode === "aurora") root.classList.add("bg-aurora");
+    else if (backgroundMode === "spotlight") root.classList.add("bg-spotlight");
+  }, [backgroundMode]);
+
+  // Spotlight: track cursor position in CSS vars
+  useEffect(() => {
+    if (backgroundMode !== "spotlight") return;
+    const handler = (e: MouseEvent) => {
+      document.documentElement.style.setProperty("--mx", `${e.clientX}px`);
+      document.documentElement.style.setProperty("--my", `${e.clientY}px`);
+    };
+    window.addEventListener("mousemove", handler);
+    return () => window.removeEventListener("mousemove", handler);
+  }, [backgroundMode]);
 
   // Apply color theme CSS custom properties to <html>
   useEffect(() => {
     const root = document.documentElement;
-    const props = ["--color-accent", "--color-accent-hover", "--color-accent-light", "--color-bg-selected", "--color-sidebar-active"];
 
     const apply = () => {
-      if (colorTheme === "indigo") {
-        // Default theme — remove inline overrides, let CSS handle it
-        for (const p of props) root.style.removeProperty(p);
-        return;
-      }
       const themeData = getThemeById(colorTheme);
       const isDark =
         theme === "dark" ||
-        (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        (theme === "system" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches);
       const colors = isDark ? themeData.dark : themeData.light;
       root.style.setProperty("--color-accent", colors.accent);
       root.style.setProperty("--color-accent-hover", colors.accentHover);
       root.style.setProperty("--color-accent-light", colors.accentLight);
+      root.style.setProperty("--color-accent-lower-bar", colors.accentLowerBar);
       root.style.setProperty("--color-bg-selected", colors.bgSelected);
       root.style.setProperty("--color-sidebar-active", colors.sidebarActive);
     };
@@ -499,6 +642,10 @@ export default function App() {
       avatarUrl: a.avatar_url,
       isActive: a.is_active === 1,
       provider: a.provider,
+      color: a.color ?? null,
+      includeInGlobal: a.include_in_global !== 0,
+      sortOrder: a.sort_order ?? 0,
+      label: a.label ?? null,
     }));
     useAccountStore.getState().setAccounts(mapped);
 
@@ -515,7 +662,12 @@ export default function App() {
       if (newest.provider !== "caldav") {
         getGmailClient(newest.id)
           .then((client) => fetchSendAsAliases(client, newest.id))
-          .catch((err) => console.warn(`Failed to fetch send-as aliases for new account:`, err));
+          .catch((err) =>
+            console.warn(
+              `Failed to fetch send-as aliases for new account:`,
+              err,
+            ),
+          );
       }
     }
 
@@ -533,7 +685,9 @@ export default function App() {
             <div className="absolute inset-0 rounded-full border-2 border-accent/20" />
             <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-accent animate-spin" />
           </div>
-          <span className="text-xs text-text-tertiary animate-pulse">Loading your inbox...</span>
+          <span className="text-xs text-text-tertiary animate-pulse">
+            Loading your inbox...
+          </span>
         </div>
       </div>
     );
@@ -542,14 +696,7 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen overflow-hidden text-text-primary">
       <OfflineBanner />
-      {/* Animated gradient blobs for glassmorphism effect */}
-      <div className="animated-bg" aria-hidden="true">
-        <div className="blob" />
-        <div className="blob" />
-        <div className="blob" />
-        <div className="blob" />
-        <div className="blob" />
-      </div>
+      <div className="animated-bg" aria-hidden="true" />
       <TitleBar />
       <div className="flex flex-1 min-w-0 overflow-hidden">
         <DndProvider>
@@ -567,8 +714,11 @@ export default function App() {
       {syncStatus && (
         <div
           className={`fixed bottom-0 left-0 right-0 glass-panel text-white text-xs px-4 py-1.5 text-center z-40 animate-[slideUp_200ms_ease-out,fadeIn_200ms_ease-out] ${
-            syncStatus.startsWith("Sync failed") ? "bg-danger/90" : "bg-accent/90"
+            syncStatus.startsWith("Sync failed")
+              ? "bg-danger/90"
+              : ""
           }`}
+          style={syncStatus.startsWith("Sync failed") ? undefined : { backgroundColor: "color-mix(in srgb, var(--color-accent-lower-bar) 90%, transparent)" }}
         >
           {syncStatus}
         </div>
@@ -581,9 +731,6 @@ export default function App() {
         />
       )}
 
-      <ErrorBoundary name="Composer">
-        <Composer />
-      </ErrorBoundary>
       <UndoSendToast />
       <UpdateToast />
       <ErrorBoundary name="CommandPalette">

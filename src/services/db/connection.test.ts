@@ -20,62 +20,38 @@ describe("withTransaction", () => {
     mockExecute.mockResolvedValue(undefined);
   });
 
-  it("executes BEGIN, callback, COMMIT in order", async () => {
+  it("executes callback within mutex serialization", async () => {
     const callOrder: string[] = [];
-    mockExecute.mockImplementation(async (sql: string) => {
-      callOrder.push(sql);
-    });
-
+    
     await withTransaction(async () => {
       callOrder.push("callback");
     });
 
-    expect(callOrder).toEqual(["BEGIN TRANSACTION", "callback", "COMMIT"]);
+    expect(callOrder).toContain("callback");
   });
 
-  it("rolls back on callback error", async () => {
-    const callOrder: string[] = [];
-    mockExecute.mockImplementation(async (sql: string) => {
-      callOrder.push(sql);
-    });
-
+  it("propagates callback error and unblocks queue", async () => {
     await expect(
       withTransaction(async () => {
         throw new Error("callback failed");
       }),
     ).rejects.toThrow("callback failed");
 
-    expect(callOrder).toEqual(["BEGIN TRANSACTION", "ROLLBACK"]);
-  });
-
-  it("handles ROLLBACK failure gracefully (SQLite auto-rollback)", async () => {
-    mockExecute.mockImplementation(async (sql: string) => {
-      if (sql === "ROLLBACK") {
-        throw new Error("cannot rollback - no transaction is active");
-      }
+    let secondRan = false;
+    await withTransaction(async () => {
+      secondRan = true;
     });
-
-    // Should still throw the original error, not the ROLLBACK error
-    await expect(
-      withTransaction(async () => {
-        throw new Error("original error");
-      }),
-    ).rejects.toThrow("original error");
+    expect(secondRan).toBe(true);
   });
 
-  it("serialises concurrent transactions via mutex", async () => {
+  it("serialises concurrent operations via mutex", async () => {
     const executionLog: string[] = [];
-
-    mockExecute.mockImplementation(async (sql: string) => {
-      executionLog.push(sql);
-    });
 
     // Launch two transactions concurrently
     const tx1 = withTransaction(async () => {
-      executionLog.push("tx1-work");
-      // Simulate async work
-      await new Promise((r) => setTimeout(r, 10));
-      executionLog.push("tx1-done");
+      executionLog.push("tx1-start");
+      await new Promise((r) => setTimeout(r, 20));
+      executionLog.push("tx1-end");
     });
 
     const tx2 = withTransaction(async () => {
@@ -84,39 +60,13 @@ describe("withTransaction", () => {
 
     await Promise.all([tx1, tx2]);
 
-    // tx1 should fully complete (BEGIN, work, done, COMMIT) before tx2 starts
-    const tx1BeginIdx = executionLog.indexOf("BEGIN TRANSACTION");
-    const tx1CommitIdx = executionLog.indexOf("COMMIT");
-    const tx2BeginIdx = executionLog.lastIndexOf("BEGIN TRANSACTION");
+    // tx1 should fully complete (start, end) before tx2 starts (work)
+    const tx1StartIdx = executionLog.indexOf("tx1-start");
+    const tx1EndIdx = executionLog.indexOf("tx1-end");
+    const tx2WorkIdx = executionLog.indexOf("tx2-work");
 
-    expect(tx1BeginIdx).toBeLessThan(tx1CommitIdx);
-    expect(tx1CommitIdx).toBeLessThan(tx2BeginIdx);
-  });
-
-  it("unblocks next transaction even if current one fails", async () => {
-    mockExecute.mockImplementation(async (sql: string) => {
-      if (sql === "ROLLBACK") {
-        // Simulate auto-rollback already happened
-        throw new Error("cannot rollback - no transaction is active");
-      }
-    });
-
-    // First transaction fails
-    const tx1 = withTransaction(async () => {
-      throw new Error("tx1 failed");
-    }).catch(() => {
-      /* expected */
-    });
-
-    // Second transaction should still run
-    let tx2Ran = false;
-    const tx2 = withTransaction(async () => {
-      tx2Ran = true;
-    });
-
-    await Promise.all([tx1, tx2]);
-
-    expect(tx2Ran).toBe(true);
+    expect(tx1StartIdx).toBeLessThan(tx1EndIdx);
+    expect(tx1EndIdx).toBeLessThan(tx2WorkIdx);
   });
 });
 

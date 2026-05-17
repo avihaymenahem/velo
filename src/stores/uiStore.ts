@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { setSetting } from "@/services/db/settings";
-import type { ColorThemeId } from "@/constants/themes";
+import { DEFAULT_COLOR_THEME, type ColorThemeId } from "@/constants/themes";
 
 type Theme = "light" | "dark" | "system";
 type ReadingPanePosition = "right" | "bottom" | "hidden";
@@ -9,6 +9,25 @@ export type EmailDensity = "compact" | "default" | "spacious";
 export type DefaultReplyMode = "reply" | "replyAll";
 export type MarkAsReadBehavior = "instant" | "2s" | "manual";
 export type FontScale = "small" | "default" | "large" | "xlarge";
+export type BackgroundMode = "flat" | "aurora" | "spotlight";
+export type ComposerFontFamily =
+  | "system"
+  | "arial"
+  | "calibri"
+  | "times"
+  | "courier"
+  | "georgia"
+  | "verdana"
+  | "avenir"
+  | "inter";
+export type ComposerFontSize =
+  | "10px"
+  | "12px"
+  | "14px"
+  | "16px"
+  | "18px"
+  | "20px"
+  | "24px";
 export type InboxViewMode = "unified" | "split";
 
 export interface SidebarNavItem {
@@ -29,10 +48,12 @@ interface UIState {
   fontScale: FontScale;
   colorTheme: ColorThemeId;
   sendAndArchive: boolean;
+  composerFontFamily: ComposerFontFamily;
+  composerFontSize: ComposerFontSize;
   inboxViewMode: InboxViewMode;
   taskSidebarVisible: boolean;
   sidebarNavConfig: SidebarNavItem[] | null;
-  reduceMotion: boolean;
+  backgroundMode: BackgroundMode;
   isOnline: boolean;
   pendingOpsCount: number;
   isSyncingFolder: string | null;
@@ -50,12 +71,14 @@ interface UIState {
   setFontScale: (scale: FontScale) => void;
   setColorTheme: (theme: ColorThemeId) => void;
   setSendAndArchive: (enabled: boolean) => void;
+  setComposerFontFamily: (family: ComposerFontFamily) => void;
+  setComposerFontSize: (size: ComposerFontSize) => void;
   setInboxViewMode: (mode: InboxViewMode) => void;
   toggleTaskSidebar: () => void;
   setTaskSidebarVisible: (visible: boolean) => void;
   setSidebarNavConfig: (config: SidebarNavItem[]) => void;
   restoreSidebarNavConfig: (config: SidebarNavItem[]) => void;
-  setReduceMotion: (reduce: boolean) => void;
+  setBackgroundMode: (mode: BackgroundMode) => void;
   setOnline: (online: boolean) => void;
   setPendingOpsCount: (count: number) => void;
   setSyncingFolder: (folder: string | null) => void;
@@ -72,12 +95,14 @@ export const useUIStore = create<UIState>((set) => ({
   defaultReplyMode: "reply",
   markAsReadBehavior: "instant",
   fontScale: "default",
-  colorTheme: "indigo",
+  colorTheme: DEFAULT_COLOR_THEME,
   sendAndArchive: false,
+  composerFontFamily: "system",
+  composerFontSize: "14px",
   inboxViewMode: "unified",
   taskSidebarVisible: false,
   sidebarNavConfig: null,
-  reduceMotion: false,
+  backgroundMode: "flat",
   isOnline: true,
   pendingOpsCount: 0,
   isSyncingFolder: null,
@@ -96,7 +121,8 @@ export const useUIStore = create<UIState>((set) => ({
       setSetting("contact_sidebar_visible", String(visible)).catch(() => {});
       return { contactSidebarVisible: visible };
     }),
-  setContactSidebarVisible: (contactSidebarVisible) => set({ contactSidebarVisible }),
+  setContactSidebarVisible: (contactSidebarVisible) =>
+    set({ contactSidebarVisible }),
   setReadingPanePosition: (readingPanePosition) => {
     setSetting("reading_pane_position", readingPanePosition).catch(() => {});
     set({ readingPanePosition });
@@ -133,6 +159,14 @@ export const useUIStore = create<UIState>((set) => ({
     setSetting("send_and_archive", String(sendAndArchive)).catch(() => {});
     set({ sendAndArchive });
   },
+  setComposerFontFamily: (composerFontFamily) => {
+    setSetting("composer_font_family", composerFontFamily).catch(() => {});
+    set({ composerFontFamily });
+  },
+  setComposerFontSize: (composerFontSize) => {
+    setSetting("composer_font_size", composerFontSize).catch(() => {});
+    set({ composerFontSize });
+  },
   setInboxViewMode: (inboxViewMode) => {
     setSetting("inbox_view_mode", inboxViewMode).catch(() => {});
     set({ inboxViewMode });
@@ -145,13 +179,15 @@ export const useUIStore = create<UIState>((set) => ({
     }),
   setTaskSidebarVisible: (taskSidebarVisible) => set({ taskSidebarVisible }),
   setSidebarNavConfig: (sidebarNavConfig) => {
-    setSetting("sidebar_nav_config", JSON.stringify(sidebarNavConfig)).catch(() => {});
+    setSetting("sidebar_nav_config", JSON.stringify(sidebarNavConfig)).catch(
+      () => {},
+    );
     set({ sidebarNavConfig });
   },
   restoreSidebarNavConfig: (sidebarNavConfig) => set({ sidebarNavConfig }),
-  setReduceMotion: (reduceMotion) => {
-    setSetting("reduce_motion", String(reduceMotion)).catch(() => {});
-    set({ reduceMotion });
+  setBackgroundMode: (backgroundMode) => {
+    setSetting("background_mode", backgroundMode).catch(() => {});
+    set({ backgroundMode });
   },
   setOnline: (isOnline) => set({ isOnline }),
   setPendingOpsCount: (pendingOpsCount) => set({ pendingOpsCount }),

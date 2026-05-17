@@ -1,11 +1,12 @@
-import { useRef, useCallback, useLayoutEffect, useMemo, useState, useEffect } from "react";
+import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import { ImageOff } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { stripRemoteImages, hasBlockedImages } from "@/utils/imageBlocker";
 import { addToAllowlist } from "@/services/db/imageAllowlist";
 import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { useUIStore } from "@/stores/uiStore";
-import type { DbAttachment } from "@/services/db/attachments";
+import { useComposerStore } from "@/stores/composerStore";
+import { parseMailtoUrl } from "@/utils/mailtoParser";
 
 interface EmailRendererProps {
   html: string | null;
@@ -14,8 +15,8 @@ interface EmailRendererProps {
   senderAddress?: string | null;
   accountId?: string | null;
   senderAllowlisted?: boolean;
-  messageId?: string | null;
-  inlineAttachments?: DbAttachment[];
+  cidMap?: Map<string, string>;
+  cidFailed?: Set<string>;
 }
 
 export function EmailRenderer({
@@ -25,14 +26,15 @@ export function EmailRenderer({
   senderAddress,
   accountId,
   senderAllowlisted = false,
-  messageId,
-  inlineAttachments,
+  cidMap,
+  cidFailed,
 }: EmailRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const observerRef = useRef<ResizeObserver | null>(null);
   const rafRef = useRef<number>(0);
+  // Tracks the active Blob URL for the iframe document so we can revoke it
+  // deterministically on unmount (instead of waiting for JS GC).
+  const blobUrlRef = useRef<string | null>(null);
   const [overrideShow, setOverrideShow] = useState(false);
-  const [cidMap, setCidMap] = useState<Map<string, string>>(new Map());
 
   const theme = useUIStore((s) => s.theme);
   const isDark = theme === "dark"
@@ -40,53 +42,14 @@ export function EmailRenderer({
 
   const shouldBlock = blockImages && !senderAllowlisted && !overrideShow;
 
-  // Resolve cid: references by fetching inline attachment data
-  useEffect(() => {
-    if (!accountId || !messageId || !inlineAttachments?.length) return;
-
-    const cidAttachments = inlineAttachments.filter(
-      (a) => a.content_id && a.gmail_attachment_id,
-    );
-    if (cidAttachments.length === 0) return;
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const { getEmailProvider } = await import("@/services/email/providerFactory");
-        const provider = await getEmailProvider(accountId);
-        const resolved = new Map<string, string>();
-
-        await Promise.all(
-          cidAttachments.map(async (att) => {
-            try {
-              const response = await provider.fetchAttachment(
-                messageId,
-                att.gmail_attachment_id!,
-              );
-              const base64 = response.data.replace(/-/g, "+").replace(/_/g, "/");
-              resolved.set(att.content_id!, `data:${att.mime_type ?? "image/png"};base64,${base64}`);
-            } catch {
-              // Skip individual failures
-            }
-          }),
-        );
-
-        if (!cancelled && resolved.size > 0) {
-          setCidMap(resolved);
-        }
-      } catch {
-        // Non-critical — images just won't render
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [accountId, messageId, inlineAttachments]);
-
-  // Sanitize once — reused by both content and blocked-image check
   const sanitizedBody = useMemo(() => {
     if (!html) return null;
-    return sanitizeHtml(html);
+    // Hard safety cap: bodies above this threshold are not rendered as HTML.
+    // The plain-text fallback path takes over (sanitizedBody === null triggers
+    // the `<pre>${escapeHtml(text)}</pre>` branch in `bodyHtml` below).
+    const MAX_BODY_BYTES = 10 * 1024 * 1024;
+    if (html.length > MAX_BODY_BYTES) return null;
+    return sanitizeHtml(stripOversizedDataImages(html));
   }, [html]);
 
   const isPlainText = !sanitizedBody;
@@ -99,40 +62,58 @@ export function EmailRenderer({
       body = stripRemoteImages(body);
     }
 
-    // Replace cid: references with resolved data URIs
-    if (cidMap.size > 0) {
+    // Replace cid: references inline before building the Blob URL — no postMessage needed.
+    // If already resolved: embed the asset:// URL directly.
+    // If failed: embed an SVG placeholder.
+    // Otherwise: transparent GIF so the img element exists in the DOM (height tracking).
+    if (sanitizedBody) {
       body = body.replace(
-        /\bcid:([^"'\s)]+)/gi,
-        (match, cidRef: string) => cidMap.get(cidRef) ?? match,
+        /\ssrc\s*=\s*["']cid:([^"']+)["']/gi,
+        (_, rawCid: string) => {
+          const cid = rawCid.trim().replace(/[<>]/g, "");
+          const resolved = cidMap?.get(cid);
+          if (resolved) return ` src="${resolved}"`;
+          if (cidFailed?.has(cid)) {
+            return ` src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' fill='%23e5e7eb' rx='4'/%3E%3Cpath d='M4 17l4-4 3 3 4-5 5 6H4z' fill='%239ca3af'/%3E%3C/svg%3E" style="opacity:0.4;width:48px;height:48px;object-fit:contain"`;
+          }
+          return ` src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"`;
+        }
       );
     }
 
+    // Rewrite anchor hrefs to data-link so the iframe never navigates; clicks
+    // are forwarded to the parent via postMessage.
+    if (sanitizedBody) {
+      body = rewriteLinksForSrcdoc(body);
+    }
+
+    // Hint WebKit to defer image decode and skip off-screen images. Without these,
+    // every <img> in the document is decoded eagerly on iframe load, producing a
+    // full RGBA texture resident in the WebContent process — even for images far
+    // below the fold. With lazy loading + async decoding, WebKit only allocates
+    // texture memory for images currently intersecting the viewport.
+    if (sanitizedBody) {
+      body = body.replace(/<img\b(?![^>]*\bloading=)/gi, '<img loading="lazy" decoding="async"');
+    }
+
     return body;
-  }, [sanitizedBody, text, shouldBlock, cidMap]);
+  }, [sanitizedBody, text, shouldBlock, cidMap, cidFailed]);
 
   const blocked = useMemo(() => {
     if (!shouldBlock || !sanitizedBody) return false;
     return hasBlockedImages(stripRemoteImages(sanitizedBody));
   }, [shouldBlock, sanitizedBody]);
 
-  // Write content directly into iframe document — synchronous, no srcDoc async parsing
-  useLayoutEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    observerRef.current?.disconnect();
-
-    const doc = iframe.contentDocument;
-    if (!doc) return;
-
-    doc.open();
-    // Plain text: blend with app theme (dark text on light bg, light text on dark bg)
-    // HTML emails: always render on a light background since senders design for white/light
+  const srcdoc = useMemo(() => {
     const plainTextDark = isDark && isPlainText;
     const htmlDark = isDark && !isPlainText;
-    doc.write(`<!DOCTYPE html>
+    // Inline script handles three responsibilities so the iframe can run with
+    // sandbox="allow-scripts" only (no allow-same-origin), which prevents the
+    // parent's Tauri CSP from blocking remote images in email signatures.
+    return `<!DOCTYPE html>
 <html>
 <head>
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
   <style>
     body {
       margin: 0;
@@ -148,6 +129,7 @@ export function EmailRenderer({
     }
     img { max-width: 100%; height: auto; }
     a { color: ${plainTextDark ? "#60a5fa" : "#3b82f6"}; }
+    a[data-link] { cursor: pointer; }
     blockquote {
       border-left: 3px solid ${plainTextDark ? "#4b5563" : "#d1d5db"};
       margin: 8px 0;
@@ -157,48 +139,108 @@ export function EmailRenderer({
     pre { overflow-x: auto; }
     table { max-width: 100%; }
   </style>
+  <script>(function() {
+    // 1. Link clicks — forward to parent for openUrl / openComposer
+    document.addEventListener('click', function(e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[data-link]') : null;
+      if (!a) return;
+      e.preventDefault();
+      window.parent.postMessage({ type: 'link', href: a.getAttribute('data-link') || '' }, '*');
+    });
+
+    // 2. Height request from parent (sent once on load for initial sizing)
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'getHeight') {
+        window.parent.postMessage({ type: 'height', h: document.documentElement.scrollHeight }, '*');
+      }
+    });
+
+    // 3. Height tracking via ResizeObserver — only sends when height actually
+    //    changes to avoid flooding the parent during text selection.
+    var lastH = 0;
+    new ResizeObserver(function() {
+      var h = document.documentElement.scrollHeight;
+      if (h === lastH) return;
+      lastH = h;
+      window.parent.postMessage({ type: 'height', h: h }, '*');
+    }).observe(document.documentElement);
+  })();</script>
 </head>
 <body>${bodyHtml}</body>
-</html>`);
-    doc.close();
+</html>`;
+  }, [bodyHtml, isDark, isPlainText]);
 
-    // Calculate and set height synchronously before paint
-    const applyHeight = () => {
-      if (!doc.body) return;
-      const h = doc.body.scrollHeight;
-      if (h > 0) {
-        iframe.style.height = h + "px";
-      }
-    };
-    applyHeight();
-
-    // Watch for dynamic changes (images loading, etc.) — batched with rAF
-    const resizeObserver = new ResizeObserver(() => {
+  // Unmount cleanup: navigate to about:blank to force WebKit to destroy the
+  // document and release all decoded image textures and GPU allocations immediately.
+  useEffect(() => {
+    return () => {
       cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(applyHeight);
-    });
-    resizeObserver.observe(doc.body);
-    observerRef.current = resizeObserver;
+      const iframe = iframeRef.current;
+      if (iframe) iframe.src = "about:blank";
+    };
+  }, []);
 
-    // Open links in external browser via Tauri opener
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const anchor = target.closest("a");
-      if (anchor?.href) {
-        e.preventDefault();
-        openUrl(anchor.href).catch((err) => {
-          console.error("Failed to open link:", err);
+  // Blob URL management + message handling.
+  //
+  // The message listener is attached BEFORE setting iframe.src so we never miss
+  // the initial ResizeObserver height report that fires as soon as the iframe
+  // document renders — previously the listener was attached in onLoad (too late).
+  //
+  // Security: sandbox="allow-scripts" is preserved. A sandboxed iframe always gets
+  // null origin regardless of blob: vs srcdoc, so the model is identical. ✓
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+    }
+
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== iframe.contentWindow) return;
+      const msg = e.data as { type: string; h?: number; href?: string } | null;
+      if (!msg?.type) return;
+
+      if (msg.type === "height" && typeof msg.h === "number" && msg.h > 0) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(() => {
+          if (iframeRef.current) iframeRef.current.style.height = msg.h + "px";
         });
+      } else if (msg.type === "link") {
+        const href = msg.href ?? "";
+        if (href.startsWith("mailto:")) {
+          const { to, cc, bcc, subject } = parseMailtoUrl(href);
+          useComposerStore.getState().openComposer({ to, cc, bcc, subject });
+        } else if (href.startsWith("http://") || href.startsWith("https://")) {
+          openUrl(href).catch((err) => console.error("Failed to open link:", err));
+        }
       }
     };
-    doc.addEventListener("click", handleClick);
+
+    // Attach before setting src — ResizeObserver inside the iframe fires early
+    window.addEventListener("message", onMessage);
+
+    // Belt-and-suspenders: explicitly request height after load in case the
+    // ResizeObserver message arrived before the listener was ready
+    const onLoad = () => {
+      iframe.contentWindow?.postMessage({ type: "getHeight" }, "*");
+    };
+    iframe.addEventListener("load", onLoad);
+
+    const blob = new Blob([srcdoc], { type: "text/html; charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    blobUrlRef.current = url;
+    iframe.src = url;
 
     return () => {
-      doc.removeEventListener("click", handleClick);
-      observerRef.current?.disconnect();
-      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("message", onMessage);
+      iframe.removeEventListener("load", onLoad);
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
     };
-  }, [bodyHtml, isDark, isPlainText]);
+  }, [srcdoc]);
 
   const handleLoadImages = useCallback(() => {
     setOverrideShow(true);
@@ -237,12 +279,44 @@ export function EmailRenderer({
       )}
       <iframe
         ref={iframeRef}
-        sandbox="allow-same-origin"
+        sandbox="allow-scripts"
         className={`w-full border-0 ${isDark && !isPlainText ? "rounded-md" : ""}`}
-        style={{ overflow: "hidden" }}
+        style={{ overflow: "hidden", minHeight: "120px" }}
         title="Email content"
       />
     </div>
   );
 }
 
+// Threshold above which an inline base64 image is considered "oversized" and replaced
+// with a 1×1 placeholder. 100 KB of base64 ≈ 75 KB of decoded image — large enough to
+// fit normal small icons / button graphics, small enough to never accumulate to the
+// tens-of-MB scale that quoted reply chains produce.
+const MAX_INLINE_DATA_URI_LEN = 100_000;
+
+// Pure string scan that replaces `src="data:image/...;base64,..."` whose payload
+// exceeds the threshold with a transparent-GIF data URI. The regex's character class
+// `[^"']+` is fully linear (no backtracking), so even on a 50 MB body it finishes
+// in milliseconds without touching the DOM.
+function stripOversizedDataImages(html: string): string {
+  return html.replace(
+    /\ssrc\s*=\s*["']data:image\/[^;"']+;base64,([^"']+)["']/gi,
+    (match, payload: string) => {
+      if (payload.length <= MAX_INLINE_DATA_URI_LEN) return match;
+      return ` src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"`;
+    },
+  );
+}
+
+// Replaces every <a href="…"> with <a data-link="…"> (no href) before the
+// srcdoc is created. This prevents any in-frame navigation; clicks are
+// forwarded to the parent via postMessage by the inline script.
+function rewriteLinksForSrcdoc(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll("a[href]").forEach((el) => {
+    const href = el.getAttribute("href") ?? "";
+    el.setAttribute("data-link", href);
+    el.removeAttribute("href");
+  });
+  return doc.body.innerHTML;
+}

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { ThreadView } from "./components/email/ThreadView";
 import { Composer } from "./components/composer/Composer";
 import { UndoSendToast } from "./components/composer/UndoSendToast";
+import { TitleBar } from "./components/layout/TitleBar";
+import { useComposerStore } from "./stores/composerStore";
 import { useAccountStore } from "./stores/accountStore";
 import { useUIStore } from "./stores/uiStore";
 import { runMigrations } from "./services/db/migrations";
@@ -16,6 +18,7 @@ import type { Thread } from "./stores/threadStore";
 export default function ThreadWindow() {
   const { setTheme, setFontScale, setColorTheme } = useUIStore();
   const { setAccounts } = useAccountStore();
+  const composerOpen = useComposerStore((s) => s.isOpen);
   const [thread, setThread] = useState<Thread | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,19 +40,31 @@ export default function ThreadWindow() {
 
         // Restore theme
         const savedTheme = await getSetting("theme");
-        if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") {
+        if (
+          savedTheme === "light" ||
+          savedTheme === "dark" ||
+          savedTheme === "system"
+        ) {
           setTheme(savedTheme);
         }
 
         // Restore font scale
         const savedFontScale = await getSetting("font_size");
-        if (savedFontScale === "small" || savedFontScale === "default" || savedFontScale === "large" || savedFontScale === "xlarge") {
+        if (
+          savedFontScale === "small" ||
+          savedFontScale === "default" ||
+          savedFontScale === "large" ||
+          savedFontScale === "xlarge"
+        ) {
           setFontScale(savedFontScale);
         }
 
         // Restore color theme
         const savedColorTheme = await getSetting("color_theme");
-        if (savedColorTheme && COLOR_THEMES.some((t) => t.id === savedColorTheme)) {
+        if (
+          savedColorTheme &&
+          COLOR_THEMES.some((t) => t.id === savedColorTheme)
+        ) {
           setColorTheme(savedColorTheme as ColorThemeId);
         }
 
@@ -62,6 +77,10 @@ export default function ThreadWindow() {
           avatarUrl: a.avatar_url,
           isActive: a.is_active === 1,
           provider: a.provider,
+          color: a.color ?? null,
+          includeInGlobal: a.include_in_global !== 0,
+          sortOrder: a.sort_order ?? 0,
+          label: a.label ?? null,
         }));
         setAccounts(mapped);
 
@@ -131,7 +150,12 @@ export default function ThreadWindow() {
   const fontScale = useUIStore((s) => s.fontScale);
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove("font-scale-small", "font-scale-default", "font-scale-large", "font-scale-xlarge");
+    root.classList.remove(
+      "font-scale-small",
+      "font-scale-default",
+      "font-scale-large",
+      "font-scale-xlarge",
+    );
     root.classList.add(`font-scale-${fontScale}`);
   }, [fontScale]);
 
@@ -139,17 +163,13 @@ export default function ThreadWindow() {
   const colorTheme = useUIStore((s) => s.colorTheme);
   useEffect(() => {
     const root = document.documentElement;
-    const props = ["--color-accent", "--color-accent-hover", "--color-accent-light", "--color-bg-selected", "--color-sidebar-active"];
 
     const apply = () => {
-      if (colorTheme === "indigo") {
-        for (const p of props) root.style.removeProperty(p);
-        return;
-      }
       const themeData = getThemeById(colorTheme);
       const isDark =
         theme === "dark" ||
-        (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        (theme === "system" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches);
       const colors = isDark ? themeData.dark : themeData.light;
       root.style.setProperty("--color-accent", colors.accent);
       root.style.setProperty("--color-accent-hover", colors.accentHover);
@@ -165,9 +185,9 @@ export default function ThreadWindow() {
       mq.addEventListener("change", apply);
       return () => mq.removeEventListener("change", apply);
     }
-  }, [colorTheme, theme]);
+}, [colorTheme, theme]);
 
-  if (loading) {
+    if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg-primary text-text-secondary">
         <span className="text-sm">Loading thread...</span>
@@ -185,8 +205,9 @@ export default function ThreadWindow() {
 
   return (
     <div className="flex flex-col h-screen bg-bg-primary text-text-primary">
+      <TitleBar />
       <ThreadView thread={thread} />
-      <Composer />
+      {composerOpen && <Composer />}
       <UndoSendToast />
     </div>
   );

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { setSetting } from "../services/db/settings";
+import { updateAccountMeta } from "../services/db/accounts";
 
 export interface Account {
   id: string;
@@ -8,15 +9,21 @@ export interface Account {
   avatarUrl: string | null;
   isActive: boolean;
   provider?: string;
+  color: string | null;
+  includeInGlobal: boolean;
+  sortOrder: number;
+  label: string | null;
 }
 
 interface AccountState {
   accounts: Account[];
   activeAccountId: string | null;
   setAccounts: (accounts: Account[], restoredId?: string | null) => void;
-  setActiveAccount: (id: string) => void;
+  /** Pass null to enter unified-inbox context (no single active account). */
+  setActiveAccount: (id: string | null) => void;
   addAccount: (account: Account) => void;
   removeAccount: (id: string) => void;
+  reorderAccounts: (orderedIds: string[]) => Promise<void>;
 }
 
 export const useAccountStore = create<AccountState>((set) => ({
@@ -31,7 +38,9 @@ export const useAccountStore = create<AccountState>((set) => ({
   },
 
   setActiveAccount: (activeAccountId) => {
-    setSetting("active_account_id", activeAccountId).catch(() => {});
+    if (activeAccountId !== null) {
+      setSetting("active_account_id", activeAccountId).catch(() => {});
+    }
     set({ activeAccountId });
   },
 
@@ -52,4 +61,19 @@ export const useAccountStore = create<AccountState>((set) => ({
             : state.activeAccountId,
       };
     }),
+
+  reorderAccounts: async (orderedIds) => {
+    set((state) => {
+      const idToIndex = new Map(orderedIds.map((id, i) => [id, i]));
+      const accounts = [...state.accounts].sort((a, b) => {
+        const ia = idToIndex.get(a.id) ?? state.accounts.indexOf(a);
+        const ib = idToIndex.get(b.id) ?? state.accounts.indexOf(b);
+        return ia - ib;
+      });
+      return { accounts: accounts.map((a, i) => ({ ...a, sortOrder: i })) };
+    });
+    await Promise.all(
+      orderedIds.map((id, i) => updateAccountMeta(id, { sortOrder: i })),
+    );
+  },
 }));

@@ -21,6 +21,7 @@ export interface SyncResult {
     modseq?: number;
   };
   latestSyncToken?: string;
+  storedCount?: number;
 }
 
 export interface EmailProvider {
@@ -83,15 +84,16 @@ export interface EmailProvider {
   createDraft(
     rawBase64Url: string,
     threadId?: string,
-  ): Promise<{ draftId: string }>;
+  ): Promise<{ draftId: string; threadId?: string }>;
   updateDraft(
     draftId: string,
     rawBase64Url: string,
     threadId?: string,
-  ): Promise<{ draftId: string }>;
-  deleteDraft(draftId: string): Promise<void>;
+  ): Promise<{ draftId: string; threadId?: string }>;
+  deleteDraft(draftId: string, threadId?: string): Promise<void>;
 
   // Connection
   testConnection(): Promise<{ success: boolean; message: string }>;
   getProfile(): Promise<{ email: string; name?: string }>;
+  getValidToken?(): Promise<string>;
 }

@@ -1,8 +1,9 @@
+import { decodeHtml } from "@/utils/sanitize";
 import type { EmailProvider, EmailFolder, SyncResult } from "./types";
 import type { ParsedMessage } from "../gmail/messageParser";
 import { buildImapConfig, buildSmtpConfig } from "../imap/imapConfigBuilder";
-import { imapInitialSync, imapDeltaSync, imapMessageToParsedMessage } from "../imap/imapSync";
-import { mapFolderToLabel, getSyncableFolders } from "../imap/folderMapper";
+import { imapInitialSync, imapDeltaSync } from "../imap/imapSync";
+import { mapFolderToLabel, getLabelsForMessage, getSyncableFolders } from "../imap/folderMapper";
 import {
   imapListFolders,
   imapSetFlags,
@@ -21,8 +22,12 @@ import {
 import { getAccount, type DbAccount } from "../db/accounts";
 import { findSpecialFolder } from "../imap/messageHelper";
 import { ensureFreshToken } from "../oauth/oauthTokenManager";
-import { upsertMessage } from "../db/messages";
-import { upsertThread, setThreadLabels, getThreadLabelIds } from "../db/threads";
+import { upsertMessage, getMessagesForThread } from "../db/messages";
+import {
+  upsertThread,
+  setThreadLabels,
+  getThreadLabelIds,
+} from "../db/threads";
 
 /**
  * Decode base64url (Gmail/RFC 4648 URL-safe, no padding) to a UTF-8 string.
@@ -90,12 +95,14 @@ function extractSnippet(raw: string, maxLen = 200): string {
   }
 
   // Strip HTML tags if present, trim, and truncate
-  return body
+  const stripped = body
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLen);
+
+  return decodeHtml(stripped);
 }
 
 /**
@@ -206,9 +213,15 @@ export class ImapSmtpProvider implements EmailProvider {
     daysBack: number,
     onProgress?: (phase: string, current: number, total: number) => void,
   ): Promise<SyncResult> {
-    return imapInitialSync(this.accountId, daysBack, onProgress ? (p) => {
-      onProgress(p.phase, p.current, p.total);
-    } : undefined);
+    return imapInitialSync(
+      this.accountId,
+      daysBack,
+      onProgress
+        ? (p) => {
+            onProgress(p.phase, p.current, p.total);
+          }
+        : undefined,
+    );
   }
 
   async deltaSync(_syncToken: string): Promise<SyncResult> {
@@ -227,13 +240,49 @@ export class ImapSmtpProvider implements EmailProvider {
     const config = await this.getImapConfig();
     const imapMsg = await imapFetchMessageBody(config, folder, uid);
 
-    const { parsed } = imapMessageToParsedMessage(
-      imapMsg,
-      this.accountId,
-      folder,
+    // Build ParsedMessage inline — on-demand fetch includes body_html + body_text
+    const folderMapping = mapFolderToLabel({
+      path: folder, raw_path: folder, name: folder,
+      delimiter: "/", special_use: null, exists: 0, unseen: 0,
+    });
+    const labelIds = getLabelsForMessage(
+      { labelId: folderMapping.labelId, labelName: "", type: "" },
+      imapMsg.is_read, imapMsg.is_starred, imapMsg.is_draft,
     );
-    parsed.id = messageId;
-
+    const snippet = imapMsg.snippet ?? "";
+    const attachments = imapMsg.attachments.map((att) => ({
+      filename: att.filename,
+      mimeType: att.mime_type,
+      size: att.size,
+      gmailAttachmentId: att.part_id,
+      contentId: att.content_id,
+      isInline: att.is_inline,
+    }));
+    const parsed: ParsedMessage = {
+      id: messageId,
+      threadId: "",
+      fromAddress: imapMsg.from_address,
+      fromName: imapMsg.from_name,
+      toAddresses: imapMsg.to_addresses,
+      ccAddresses: imapMsg.cc_addresses,
+      bccAddresses: imapMsg.bcc_addresses,
+      replyTo: imapMsg.reply_to,
+      subject: imapMsg.subject,
+      snippet,
+      date: imapMsg.date * 1000,
+      isRead: imapMsg.is_read || imapMsg.is_draft,
+      isStarred: imapMsg.is_starred,
+      bodyHtml: imapMsg.body_html,
+      bodyText: imapMsg.body_text,
+      rawSize: imapMsg.raw_size,
+      internalDate: imapMsg.date * 1000,
+      labelIds,
+      hasAttachments: attachments.length > 0,
+      attachments,
+      listUnsubscribe: imapMsg.list_unsubscribe,
+      listUnsubscribePost: imapMsg.list_unsubscribe_post,
+      authResults: imapMsg.auth_results,
+    };
     return parsed;
   }
 
@@ -265,68 +314,125 @@ export class ImapSmtpProvider implements EmailProvider {
 
   // ---- Actions ----
 
-  async archive(
-    _threadId: string,
-    _messageIds: string[],
-  ): Promise<void> {
+  // ---- Shared helpers ----
+
+  /**
+   * Resolve the folder→UIDs map for an action.
+   * When callers pass explicit messageIds (from the ActionBar), parse them.
+   * When they pass [] (keyboard shortcuts, multi-select), fetch from DB and
+   * use imap_folder / imap_uid directly — avoids stale synthetic IDs after
+   * a message has been moved between folders by a prior action.
+   */
+  private async resolveGrouped(
+    threadId: string,
+    messageIds: string[],
+  ): Promise<Map<string, number[]>> {
+    if (messageIds.length > 0) {
+      return this.groupByFolder(messageIds);
+    }
+    const msgs = await getMessagesForThread(this.accountId, threadId);
+    const grouped = new Map<string, number[]>();
+    for (const m of msgs) {
+      if (!m.imap_folder || m.imap_uid == null) continue;
+      const existing = grouped.get(m.imap_folder);
+      if (existing) existing.push(m.imap_uid);
+      else grouped.set(m.imap_folder, [m.imap_uid]);
+    }
+    return grouped;
+  }
+
+  async archive(threadId: string, messageIds: string[]): Promise<void> {
     const config = await this.getImapConfig();
-    const grouped = this.groupByFolder(_messageIds);
+    const grouped = await this.resolveGrouped(threadId, messageIds);
     const archiveFolder =
       (await findSpecialFolder(this.accountId, "\\Archive")) ?? "Archive";
 
+    console.log(
+      `[imap_] archive thread=${threadId} archiveFolder=${archiveFolder} groups=`,
+      [...grouped.entries()].map(([f, u]) => `${f}:${u}`),
+    );
     for (const [folder, uids] of grouped) {
       if (folder === archiveFolder) continue;
       await imapMoveMessages(config, folder, uids, archiveFolder);
+      console.log(
+        `[imap_] archive move ${folder} → ${archiveFolder} uids=${uids} OK`,
+      );
     }
   }
 
-  async trash(
-    _threadId: string,
-    _messageIds: string[],
-  ): Promise<void> {
+  async trash(threadId: string, messageIds: string[]): Promise<void> {
     const config = await this.getImapConfig();
-    const grouped = this.groupByFolder(_messageIds);
+    const grouped = await this.resolveGrouped(threadId, messageIds);
     const trashFolder =
       (await findSpecialFolder(this.accountId, "\\Trash")) ?? "Trash";
 
+    console.log(
+      `[imap_] trash thread=${threadId} trashFolder=${trashFolder} groups=`,
+      [...grouped.entries()].map(([f, u]) => `${f}:${u}`),
+    );
     for (const [folder, uids] of grouped) {
       if (folder === trashFolder) continue;
       await imapMoveMessages(config, folder, uids, trashFolder);
+      console.log(
+        `[imap_] trash move ${folder} → ${trashFolder} uids=${uids} OK`,
+      );
     }
   }
 
-  async permanentDelete(
-    _threadId: string,
-    _messageIds: string[],
-  ): Promise<void> {
+  async permanentDelete(threadId: string, messageIds: string[]): Promise<void> {
     const config = await this.getImapConfig();
-    const grouped = this.groupByFolder(_messageIds);
+    const grouped = await this.resolveGrouped(threadId, messageIds);
 
+    console.log(
+      `[imap_] permanentDelete thread=${threadId} groups=`,
+      [...grouped.entries()].map(([f, u]) => `${f}:${u}`),
+    );
+
+    const { recordDeletedImapUid } = await import("@/services/db/deletedImapUids");
     for (const [folder, uids] of grouped) {
-      await imapDeleteMessages(config, folder, uids);
+      try {
+        await imapDeleteMessages(config, folder, uids);
+        console.log(`[imap_] permanentDelete ${folder} uids=${uids} OK`);
+      } catch (err) {
+        // Stale UIDs from moved messages are silently ignored — only log
+        console.warn(
+          `[imap_] permanentDelete ${folder} uids=${uids} failed (stale?):`,
+          err,
+        );
+      } finally {
+        // Always write tombstone so UIDs are never re-imported, even if IMAP delete failed
+        for (const uid of uids) {
+          await recordDeletedImapUid(this.accountId, folder, uid).catch(() => {});
+        }
+      }
     }
   }
 
   async markRead(
-    _threadId: string,
-    _messageIds: string[],
+    threadId: string,
+    messageIds: string[],
     read: boolean,
   ): Promise<void> {
     const config = await this.getImapConfig();
-    const grouped = this.groupByFolder(_messageIds);
+    const grouped = await this.resolveGrouped(threadId, messageIds);
 
+    console.log(
+      `[imap_] markRead thread=${threadId} read=${read} groups=`,
+      [...grouped.entries()].map(([f, u]) => `${f}:${u}`),
+    );
     for (const [folder, uids] of grouped) {
       await imapSetFlags(config, folder, uids, ["Seen"], read);
+      console.log(`[imap_] markRead ${folder} uids=${uids} read=${read} OK`);
     }
   }
 
   async star(
-    _threadId: string,
-    _messageIds: string[],
+    threadId: string,
+    messageIds: string[],
     starred: boolean,
   ): Promise<void> {
     const config = await this.getImapConfig();
-    const grouped = this.groupByFolder(_messageIds);
+    const grouped = await this.resolveGrouped(threadId, messageIds);
 
     for (const [folder, uids] of grouped) {
       await imapSetFlags(config, folder, uids, ["Flagged"], starred);
@@ -334,16 +440,20 @@ export class ImapSmtpProvider implements EmailProvider {
   }
 
   async spam(
-    _threadId: string,
-    _messageIds: string[],
+    threadId: string,
+    messageIds: string[],
     isSpam: boolean,
   ): Promise<void> {
     const config = await this.getImapConfig();
-    const grouped = this.groupByFolder(_messageIds);
+    const grouped = await this.resolveGrouped(threadId, messageIds);
     const junkFolder =
       (await findSpecialFolder(this.accountId, "\\Junk")) ?? "Junk";
     const destination = isSpam ? junkFolder : "INBOX";
 
+    console.log(
+      `[imap_] spam thread=${threadId} isSpam=${isSpam} destination=${destination} groups=`,
+      [...grouped.entries()].map(([f, u]) => `${f}:${u}`),
+    );
     for (const [folder, uids] of grouped) {
       if (folder === destination) continue;
       await imapMoveMessages(config, folder, uids, destination);
@@ -351,12 +461,12 @@ export class ImapSmtpProvider implements EmailProvider {
   }
 
   async moveToFolder(
-    _threadId: string,
-    _messageIds: string[],
+    threadId: string,
+    messageIds: string[],
     folderPath: string,
   ): Promise<void> {
     const config = await this.getImapConfig();
-    const grouped = this.groupByFolder(_messageIds);
+    const grouped = await this.resolveGrouped(threadId, messageIds);
 
     for (const [folder, uids] of grouped) {
       if (folder === folderPath) continue;
@@ -364,27 +474,47 @@ export class ImapSmtpProvider implements EmailProvider {
     }
   }
 
-  async addLabel(
-    _threadId: string,
-    _labelId: string,
-  ): Promise<void> {
-    // IMAP doesn't have native labels — this would require COPY to another folder
-    // or using IMAP keywords (if server supports them).
-    // For now, this is a no-op with a warning.
-    console.warn(
-      "IMAP does not natively support labels. " +
-        "Use moveToFolder() to move messages between folders instead.",
-    );
+  async addLabel(threadId: string, labelId: string): Promise<void> {
+    // Map Gmail-style system label IDs to IMAP folder paths and perform a move.
+    // This is how drag-and-drop "restore from Trash" works: addLabel("INBOX") moves
+    // all thread messages from their current folder (e.g. Trash) to the INBOX.
+    let targetFolder: string | null = null;
+    switch (labelId) {
+      case "INBOX":
+        targetFolder = "INBOX";
+        break;
+      case "SENT":
+        targetFolder =
+          (await findSpecialFolder(this.accountId, "\\Sent")) ?? "Sent";
+        break;
+      case "TRASH":
+        targetFolder =
+          (await findSpecialFolder(this.accountId, "\\Trash")) ?? "Trash";
+        break;
+      case "SPAM":
+        targetFolder =
+          (await findSpecialFolder(this.accountId, "\\Junk")) ?? "Junk";
+        break;
+      case "DRAFT":
+        targetFolder =
+          (await findSpecialFolder(this.accountId, "\\Drafts")) ?? "Drafts";
+        break;
+      default:
+        // IMAP has no concept of custom labels
+        console.warn(
+          `[imap_] addLabel: "${labelId}" — IMAP does not support custom labels`,
+        );
+        return;
+    }
+    await this.moveToFolder(threadId, [], targetFolder);
   }
 
-  async removeLabel(
-    _threadId: string,
-    _labelId: string,
-  ): Promise<void> {
-    // IMAP doesn't have native labels.
-    console.warn(
-      "IMAP does not natively support labels. " +
-        "Use moveToFolder() to move messages between folders instead.",
+  async removeLabel(threadId: string, labelId: string): Promise<void> {
+    // After addLabel() has already moved the messages to the target folder, the
+    // source folder (e.g. Trash) no longer contains them, so no server action is
+    // needed here. The local DB is updated by the emailActions pipeline.
+    console.log(
+      `[imap_] removeLabel: "${labelId}" on thread ${threadId} — handled by prior addLabel move`,
     );
   }
 
@@ -457,7 +587,10 @@ export class ImapSmtpProvider implements EmailProvider {
       // Reply: add SENT label to existing thread
       const existingLabels = await getThreadLabelIds(this.accountId, threadId);
       if (!existingLabels.includes("SENT")) {
-        await setThreadLabels(this.accountId, threadId, [...existingLabels, "SENT"]);
+        await setThreadLabels(this.accountId, threadId, [
+          ...existingLabels,
+          "SENT",
+        ]);
       }
     } else {
       // New thread: create thread record
@@ -510,44 +643,178 @@ export class ImapSmtpProvider implements EmailProvider {
     });
   }
 
+  /**
+   * Save a draft message to the local SQLite DB with the DRAFT label and IMAP UID.
+   * This ensures resolveGrouped() always finds the current UID when the user deletes
+   * a draft, even before the next delta sync updates the DB from the server.
+   */
+  private async saveDraftLocally(
+    rawBase64Url: string,
+    draftId: string,
+    imapUid: number,
+    imapFolder: string,
+    threadId?: string,
+  ): Promise<{ threadId: string }> {
+    const raw = base64UrlDecode(rawBase64Url);
+    const headers = parseBasicHeaders(raw);
+    const snippet = extractSnippet(raw);
+
+    const from = headers.get("from") ?? "";
+    const to = headers.get("to") ?? "";
+    const cc = headers.get("cc") ?? null;
+    const subject = headers.get("subject") ?? null;
+    const messageIdHeader = headers.get("message-id") ?? null;
+    const inReplyTo = headers.get("in-reply-to") ?? null;
+    const references = headers.get("references") ?? null;
+    const now = Date.now();
+
+    // For draft replies, attach to the existing thread; otherwise use draftId as threadId
+    const effectiveThreadId = threadId ?? draftId;
+
+    // Upsert the thread (creates if new, updates subject/snippet if existing)
+    await upsertThread({
+      id: effectiveThreadId,
+      accountId: this.accountId,
+      subject,
+      snippet,
+      lastMessageAt: now,
+      messageCount: 1,
+      isRead: false,
+      isStarred: false,
+      isImportant: false,
+      hasAttachments: false,
+    });
+
+    // Ensure DRAFT label is present without overwriting other labels (e.g. INBOX for replies)
+    const existingLabels = await getThreadLabelIds(this.accountId, effectiveThreadId);
+    if (!existingLabels.includes("DRAFT")) {
+      await setThreadLabels(this.accountId, effectiveThreadId, [...existingLabels, "DRAFT"]);
+    }
+
+    const fromNameMatch = from.match(/^([^<]*)<[^>]+>/);
+    const fromName = fromNameMatch ? fromNameMatch[1]!.trim() : null;
+    const fromAddress = from.replace(/.*<([^>]+)>.*/, "$1").trim();
+
+    const bodyStart = raw.indexOf("\r\n\r\n");
+    const bodyHtml = bodyStart !== -1 ? raw.slice(bodyStart + 4) : null;
+
+    await upsertMessage({
+      id: draftId,
+      accountId: this.accountId,
+      threadId: effectiveThreadId,
+      fromAddress,
+      fromName,
+      toAddresses: to,
+      ccAddresses: cc,
+      bccAddresses: null,
+      replyTo: null,
+      subject,
+      snippet,
+      date: now,
+      isRead: false,
+      isStarred: false,
+      bodyHtml: bodyHtml ? bodyHtml.slice(0, 50000) : null,
+      bodyText: snippet,
+      rawSize: raw.length,
+      internalDate: now,
+      messageIdHeader,
+      referencesHeader: references,
+      inReplyToHeader: inReplyTo,
+      imapUid,
+      imapFolder,
+    });
+
+    return { threadId: effectiveThreadId };
+  }
+
   async createDraft(
     rawBase64Url: string,
     _threadId?: string,
-  ): Promise<{ draftId: string }> {
+  ): Promise<{ draftId: string; threadId?: string }> {
     const config = await this.getImapConfig();
     const draftsFolder =
       (await findSpecialFolder(this.accountId, "\\Drafts")) ?? "Drafts";
 
-    await imapAppendMessage(config, draftsFolder, rawBase64Url, "(\\Draft)");
+    const uid = await imapAppendMessage(
+      config,
+      draftsFolder,
+      rawBase64Url,
+      "(\\Draft)",
+    );
 
-    // IMAP APPEND does not return the new UID, so generate a pseudo draft ID
-    const draftId = `imap-draft-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    return { draftId };
+    // Build a real UID-based ID so deleteDraft can find and remove it from IMAP
+    const draftId = `imap-${this.accountId}-${draftsFolder}-${uid}`;
+
+    // Write to local DB immediately so resolveGrouped() can delete by UID before the next sync
+    try {
+      const { threadId } = await this.saveDraftLocally(rawBase64Url, draftId, uid, draftsFolder, _threadId);
+      return { draftId, threadId };
+    } catch (err) {
+      console.warn("[IMAP] Failed to save draft to local DB:", err);
+      return { draftId };
+    }
   }
 
   async updateDraft(
     draftId: string,
     rawBase64Url: string,
     _threadId?: string,
-  ): Promise<{ draftId: string }> {
-    // Delete the old draft first, then create a new one
+  ): Promise<{ draftId: string; threadId?: string }> {
+    if (draftId.startsWith("imap-draft-")) {
+      // Pseudo-ID: no server UID to delete. Create a fresh draft on server + DB.
+      return this.createDraft(rawBase64Url, _threadId);
+    }
+
+    // Real UID-based ID: append new FIRST (so the new UID is in DB before we remove the old one),
+    // then delete the old from server. The old DB record is cleaned up by cleanupOldDraftFromDb
+    // in draftAutoSave.ts after this call returns.
+    const config = await this.getImapConfig();
+    const draftsFolder =
+      (await findSpecialFolder(this.accountId, "\\Drafts")) ?? "Drafts";
+
+    const newUid = await imapAppendMessage(config, draftsFolder, rawBase64Url, "(\\Draft)");
+    const newDraftId = `imap-${this.accountId}-${draftsFolder}-${newUid}`;
+
+    let returnedThreadId = _threadId;
+    try {
+      const { threadId } = await this.saveDraftLocally(rawBase64Url, newDraftId, newUid, draftsFolder, _threadId);
+      returnedThreadId = threadId;
+    } catch (err) {
+      console.warn("[IMAP] Failed to save updated draft to local DB:", err);
+    }
+
+    // Delete old from server (non-fatal if already gone).
+    // Always record a tombstone so the old UID is never re-imported even if the
+    // EXPUNGE command fails mid-way (e.g. network drop after +FLAGS \Deleted).
+    const { folder: oldFolder, uid: oldUid } = this.parseImapMessageId(draftId);
     try {
       await this.deleteDraft(draftId);
     } catch {
-      // Old draft may already be gone; continue with creating the new one
+      // Old draft may already be gone or EXPUNGE failed. Record tombstone as fallback
+      // so the UID is not re-imported on the next delta sync.
+      if (oldUid !== null && oldFolder) {
+        const { recordDeletedImapUid } = await import("@/services/db/deletedImapUids");
+        await recordDeletedImapUid(this.accountId, oldFolder, oldUid).catch(() => {});
+      }
     }
 
-    return this.createDraft(rawBase64Url, _threadId);
+    return { draftId: newDraftId, threadId: returnedThreadId };
   }
 
-  async deleteDraft(draftId: string): Promise<void> {
-    // Try to parse draft ID to get folder + UID info
+  async deleteDraft(draftId: string, _threadId?: string): Promise<void> {
     // Draft IDs from IMAP are in message ID format: imap-{accountId}-{folder}-{uid}
     const { folder, uid } = this.parseImapMessageId(draftId);
 
     if (uid !== null && folder) {
+      const { recordDeletedImapUid } = await import("@/services/db/deletedImapUids");
+      // Write tombstone FIRST — SQLite write completes in < 50ms, well before
+      // the composer WebView is destroyed. This guarantees the draft is never
+      // re-imported even if the subsequent IMAP delete is killed mid-flight.
+      await recordDeletedImapUid(this.accountId, folder, uid).catch(() => {});
+      // IMAP delete is best-effort — may be killed if window dies before it completes,
+      // but the tombstone above already prevents re-import.
       const config = await this.getImapConfig();
-      await imapDeleteMessages(config, folder, [uid]);
+      await imapDeleteMessages(config, folder, [uid]).catch(() => {});
     } else {
       // Generated draft IDs (imap-draft-...) can't be mapped back to a server UID
       console.warn(

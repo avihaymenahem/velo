@@ -42,9 +42,7 @@ export class GmailApiProvider implements EmailProvider {
       path: label.name,
       type: label.type === "system" ? "system" : "user",
       specialUse:
-        label.type === "system"
-          ? (GMAIL_SPECIAL_USE[label.id] ?? null)
-          : null,
+        label.type === "system" ? (GMAIL_SPECIAL_USE[label.id] ?? null) : null,
       delimiter: "/",
       messageCount: label.messagesTotal ?? 0,
       unreadCount: label.messagesUnread ?? 0,
@@ -139,7 +137,10 @@ export class GmailApiProvider implements EmailProvider {
 
   async fetchRawMessage(messageId: string): Promise<string> {
     // Gmail API with format=raw returns a { raw: string } field (base64url-encoded RFC822)
-    const resp = await this.client.getMessage(messageId, "raw") as unknown as { raw: string };
+    const resp = (await this.client.getMessage(
+      messageId,
+      "raw",
+    )) as unknown as { raw: string };
     const base64 = resp.raw.replace(/-/g, "+").replace(/_/g, "/");
     return atob(base64);
   }
@@ -148,27 +149,42 @@ export class GmailApiProvider implements EmailProvider {
     await this.client.modifyThread(threadId, undefined, ["INBOX"]);
   }
 
-  async trash(threadId: string, _messageIds: string[]): Promise<void> {
-    await this.client.modifyThread(threadId, ["TRASH"], ["INBOX"]);
+  async trash(threadId: string, messageIds: string[]): Promise<void> {
+    if (messageIds.length > 0) {
+      for (const id of messageIds) await this.client.trashMessage(id);
+    } else {
+      await this.client.trashThread(threadId);
+    }
   }
 
-  async permanentDelete(
-    threadId: string,
-    _messageIds: string[],
-  ): Promise<void> {
-    await this.client.deleteThread(threadId);
+  async permanentDelete(threadId: string, messageIds: string[]): Promise<void> {
+    if (messageIds.length > 0) {
+      for (const id of messageIds) await this.client.deleteMessage(id);
+    } else {
+      await this.client.deleteThread(threadId);
+    }
   }
 
   async markRead(
     threadId: string,
-    _messageIds: string[],
+    messageIds: string[],
     read: boolean,
   ): Promise<void> {
-    await this.client.modifyThread(
-      threadId,
-      read ? undefined : ["UNREAD"],
-      read ? ["UNREAD"] : undefined,
-    );
+    if (messageIds.length > 0) {
+      for (const id of messageIds) {
+        await this.client.modifyMessage(
+          id,
+          read ? undefined : ["UNREAD"],
+          read ? ["UNREAD"] : undefined,
+        );
+      }
+    } else {
+      await this.client.modifyThread(
+        threadId,
+        read ? undefined : ["UNREAD"],
+        read ? ["UNREAD"] : undefined,
+      );
+    }
   }
 
   async star(
@@ -222,25 +238,21 @@ export class GmailApiProvider implements EmailProvider {
   async createDraft(
     rawBase64Url: string,
     threadId?: string,
-  ): Promise<{ draftId: string }> {
+  ): Promise<{ draftId: string; threadId?: string }> {
     const resp = await this.client.createDraft(rawBase64Url, threadId);
-    return { draftId: resp.id };
+    return { draftId: resp.id, threadId: resp.message.threadId };
   }
 
   async updateDraft(
     draftId: string,
     rawBase64Url: string,
     threadId?: string,
-  ): Promise<{ draftId: string }> {
-    const resp = await this.client.updateDraft(
-      draftId,
-      rawBase64Url,
-      threadId,
-    );
-    return { draftId: resp.id };
+  ): Promise<{ draftId: string; threadId?: string }> {
+    const resp = await this.client.updateDraft(draftId, rawBase64Url, threadId);
+    return { draftId: resp.id, threadId: resp.message.threadId };
   }
 
-  async deleteDraft(draftId: string): Promise<void> {
+  async deleteDraft(draftId: string, _threadId?: string): Promise<void> {
     await this.client.deleteDraft(draftId);
   }
 
@@ -263,5 +275,9 @@ export class GmailApiProvider implements EmailProvider {
   async getProfile(): Promise<{ email: string; name?: string }> {
     const profile = await this.client.getProfile();
     return { email: profile.emailAddress };
+  }
+
+  async getValidToken(): Promise<string> {
+    return this.client.getValidToken();
   }
 }

@@ -407,8 +407,8 @@ describe("ImapSmtpProvider", () => {
       spy.mockRestore();
     });
 
-    it("removeLabel does not throw (warns instead)", async () => {
-      const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    it("removeLabel does not throw (logs instead)", async () => {
+      const spy = vi.spyOn(console, "log").mockImplementation(() => {});
       await provider.removeLabel("thread-1", "Label_1");
       expect(spy).toHaveBeenCalled();
       spy.mockRestore();
@@ -520,7 +520,7 @@ describe("ImapSmtpProvider", () => {
   describe("createDraft", () => {
     it("appends to Drafts folder with Draft flag", async () => {
       vi.mocked(findSpecialFolder).mockResolvedValue("INBOX.Drafts");
-      vi.mocked(imapAppendMessage).mockResolvedValue(undefined);
+      vi.mocked(imapAppendMessage).mockResolvedValue(42);
 
       const result = await provider.createDraft("base64data");
 
@@ -530,12 +530,12 @@ describe("ImapSmtpProvider", () => {
         "base64data",
         "(\\Draft)",
       );
-      expect(result.draftId).toMatch(/^imap-draft-/);
+      expect(result.draftId).toBe("imap-acc-1-INBOX.Drafts-42");
     });
 
     it("falls back to 'Drafts' when special folder not found", async () => {
       vi.mocked(findSpecialFolder).mockResolvedValue(null);
-      vi.mocked(imapAppendMessage).mockResolvedValue(undefined);
+      vi.mocked(imapAppendMessage).mockResolvedValue(10);
 
       await provider.createDraft("base64data");
 
@@ -552,7 +552,7 @@ describe("ImapSmtpProvider", () => {
     it("deletes old draft and creates new one", async () => {
       vi.mocked(findSpecialFolder).mockResolvedValue("Drafts");
       vi.mocked(imapDeleteMessages).mockResolvedValue(undefined);
-      vi.mocked(imapAppendMessage).mockResolvedValue(undefined);
+      vi.mocked(imapAppendMessage).mockResolvedValue(501);
 
       const result = await provider.updateDraft(
         "imap-acc-1-Drafts-500",
@@ -572,7 +572,7 @@ describe("ImapSmtpProvider", () => {
         "newBase64data",
         "(\\Draft)",
       );
-      expect(result.draftId).toMatch(/^imap-draft-/);
+      expect(result.draftId).toBe("imap-acc-1-Drafts-501");
     });
   });
 

@@ -12,7 +12,12 @@
     "core:default",
     "core:window:default",
     "core:webview:allow-create-webview-window",
-    "sql:default",
+    {
+      "identifier": "sql:default",
+      "allow": [
+        "sqlite:velo.db"
+      ]
+    },
     "sql:allow-load",
     "sql:allow-execute",
     "sql:allow-select",
@@ -37,6 +42,7 @@
     "fs:allow-exists",
     "fs:allow-mkdir",
     "fs:allow-remove",
+    "fs:allow-watch",
     {
       "identifier": "fs:scope",
       "allow": [
@@ -47,6 +53,7 @@
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
+    "core:window:allow-destroy",
     "core:window:allow-is-maximized",
     "core:window:allow-start-dragging",
     "core:window:allow-show",
@@ -66,13 +73,18 @@
       "identifier": "http:default",
       "allow": [
         { "url": "http://*" },
-        { "url": "http://*/*" },
+        { "url": "http://*:*" },
+        { "url": "http://*:*/*" },
         { "url": "https://*" },
-        { "url": "https://*/*" }
+        { "url": "https://*:*" },
+        { "url": "https://*:*/*" }
       ]
     },
     "updater:default",
     "process:allow-restart",
-    "os:default"
+    "os:default",
+    "log:default",
+    "log:allow-log",
+    "core:webview:allow-print"
   ]
 }

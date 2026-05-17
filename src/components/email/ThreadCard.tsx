@@ -5,7 +5,8 @@ import { useThreadStore } from "@/stores/threadStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { formatRelativeDate } from "@/utils/date";
-import { Paperclip, Star, Check, Pin, BellRing, VolumeX } from "lucide-react";
+import { decodeHtml } from "@/utils/sanitize";
+import { Paperclip, Star, Check, Pin, BellRing, VolumeX, Zap, Wind } from "lucide-react";
 import type { DragData } from "@/components/dnd/DndProvider";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -133,7 +134,7 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
           {/* Snippet + indicators */}
           <div className={`flex items-center gap-1.5 mt-0.5 ${emailDensity === "compact" ? "hidden" : ""}`}>
             <span className="text-xs text-text-tertiary truncate flex-1">
-              {thread.snippet}
+              {decodeHtml(thread.snippet ?? "")}
             </span>
             {showCategoryBadge && category && category !== "Primary" && CATEGORY_COLORS[category] && (
               <span className={`shrink-0 text-[0.625rem] px-1.5 rounded-full leading-normal ${CATEGORY_COLORS[category]}`}>
@@ -145,8 +146,23 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
                 <BellRing size={12} />
               </span>
             )}
+            {!thread.isMuted && !thread.isHeatExtinguished && (thread.urgencyScore ?? 0) >= 0.6 && (
+              <span className="shrink-0 text-danger" title="High urgency">
+                <Zap size={12} className="fill-current" />
+              </span>
+            )}
+            {!thread.isMuted && !thread.isHeatExtinguished && (thread.urgencyScore ?? 0) >= 0.3 && (thread.urgencyScore ?? 0) < 0.6 && (
+              <span className="shrink-0 text-warning" title="Moderate urgency">
+                <Zap size={12} />
+              </span>
+            )}
+            {!thread.isMuted && thread.isHeatExtinguished && (thread.urgencyScore ?? 0) === 0 && (
+              <span className="shrink-0 text-success" title="Urgency resolved">
+                <Wind size={12} />
+              </span>
+            )}
             {thread.isMuted && (
-              <span className="shrink-0 text-warning" title="Muted">
+              <span className="shrink-0 text-text-tertiary" title="Muted — urgency silenced">
                 <VolumeX size={12} />
               </span>
             )}

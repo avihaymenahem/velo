@@ -48,12 +48,14 @@ vi.mock("@/components/ui/TextField", () => ({
 }));
 
 const mockGetSignatures = vi.fn<() => Promise<import("@/services/db/signatures").DbSignature[]>>().mockResolvedValue([]);
+const mockGetAvailableSignatures = vi.fn<() => Promise<import("@/services/db/signatures").DbSignature[]>>().mockResolvedValue([]);
 const mockInsertSignature = vi.fn().mockResolvedValue(undefined);
 const mockUpdateSignature = vi.fn().mockResolvedValue(undefined);
 const mockDeleteSignature = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/services/db/signatures", () => ({
   getSignaturesForAccount: (...args: unknown[]) => mockGetSignatures(...(args as [])),
+  getAvailableSignaturesForAccount: (...args: unknown[]) => mockGetAvailableSignatures(...(args as [])),
   insertSignature: (...args: unknown[]) => mockInsertSignature(...(args as [])),
   updateSignature: (...args: unknown[]) => mockUpdateSignature(...(args as [])),
   deleteSignature: (...args: unknown[]) => mockDeleteSignature(...(args as [])),
@@ -66,6 +68,7 @@ describe("SignatureEditor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetSignatures.mockResolvedValue([]);
+    mockGetAvailableSignatures.mockResolvedValue([]);
     mockGetHTML.mockReturnValue("<p>editor html</p>");
     useAccountStore.setState({ activeAccountId: "acc-1" });
   });

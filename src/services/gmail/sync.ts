@@ -1,9 +1,8 @@
 import { GmailClient } from "./client";
 import { parseGmailMessage, type ParsedMessage } from "./messageParser";
+import { gmailStoreThread, type GmailAttachment } from "./tauriCommands";
 import { upsertLabel } from "../db/labels";
-import { upsertThread, setThreadLabels } from "../db/threads";
-import { upsertMessage } from "../db/messages";
-import { upsertAttachment } from "../db/attachments";
+import { setThreadLabels, deleteThread, markThreadUnreadInDb } from "../db/threads";
 import { updateAccountSyncState } from "../db/accounts";
 import { shouldNotifyForMessage, queueNewEmailNotification } from "../notifications/notificationManager";
 import { applyFiltersToMessages } from "../filters/filterEngine";
@@ -11,7 +10,8 @@ import { getSetting } from "../db/settings";
 import { getMutedThreadIds } from "../db/threads";
 import { getThreadCategory } from "../db/threadCategories";
 import { getVipSenders } from "../db/notificationVips";
-import { getPendingOpsForResource } from "../db/pendingOperations";
+import { getPendingOpResourceIds } from "../db/pendingOperations";
+import { processThreadUrgency } from "@/services/ai/urgencyPipeline";
 
 async function loadAutoArchiveCategories(): Promise<Set<string>> {
   const raw = await getSetting("auto_archive_categories");
@@ -48,14 +48,29 @@ async function processAndStoreThread(
     }
   }
 
-  const isRead = parsedMessages.every((m) => m.isRead);
+  const isRead = parsedMessages.every((m) => m.isRead) || allLabelIds.has("TRASH");
   const isStarred = parsedMessages.some((m) => m.isStarred);
   const isImportant = allLabelIds.has("IMPORTANT");
   const hasAttachments = parsedMessages.some((m) => m.hasAttachments);
 
-  await upsertThread({
-    id: thread.id,
+  const attachments: GmailAttachment[] = parsedMessages.flatMap((msg) =>
+    msg.attachments.map((att) => ({
+      id: `${msg.id}_${att.gmailAttachmentId}`,
+      message_id: msg.id,
+      filename: att.filename,
+      mime_type: att.mimeType,
+      size: att.size,
+      gmail_attachment_id: att.gmailAttachmentId,
+      content_id: att.contentId,
+      is_inline: att.isInline,
+    })),
+  );
+
+  // Single IPC call: thread + labels + all messages (bodies included) + attachments
+  // Written directly to SQLite via rusqlite — WebKit never holds the body data.
+  await gmailStoreThread({
     accountId,
+    threadId: thread.id,
     subject: firstMessage.subject,
     snippet: lastMessage.snippet,
     lastMessageAt: lastMessage.date,
@@ -64,11 +79,47 @@ async function processAndStoreThread(
     isStarred,
     isImportant,
     hasAttachments,
+    labelIds: [...allLabelIds],
+    messages: parsedMessages.map((msg) => ({
+      id: msg.id,
+      from_address: msg.fromAddress,
+      from_name: msg.fromName,
+      to_addresses: msg.toAddresses,
+      cc_addresses: msg.ccAddresses,
+      bcc_addresses: msg.bccAddresses,
+      reply_to: msg.replyTo,
+      subject: msg.subject,
+      snippet: msg.snippet,
+      date: msg.date,
+      is_read: msg.isRead,
+      is_starred: msg.isStarred,
+      body_html: msg.bodyHtml,
+      body_text: msg.bodyText,
+      raw_size: msg.rawSize,
+      internal_date: msg.internalDate,
+      list_unsubscribe: msg.listUnsubscribe,
+      list_unsubscribe_post: msg.listUnsubscribePost,
+      auth_results: msg.authResults,
+      message_id_header: null,
+      references_header: null,
+      in_reply_to_header: null,
+    })),
+    attachments,
   });
 
-  await setThreadLabels(accountId, thread.id, [...allLabelIds]);
+  // Fire-and-forget urgency scoring (lightweight — no body data needed)
+  processThreadUrgency({
+    accountId,
+    threadId: thread.id,
+    subject: firstMessage.subject,
+    bodyText: lastMessage.bodyText,
+    fromAddress: lastMessage.fromAddress,
+    fromName: lastMessage.fromName,
+    lastMessageAt: lastMessage.date,
+    labelIds: [...allLabelIds],
+  }).catch(() => {});
 
-  // Rule-based categorization for inbox threads
+  // Rule-based categorization for inbox threads (lightweight — no body data)
   if (allLabelIds.has("INBOX")) {
     const { getThreadCategoryWithManual, setThreadCategory } = await import("@/services/db/threadCategories");
     const existing = await getThreadCategoryWithManual(accountId, thread.id);
@@ -109,46 +160,6 @@ async function processAndStoreThread(
       }
     }
   }
-
-  await Promise.all(parsedMessages.map(async (parsed) => {
-    await upsertMessage({
-      id: parsed.id,
-      accountId,
-      threadId: parsed.threadId,
-      fromAddress: parsed.fromAddress,
-      fromName: parsed.fromName,
-      toAddresses: parsed.toAddresses,
-      ccAddresses: parsed.ccAddresses,
-      bccAddresses: parsed.bccAddresses,
-      replyTo: parsed.replyTo,
-      subject: parsed.subject,
-      snippet: parsed.snippet,
-      date: parsed.date,
-      isRead: parsed.isRead,
-      isStarred: parsed.isStarred,
-      bodyHtml: parsed.bodyHtml,
-      bodyText: parsed.bodyText,
-      rawSize: parsed.rawSize,
-      internalDate: parsed.internalDate,
-      listUnsubscribe: parsed.listUnsubscribe,
-      listUnsubscribePost: parsed.listUnsubscribePost,
-      authResults: parsed.authResults,
-    });
-
-    await Promise.all(parsed.attachments.map((att) =>
-      upsertAttachment({
-        id: `${parsed.id}_${att.gmailAttachmentId}`,
-        messageId: parsed.id,
-        accountId,
-        filename: att.filename,
-        mimeType: att.mimeType,
-        size: att.size,
-        gmailAttachmentId: att.gmailAttachmentId,
-        contentId: att.contentId,
-        isInline: att.isInline,
-      }),
-    ));
-  }));
 }
 
 /**
@@ -186,12 +197,17 @@ export async function initialSync(
   onProgress?.({ phase: "labels", current: 1, total: 1 });
 
   // Phase 2: Fetch thread list
-  const afterDate = new Date();
-  afterDate.setDate(afterDate.getDate() - daysBack);
-  const afterStr = `${afterDate.getFullYear()}/${afterDate.getMonth() + 1}/${afterDate.getDate()}`;
-
   const threadStubs: { id: string }[] = [];
   let pageToken: string | undefined;
+  let query = "";
+
+  // Only apply date filter if daysBack > 0
+  if (daysBack > 0) {
+    const afterDate = new Date();
+    afterDate.setDate(afterDate.getDate() - daysBack);
+    const afterStr = `${afterDate.getFullYear()}/${afterDate.getMonth() + 1}/${afterDate.getDate()}`;
+    query = `after:${afterStr}`;
+  }
 
   onProgress?.({ phase: "threads", current: 0, total: 0 });
 
@@ -199,7 +215,7 @@ export async function initialSync(
     const response = await client.listThreads({
       maxResults: 100,
       pageToken,
-      q: `after:${afterStr}`,
+      q: query,
     });
 
     if (response.threads) {
@@ -244,7 +260,7 @@ export async function initialSync(
         console.error(`Failed to sync thread ${stub.id}:`, err);
       }
     }),
-    10,
+    3,
   );
 
   // Store the latest history ID for delta sync
@@ -289,11 +305,15 @@ export async function deltaSync(
   client: GmailClient,
   accountId: string,
   lastHistoryId: string,
-): Promise<void> {
+): Promise<number> {
   try {
     // Paginate through all history pages
     const affectedThreadIds = new Set<string>();
     const newInboxMessageIds = new Set<string>();
+    // Threads confirmed to have unread messages by the History API itself.
+    // threads.get can return stale label data shortly after delivery, so we
+    // trust the history event labels as the authoritative source for UNREAD.
+    const historyConfirmedUnreadThreadIds = new Set<string>();
     let latestHistoryId = lastHistoryId;
     let pageToken: string | undefined;
 
@@ -306,8 +326,10 @@ export async function deltaSync(
           if (item.messagesAdded) {
             for (const added of item.messagesAdded) {
               affectedThreadIds.add(added.message.threadId);
-              // Track new unread inbox messages for notifications
               const labels = added.message.labelIds ?? [];
+              if (labels.includes("UNREAD")) {
+                historyConfirmedUnreadThreadIds.add(added.message.threadId);
+              }
               if (labels.includes("INBOX") && labels.includes("UNREAD")) {
                 newInboxMessageIds.add(added.message.id);
               }
@@ -321,11 +343,18 @@ export async function deltaSync(
           if (item.labelsAdded) {
             for (const labeled of item.labelsAdded) {
               affectedThreadIds.add(labeled.message.threadId);
+              if (labeled.labelIds.includes("UNREAD")) {
+                historyConfirmedUnreadThreadIds.add(labeled.message.threadId);
+              }
             }
           }
           if (item.labelsRemoved) {
             for (const unlabeled of item.labelsRemoved) {
               affectedThreadIds.add(unlabeled.message.threadId);
+              // If UNREAD was explicitly removed, it is no longer unread
+              if (unlabeled.labelIds.includes("UNREAD")) {
+                historyConfirmedUnreadThreadIds.delete(unlabeled.message.threadId);
+              }
             }
           }
         }
@@ -336,7 +365,7 @@ export async function deltaSync(
 
     if (affectedThreadIds.size === 0) {
       await updateAccountSyncState(accountId, latestHistoryId);
-      return;
+      return 0;
     }
 
     // Load settings once for the whole sync cycle
@@ -348,24 +377,47 @@ export async function deltaSync(
     );
     const vipSenders = smartNotifications ? await getVipSenders(accountId) : new Set<string>();
 
-    // Re-fetch affected threads in parallel (max 5 concurrent)
+    // One batch query for all pending ops — avoids 1 IPC call per thread inside the loop
+    const pendingResourceIds = await getPendingOpResourceIds(accountId);
+
+    // Re-fetch affected threads in parallel (max 3 concurrent to reduce WebKit IPC pressure)
     const threadIds = [...affectedThreadIds];
     await parallelLimit(
       threadIds.map((threadId) => async () => {
         try {
-          // Skip metadata overwrite for threads with pending local changes
-          const pendingOps = await getPendingOpsForResource(accountId, threadId);
-          if (pendingOps.length > 0) {
-            console.log(`[deltaSync] Skipping thread ${threadId}: has ${pendingOps.length} pending local ops`);
+          if (pendingResourceIds.has(threadId)) {
+            console.log(`[deltaSync] Processing thread ${threadId} despite pending local ops`);
+          }
+
+          let thread;
+          try {
+            thread = await client.getThread(threadId, "full");
+          } catch (err) {
+            // Thread not found on server (404) — remove from local DB
+            const message = err instanceof Error ? err.message : String(err);
+            if (message.includes("404") || message.includes("Not Found")) {
+              console.log(`[deltaSync] Thread ${threadId} not found on server, removing from local DB`);
+              await deleteThread(accountId, threadId);
+              return;
+            }
+            throw err;
+          }
+
+          if (!thread.messages || thread.messages.length === 0) {
+            console.log(`[deltaSync] Thread ${threadId} has no messages on server, removing from local DB`);
+            await deleteThread(accountId, threadId);
             return;
           }
 
-          const thread = await client.getThread(threadId, "full");
-
-          if (!thread.messages || thread.messages.length === 0) return;
-
           const parsedMessages = thread.messages.map(parseGmailMessage);
           await processAndStoreThread(thread, accountId, parsedMessages, client, autoArchiveCategories);
+
+          // threads.get can return stale label data immediately after delivery.
+          // If the History API confirms this thread has an unread message, override
+          // any stale is_read=1 that processAndStoreThread may have written.
+          if (historyConfirmedUnreadThreadIds.has(threadId)) {
+            await markThreadUnreadInDb(accountId, threadId);
+          }
 
           // Auto-archive muted threads that reappear in INBOX
           if (mutedThreadIds.has(threadId)) {
@@ -418,7 +470,7 @@ export async function deltaSync(
           console.error(`Failed to re-sync thread ${threadId}:`, err);
         }
       }),
-      10,
+      3,
     );
 
     await updateAccountSyncState(accountId, latestHistoryId);
@@ -427,6 +479,8 @@ export async function deltaSync(
     import("@/services/ai/categorizationManager")
       .then(({ categorizeNewThreads }) => categorizeNewThreads(accountId))
       .catch((err) => console.error("Categorization error:", err));
+
+    return affectedThreadIds.size;
   } catch (err) {
     // historyId might be too old — need full re-sync
     const message = err instanceof Error ? err.message : String(err);

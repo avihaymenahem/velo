@@ -5,7 +5,7 @@ import { useComposerStore } from "@/stores/composerStore";
 const UNDO_DELAY_SECONDS = 5;
 
 export function UndoSendToast() {
-  const { undoSendVisible, undoSendTimer, setUndoSendTimer, setUndoSendVisible } =
+  const { undoSendVisible, undoSendTimer, setUndoSendTimer, setUndoSendVisible, setIsSending, closeComposer } =
     useComposerStore();
   const toastRef = useRef<HTMLDivElement>(null);
 
@@ -15,6 +15,8 @@ export function UndoSendToast() {
       setUndoSendTimer(null);
     }
     setUndoSendVisible(false);
+    setIsSending(false);
+    closeComposer();
   };
 
   return (

@@ -1035,7 +1035,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "Task manager",
         summary: "Full task management with priorities, due dates, and subtasks.",
         description:
-          "Velo includes a built-in task manager accessible from the sidebar or via the g then k shortcut. Create tasks with titles, descriptions, priorities (none, low, medium, high, urgent), due dates, and tags. Tasks can have one level of subtasks for breaking down complex items. Drag to reorder tasks, filter by status or priority, and group by priority, due date, or tag. Completed tasks can be shown or hidden. The task sidebar panel shows tasks linked to the current email thread.",
+          "Melo includes a built-in task manager accessible from the sidebar or via the g then k shortcut. Create tasks with titles, descriptions, priorities (none, low, medium, high, urgent), due dates, and tags. Tasks can have one level of subtasks for breaking down complex items. Drag to reorder tasks, filter by status or priority, and group by priority, due date, or tag. Completed tasks can be shown or hidden. The task sidebar panel shows tasks linked to the current email thread.",
         tips: [
           { text: "Go to Tasks page", shortcut: "g k" },
           { text: "Open tasks from the Tasks item in the sidebar." },
@@ -1117,10 +1117,10 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "Accent colors",
         summary: "8 color presets to personalize the app.",
         description:
-          "Choose from 8 accent color presets to personalize the look of the app: Indigo (default), Rose, Emerald, Amber, Sky, Violet, Orange, or Slate. Each preset has separate light and dark mode variants that are optimized for readability. The accent color is used for buttons, active states, links, badges, and highlights throughout the app. Accent colors are independent of the light/dark theme.",
+          "Choose from 8 accent color presets to personalize the look of the app: Amber (default), Ink Black, Prussian Blue, Sage, Iris, Claret, Persimmon, or Slate. Each preset has separate light and dark mode variants that are optimized for readability. The accent color is used for buttons, active states, links, badges, and highlights throughout the app. Accent colors are independent of the light/dark theme.",
         tips: [
           { text: "Change accent color in Settings > General." },
-          { text: "8 presets: Indigo, Rose, Emerald, Amber, Sky, Violet, Orange, Slate." },
+          { text: "8 presets: Amber (default), Ink Black, Prussian Blue, Sage, Iris, Claret, Persimmon, Slate." },
           { text: "Each color has optimized light and dark variants." },
           { text: "Accent color is independent of light/dark theme." },
         ],

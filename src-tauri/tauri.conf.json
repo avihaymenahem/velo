@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Velo",
+  "productName": "Melo",
   "version": "0.4.21",
   "identifier": "com.velomail.app",
   "build": {
@@ -13,14 +13,15 @@
     "windows": [
       {
         "label": "main",
-        "title": "Velo",
-        "width": 1200,
+        "title": "",
+        "width": 1800,
         "height": 800,
-        "minWidth": 800,
+        "minWidth": 1120,
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
         "decorations": true,
+        "transparent": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "visible": false,
@@ -29,8 +30,8 @@
       {
         "label": "splashscreen",
         "url": "splashscreen.html",
-        "width": 400,
-        "height": 300,
+        "width": 420,
+        "height": 340,
         "decorations": false,
         "resizable": false,
         "center": true,
@@ -39,7 +40,13 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://oauth2.googleapis.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://www.gravatar.com https://login.microsoftonline.com https://graph.microsoft.com https://api.login.yahoo.com http://localhost:11434 http://localhost:1234 http://127.0.0.1:11434 http://127.0.0.1:1234 https://models.github.ai; img-src 'self' data: https://www.gravatar.com https://lh3.googleusercontent.com https://*.googleusercontent.com; font-src 'self' data:; frame-src 'self'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src ipc://localhost http://ipc.localhost https://www.googleapis.com https://oauth2.googleapis.com https://people.googleapis.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://www.gravatar.com https://login.microsoftonline.com https://graph.microsoft.com https://api.login.yahoo.com http://localhost:11434 http://localhost:1234 http://127.0.0.1:11434 http://127.0.0.1:1234 https://models.github.ai; img-src * data: blob: asset: https:; font-src 'self' data: https://fonts.gstatic.com; frame-src 'self'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPDATA/attachment_cache/**"
+        ]
+      }
     },
     "trayIcon": null
   },
@@ -47,11 +54,15 @@
     "active": true,
     "targets": "all",
     "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/icon_16x16.png",
+      "icons/icon_16x16@2x.png",
+      "icons/icon_32x32.png",
+      "icons/icon_32x32@2x.png",
+      "icons/icon_128x128.png",
+      "icons/icon_128x128@2x.png",
+      "icons/icon_512x512.png",
+      "icons/appicon.icns",
+      "icons/appicon.ico"
     ],
     "macOS": {
       "entitlements": "Entitlements.plist",
@@ -65,7 +76,7 @@
       ]
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM0NjlFREYzMjVBRDYwRjMKUldUellLMGw4KzFwTkJ4RmJ0ejArWUNTZTEzT01SMnJveHc4K3ErNHVIdEVuYmZmYW94U295QzcK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM0NjlGREYzMjVBRDYwRjMKUldUellLMGw4KzFwTkJ4RmJ0ejArWUNTZTEzT01SMnJveHc4K3ErNHVIdEVuYmZmYW94U295QzcK",
       "endpoints": [
         "https://github.com/avihaymenahem/velo/releases/latest/download/latest.json"
       ]

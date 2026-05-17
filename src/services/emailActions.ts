@@ -5,6 +5,10 @@ import { enqueuePendingOperation } from "@/services/db/pendingOperations";
 import { classifyError } from "@/utils/networkErrors";
 import { getDb } from "@/services/db/connection";
 import { navigateToThread, getSelectedThreadId } from "@/router/navigate";
+import { getAccount } from "@/services/db/accounts";
+import { deleteThread as deleteThreadFromDb } from "@/services/db/threads";
+import { getMessagesForThread } from "@/services/db/messages";
+import { updateBadgeCount } from "@/services/badgeManager";
 
 // ---------------------------------------------------------------------------
 // Action types
@@ -56,7 +60,7 @@ export type EmailAction =
       rawBase64Url: string;
       threadId?: string;
     }
-  | { type: "deleteDraft"; draftId: string };
+  | { type: "deleteDraft"; draftId: string; threadId?: string };
 
 // ---------------------------------------------------------------------------
 // Result type
@@ -114,8 +118,13 @@ function applyOptimisticUpdate(action: EmailAction): void {
     case "sendMessage":
     case "createDraft":
     case "updateDraft":
-    case "deleteDraft":
       // No universal optimistic update for these
+      break;
+    case "deleteDraft":
+      // Remove thread from local store if threadId is available
+      if (action.threadId) {
+        store.removeThread(action.threadId);
+      }
       break;
   }
 }
@@ -151,10 +160,18 @@ async function applyLocalDbUpdate(
         "UPDATE threads SET is_read = $1 WHERE account_id = $2 AND id = $3",
         [action.read ? 1 : 0, accountId, action.threadId],
       );
+      await db.execute(
+        "UPDATE messages SET is_read = $1 WHERE account_id = $2 AND thread_id = $3",
+        [action.read ? 1 : 0, accountId, action.threadId],
+      );
       break;
     case "star":
       await db.execute(
         "UPDATE threads SET is_starred = $1 WHERE account_id = $2 AND id = $3",
+        [action.starred ? 1 : 0, accountId, action.threadId],
+      );
+      await db.execute(
+        "UPDATE messages SET is_starred = $1 WHERE account_id = $2 AND thread_id = $3",
         [action.starred ? 1 : 0, accountId, action.threadId],
       );
       if (action.starred) {
@@ -177,7 +194,7 @@ async function applyLocalDbUpdate(
       break;
     case "trash":
       await db.execute(
-        "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'INBOX'",
+        "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id IN ('INBOX', 'DRAFT', 'SPAM')",
         [accountId, action.threadId],
       );
       await db.execute(
@@ -194,7 +211,7 @@ async function applyLocalDbUpdate(
     case "spam":
       if (action.isSpam) {
         await db.execute(
-          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id = 'INBOX'",
+          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2 AND label_id IN ('INBOX', 'TRASH')",
           [accountId, action.threadId],
         );
         await db.execute(
@@ -224,6 +241,40 @@ async function applyLocalDbUpdate(
         [accountId, action.threadId, action.labelId],
       );
       break;
+    case "deleteDraft": {
+      // Clean up local DB: remove thread and its labels/messages
+      let tid = action.threadId;
+      if (!tid) {
+        // If no threadId provided, try to find it from the message ID (draftId)
+        const row = await db.select<{ thread_id: string }[]>(
+          "SELECT thread_id FROM messages WHERE account_id = $1 AND id = $2",
+          [accountId, action.draftId],
+        );
+        if (row[0]) tid = row[0].thread_id;
+      }
+
+      if (tid) {
+        await db.execute(
+          "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
+          [accountId, tid],
+        );
+        await db.execute(
+          `DELETE FROM message_embeddings WHERE account_id = $1 AND message_id IN (
+            SELECT id FROM messages WHERE account_id = $1 AND thread_id = $2
+          )`,
+          [accountId, tid],
+        );
+        await db.execute(
+          "DELETE FROM messages WHERE account_id = $1 AND thread_id = $2",
+          [accountId, tid],
+        );
+        await db.execute(
+          "DELETE FROM threads WHERE account_id = $1 AND id = $2",
+          [accountId, tid],
+        );
+      }
+      break;
+    }
     default:
       break;
   }
@@ -258,23 +309,11 @@ async function executeViaProvider(
     case "permanentDelete":
       return provider.permanentDelete(action.threadId, action.messageIds);
     case "markRead":
-      return provider.markRead(
-        action.threadId,
-        action.messageIds,
-        action.read,
-      );
+      return provider.markRead(action.threadId, action.messageIds, action.read);
     case "star":
-      return provider.star(
-        action.threadId,
-        action.messageIds,
-        action.starred,
-      );
+      return provider.star(action.threadId, action.messageIds, action.starred);
     case "spam":
-      return provider.spam(
-        action.threadId,
-        action.messageIds,
-        action.isSpam,
-      );
+      return provider.spam(action.threadId, action.messageIds, action.isSpam);
     case "moveToFolder":
       return provider.moveToFolder(
         action.threadId,
@@ -296,7 +335,7 @@ async function executeViaProvider(
         action.threadId,
       );
     case "deleteDraft":
-      return provider.deleteDraft(action.draftId);
+      return provider.deleteDraft(action.draftId, action.threadId);
   }
 }
 
@@ -322,12 +361,19 @@ export async function executeEmailAction(
       getResourceId(action),
       actionToParams(action),
     );
+    if (action.type === "markRead" || action.type === "archive" || action.type === "trash" || action.type === "spam") {
+      updateBadgeCount().catch(console.error);
+    }
     return { success: true, queued: true };
   }
 
   // 4. Try online execution
   try {
     const data = await executeViaProvider(accountId, action);
+    window.dispatchEvent(new Event("velo-sync-done"));
+    if (action.type === "markRead" || action.type === "archive" || action.type === "trash" || action.type === "spam") {
+      updateBadgeCount().catch(console.error);
+    }
     return { success: true, data };
   } catch (err) {
     const classified = classifyError(err);
@@ -340,6 +386,9 @@ export async function executeEmailAction(
         getResourceId(action),
         actionToParams(action),
       );
+      if (action.type === "markRead" || action.type === "archive" || action.type === "trash" || action.type === "spam") {
+        updateBadgeCount().catch(console.error);
+      }
       return { success: true, queued: true };
     }
 
@@ -494,9 +543,14 @@ export async function sendEmail(
     threadId,
   });
 
-  // Notify the UI to refresh (so sent message appears in Sent folder)
   if (result.success) {
     window.dispatchEvent(new Event("velo-sync-done"));
+    // Auto-extinguish urgency when a reply resolves the thread
+    if (threadId) {
+      import("./ai/heatExtinguisher").then(({ autoExtinguishOnReply }) => {
+        autoExtinguishOnReply(accountId, threadId).catch(() => {});
+      });
+    }
   }
 
   return result;
@@ -528,9 +582,241 @@ export function updateDraft(
   });
 }
 
+/**
+ * Extract the accountId embedded in an IMAP draftId (format: imap-{uuid}-{folder}-{uid}).
+ * Returns null for non-IMAP IDs or if the UUID segment is not recognizable.
+ */
+function extractImapDraftAccountId(draftId: string): string | null {
+  if (!draftId.startsWith("imap-")) return null;
+  const afterPrefix = draftId.slice("imap-".length);
+  // UUID is exactly 36 chars: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  if (afterPrefix.length < 37) return null;
+  const candidate = afterPrefix.slice(0, 36);
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidPattern.test(candidate) ? candidate : null;
+}
+
+/**
+ * Write a tombstone for an IMAP draft AND remove it from the local DB.
+ * Call this BEFORE closing the composer window — both SQLite ops complete in < 50ms,
+ * which is imperceptible to the user but guaranteed to finish while the JS context is alive.
+ *
+ * Tombstone alone prevents future re-imports, but if the draft was already imported
+ * by a background sync it remains in the local messages table and keeps showing in the UI.
+ * Deleting the local record here ensures immediate removal from the draft list.
+ */
+export async function tombstoneImapDraft(
+  accountId: string,
+  draftId: string,
+): Promise<void> {
+  if (!draftId || !draftId.startsWith("imap-")) return;
+  const resolvedAccountId = extractImapDraftAccountId(draftId) ?? accountId;
+  const prefix = `imap-${resolvedAccountId}-`;
+  if (!draftId.startsWith(prefix)) return;
+  const remainder = draftId.slice(prefix.length);
+  const lastDash = remainder.lastIndexOf("-");
+  if (lastDash === -1) return;
+  const folder = remainder.slice(0, lastDash);
+  const uid = parseInt(remainder.slice(lastDash + 1), 10);
+  if (!folder || isNaN(uid)) return;
+
+  const [{ recordDeletedImapUid }, { getDb }] = await Promise.all([
+    import("@/services/db/deletedImapUids"),
+    import("@/services/db/connection"),
+  ]);
+
+  // Write tombstone — prevents any future re-import of this UID
+  await recordDeletedImapUid(resolvedAccountId, folder, uid).catch(() => {});
+
+  // Delete from local DB — removes from the draft list immediately even if the
+  // background sync had already imported this message before the user discarded.
+  try {
+    const db = await getDb();
+    const rows = await db.select<{ thread_id: string }[]>(
+      "SELECT thread_id FROM messages WHERE id = $1 AND account_id = $2",
+      [draftId, resolvedAccountId],
+    );
+    if (rows.length > 0) {
+      const threadId = rows[0]!.thread_id;
+      await db.execute(
+        "DELETE FROM message_embeddings WHERE account_id = $1 AND message_id = $2",
+        [resolvedAccountId, draftId],
+      );
+      await db.execute(
+        "DELETE FROM messages WHERE id = $1 AND account_id = $2",
+        [draftId, resolvedAccountId],
+      );
+      const remaining = await db.select<{ c: number }[]>(
+        "SELECT COUNT(*) as c FROM messages WHERE thread_id = $1 AND account_id = $2",
+        [threadId, resolvedAccountId],
+      );
+      if ((remaining[0]?.c ?? 1) === 0) {
+        await db.execute(
+          "DELETE FROM thread_labels WHERE thread_id = $1 AND account_id = $2",
+          [resolvedAccountId, threadId],
+        );
+        await db.execute(
+          "DELETE FROM threads WHERE id = $1 AND account_id = $2",
+          [threadId, resolvedAccountId],
+        );
+      }
+    }
+  } catch (err) {
+    console.warn("[tombstoneImapDraft] Local DB cleanup failed:", err);
+  }
+}
+
 export function deleteDraft(
   accountId: string,
   draftId: string,
+  threadId?: string,
 ): Promise<ActionResult> {
-  return executeEmailAction(accountId, { type: "deleteDraft", draftId });
+  // For IMAP drafts the draftId encodes the real accountId. If separate Tauri windows
+  // caused a mismatch (openComposer called without accountId param), recover here so
+  // the tombstone is always written against the correct account.
+  const resolvedAccountId = extractImapDraftAccountId(draftId) ?? accountId;
+  return executeEmailAction(resolvedAccountId, {
+    type: "deleteDraft",
+    draftId,
+    threadId,
+  });
+}
+
+/**
+ * Delete a single message within a thread.
+ * When permanent=true: permanently removes the message (used when already in Trash).
+ * When permanent=false: moves the message to Trash.
+ * If the message was the last one in the thread, the thread is also removed from UI and DB.
+ */
+export async function deleteSingleMessage(
+  accountId: string,
+  threadId: string,
+  messageId: string,
+  permanent: boolean = false,
+): Promise<ActionResult> {
+  const db = await getDb();
+
+  // 1. Local DB: remove the message
+  await db.execute("DELETE FROM message_embeddings WHERE account_id = $1 AND message_id = $2", [
+    accountId,
+    messageId,
+  ]);
+  await db.execute("DELETE FROM messages WHERE account_id = $1 AND id = $2", [
+    accountId,
+    messageId,
+  ]);
+
+  // 2. Check remaining messages in thread
+  const remaining = await getMessagesForThread(accountId, threadId);
+
+  // 3. Optimistic UI
+  if (remaining.length === 0) {
+    await db.execute(
+      "DELETE FROM thread_labels WHERE account_id = $1 AND thread_id = $2",
+      [accountId, threadId],
+    );
+    await db.execute("DELETE FROM threads WHERE account_id = $1 AND id = $2", [
+      accountId,
+      threadId,
+    ]);
+    const nextId = getNextThreadId(threadId);
+    useThreadStore.getState().removeThread(threadId);
+    if (nextId) navigateToThread(nextId);
+  } else {
+    window.dispatchEvent(
+      new CustomEvent("velo-message-deleted", {
+        detail: { messageId, threadId },
+      }),
+    );
+  }
+
+  // 4. If offline, queue
+  if (!useUIStore.getState().isOnline) {
+    const actionType = permanent ? "permanentDelete" : "trash";
+    await enqueuePendingOperation(accountId, actionType, messageId, {
+      threadId,
+      messageIds: [messageId],
+    });
+    return { success: true, queued: true };
+  }
+
+  // 5. Execute via provider
+  try {
+    const provider = await getEmailProvider(accountId);
+    if (permanent) {
+      await provider.permanentDelete(threadId, [messageId]);
+    } else {
+      await provider.trash(threadId, [messageId]);
+    }
+    return { success: true };
+  } catch (err) {
+    const classified = classifyError(err);
+    if (classified.isRetryable) {
+      const actionType = permanent ? "permanentDelete" : "trash";
+      await enqueuePendingOperation(accountId, actionType, messageId, {
+        threadId,
+        messageIds: [messageId],
+      });
+      return { success: true, queued: true };
+    }
+    console.error("deleteSingleMessage failed:", err);
+    return { success: false, error: classified.message };
+  }
+}
+
+/**
+ * Trash (or permanently delete) only the most recent message in a thread.
+ * If it's the last message, the thread itself is removed from the DB and UI.
+ */
+export async function trashLatestMessage(
+  accountId: string,
+  threadId: string,
+  permanent: boolean = false,
+): Promise<ActionResult> {
+  const msgs = await getMessagesForThread(accountId, threadId);
+  if (msgs.length === 0) return { success: false, error: "No messages in thread" };
+  const latest = msgs[msgs.length - 1] as (typeof msgs)[number] | undefined;
+  if (!latest) return { success: false, error: "No messages in thread" };
+  return deleteSingleMessage(accountId, threadId, latest.id, permanent);
+}
+
+/**
+ * Delete a draft thread from the Drafts folder view.
+ * Routes to the correct path based on account provider:
+ * - Gmail: uses the Drafts API (drafts.delete) which properly removes the draft
+ * - IMAP: permanently deletes the message directly from the Drafts folder (no MOVE to Trash)
+ *
+ * This is the correct entry point when the user presses # in the Drafts view.
+ * Never use trashThread() for drafts — IMAP MOVE assigns new UIDs, breaking
+ * subsequent permanentDelete attempts.
+ */
+export async function deleteDraftThread(
+  accountId: string,
+  threadId: string,
+): Promise<void> {
+  const account = await getAccount(accountId);
+  if (!account) return;
+
+  if (account.provider === "gmail_api") {
+    const { getGmailClient } = await import("@/services/gmail/tokenManager");
+    const { deleteDraftsForThread } =
+      await import("@/services/gmail/draftDeletion");
+    const client = await getGmailClient(accountId);
+    await deleteDraftsForThread(client, accountId, threadId);
+  } else {
+    // IMAP: read UIDs from DB BEFORE cleanup — permanentDeleteThread([], ...) would
+    // call resolveGrouped after applyLocalDbUpdate already cleared the messages table,
+    // returning an empty map and skipping both IMAP delete and tombstone.
+    const msgs = await getMessagesForThread(accountId, threadId);
+    await deleteThreadFromDb(accountId, threadId);
+    const provider = await getEmailProvider(accountId);
+    for (const msg of msgs) {
+      if (msg.imap_uid != null && msg.imap_folder) {
+        const msgId = `imap-${accountId}-${msg.imap_folder}-${msg.imap_uid}`;
+        await provider.deleteDraft(msgId).catch((err) =>
+          console.warn("[deleteDraftThread] IMAP delete failed:", err),
+        );
+      }
+    }
+  }
 }

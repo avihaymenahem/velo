@@ -1,13 +1,29 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useParams } from "@tanstack/react-router";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore, type ComposerFontFamily, type ComposerFontSize } from "@/stores/uiStore";
 import { navigateToLabel, navigateToSettings } from "@/router/navigate";
 import { useAccountStore } from "@/stores/accountStore";
 import { getSetting, setSetting, getSecureSetting, setSecureSetting } from "@/services/db/settings";
 import { PROVIDER_MODELS } from "@/services/ai/types";
 import { deleteAccount } from "@/services/db/accounts";
-import { removeClient, reauthorizeAccount } from "@/services/gmail/tokenManager";
+import { removeClient } from "@/services/gmail/tokenManager";
 import { triggerSync, forceFullSync, resyncAccount } from "@/services/gmail/syncManager";
+import { syncGoogleContacts } from "@/services/contacts/googleContacts";
 import {
   registerComposeShortcut,
   getCurrentShortcut,
@@ -24,6 +40,7 @@ import {
   UserCircle,
   Keyboard,
   Sparkles,
+  Brain,
   Check,
   Mail,
   Info,
@@ -35,6 +52,8 @@ import {
   ChevronUp,
   ChevronDown,
   RotateCcw,
+  CheckSquare,
+  GripVertical,
   type LucideIcon,
 } from "lucide-react";
 import { SignatureEditor } from "./SignatureEditor";
@@ -47,6 +66,9 @@ import { SmartFolderEditor } from "./SmartFolderEditor";
 import { QuickStepEditor } from "./QuickStepEditor";
 import { SmartLabelEditor } from "./SmartLabelEditor";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
+import { SoulEditorDialog } from "./SoulEditorDialog";
+import { EditImapAccount } from "@/components/accounts/EditImapAccount";
+import { EditGmailAccount } from "@/components/accounts/EditGmailAccount";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
 import {
@@ -61,7 +83,29 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
 
-type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "people" | "accounts" | "shortcuts" | "ai" | "about";
+function SortableAccountRow({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      className="flex items-center gap-1"
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="text-text-tertiary/40 hover:text-text-tertiary transition-colors cursor-grab active:cursor-grabbing touch-none p-1 shrink-0"
+        tabIndex={-1}
+        aria-label="Drag to reorder"
+      >
+        <GripVertical size={15} />
+      </button>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  );
+}
+
+type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "people" | "accounts" | "shortcuts" | "ai" | "intelligence" | "tasks" | "about";
 
 const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "general", label: "General", icon: Settings },
@@ -72,6 +116,8 @@ const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "accounts", label: "Accounts", icon: UserCircle },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
   { id: "ai", label: "AI", icon: Sparkles },
+  { id: "intelligence", label: "Intelligence", icon: Brain },
+  { id: "tasks", label: "Tasks", icon: CheckSquare },
   { id: "about", label: "About", icon: Info },
 ];
 
@@ -94,18 +140,21 @@ export function SettingsPage() {
   const setSendAndArchive = useUIStore((s) => s.setSendAndArchive);
   const inboxViewMode = useUIStore((s) => s.inboxViewMode);
   const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
-  const reduceMotion = useUIStore((s) => s.reduceMotion);
-  const setReduceMotion = useUIStore((s) => s.setReduceMotion);
+  const composerFontFamily = useUIStore((s) => s.composerFontFamily);
+  const setComposerFontFamily = useUIStore((s) => s.setComposerFontFamily);
+  const composerFontSize = useUIStore((s) => s.composerFontSize);
+  const setComposerFontSize = useUIStore((s) => s.setComposerFontSize);
+  const backgroundMode = useUIStore((s) => s.backgroundMode);
+  const setBackgroundMode = useUIStore((s) => s.setBackgroundMode);
   const accounts = useAccountStore((s) => s.accounts);
   const removeAccountFromStore = useAccountStore((s) => s.removeAccount);
+  const reorderAccounts = useAccountStore((s) => s.reorderAccounts);
+  const accountSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const { tab } = useParams({ strict: false }) as { tab?: string };
   const activeTab = (tab && tabs.some((t) => t.id === tab) ? tab : "general") as SettingsTab;
   const setActiveTab = (t: SettingsTab) => navigateToSettings(t);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [undoSendDelay, setUndoSendDelay] = useState("5");
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-  const [apiSettingsSaved, setApiSettingsSaved] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncPeriodDays, setSyncPeriodDays] = useState("365");
   const [blockRemoteImages, setBlockRemoteImages] = useState(true);
@@ -136,13 +185,44 @@ export function SettingsPage() {
   const [cacheMaxMb, setCacheMaxMb] = useState("500");
   const [cacheSizeMb, setCacheSizeMb] = useState<number | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
-  const [reauthStatus, setReauthStatus] = useState<Record<string, "idle" | "authorizing" | "done" | "error">>({});
   const [resyncStatus, setResyncStatus] = useState<Record<string, "idle" | "syncing" | "done" | "error">>({});
   const [autoArchiveCategories, setAutoArchiveCategories] = useState<Set<string>>(() => new Set());
   const [smartNotifications, setSmartNotifications] = useState(true);
   const [notifyCategories, setNotifyCategories] = useState<Set<string>>(() => new Set(["Primary"]));
   const [vipSenders, setVipSenders] = useState<{ email_address: string; display_name: string | null }[]>([]);
   const [newVipEmail, setNewVipEmail] = useState("");
+  const [aiLanguage, setAiLanguage] = useState("English");
+  const [soulEditorOpen, setSoulEditorOpen] = useState(false);
+  const [editingImapAccountId, setEditingImapAccountId] = useState<string | null>(null);
+  const [editingGmailAccount, setEditingGmailAccount] = useState<{ id: string; email: string; displayName?: string | null; color?: string | null; includeInGlobal?: boolean; label?: string | null } | null>(null);
+  const [taskRetentionDeleted, setTaskRetentionDeleted] = useState("7");
+  const [taskAutoArchiveHours, setTaskAutoArchiveHours] = useState("24");
+  const [taskRetentionCompleted, setTaskRetentionCompleted] = useState("30");
+  const [ragEnabled, setRagEnabled] = useState(false);
+  const [embeddingModel, setEmbeddingModel] = useState("nomic-embed-text");
+  const [ragChunkSize, setRagChunkSize] = useState("512");
+  const [ragBatchSize, setRagBatchSize] = useState("10");
+const [ragProgress, setRagProgress] = useState<{ indexed: number; total: number } | null>(null);
+  const [ragTesting, setRagTesting] = useState(false);
+  const [ragTestResult, setRagTestResult] = useState<"success" | "fail" | null>(null);
+  const [ragTestError, setRagTestError] = useState<"server_down" | "model_not_found" | "unknown" | null>(null);
+  const [ragDimensions, setRagDimensions] = useState<number | null>(null);
+  const [ragSaved, setRagSaved] = useState(false);
+  const [ragRunning, setRagRunning] = useState(false);
+  const [ragError, setRagError] = useState<string | null>(null);
+  const [urgencyMuteWindow, setUrgencyMuteWindow] = useState("30");
+  const [urgencyMuteThreshold, setUrgencyMuteThreshold] = useState("3");
+  const [urgencyAutoExtinguish, setUrgencyAutoExtinguish] = useState(true);
+  const [urgencyDecayStart, setUrgencyDecayStart] = useState("20");
+  const [urgencyDecayFloor, setUrgencyDecayFloor] = useState("30");
+  const [ragPriorityDomains, setRagPriorityDomains] = useState("");
+  const [behaviorEnabled, setBehaviorEnabled] = useState(true);
+  const [urgencyEnabled, setUrgencyEnabled] = useState(true);
+  const [ragDiagOpen, setRagDiagOpen] = useState(false);
+  const [ragDiagData, setRagDiagData] = useState<any>(null);
+  const [accountRagFlags, setAccountRagFlags] = useState<Record<string, boolean>>({});
+  const [ragReindexConfirm, setRagReindexConfirm] = useState(false);
+  const [ragClearing, setRagClearing] = useState(false);
 
   // Load settings from DB
   useEffect(() => {
@@ -151,10 +231,6 @@ export function SettingsPage() {
       setNotificationsEnabled(notif !== "false");
       const delay = await getSetting("undo_send_delay_seconds");
       setUndoSendDelay(delay ?? "5");
-      const id = await getSetting("google_client_id");
-      setClientId(id ?? "");
-      const secret = await getSecureSetting("google_client_secret");
-      setClientSecret(secret ?? "");
       const blockImg = await getSetting("block_remote_images");
       setBlockRemoteImages(blockImg !== "false");
       const phishingEnabled = await getSetting("phishing_detection_enabled");
@@ -205,6 +281,9 @@ export function SettingsPage() {
       setAiAutoDraftEnabled(aiDraft !== "false");
       const aiStyle = await getSetting("ai_writing_style_enabled");
       setAiWritingStyleEnabled(aiStyle !== "false");
+      const lang = await getSetting("ai_language");
+      if (lang) setAiLanguage(lang);
+
 
       // Load auto-archive categories
       const autoArchive = await getSetting("auto_archive_categories");
@@ -230,6 +309,59 @@ export function SettingsPage() {
         // VIP table may not exist yet
       }
 
+      // Load task retention settings
+      const taskDeleted = await getSetting("task_retention_days_deleted");
+      if (taskDeleted) setTaskRetentionDeleted(taskDeleted);
+      const taskArchive = await getSetting("task_auto_archive_completed_hours");
+      if (taskArchive) setTaskAutoArchiveHours(taskArchive);
+      const taskCompleted = await getSetting("task_retention_days_completed");
+      if (taskCompleted) setTaskRetentionCompleted(taskCompleted);
+
+      // Load RAG / embedding settings
+      const ragEn = await getSetting("rag_enabled");
+      setRagEnabled(ragEn === "true");
+      const embModel = await getSetting("embedding_model");
+      if (embModel) setEmbeddingModel(embModel);
+      const chunkSz = await getSetting("rag_chunk_size");
+      if (chunkSz) setRagChunkSize(chunkSz);
+      const batchSz = await getSetting("rag_batch_size");
+      if (batchSz) setRagBatchSize(batchSz);
+
+      // Load per-account RAG flags
+      try {
+        const { getAccountRagEnabled } = await import("@/services/db/accounts");
+        const flags: Record<string, boolean> = {};
+        for (const acc of accounts) {
+          flags[acc.id] = await getAccountRagEnabled(acc.id);
+        }
+        setAccountRagFlags(flags);
+
+        // Load aggregated RAG progress for all RAG-enabled accounts
+        const ragEnabledIds = accounts.filter((a) => flags[a.id]).map((a) => a.id);
+        if (ragEnabledIds.length > 0) {
+          const { getEmbeddingProgressAll } = await import("@/services/ai/ollamaEmbeddings");
+          setRagProgress(await getEmbeddingProgressAll(ragEnabledIds));
+        }
+      } catch (err) {
+        console.error("Failed to load RAG flags:", err);
+      }
+      const muteWindow = await getSetting("ai_urgency_mute_window_days");
+      if (muteWindow) setUrgencyMuteWindow(muteWindow);
+      const muteThreshold = await getSetting("ai_urgency_mute_threshold");
+      if (muteThreshold) setUrgencyMuteThreshold(muteThreshold);
+      const autoExtinguish = await getSetting("ai_urgency_auto_extinguish");
+      setUrgencyAutoExtinguish(autoExtinguish !== "false");
+      const decayStart = await getSetting("ai_urgency_decay_start_days");
+      if (decayStart) setUrgencyDecayStart(decayStart);
+      const decayFloor = await getSetting("ai_urgency_decay_floor_days");
+      if (decayFloor) setUrgencyDecayFloor(decayFloor);
+      const priorityDomains = await getSetting("rag_priority_domains");
+      if (priorityDomains !== null) setRagPriorityDomains(priorityDomains);
+const behaviorEnabledSetting = await getSetting("ai_behavior_enabled");
+      setBehaviorEnabled(behaviorEnabledSetting !== "false");
+      const urgencyEnabledSetting = await getSetting("ai_urgency_enabled");
+      setUrgencyEnabled(urgencyEnabledSetting !== "false");
+
       // Load cache settings
       const cacheMax = await getSetting("attachment_cache_max_mb");
       setCacheMaxMb(cacheMax ?? "500");
@@ -242,7 +374,37 @@ export function SettingsPage() {
       }
     }
     load();
-  }, []);
+  }, [accounts]);
+
+  // Auto-refresh RAG progress when tab is active
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    if (activeTab === "intelligence" && ragEnabled) {
+      const refresh = async () => {
+        if (cancelled) return;
+        const { getEmbeddingProgressAll } = await import("@/services/ai/ollamaEmbeddings");
+        const ragEnabledIds = accounts.filter((a) => accountRagFlags[a.id]).map((a) => a.id);
+        if (ragEnabledIds.length > 0) {
+          const progress = await getEmbeddingProgressAll(ragEnabledIds);
+          if (!cancelled) setRagProgress(progress);
+        }
+        if (cancelled) return;
+        const { isEmbeddingBackfillRunning, getLastError } = await import("@/services/ai/embeddingBackfill");
+        if (!cancelled) {
+          setRagRunning(isEmbeddingBackfillRunning());
+          setRagError(getLastError());
+          timer = setTimeout(refresh, 3000);
+        }
+      };
+      refresh();
+    }
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [activeTab, ragEnabled, accounts, accountRagFlags]);
 
   const handleNotificationsToggle = useCallback(async () => {
     const newVal = !notificationsEnabled;
@@ -254,19 +416,6 @@ export function SettingsPage() {
     setUndoSendDelay(value);
     await setSetting("undo_send_delay_seconds", value);
   }, []);
-
-  const handleSaveApiSettings = useCallback(async () => {
-    const trimmedId = clientId.trim();
-    if (trimmedId) {
-      await setSetting("google_client_id", trimmedId);
-    }
-    const trimmedSecret = clientSecret.trim();
-    if (trimmedSecret) {
-      await setSecureSetting("google_client_secret", trimmedSecret);
-    }
-    setApiSettingsSaved(true);
-    setTimeout(() => setApiSettingsSaved(false), 2000);
-  }, [clientId, clientSecret]);
 
   const handleManualSync = useCallback(async () => {
     const activeIds = accounts.filter((a) => a.isActive).map((a) => a.id);
@@ -313,26 +462,6 @@ export function SettingsPage() {
     [removeAccountFromStore],
   );
 
-  const handleReauthorizeAccount = useCallback(
-    async (accountId: string, email: string) => {
-      setReauthStatus((prev) => ({ ...prev, [accountId]: "authorizing" }));
-      try {
-        await reauthorizeAccount(accountId, email);
-        setReauthStatus((prev) => ({ ...prev, [accountId]: "done" }));
-        setTimeout(() => {
-          setReauthStatus((prev) => ({ ...prev, [accountId]: "idle" }));
-        }, 3000);
-      } catch (err) {
-        console.error("Re-authorization failed:", err);
-        setReauthStatus((prev) => ({ ...prev, [accountId]: "error" }));
-        setTimeout(() => {
-          setReauthStatus((prev) => ({ ...prev, [accountId]: "idle" }));
-        }, 3000);
-      }
-    },
-    [],
-  );
-
   const handleResyncAccount = useCallback(
     async (accountId: string) => {
       setResyncStatus((prev) => ({ ...prev, [accountId]: "syncing" }));
@@ -345,6 +474,36 @@ export function SettingsPage() {
       } catch (err) {
         console.error("Resync failed:", err);
         setResyncStatus((prev) => ({ ...prev, [accountId]: "error" }));
+        setTimeout(() => {
+          setResyncStatus((prev) => ({ ...prev, [accountId]: "idle" }));
+        }, 3000);
+      }
+    },
+    [],
+  );
+
+  // Track contacts sync progress: { current, total }
+  const [contactsProgress, setContactsProgress] = useState<{ current: number; total: number | undefined } | null>(null);
+
+  const handleSyncGoogleContacts = useCallback(
+    async (accountId: string) => {
+      setResyncStatus((prev) => ({ ...prev, [accountId]: "syncing" }));
+      setContactsProgress({ current: 0, total: undefined });
+      try {
+        const count = await syncGoogleContacts(accountId, (current, total) => {
+          setContactsProgress({ current, total });
+        });
+        setResyncStatus((prev) => ({ ...prev, [accountId]: "done" }));
+        console.log(`Synced ${count} contacts`);
+        setContactsProgress({ current: count, total: count });
+        setTimeout(() => {
+          setContactsProgress(null);
+          setResyncStatus((prev) => ({ ...prev, [accountId]: "idle" }));
+        }, 3000);
+      } catch (err) {
+        console.error("Contacts sync failed:", err);
+        setResyncStatus((prev) => ({ ...prev, [accountId]: "error" }));
+        setContactsProgress(null);
         setTimeout(() => {
           setResyncStatus((prev) => ({ ...prev, [accountId]: "idle" }));
         }, 3000);
@@ -493,6 +652,7 @@ export function SettingsPage() {
                         })}
                       </div>
                     </SettingRow>
+
                     <SettingRow label="Inbox view mode">
                       <select
                         value={inboxViewMode}
@@ -505,12 +665,17 @@ export function SettingsPage() {
                         <option value="split">Split (Categories)</option>
                       </select>
                     </SettingRow>
-                    <ToggleRow
-                      label="Reduce motion"
-                      description="Disable animated background effects (fixes flickering on some GPUs)"
-                      checked={reduceMotion}
-                      onToggle={() => setReduceMotion(!reduceMotion)}
-                    />
+                    <SettingRow label="Background style">
+                      <select
+                        value={backgroundMode}
+                        onChange={(e) => setBackgroundMode(e.target.value as "flat" | "aurora" | "spotlight")}
+                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                      >
+                        <option value="flat">Flat (no animation)</option>
+                        <option value="aurora">Aurora (subtle glow)</option>
+                        <option value="spotlight">Spotlight (follows cursor)</option>
+                      </select>
+                    </SettingRow>
                   </Section>
 
                   <SidebarNavEditor />
@@ -518,7 +683,7 @@ export function SettingsPage() {
                   <Section title="Startup">
                     <ToggleRow
                       label="Launch at login"
-                      description="Start Velo automatically when you log in (minimized to tray)"
+                      description="Start Melo automatically when you log in (minimized to tray)"
                       checked={autostartEnabled}
                       onToggle={handleAutostartToggle}
                     />
@@ -776,6 +941,41 @@ export function SettingsPage() {
                     </SettingRow>
                   </Section>
 
+                  <Section title="Style">
+                    <SettingRow label="Default font">
+<select
+                         value={composerFontFamily}
+                         onChange={(e) => setComposerFontFamily(e.target.value as ComposerFontFamily)}
+                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                       >
+                         <option value="system">System</option>
+                         <option value="arial">Arial</option>
+                         <option value="calibri">Calibri</option>
+                         <option value="times">Times New Roman</option>
+                         <option value="courier">Courier New</option>
+                         <option value="georgia">Georgia</option>
+                         <option value="verdana">Verdana</option>
+                         <option value="avenir">Avenir</option>
+                         <option value="inter">Inter</option>
+                       </select>
+                    </SettingRow>
+                    <SettingRow label="Default size">
+                      <select
+                        value={composerFontSize}
+                        onChange={(e) => setComposerFontSize(e.target.value as ComposerFontSize)}
+                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                      >
+                        <option value="10px">10</option>
+                        <option value="12px">12</option>
+                        <option value="14px">14</option>
+                        <option value="16px">16</option>
+                        <option value="18px">18</option>
+                        <option value="20px">20</option>
+                        <option value="24px">24</option>
+                      </select>
+                    </SettingRow>
+                  </Section>
+
                   <Section title="Signatures">
                     <SignatureEditor />
                   </Section>
@@ -851,59 +1051,97 @@ export function SettingsPage() {
                       <p className="text-sm text-text-tertiary">
                         No mail accounts connected
                       </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {accounts.filter((a) => a.provider !== "caldav").map((account) => {
-                          const providerLabel = account.provider === "imap" ? "IMAP" : "Gmail";
-                          return (
-                            <div
-                              key={account.id}
-                              className="flex items-center justify-between py-2.5 px-4 bg-bg-secondary rounded-lg"
-                            >
-                              <div>
-                                <div className="text-sm font-medium text-text-primary flex items-center gap-2">
-                                  {account.displayName ?? account.email}
-                                  <span className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-tertiary">
-                                    {providerLabel}
-                                  </span>
-                                </div>
-                                <div className="text-xs text-text-tertiary">
-                                  {account.email}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <button
-                                  onClick={() => handleReauthorizeAccount(account.id, account.email)}
-                                  disabled={reauthStatus[account.id] === "authorizing"}
-                                  className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
-                                >
-                                  {reauthStatus[account.id] === "authorizing" && "Waiting..."}
-                                  {reauthStatus[account.id] === "done" && "Done!"}
-                                  {reauthStatus[account.id] === "error" && "Failed"}
-                                  {(!reauthStatus[account.id] || reauthStatus[account.id] === "idle") && "Re-authorize"}
-                                </button>
-                                <button
-                                  onClick={() => handleResyncAccount(account.id)}
-                                  disabled={resyncStatus[account.id] === "syncing"}
-                                  className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
-                                >
-                                  {resyncStatus[account.id] === "syncing" && "Resyncing..."}
-                                  {resyncStatus[account.id] === "done" && "Done!"}
-                                  {resyncStatus[account.id] === "error" && "Failed"}
-                                  {(!resyncStatus[account.id] || resyncStatus[account.id] === "idle") && "Resync"}
-                                </button>
-                                <button
-                                  onClick={() => handleRemoveAccount(account.id)}
-                                  className="text-xs text-danger hover:text-danger/80 transition-colors"
-                                >
-                                  Remove
-                                </button>
-                              </div>
+                    ) : (() => {
+                      const mailAccounts = accounts.filter((a) => a.provider !== "caldav");
+                      const handleDragEnd = (event: DragEndEvent) => {
+                        const { active, over } = event;
+                        if (!over || active.id === over.id) return;
+                        const oldIndex = mailAccounts.findIndex((a) => a.id === active.id);
+                        const newIndex = mailAccounts.findIndex((a) => a.id === over.id);
+                        const reordered = arrayMove(mailAccounts, oldIndex, newIndex);
+                        reorderAccounts(reordered.map((a) => a.id));
+                      };
+                      return (
+                        <DndContext sensors={accountSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                          <SortableContext items={mailAccounts.map((a) => a.id)} strategy={verticalListSortingStrategy}>
+                            <div className="space-y-2">
+                              {mailAccounts.map((account) => {
+                                const providerLabel = account.provider === "imap" ? "IMAP" : "Gmail";
+                                return (
+                                  <SortableAccountRow key={account.id} id={account.id}>
+                                    <div className="py-2.5 px-4 bg-bg-secondary rounded-lg">
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <div className="text-sm font-medium text-text-primary flex items-center gap-2">
+                                            {account.color && (
+                                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
+                                            )}
+                                            {account.label ?? account.displayName ?? account.email}
+                                            <span className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-tertiary">
+                                              {providerLabel}
+                                            </span>
+                                          </div>
+                                          <div className="text-xs text-text-tertiary">
+                                            {account.email}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                          {account.provider === "imap" && (
+                                            <button
+                                              onClick={() => setEditingImapAccountId(account.id)}
+                                              className="text-xs text-accent hover:text-accent-hover transition-colors"
+                                            >
+                                              Edit
+                                            </button>
+                                          )}
+                                          {account.provider !== "imap" && (
+                                            <button
+                                              onClick={() => setEditingGmailAccount({ id: account.id, email: account.email, displayName: account.displayName, color: account.color, includeInGlobal: account.includeInGlobal, label: account.label })}
+                                              className="text-xs text-accent hover:text-accent-hover transition-colors"
+                                            >
+                                              Edit
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={() => handleResyncAccount(account.id)}
+                                            disabled={resyncStatus[account.id] === "syncing"}
+                                            className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                                          >
+                                            {resyncStatus[account.id] === "syncing" && "Resyncing..."}
+                                            {resyncStatus[account.id] === "done" && "Done!"}
+                                            {resyncStatus[account.id] === "error" && "Failed"}
+                                            {(!resyncStatus[account.id] || resyncStatus[account.id] === "idle") && "Resync"}
+                                          </button>
+                                          {account.provider === "gmail_api" && (
+                                            <button
+                                              onClick={() => handleSyncGoogleContacts(account.id)}
+                                              disabled={resyncStatus[account.id] === "syncing"}
+                                              className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                                            >
+                                              {resyncStatus[account.id] === "syncing"
+                                                ? contactsProgress
+                                                  ? `Syncing ${contactsProgress.current} contacts...`
+                                                  : "Syncing contacts..."
+                                                : "Sync Contacts"}
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={() => handleRemoveAccount(account.id)}
+                                            className="text-xs text-danger hover:text-danger/80 transition-colors"
+                                          >
+                                            Remove
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </SortableAccountRow>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                          </SortableContext>
+                        </DndContext>
+                      );
+                    })()}
                   </Section>
 
                   {accounts.some((a) => a.provider === "caldav") && (
@@ -940,35 +1178,6 @@ export function SettingsPage() {
                   <SendAsAliasesSection />
 
                   <ImapCalDavSection />
-
-                  <Section title="Google API">
-                    <div className="space-y-3">
-                      <TextField
-                        label="Client ID"
-                        size="md"
-                        type="text"
-                        value={clientId}
-                        onChange={(e) => setClientId(e.target.value)}
-                        placeholder="Google OAuth Client ID"
-                      />
-                      <TextField
-                        label="Client Secret"
-                        size="md"
-                        type="password"
-                        value={clientSecret}
-                        onChange={(e) => setClientSecret(e.target.value)}
-                        placeholder="Google OAuth Client Secret"
-                      />
-                      <Button
-                        variant="primary"
-                        size="md"
-                        onClick={handleSaveApiSettings}
-                        disabled={!clientId.trim()}
-                      >
-                        {apiSettingsSaved ? "Saved!" : "Save"}
-                      </Button>
-                    </div>
-                  </Section>
 
                   <Section title="Sync">
                     <div className="flex items-center justify-between">
@@ -1009,20 +1218,21 @@ export function SettingsPage() {
 
                   <Section title="Sync Period">
                     <SettingRow label="Sync emails from">
-                      <select
-                        value={syncPeriodDays}
-                        onChange={async (e) => {
-                          const val = e.target.value;
-                          setSyncPeriodDays(val);
-                          await setSetting("sync_period_days", val);
-                        }}
-                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
-                      >
-                        <option value="30">Last 30 days</option>
-                        <option value="90">Last 90 days</option>
-                        <option value="180">Last 180 days</option>
-                        <option value="365">Last 1 year</option>
-                      </select>
+<select
+                         value={syncPeriodDays}
+                         onChange={async (e) => {
+                           const val = e.target.value;
+                           setSyncPeriodDays(val);
+                           await setSetting("sync_period_days", val);
+                         }}
+                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                       >
+                         <option value="0">Everything</option>
+                         <option value="30">Last 30 days</option>
+                         <option value="90">Last 90 days</option>
+                         <option value="180">Last 180 days</option>
+                         <option value="365">Last 1 year</option>
+                       </select>
                     </SettingRow>
                     <p className="text-xs text-text-tertiary">
                       Changes apply on the next full resync.
@@ -1298,7 +1508,27 @@ export function SettingsPage() {
                         await setSetting("ai_auto_summarize", newVal ? "true" : "false");
                       }}
                     />
+                    <SettingRow label="AI Language">
+                      <select
+                        value={aiLanguage}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          setAiLanguage(val);
+                          await setSetting("ai_language", val);
+                        }}
+                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+                      >
+                        <option value="English">English</option>
+                        <option value="Italian">Italiano</option>
+                        <option value="French">Français</option>
+                        <option value="German">Deutsch</option>
+                        <option value="Spanish">Español</option>
+                        <option value="Portuguese">Português</option>
+                        <option value="Dutch">Nederlands</option>
+                      </select>
+                    </SettingRow>
                   </Section>
+
 
                   <Section title="Auto-Draft Replies">
                     <ToggleRow
@@ -1356,9 +1586,24 @@ export function SettingsPage() {
                         </Button>
                       </div>
                     )}
-                  </Section>
+</Section>
 
-                  <Section title="Categories">
+<Section title="AI Soul">
+                      <p className="text-xs text-text-tertiary mb-2">
+                        Define the AI's personality and behavior. Edit SOUL.md to customize how the assistant communicates.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button variant="secondary" size="md" onClick={() => setSoulEditorOpen(true)}>
+                          Edit Soul
+                        </Button>
+                        <span className="text-xs text-text-tertiary">
+                          File location: ~/Library/Application Support/velo/soul.md
+                        </span>
+                      </div>
+                      <SoulEditorDialog isOpen={soulEditorOpen} onClose={() => setSoulEditorOpen(false)} />
+                    </Section>
+
+                   <Section title="Categories">
                     <p className="text-xs text-text-tertiary mb-1">
                       Incoming emails are automatically sorted using rule-based heuristics (Gmail labels, sender domain, headers). When AI is enabled, it refines results for better accuracy.
                     </p>
@@ -1388,6 +1633,657 @@ export function SettingsPage() {
                     </p>
                     <BundleSettings />
                   </Section>
+
+                  <Section title="Behavioral Intelligence">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Controls whether Melo tracks sender patterns, urgency signals, and reputation to adapt inbox prioritization to your behavior.
+                    </p>
+                    <ToggleRow
+                      label="Enable Behavioral Intelligence"
+                      description="Master switch — disabling this turns off urgency scoring, reputation tracking, and the Heat Extinguisher"
+                      checked={behaviorEnabled}
+                      onToggle={async () => {
+                        const next = !behaviorEnabled;
+                        setBehaviorEnabled(next);
+                        await setSetting("ai_behavior_enabled", next ? "true" : "false");
+                        const { invalidateUrgencySettingsCache, runUrgencyBackfill } = await import("@/services/ai/urgencyPipeline");
+                        invalidateUrgencySettingsCache();
+                        if (next) runUrgencyBackfill().catch(() => {});
+                      }}
+                    />
+                    {behaviorEnabled && (
+                      <div className="mt-3">
+                        <ToggleRow
+                          label="Urgency Indicators"
+                          description="Show Zap and Heat icons on threads based on urgency score — turn off if you prefer a quieter inbox"
+                          checked={urgencyEnabled}
+                          onToggle={async () => {
+                            const next = !urgencyEnabled;
+                            setUrgencyEnabled(next);
+                            await setSetting("ai_urgency_enabled", next ? "true" : "false");
+                            const { invalidateUrgencySettingsCache } = await import("@/services/ai/urgencyPipeline");
+                            invalidateUrgencySettingsCache();
+                          }}
+                        />
+                      </div>
+                    )}
+                  </Section>
+
+                  {behaviorEnabled && (
+                    <>
+                      <Section title="Sender Reputation">
+                        <p className="text-xs text-text-tertiary mb-3">
+                          Melo tracks when you silence urgency from a sender. Senders muted repeatedly within the forgiveness window receive a lower urgency weight automatically.
+                        </p>
+                        <div className="flex items-start gap-4">
+                          <div className="flex-1">
+                            <TextField
+                              label="Forgiveness Window (days)"
+                              type="number"
+                              min="1"
+                              max="365"
+                              value={urgencyMuteWindow}
+                              onChange={(e) => setUrgencyMuteWindow(e.target.value)}
+                            />
+                            <p className="text-xs text-text-tertiary mt-1.5">
+                              How far back to look when counting mutes. After this period, the sender's score resets.
+                            </p>
+                          </div>
+                          <div className="flex-1">
+                            <TextField
+                              label="Mute Threshold"
+                              type="number"
+                              min="1"
+                              max="100"
+                              value={urgencyMuteThreshold}
+                              onChange={(e) => setUrgencyMuteThreshold(e.target.value)}
+                            />
+                            <p className="text-xs text-text-tertiary mt-1.5">
+                              Number of mutes before a 50% urgency penalty is applied. Higher = more tolerant.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <Button
+                            variant="secondary"
+                            onClick={async () => {
+                              await setSetting("ai_urgency_mute_window_days", urgencyMuteWindow.trim() || "30");
+                              await setSetting("ai_urgency_mute_threshold", urgencyMuteThreshold.trim() || "3");
+                              import("@/services/ai/reputationEngine").then(({ purgeOldInteractions }) => {
+                                purgeOldInteractions().catch(() => {});
+                              });
+                            }}
+                          >
+                            Save & Apply
+                          </Button>
+                        </div>
+                      </Section>
+
+                      <Section title="Automation">
+                        <ToggleRow
+                          label="Smart Auto-Extinguish on Reply"
+                          description="When you reply to an urgent thread, Melo uses AI to evaluate if the reply resolves the concern — and clears the urgency indicator only if it does"
+                          checked={urgencyAutoExtinguish}
+                          onToggle={async () => {
+                            const next = !urgencyAutoExtinguish;
+                            setUrgencyAutoExtinguish(next);
+                            await setSetting("ai_urgency_auto_extinguish", next ? "true" : "false");
+                          }}
+                        />
+                      </Section>
+                    </>
+                  )}
+                </>
+              )}
+
+              {activeTab === "intelligence" && (
+                <>
+                  <Section title="Privacy & Local Processing">
+                    <div className="rounded-md bg-bg-tertiary border border-border-primary px-3 py-3 text-sm text-text-secondary leading-relaxed">
+                      <p className="font-medium text-text-primary mb-1">100% On-device — no data leaves your machine</p>
+                      <p className="text-xs">
+                        Melo uses a local Ollama server (<code className="bg-bg-secondary px-1 rounded">localhost:11434</code>) to generate vector embeddings of your emails.
+                        These embeddings are stored in the local SQLite database and never sent to any external server.
+                        Semantic search uses cosine similarity computed in-process.
+                      </p>
+                    </div>
+                  </Section>
+
+                  <Section title="Semantic Search (RAG)">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      When enabled, Ask My Inbox combines keyword search (FTS5) with vector similarity for smarter, context-aware results.
+                      Emails are indexed in the background in small batches — the app stays responsive.
+                    </p>
+                    <ToggleRow
+                      label="Enable Semantic Search"
+                      description="Index emails locally and mix vector similarity into Ask My Inbox results (40% keyword + 60% semantic)"
+                      checked={ragEnabled}
+                      onToggle={async () => {
+                        const next = !ragEnabled;
+                        setRagEnabled(next);
+                        await setSetting("rag_enabled", next ? "true" : "false");
+                        if (next) {
+                          const { runEmbeddingBackfill } = await import("@/services/ai/embeddingBackfill");
+                          runEmbeddingBackfill().catch(() => {});
+                        } else {
+                          const { stopEmbeddingBackfill } = await import("@/services/ai/embeddingBackfill");
+                          stopEmbeddingBackfill();
+                        }
+                      }}
+                    />
+                  </Section>
+
+                  <Section title="Indexed Accounts">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Enable semantic indexing per account. Only enabled accounts are indexed by the background backfill job and included in Ask My Inbox semantic results.
+                    </p>
+                    {accounts.length === 0 ? (
+                      <p className="text-xs text-text-tertiary">No accounts configured.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {accounts.map((acc) => (
+                          <ToggleRow
+                            key={acc.id}
+                            label={acc.email}
+                            description={`${acc.provider === "gmail" ? "Gmail" : "IMAP"} account`}
+                            checked={accountRagFlags[acc.id] ?? false}
+                            onToggle={async () => {
+                              const next = !(accountRagFlags[acc.id] ?? false);
+                              setAccountRagFlags((prev) => ({ ...prev, [acc.id]: next }));
+                              const { setAccountRagEnabled } = await import("@/services/db/accounts");
+                              await setAccountRagEnabled(acc.id, next);
+                              if (next && ragEnabled) {
+                                const { runEmbeddingBackfill } = await import("@/services/ai/embeddingBackfill");
+                                runEmbeddingBackfill().catch(() => {});
+                              }
+                              // Refresh progress after account toggle
+                              const { getEmbeddingProgressAll } = await import("@/services/ai/ollamaEmbeddings");
+                              const updatedFlags = { ...accountRagFlags, [acc.id]: next };
+                              const ragEnabledIds = accounts.filter((a) => updatedFlags[a.id]).map((a) => a.id);
+                              if (ragEnabledIds.length > 0) {
+                                setRagProgress(await getEmbeddingProgressAll(ragEnabledIds));
+                              } else {
+                                setRagProgress(null);
+                              }
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </Section>
+
+                  <Section title="Embedding Model">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Configure the Ollama server and model used for generating email embeddings.
+                      The server URL is shared with the AI tab. Pull the model first:{" "}
+                      <code className="bg-bg-tertiary px-1 rounded">ollama pull nomic-embed-text</code>
+                    </p>
+                    <div className="space-y-3">
+                      <TextField
+                        label="Ollama Server URL"
+                        size="md"
+                        value={ollamaServerUrl}
+                        onChange={(e) => setOllamaServerUrl(e.target.value)}
+                        placeholder="http://localhost:11434"
+                      />
+                      <TextField
+                        label="Embedding Model"
+                        size="md"
+                        value={embeddingModel}
+                        onChange={(e) => setEmbeddingModel(e.target.value)}
+                        placeholder="nomic-embed-text"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="primary"
+                          size="md"
+                          onClick={async () => {
+                            await setSetting("ollama_server_url", ollamaServerUrl.trim() || "http://localhost:11434");
+                            await setSetting("embedding_model", embeddingModel.trim() || "nomic-embed-text");
+                            setRagSaved(true);
+                            setTimeout(() => setRagSaved(false), 2000);
+                          }}
+                        >
+                          {ragSaved ? "Saved!" : "Save"}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="md"
+                          onClick={async () => {
+                            setRagTesting(true);
+                            setRagTestResult(null);
+                            setRagTestError(null);
+                            setRagDimensions(null);
+                            try {
+                              const { testEmbeddingModel } = await import("@/services/ai/ollamaEmbeddings");
+                              const res = await testEmbeddingModel(
+                                ollamaServerUrl.trim() || "http://localhost:11434",
+                                embeddingModel.trim() || "nomic-embed-text",
+                              );
+                              setRagTestResult(res.ok ? "success" : "fail");
+                              if (res.ok) {
+                                setRagDimensions(res.dimensions ?? null);
+                              } else {
+                                setRagTestError(res.errorType ?? "unknown");
+                              }
+                            } catch {
+                              setRagTestResult("fail");
+                              setRagTestError("unknown");
+                            } finally {
+                              setRagTesting(false);
+                            }
+                          }}
+                          disabled={ragTesting || !ollamaServerUrl.trim()}
+                          className="bg-bg-tertiary text-text-primary border border-border-primary"
+                        >
+                          {ragTesting ? "Testing..." : "Test Embedding Model"}
+                        </Button>
+                        {ragTestResult === "success" && (
+                          <span className="text-xs text-success">
+                            Model responding!{ragDimensions ? ` (${ragDimensions} dimensions)` : ""}
+                          </span>
+                        )}
+                        {ragTestResult === "fail" && ragTestError === "server_down" && (
+                          <span className="text-xs text-danger">Server unreachable — is Ollama running?</span>
+                        )}
+                        {ragTestResult === "fail" && ragTestError === "model_not_found" && (
+                          <span className="text-xs text-danger">
+                            Model not found — run: <code>ollama pull {embeddingModel || "nomic-embed-text"}</code>
+                          </span>
+                        )}
+                        {ragTestResult === "fail" && ragTestError === "unknown" && (
+                          <span className="text-xs text-danger">Test failed — check server URL and model name</span>
+                        )}
+                      </div>
+                    </div>
+                  </Section>
+
+                  <Section title="Indexing Parameters">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1">
+                        <TextField
+                          label="Chunk Size (approx. tokens)"
+                          size="md"
+                          value={ragChunkSize}
+                          onChange={(e) => setRagChunkSize(e.target.value)}
+                          placeholder="512"
+                        />
+                        <p className="text-xs text-text-tertiary mt-1.5">
+                          How much text to embed per email. Larger values capture more context but increase Ollama memory usage.
+                          Default 512 ≈ 2 KB of text; max for nomic-embed-text is 8192 tokens.
+                        </p>
+                      </div>
+                      <div className="flex-1">
+                        <TextField
+                          label="Batch Size"
+                          size="md"
+                          value={ragBatchSize}
+                          onChange={(e) => setRagBatchSize(e.target.value)}
+                          placeholder="10"
+                        />
+                        <p className="text-xs text-text-tertiary mt-1.5">
+                          Emails processed per indexing cycle (50ms pause between each).
+                          Higher values speed up indexing but increase CPU load — keep at 5–20 for background comfort.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      className="mt-3"
+                      onClick={async () => {
+                        await setSetting("rag_chunk_size", ragChunkSize.trim() || "512");
+                        await setSetting("rag_batch_size", ragBatchSize.trim() || "10");
+                        setRagSaved(true);
+                        setTimeout(() => setRagSaved(false), 2000);
+                      }}
+                    >
+                      {ragSaved ? "Saved!" : "Save Parameters"}
+                    </Button>
+                  </Section>
+
+                  <Section title="Indexing Progress">
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-text-secondary">Emails indexed</span>
+                        <span className="text-text-primary font-medium tabular-nums">
+                          {ragProgress
+                            ? `${ragProgress.indexed.toLocaleString()} / ${ragProgress.total.toLocaleString()}`
+                            : "— / —"}
+                        </span>
+                      </div>
+                      <div className="w-full bg-bg-tertiary rounded-full h-2 border border-border-primary">
+                        <div
+                          className="bg-accent h-2 rounded-full transition-all duration-300"
+                          style={{
+                            width: ragProgress && ragProgress.total > 0
+                              ? `${Math.min(100, (ragProgress.indexed / ragProgress.total) * 100)}%`
+                              : "0%",
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-text-tertiary mt-2">
+                        {!ragProgress
+                          ? (accounts.some((a) => accountRagFlags[a.id])
+                              ? "Loading indexing data…"
+                              : "Enable semantic indexing for at least one account above to start indexing.")
+                          : ragProgress.indexed >= ragProgress.total && ragProgress.total > 0
+                            ? "All emails indexed. Semantic search is fully operational."
+                            : ragProgress.indexed > ragProgress.total
+                              ? `Indexing complete — ${(ragProgress.indexed - ragProgress.total).toLocaleString()} emails had no embeddable content`
+                              : ragRunning
+                                ? `Indexing in progress — ${(ragProgress.total - ragProgress.indexed).toLocaleString()} remaining`
+                                : `Paused — ${(ragProgress.total - ragProgress.indexed).toLocaleString()} emails remaining`}
+                      </p>
+                      {ragError && (
+                        <p className="text-xs text-danger mt-1">{ragError}</p>
+                      )}
+                      <div className="flex gap-2 mt-3">
+                        {ragProgress && ragProgress.indexed < ragProgress.total && ragEnabled && (
+                          <Button
+                            variant="secondary"
+                            size="md"
+                            className="bg-bg-tertiary text-text-primary border border-border-primary"
+                            onClick={async () => {
+                              const { runEmbeddingBackfill, isEmbeddingBackfillRunning, getLastError } = await import("@/services/ai/embeddingBackfill");
+                              runEmbeddingBackfill().catch(() => {});
+                              setRagRunning(isEmbeddingBackfillRunning());
+                              setRagError(getLastError());
+                            }}>
+                            {ragRunning ? "Restart Indexing" : "Resume Indexing"}
+                          </Button>
+                        )}
+                        <Button
+                          variant="secondary"
+                          size="md"
+                          className="bg-bg-tertiary text-text-primary border border-border-primary"
+                          onClick={async () => {
+                            if (ragDiagOpen) {
+                              setRagDiagOpen(false);
+                              return;
+                            }
+                            const { getDiagnostics } = await import("@/services/ai/embeddingBackfill");
+                            const diag = await getDiagnostics();
+                            setRagDiagData(diag);
+                            setRagDiagOpen(true);
+                          }}>
+                          {ragDiagOpen ? "Hide Diagnostics" : "Detailed Diagnostics"}
+                        </Button>
+                      </div>
+
+                      {/* Re-index from scratch */}
+                      {ragEnabled && ragProgress && ragProgress.total > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border-secondary">
+                          {!ragReindexConfirm ? (
+                            <Button
+                              variant="secondary"
+                              size="md"
+                              className="bg-bg-tertiary text-text-secondary border border-border-primary hover:border-danger hover:text-danger transition-colors"
+                              onClick={() => setRagReindexConfirm(true)}
+                            >
+                              Re-index from scratch
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              <p className="text-xs text-danger flex-1">
+                                This will delete all {ragProgress.indexed.toLocaleString()} embeddings and re-index from scratch. Continue?
+                              </p>
+                              <Button
+                                variant="secondary"
+                                size="md"
+                                className="bg-bg-tertiary text-text-secondary border border-border-primary shrink-0"
+                                onClick={() => setRagReindexConfirm(false)}
+                                disabled={ragClearing}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="md"
+                                className="bg-danger/10 text-danger border border-danger/30 shrink-0"
+                                disabled={ragClearing}
+                                onClick={async () => {
+                                  setRagClearing(true);
+                                  try {
+                                    const {
+                                      stopEmbeddingBackfill,
+                                      clearAllEmbeddings,
+                                      runEmbeddingBackfill,
+                                      isEmbeddingBackfillRunning,
+                                      getLastError,
+                                    } = await import("@/services/ai/embeddingBackfill");
+                                    stopEmbeddingBackfill();
+                                    // Brief pause to let the running batch finish cleanly
+                                    await new Promise((r) => setTimeout(r, 300));
+                                    await clearAllEmbeddings();
+                                    setRagProgress({ indexed: 0, total: ragProgress.total });
+                                    setRagDiagOpen(false);
+                                    runEmbeddingBackfill().catch(() => {});
+                                    setRagRunning(isEmbeddingBackfillRunning());
+                                    setRagError(getLastError());
+                                  } finally {
+                                    setRagClearing(false);
+                                    setRagReindexConfirm(false);
+                                  }
+                                }}
+                              >
+                                {ragClearing ? "Clearing…" : "Confirm"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {ragDiagOpen && ragDiagData && (
+                        <div className="mt-4 p-4 rounded-lg bg-bg-secondary border border-border-primary space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-text-tertiary mb-2">Internal Index State</h4>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <p className="text-[10px] text-text-tertiary uppercase">Database Totals</p>
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-xs text-text-secondary">Total Messages</span>
+                                <span className="text-sm font-medium tabular-nums">{ragDiagData.totalMessages.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-xs text-text-secondary">RAG-Enabled Accounts</span>
+                                <span className="text-sm font-medium tabular-nums">{ragDiagData.ragAccounts}</span>
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[10px] text-text-tertiary uppercase">Eligibility</p>
+                              <div className="flex justify-between items-baseline border-b border-border-primary pb-1 mb-1">
+                                <span className="text-xs text-text-secondary font-semibold">Eligible Messages</span>
+                                <span className="text-sm font-bold tabular-nums text-accent">{ragDiagData.eligibleMessages.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-xs text-text-secondary">Successfully Indexed</span>
+                                <span className="text-sm font-medium tabular-nums text-success">{ragDiagData.indexed.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-xs text-text-secondary">No Content (Sentinels)</span>
+                                <span className="text-sm font-medium tabular-nums text-text-tertiary">{ragDiagData.sentinels.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between items-baseline pt-1">
+                                <span className="text-xs text-text-secondary">Pending Processing</span>
+                                <span className="text-sm font-medium tabular-nums text-warning">{ragDiagData.pending.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-t border-border-primary">
+                            <p className="text-[10px] text-text-tertiary leading-relaxed italic">
+                              * Eligible messages exclude Spam, Trash, and accounts where semantic search is disabled.
+                              Sentinels mark messages that were processed but had insufficient text for embedding.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Section>
+
+                  <Section title="Temporal Aging">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Urgency naturally fades as threads grow older. Between the start and floor day, the score linearly decays toward a dim minimum. Beyond the floor, urgency is silenced automatically.
+                    </p>
+                    <div className="flex items-start gap-4 mb-3">
+                      <div className="flex-1">
+                        <TextField
+                          label="Decay Start (days)"
+                          type="number"
+                          min="1"
+                          max="365"
+                          value={urgencyDecayStart}
+                          onChange={(e) => setUrgencyDecayStart(e.target.value)}
+                        />
+                        <p className="text-xs text-text-tertiary mt-1.5">
+                          Urgency is unchanged until this many days after the last message.
+                        </p>
+                      </div>
+                      <div className="flex-1">
+                        <TextField
+                          label="Decay Floor (days)"
+                          type="number"
+                          min="1"
+                          max="365"
+                          value={urgencyDecayFloor}
+                          onChange={(e) => setUrgencyDecayFloor(e.target.value)}
+                        />
+                        <p className="text-xs text-text-tertiary mt-1.5">
+                          At this age, urgency reaches its minimum (dim indicator, not hidden). Must be &gt; Decay Start.
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-text-tertiary mb-3 bg-bg-tertiary rounded-lg px-3 py-2">
+                      Example: with Start=20 and Floor=30, a thread that's 25 days old loses 50% of its urgency. At 30+ days it shows only a faint indicator.
+                    </p>
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        const start = Math.max(1, parseInt(urgencyDecayStart.trim() || "20", 10));
+                        const floor = Math.max(start + 1, parseInt(urgencyDecayFloor.trim() || "30", 10));
+                        setUrgencyDecayStart(String(start));
+                        setUrgencyDecayFloor(String(floor));
+                        await setSetting("ai_urgency_decay_start_days", String(start));
+                        await setSetting("ai_urgency_decay_floor_days", String(floor));
+                      }}
+                    >
+                      Save Aging Rules
+                    </Button>
+                  </Section>
+
+                  <Section title="Priority Domains">
+                    <p className="text-xs text-text-tertiary mb-3">
+                      Emails from these domains, or emails mentioning new projects and quotes, receive a +0.15–0.3 urgency boost regardless of keywords. Comma-separated (e.g. <span className="font-mono">client.com, partner.io</span>).
+                    </p>
+                    <TextField
+                      label="Priority domains"
+                      placeholder="client.com, partner.io"
+                      value={ragPriorityDomains}
+                      onChange={(e) => setRagPriorityDomains(e.target.value)}
+                    />
+                    <div className="mt-3">
+                      <Button
+                        variant="secondary"
+                        onClick={async () => {
+                          await setSetting("rag_priority_domains", ragPriorityDomains.trim());
+                        }}
+                      >
+                        Save Domains
+                      </Button>
+                    </div>
+                  </Section>
+
+                </>
+              )}
+
+              {activeTab === "tasks" && (
+                <>
+                  <Section title="Task Retention">
+                    <p className="text-xs text-text-tertiary mb-4">
+                      Control how long deleted and completed tasks are kept before being permanently removed.
+                    </p>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <p className="text-sm text-text-primary font-medium">Deleted task retention</p>
+                          <p className="text-xs text-text-tertiary mt-0.5">Days before manually deleted tasks are purged from the database</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="1"
+                            max="365"
+                            value={taskRetentionDeleted}
+                            onChange={(e) => setTaskRetentionDeleted(e.target.value)}
+                            onBlur={async (e) => {
+                              const v = parseInt(e.target.value, 10);
+                              const val = isNaN(v) || v < 1 ? "7" : String(v);
+                              setTaskRetentionDeleted(val);
+                              await setSetting("task_retention_days_deleted", val);
+                            }}
+                            className="w-20 bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-sm text-text-primary text-center outline-none focus:border-accent"
+                          />
+                          <span className="text-xs text-text-tertiary w-8">days</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <p className="text-sm text-text-primary font-medium">Auto-hide completed tasks</p>
+                          <p className="text-xs text-text-tertiary mt-0.5">Hours after which completed tasks disappear from the active view (0 = hide immediately)</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="8760"
+                            value={taskAutoArchiveHours}
+                            onChange={(e) => setTaskAutoArchiveHours(e.target.value)}
+                            onBlur={async (e) => {
+                              const v = parseInt(e.target.value, 10);
+                              const val = isNaN(v) || v < 0 ? "24" : String(v);
+                              setTaskAutoArchiveHours(val);
+                              await setSetting("task_auto_archive_completed_hours", val);
+                            }}
+                            className="w-20 bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-sm text-text-primary text-center outline-none focus:border-accent"
+                          />
+                          <span className="text-xs text-text-tertiary w-8">hours</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <p className="text-sm text-text-primary font-medium">Completed task retention</p>
+                          <p className="text-xs text-text-tertiary mt-0.5">Days before completed tasks are permanently deleted (0 = keep forever)</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="3650"
+                            value={taskRetentionCompleted}
+                            onChange={(e) => setTaskRetentionCompleted(e.target.value)}
+                            onBlur={async (e) => {
+                              const v = parseInt(e.target.value, 10);
+                              const val = isNaN(v) || v < 0 ? "0" : String(v);
+                              setTaskRetentionCompleted(val);
+                              await setSetting("task_retention_days_completed", val);
+                            }}
+                            className="w-20 bg-bg-tertiary border border-border-primary rounded-lg px-2.5 py-1.5 text-sm text-text-primary text-center outline-none focus:border-accent"
+                          />
+                          <span className="text-xs text-text-tertiary w-8">days</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Section>
+
+                  <Section title="Trash & Recovery">
+                    <p className="text-xs text-text-tertiary mb-2">
+                      Deleted tasks are soft-deleted and visible in the <strong className="text-text-secondary">Trash</strong> view inside the Tasks page. You can restore or permanently delete them from there.
+                    </p>
+                    <p className="text-xs text-text-tertiary">
+                      When viewing a thread, a <strong className="text-text-secondary">Restore</strong> banner appears in the task sidebar if there are recoverable tasks for that thread.
+                    </p>
+                  </Section>
                 </>
               )}
 
@@ -1401,6 +2297,26 @@ export function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {editingImapAccountId && (
+        <EditImapAccount
+          accountId={editingImapAccountId}
+          onClose={() => setEditingImapAccountId(null)}
+          onSaved={() => setEditingImapAccountId(null)}
+        />
+      )}
+
+      {editingGmailAccount && (
+        <EditGmailAccount
+          accountId={editingGmailAccount.id}
+          email={editingGmailAccount.email}
+          displayName={editingGmailAccount.displayName}
+          initialColor={editingGmailAccount.color}
+          initialIncludeInGlobal={editingGmailAccount.includeInGlobal}
+          initialLabel={editingGmailAccount.label}
+          onClose={() => setEditingGmailAccount(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1741,11 +2657,11 @@ function AboutTab() {
 
   return (
     <>
-      <Section title="Velo Mail">
+      <Section title="Melo Mail">
         <div className="flex items-center gap-3 mb-2">
-          <img src={appIcon} alt="Velo" className="w-12 h-12 rounded-xl" />
+          <img src={appIcon} alt="Melo" className="w-12 h-12 rounded-xl" />
           <div>
-            <h3 className="text-base font-semibold text-text-primary">Velo</h3>
+            <h3 className="text-base font-semibold text-text-primary">Melo</h3>
             <p className="text-sm text-text-tertiary">
               {appVersion ? `Version ${appVersion}` : "Loading..."}
             </p>
@@ -1812,7 +2728,7 @@ function AboutTab() {
             </button>
           </p>
           <p className="text-xs text-text-tertiary leading-relaxed">
-            Copyright 2025 Velo Mail. You may use, distribute, and modify this software under the terms of the Apache 2.0 license. This software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND.
+            Copyright 2025 Melo Mail. You may use, distribute, and modify this software under the terms of the Apache 2.0 license. This software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND.
           </p>
         </div>
       </Section>

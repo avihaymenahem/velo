@@ -1,4 +1,4 @@
-import { getDb, selectFirstBy } from "./connection";
+import { getDb, selectFirstBy, withTransaction } from "./connection";
 import { encryptValue, decryptValue, isEncrypted } from "@/utils/crypto";
 
 export interface DbAccount {
@@ -27,6 +27,8 @@ export interface DbAccount {
   oauth_client_id: string | null;
   oauth_client_secret: string | null;
   imap_username: string | null;
+  smtp_username: string | null;
+  smtp_password: string | null;
   caldav_url: string | null;
   caldav_username: string | null;
   caldav_password: string | null;
@@ -34,6 +36,11 @@ export interface DbAccount {
   caldav_home_url: string | null;
   calendar_provider: string | null;
   accept_invalid_certs: number;
+  rag_enabled: number;
+  color: string | null;
+  include_in_global: number;
+  sort_order: number;
+  label: string | null;
 }
 
 async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
@@ -58,6 +65,13 @@ async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
       console.warn("Failed to decrypt IMAP password, using raw value:", err);
     }
   }
+  if (account.smtp_password && isEncrypted(account.smtp_password)) {
+    try {
+      account.smtp_password = await decryptValue(account.smtp_password);
+    } catch (err) {
+      console.warn("Failed to decrypt SMTP password, using raw value:", err);
+    }
+  }
   if (account.oauth_client_secret && isEncrypted(account.oauth_client_secret)) {
     try {
       account.oauth_client_secret = await decryptValue(account.oauth_client_secret);
@@ -77,10 +91,62 @@ async function decryptAccountTokens(account: DbAccount): Promise<DbAccount> {
 
 export async function getAllAccounts(): Promise<DbAccount[]> {
   const db = await getDb();
-  const accounts = await db.select<DbAccount[]>(
-    "SELECT * FROM accounts ORDER BY created_at ASC",
-  );
+  let accounts: DbAccount[];
+  try {
+    accounts = await db.select<DbAccount[]>(
+      "SELECT * FROM accounts ORDER BY sort_order ASC, email ASC",
+    );
+  } catch {
+    // sort_order column may not exist yet if migration v41 hasn't run
+    accounts = await db.select<DbAccount[]>(
+      "SELECT * FROM accounts ORDER BY email ASC",
+    );
+  }
   return Promise.all(accounts.map(decryptAccountTokens));
+}
+
+export async function updateAccountMeta(
+  accountId: string,
+  fields: {
+    color?: string | null;
+    includeInGlobal?: boolean;
+    sortOrder?: number;
+    displayName?: string | null;
+    label?: string | null;
+  },
+): Promise<void> {
+  const db = await getDb();
+  const setClauses: string[] = [];
+  const params: unknown[] = [];
+
+  if ("color" in fields) {
+    params.push(fields.color ?? null);
+    setClauses.push(`color = $${params.length}`);
+  }
+  if ("includeInGlobal" in fields) {
+    params.push(fields.includeInGlobal ? 1 : 0);
+    setClauses.push(`include_in_global = $${params.length}`);
+  }
+  if ("sortOrder" in fields) {
+    params.push(fields.sortOrder);
+    setClauses.push(`sort_order = $${params.length}`);
+  }
+  if ("displayName" in fields) {
+    params.push(fields.displayName ?? null);
+    setClauses.push(`display_name = $${params.length}`);
+  }
+  if ("label" in fields) {
+    params.push(fields.label ?? null);
+    setClauses.push(`label = $${params.length}`);
+  }
+  if (setClauses.length === 0) return;
+
+  setClauses.push("updated_at = unixepoch()");
+  params.push(accountId);
+  await db.execute(
+    `UPDATE accounts SET ${setClauses.join(", ")} WHERE id = $${params.length}`,
+    params,
+  );
 }
 
 export async function getAccount(id: string): Promise<DbAccount | null> {
@@ -133,12 +199,13 @@ export async function updateAccountTokens(
   accessToken: string,
   tokenExpiresAt: number,
 ): Promise<void> {
-  const db = await getDb();
   const encAccessToken = await encryptValue(accessToken);
-  await db.execute(
-    "UPDATE accounts SET access_token = $1, token_expires_at = $2, updated_at = unixepoch() WHERE id = $3",
-    [encAccessToken, tokenExpiresAt, id],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      "UPDATE accounts SET access_token = $1, token_expires_at = $2, updated_at = unixepoch() WHERE id = $3",
+      [encAccessToken, tokenExpiresAt, id],
+    );
+  });
 }
 
 export async function updateAccountSyncState(
@@ -166,13 +233,14 @@ export async function updateAccountAllTokens(
   refreshToken: string,
   tokenExpiresAt: number,
 ): Promise<void> {
-  const db = await getDb();
   const encAccessToken = await encryptValue(accessToken);
   const encRefreshToken = await encryptValue(refreshToken);
-  await db.execute(
-    "UPDATE accounts SET access_token = $1, refresh_token = $2, token_expires_at = $3, updated_at = unixepoch() WHERE id = $4",
-    [encAccessToken, encRefreshToken, tokenExpiresAt, id],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      "UPDATE accounts SET access_token = $1, refresh_token = $2, token_expires_at = $3, updated_at = unixepoch() WHERE id = $4",
+      [encAccessToken, encRefreshToken, tokenExpiresAt, id],
+    );
+  });
 }
 
 export async function deleteAccount(id: string): Promise<void> {
@@ -193,14 +261,18 @@ export async function insertImapAccount(account: {
   smtpSecurity: string;
   authMethod: string;
   password: string;
+  smtpPassword?: string | null;
+  smtpUsername?: string | null;
   imapUsername?: string | null;
   acceptInvalidCerts?: boolean;
 }): Promise<void> {
   const db = await getDb();
   const encPassword = await encryptValue(account.password);
+  const encSmtpPassword =
+    account.smtpPassword ? await encryptValue(account.smtpPassword) : null;
   await db.execute(
-    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password, imap_username, accept_invalid_certs)
-     VALUES ($1, $2, $3, $4, NULL, NULL, 'imap', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    `INSERT INTO accounts (id, email, display_name, avatar_url, access_token, refresh_token, provider, imap_host, imap_port, imap_security, smtp_host, smtp_port, smtp_security, auth_method, imap_password, smtp_password, smtp_username, imap_username, accept_invalid_certs)
+     VALUES ($1, $2, $3, $4, NULL, NULL, 'imap', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
     [
       account.id,
       account.email,
@@ -214,6 +286,8 @@ export async function insertImapAccount(account: {
       account.smtpSecurity,
       account.authMethod,
       encPassword,
+      encSmtpPassword,
+      account.smtpUsername || null,
       account.imapUsername || null,
       account.acceptInvalidCerts ? 1 : 0,
     ],
@@ -326,5 +400,98 @@ export async function insertOAuthImapAccount(account: {
       account.imapUsername || null,
       account.acceptInvalidCerts ? 1 : 0,
     ],
+  );
+}
+
+export async function updateImapAccount(
+  accountId: string,
+  fields: {
+    displayName: string | null;
+    imapHost: string;
+    imapPort: number;
+    imapSecurity: string;
+    smtpHost: string;
+    smtpPort: number;
+    smtpSecurity: string;
+    imapUsername: string | null;
+    /** If null, keep the existing password unchanged */
+    newPassword: string | null;
+    /** If null, keep the existing SMTP password unchanged */
+    newSmtpPassword: string | null;
+    /** True = use same password as IMAP (set smtp_password to NULL) */
+    smtpSameAsImap: boolean;
+    acceptInvalidCerts: boolean;
+  },
+): Promise<void> {
+  const db = await getDb();
+  const encPassword = fields.newPassword != null
+    ? await encryptValue(fields.newPassword)
+    : null;
+  const encSmtpPassword = fields.smtpSameAsImap
+    ? null
+    : fields.newSmtpPassword != null
+      ? await encryptValue(fields.newSmtpPassword)
+      : null;
+
+  const params: unknown[] = [
+    fields.displayName,
+    fields.imapHost,
+    fields.imapPort,
+    fields.imapSecurity,
+    fields.smtpHost,
+    fields.smtpPort,
+    fields.smtpSecurity,
+    fields.imapUsername || null,
+    fields.acceptInvalidCerts ? 1 : 0,
+  ];
+
+  let passwordClauses = "";
+  if (fields.newPassword != null) {
+    params.push(encPassword);
+    passwordClauses += `, imap_password = $${params.length}`;
+  }
+  if (fields.smtpSameAsImap) {
+    passwordClauses += ", smtp_password = NULL";
+  } else if (fields.newSmtpPassword != null) {
+    params.push(encSmtpPassword);
+    passwordClauses += `, smtp_password = $${params.length}`;
+  }
+
+  params.push(accountId);
+  const idParam = `$${params.length}`;
+
+  await db.execute(
+    `UPDATE accounts SET
+       display_name = $1,
+       imap_host = $2,
+       imap_port = $3,
+       imap_security = $4,
+       smtp_host = $5,
+       smtp_port = $6,
+       smtp_security = $7,
+       imap_username = $8,
+       accept_invalid_certs = $9
+       ${passwordClauses},
+       updated_at = unixepoch()
+     WHERE id = ${idParam}`,
+    params,
+  );
+}
+
+export async function getAccountRagEnabled(accountId: string): Promise<boolean> {
+  const db = await getDb();
+  type Row = { rag_enabled: number };
+  const [row] = await db.select<Row[]>(
+    "SELECT rag_enabled FROM accounts WHERE id = $1",
+    [accountId],
+  );
+  return (row?.rag_enabled ?? 0) === 1;
+}
+
+export async function setAccountRagEnabled(accountId: string, enabled: boolean): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE accounts SET rag_enabled = $1 WHERE id = $2",
+    [enabled ? 1 : 0, accountId],
   );
 }

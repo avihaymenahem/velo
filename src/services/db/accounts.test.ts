@@ -19,6 +19,13 @@ vi.mock("./connection", () => ({
     select: (...args: unknown[]) => mockSelect(...args),
   })),
   selectFirstBy: vi.fn(),
+  withTransaction: vi.fn(async (fn: (db: any) => Promise<any>) => {
+    const db = {
+      execute: (...args: unknown[]) => mockExecute(...args),
+      select: (...args: unknown[]) => mockSelect(...args),
+    };
+    return fn(db);
+  }),
 }));
 
 vi.mock("@/utils/crypto", () => ({
@@ -169,7 +176,9 @@ describe("accounts", () => {
         465,
         "ssl",
         "password",
-        "enc:my-app-password", // encrypted
+        "enc:my-app-password", // encrypted imap_password
+        null, // smtp_password
+        null, // smtp_username
         null, // imap_username
         0, // accept_invalid_certs
       ]);

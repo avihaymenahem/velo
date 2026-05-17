@@ -257,7 +257,7 @@ pub async fn fetch_messages(
     // Some IMAP servers return empty streams for UID FETCH despite valid UIDs.
     let fetches = tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
         let stream = session
-            .uid_fetch(uid_range, "UID FLAGS INTERNALDATE BODY.PEEK[]")
+            .uid_fetch(uid_range, "UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[]")
             .await
             .map_err(|e| format!("UID FETCH {folder} uids={uid_range} failed: {e}"))?;
         Ok::<_, String>(stream.collect::<Vec<_>>().await)
@@ -297,10 +297,15 @@ pub async fn fetch_messages(
             None => { log::warn!("IMAP FETCH {folder}: UID {uid} has no body"); continue; }
         };
 
-        let raw_size = raw.len() as u32;
-
-        // Parse flags
+        let raw_size = fetch.size.unwrap_or(raw.len() as u32);
         let flags: Vec<_> = fetch.flags().collect();
+
+        // Skip messages marked \Deleted but not yet expunged (ghost drafts / tombstones)
+        if flags.iter().any(|f| matches!(f, Flag::Deleted)) {
+            log::debug!("IMAP FETCH {folder}: skipping UID {uid} — has \\Deleted flag");
+            continue;
+        }
+
         let is_read = flags.iter().any(|f| matches!(f, Flag::Seen));
         let is_starred = flags.iter().any(|f| matches!(f, Flag::Flagged));
         let is_draft = flags.iter().any(|f| matches!(f, Flag::Draft));
@@ -314,6 +319,17 @@ pub async fn fetch_messages(
                 log::warn!("Failed to parse message UID {uid}: {e}");
             }
         }
+    }
+
+    // If async-imap received fetch responses but none had a parseable body,
+    // DavMail and some Exchange proxies return BODY[] in a non-standard format
+    // that async-imap can't extract. Fall back to raw TCP which handles it correctly.
+    if messages.is_empty() && !fetches.is_empty() {
+        log::warn!(
+            "IMAP {folder}: {} fetches received but 0 messages had parseable bodies. Falling back to raw TCP fetch...",
+            fetches.len()
+        );
+        return Err(format!("ASYNC_IMAP_EMPTY:{folder}"));
     }
 
     Ok(ImapFetchResult {
@@ -358,6 +374,11 @@ pub async fn fetch_message_body(
 
     let raw_size = raw.len() as u32;
     let flags: Vec<_> = fetch.flags().collect();
+
+    if flags.iter().any(|f| matches!(f, Flag::Deleted)) {
+        return Err(format!("Message UID {uid} in {folder} has \\Deleted flag — skipped"));
+    }
+
     let is_read = flags.iter().any(|f| matches!(f, Flag::Seen));
     let is_starred = flags.iter().any(|f| matches!(f, Flag::Flagged));
     let is_draft = flags.iter().any(|f| matches!(f, Flag::Draft));
@@ -377,7 +398,7 @@ pub async fn fetch_new_uids(
         .map_err(|_| format!("SELECT {folder} timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))?
         .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
 
-    let query = format!("{}:*", last_uid + 1);
+    let query = format!("{}:* NOT DELETED", last_uid + 1);
     let uids = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&query))
         .await
         .map_err(|_| format!("UID SEARCH timed out after {}s — check your server settings or network connection", IMAP_SEARCH_TIMEOUT.as_secs()))?
@@ -400,10 +421,10 @@ pub async fn search_all_uids(
         .map_err(|_| format!("SELECT {folder} timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))?
         .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
 
-    let uids = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search("ALL"))
+    let uids = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search("NOT DELETED"))
         .await
-        .map_err(|_| format!("UID SEARCH ALL timed out after {}s — check your server settings or network connection", IMAP_SEARCH_TIMEOUT.as_secs()))?
-        .map_err(|e| format!("UID SEARCH ALL failed: {e}"))?;
+        .map_err(|_| format!("UID SEARCH NOT DELETED timed out after {}s — check your server settings or network connection", IMAP_SEARCH_TIMEOUT.as_secs()))?
+        .map_err(|e| format!("UID SEARCH NOT DELETED failed: {e}"))?;
 
     let mut result: Vec<u32> = uids.into_iter().collect();
     result.sort();
@@ -479,7 +500,10 @@ pub async fn move_messages(
                     .expunge()
                     .await
                     .map_err(|e| format!("EXPUNGE failed: {e}"))?;
-                let _: Vec<_> = expunge_stream.collect().await;
+                let results: Vec<_> = expunge_stream.collect().await;
+                for r in results {
+                    r.map_err(|e| format!("EXPUNGE stream error: {e}"))?;
+                }
                 Ok::<_, String>(())
             })
             .await
@@ -491,6 +515,10 @@ pub async fn move_messages(
 }
 
 /// Flag messages as deleted and expunge them.
+///
+/// Uses UID EXPUNGE (RFC 4315) when the server supports UIDPLUS, to expunge only
+/// the targeted UIDs rather than all \Deleted messages in the folder. Falls back
+/// to a plain EXPUNGE if UID EXPUNGE fails.
 pub async fn delete_messages(
     session: &mut ImapSession,
     folder: &str,
@@ -512,31 +540,120 @@ pub async fn delete_messages(
     .await
     .map_err(|_| format!("UID STORE +Deleted timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))??;
 
-    tokio::time::timeout(IMAP_CMD_TIMEOUT, async {
+    // Prefer UID EXPUNGE (RFC 4315 UIDPLUS) to expunge only the targeted messages.
+    // Fall back to plain EXPUNGE if the server does not support it.
+    let uid_expunge_result = tokio::time::timeout(IMAP_CMD_TIMEOUT, async {
         let expunge_stream = session
-            .expunge()
+            .uid_expunge(uid_set)
             .await
-            .map_err(|e| format!("EXPUNGE failed: {e}"))?;
-        let _: Vec<_> = expunge_stream.collect().await;
+            .map_err(|e| format!("UID EXPUNGE failed: {e}"))?;
+        let results: Vec<_> = expunge_stream.collect().await;
+        for r in results {
+            r.map_err(|e| format!("UID EXPUNGE stream error: {e}"))?;
+        }
         Ok::<_, String>(())
     })
     .await
-    .map_err(|_| format!("EXPUNGE timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))??;
+    .map_err(|_| format!("UID EXPUNGE timed out after {}s", IMAP_CMD_TIMEOUT.as_secs()))
+    .and_then(|r| r);
+
+    if uid_expunge_result.is_err() {
+        // Fallback: plain EXPUNGE (expunges all \Deleted in the folder)
+        tokio::time::timeout(IMAP_CMD_TIMEOUT, async {
+            let expunge_stream = session
+                .expunge()
+                .await
+                .map_err(|e| format!("EXPUNGE failed: {e}"))?;
+            let results: Vec<_> = expunge_stream.collect().await;
+            for r in results {
+                r.map_err(|e| format!("EXPUNGE stream error: {e}"))?;
+            }
+            Ok::<_, String>(())
+        })
+        .await
+        .map_err(|_| format!("EXPUNGE timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))??;
+    }
 
     Ok(())
 }
 
 /// Append a raw message to a folder (for saving sent mail or drafts).
+/// Returns the UID assigned to the new message.
+///
+/// Reads UIDNEXT before APPEND, then verifies with a post-APPEND STATUS check.
+/// If another message was appended concurrently (UIDNEXT jumped by more than 1),
+/// falls back to searching the new UID range to find the appended message.
 pub async fn append_message(
     session: &mut ImapSession,
     folder: &str,
     flags: Option<&str>,
     raw_message: &[u8],
-) -> Result<(), String> {
+) -> Result<u32, String> {
+    // Read UIDNEXT before APPEND.
+    let status_before = tokio::time::timeout(
+        IMAP_CMD_TIMEOUT,
+        session.status(folder, "(UIDNEXT)"),
+    )
+    .await
+    .map_err(|_| format!("STATUS timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))?
+    .map_err(|e| format!("STATUS failed: {e}"))?;
+    let uid_next_before = status_before.uid_next.unwrap_or(0);
+
     tokio::time::timeout(IMAP_FETCH_TIMEOUT, session.append(folder, flags, None, raw_message))
         .await
         .map_err(|_| format!("APPEND timed out after {}s — check your server settings or network connection", IMAP_FETCH_TIMEOUT.as_secs()))?
-        .map_err(|e| format!("APPEND failed: {e}"))
+        .map_err(|e| format!("APPEND failed: {e}"))?;
+
+    // Verify with a post-APPEND STATUS to detect concurrent appends.
+    let status_after = tokio::time::timeout(
+        IMAP_CMD_TIMEOUT,
+        session.status(folder, "(UIDNEXT)"),
+    )
+    .await
+    .map_err(|_| format!("STATUS (post-append) timed out after {}s", IMAP_CMD_TIMEOUT.as_secs()))?
+    .map_err(|e| format!("STATUS (post-append) failed: {e}"))?;
+    let uid_next_after = status_after.uid_next.unwrap_or(0);
+
+    if uid_next_before == 0 || uid_next_after == 0 {
+        // Server didn't report UIDNEXT; return best-effort value.
+        return Ok(uid_next_before);
+    }
+
+    if uid_next_after == uid_next_before + 1 {
+        // Happy path: exactly one message was appended, UID = uid_next_before.
+        return Ok(uid_next_before);
+    }
+
+    if uid_next_after > uid_next_before + 1 {
+        // Concurrent appends occurred. Search the new UID range to find messages
+        // appended since uid_next_before and return the highest one (ours is last).
+        let search_query = format!("{}:{} NOT DELETED", uid_next_before, uid_next_after - 1);
+        let mailbox = tokio::time::timeout(IMAP_CMD_TIMEOUT, session.select(folder))
+            .await
+            .map_err(|_| format!("SELECT {folder} timed out after {}s", IMAP_CMD_TIMEOUT.as_secs()))?
+            .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
+        let _ = mailbox; // only needed to enter the folder
+        match tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&search_query)).await {
+            Ok(Ok(uids)) => {
+                if let Some(&highest) = uids.iter().max() {
+                    log::warn!(
+                        "append_message: concurrent append detected in {folder} \
+                         (uid_next {} → {}), returning highest new UID {}",
+                        uid_next_before, uid_next_after, highest
+                    );
+                    return Ok(highest);
+                }
+            }
+            _ => {
+                log::warn!(
+                    "append_message: post-append UID search failed for {folder}, \
+                     falling back to uid_next_before={uid_next_before}"
+                );
+            }
+        }
+    }
+
+    Ok(uid_next_before)
 }
 
 /// Get folder status (UIDVALIDITY, UIDNEXT, MESSAGES, UNSEEN).
@@ -562,32 +679,42 @@ pub async fn get_folder_status(
 }
 
 /// Fetch a specific MIME part (attachment) by UID and part ID.
-/// Returns the decoded binary data as standard base64.
+/// Returns the content as standard base64, ready for a `data:` URI.
 ///
-/// Fetches the full message via `BODY.PEEK[]`, parses it with `mail-parser`
-/// (which handles all content-transfer-encoding decoding), and extracts
-/// the requested part's decoded bytes.
+/// Uses `BODY.PEEK[section]` to download only the requested part — avoids
+/// pulling the entire message for a single attachment.
 pub async fn fetch_attachment(
     session: &mut ImapSession,
     folder: &str,
     uid: u32,
     part_id: &str,
 ) -> Result<String, String> {
+    use async_imap::imap_proto::types::SectionPath;
+
+    // Parse "2" or "1.2" into Vec<u32> for the IMAP section path.
+    let part_nums: Vec<u32> = part_id
+        .split('.')
+        .map(|s| s.parse::<u32>().map_err(|_| format!("Invalid part ID segment in: {part_id}")))
+        .collect::<Result<Vec<_>, _>>()?;
+    let section_path = SectionPath::Part(part_nums, None);
+
     tokio::time::timeout(IMAP_CMD_TIMEOUT, session.select(folder))
         .await
         .map_err(|_| format!("SELECT {folder} timed out after {}s — check your server settings or network connection", IMAP_CMD_TIMEOUT.as_secs()))?
         .map_err(|e| format!("SELECT {folder} failed: {e}"))?;
 
     let uid_str = uid.to_string();
+    // Fetch only the requested MIME part — avoids downloading the entire message.
+    let fetch_cmd = format!("BODY.PEEK[{part_id}]");
     let fetches: Vec<_> = tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
         let stream = session
-            .uid_fetch(&uid_str, "BODY.PEEK[]")
+            .uid_fetch(&uid_str, fetch_cmd.as_str())
             .await
-            .map_err(|e| format!("UID FETCH attachment failed: {e}"))?;
+            .map_err(|e| format!("UID FETCH attachment section failed: {e}"))?;
         Ok::<_, String>(stream.collect::<Vec<_>>().await)
     })
     .await
-    .map_err(|_| format!("UID FETCH attachment timed out after {}s — check your server settings or network connection", IMAP_FETCH_TIMEOUT.as_secs()))?
+    .map_err(|_| format!("UID FETCH attachment section timed out after {}s — check your server settings or network connection", IMAP_FETCH_TIMEOUT.as_secs()))?
     ?
     .into_iter()
     .filter_map(|r| r.ok())
@@ -597,46 +724,104 @@ pub async fn fetch_attachment(
         .first()
         .ok_or_else(|| format!("No response for UID {uid}"))?;
 
-    let raw = fetch
-        .body()
-        .ok_or_else(|| format!("No body for UID {uid}"))?;
+    // BODY[section] returns the raw part body with Content-Transfer-Encoding intact.
+    // For base64-encoded attachments (images, binaries), this is base64 text with
+    // MIME line breaks (76-char lines per RFC 2045). Strip whitespace to get clean base64.
+    // For non-UTF-8 binary (rare, CTE=binary or 8bit), re-encode to base64.
+    let section_bytes = fetch
+        .section(&section_path)
+        .ok_or_else(|| format!("Section {part_id} not found in FETCH response for UID {uid}"))?;
 
-    // Parse the full message — mail-parser decodes content-transfer-encoding
+    let base64_str = std::str::from_utf8(section_bytes)
+        .map(|s| s.split_whitespace().collect::<String>())
+        .unwrap_or_else(|_| base64::engine::general_purpose::STANDARD.encode(section_bytes));
+
+    Ok(base64_str)
+}
+
+/// Fetch a CID inline image via RAW TCP — bypasses async-imap completely.
+///
+/// Diagnosis: with DavMail (Exchange/EWS → IMAP), even the full `BODY.PEEK[]`
+/// FETCH hangs inside async-imap's response parser (the parser keeps buffering
+/// without producing items, defeating `tokio::time::timeout`). The same UID
+/// fetched through the raw-TCP path (`raw_fetch_messages`) works fine — which
+/// is how the body got into the DB in the first place. So for CID resolution
+/// we use the raw path too.
+///
+/// Behaviour: opens a fresh TCP/TLS connection (no session pool), logs in,
+/// SELECTs the folder, fetches `BODY.PEEK[]` for the single UID, parses the
+/// raw bytes with mail-parser, and returns the base64-encoded contents of the
+/// MIME part whose Content-ID header matches `content_id`.
+pub async fn raw_fetch_cid_attachment(
+    config: &ImapConfig,
+    folder: &str,
+    uid: u32,
+    content_id: &str,
+) -> Result<String, String> {
+    log::debug!("[raw_fetch_cid_attachment] folder={folder} uid={uid} cid={content_id}");
+
+    let stream = if config.security == "starttls" {
+        raw_connect_starttls(config).await?
+    } else {
+        connect_stream(config).await?
+    };
+    let mut reader = BufReader::new(stream);
+
+    // Read greeting (non-STARTTLS only — STARTTLS path already consumed it)
+    if config.security != "starttls" {
+        let mut line = String::new();
+        reader.read_line(&mut line).await.map_err(|e| format!("greeting: {e}"))?;
+    }
+
+    // LOGIN
+    let login_cmd = if config.auth_method == "oauth2" {
+        let xoauth2 = format!("user={}\x01auth=Bearer {}\x01\x01", config.username, config.password);
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, xoauth2.as_bytes());
+        format!("a1 AUTHENTICATE XOAUTH2 {b64}\r\n")
+    } else {
+        let esc_user = config.username.replace('\\', "\\\\").replace('"', "\\\"");
+        let esc_pass = config.password.replace('\\', "\\\\").replace('"', "\\\"");
+        format!("a1 LOGIN \"{esc_user}\" \"{esc_pass}\"\r\n")
+    };
+    raw_send_and_wait(&mut reader, login_cmd.as_bytes(), "a1").await?;
+
+    // SELECT folder (read-only would be nice via EXAMINE, but SELECT matches
+    // the rest of the codebase and keeps server-side state consistent)
+    let select_cmd = format!("a2 SELECT \"{folder}\"\r\n");
+    raw_send_and_wait(&mut reader, select_cmd.as_bytes(), "a2").await?;
+
+    // FETCH full body for the single UID
+    let fetch_cmd = format!("a3 UID FETCH {uid} BODY.PEEK[]\r\n");
+    reader.get_mut().write_all(fetch_cmd.as_bytes()).await
+        .map_err(|e| format!("FETCH write: {e}"))?;
+
+    let raw_messages = raw_parse_fetch_responses(&mut reader, "a3").await?;
+    let _ = reader.get_mut().write_all(b"a4 LOGOUT\r\n").await;
+
+    let raw_msg = raw_messages.into_iter().next()
+        .ok_or_else(|| format!("No message returned for UID {uid}"))?;
+
+    // Parse RFC822 client-side and locate the part with matching Content-ID.
+    // Walk EVERY MIME part — `attachments()` / `html_bodies()` / `text_bodies()`
+    // each miss inline parts (Content-Disposition: inline), which is what CID
+    // images are. Direct `parts` iteration catches them all.
     let parser = MessageParser::default();
     let message = parser
-        .parse(raw)
-        .ok_or_else(|| format!("Failed to parse message UID {uid}"))?;
+        .parse(raw_msg.body.as_slice())
+        .ok_or_else(|| format!("mail-parser failed for UID {uid}"))?;
 
-    // Build section map and find the part index for the requested section path
-    let section_map = build_imap_section_map(&message);
-    let target_part_idx = section_map
-        .iter()
-        .find(|(_, section)| section.as_str() == part_id)
-        .map(|(&idx, _)| idx)
-        .ok_or_else(|| format!("Section {part_id} not found in message UID {uid}"))?;
+    let target = content_id.trim().trim_matches(|c| c == '<' || c == '>');
 
-    let part = message
-        .parts
-        .get(target_part_idx)
-        .ok_or_else(|| format!("Part index {target_part_idx} out of range for UID {uid}"))?;
-
-    // Extract the decoded binary content from the part
-    let data = match &part.body {
-        mail_parser::PartType::Binary(data) | mail_parser::PartType::InlineBinary(data) => {
-            data.as_ref().to_vec()
+    for part in &message.parts {
+        let part_cid = part
+            .content_id()
+            .map(|c| c.trim().trim_matches(|ch| ch == '<' || ch == '>'));
+        if part_cid == Some(target) {
+            return Ok(base64::engine::general_purpose::STANDARD.encode(part.contents()));
         }
-        mail_parser::PartType::Text(text) => text.as_bytes().to_vec(),
-        mail_parser::PartType::Html(html) => html.as_bytes().to_vec(),
-        mail_parser::PartType::Message(msg) => {
-            // Nested message — encode the raw bytes
-            msg.raw_message.as_ref().to_vec()
-        }
-        mail_parser::PartType::Multipart(_) => {
-            return Err(format!("Part {part_id} is a multipart container, not a leaf part"));
-        }
-    };
+    }
 
-    Ok(base64::engine::general_purpose::STANDARD.encode(&data))
+    Err(format!("Content-ID {target} not found in UID {uid}"))
 }
 
 /// Fetch the raw RFC822 source of a single message by UID.
@@ -714,9 +899,9 @@ pub async fn delta_check_folders(
             continue;
         }
 
-        // UID SEARCH for messages newer than last_uid
-        let query = format!("{}:*", req.last_uid + 1);
-        let new_uids = match tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&query)).await {
+        // UID SEARCH for messages newer than last_uid, excluding \Deleted flagged messages.
+        let query = format!("{}:* NOT DELETED", req.last_uid + 1);
+        let range_uids = match tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&query)).await {
             Ok(Ok(uids)) => {
                 let mut result: Vec<u32> = uids.into_iter().filter(|&u| u > req.last_uid).collect();
                 result.sort();
@@ -730,6 +915,48 @@ pub async fn delta_check_folders(
                 log::warn!("delta_check: UID SEARCH {} timed out after {}s", req.folder, IMAP_SEARCH_TIMEOUT.as_secs());
                 vec![]
             }
+        };
+
+        // DavMail/Exchange fallback: if UID range search returns empty but we have a
+        // last_sync_at, also try a SINCE date search. DavMail sometimes doesn't honour
+        // `UID SEARCH n:*` range queries and silently returns an empty set even when
+        // new messages have arrived.
+        let new_uids = if range_uids.is_empty() {
+            if let Some(last_sync_at) = req.last_sync_at {
+                // Subtract one day as a safety margin for timezone/clock differences.
+                let since_ts = last_sync_at - 86_400;
+                let since_date = format_imap_date(since_ts);
+                log::info!(
+                    "delta_check: UID range search empty for {}, trying SINCE {} fallback",
+                    req.folder, since_date
+                );
+                let since_query = format!("SINCE {since_date} NOT DELETED");
+                match tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&since_query)).await {
+                    Ok(Ok(uids)) => {
+                        let mut result: Vec<u32> = uids.into_iter().filter(|&u| u > req.last_uid).collect();
+                        result.sort();
+                        if !result.is_empty() {
+                            log::info!(
+                                "delta_check: SINCE fallback found {} new UIDs for {}",
+                                result.len(), req.folder
+                            );
+                        }
+                        result
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("delta_check: SINCE fallback UID SEARCH {} failed: {e}", req.folder);
+                        vec![]
+                    }
+                    Err(_) => {
+                        log::warn!("delta_check: SINCE fallback UID SEARCH {} timed out", req.folder);
+                        vec![]
+                    }
+                }
+            } else {
+                vec![]
+            }
+        } else {
+            range_uids
         };
 
         results.push(DeltaCheckResult {
@@ -766,10 +993,12 @@ pub async fn search_folder(
         highest_modseq: mailbox.highest_modseq,
     };
 
-    // UID SEARCH with optional SINCE date filter (RFC 3501 §6.4.4)
+    // UID SEARCH with optional SINCE date filter (RFC 3501 §6.4.4).
+    // NOT DELETED excludes messages marked for deletion but not yet expunged,
+    // preventing re-import of zombie messages on the next sync.
     let search_query = match &since_date {
-        Some(date) => format!("SINCE {date}"),
-        None => "ALL".to_string(),
+        Some(date) => format!("SINCE {date} NOT DELETED"),
+        None => "NOT DELETED".to_string(),
     };
     let uids_raw = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&search_query))
         .await
@@ -819,10 +1048,11 @@ pub async fn sync_folder(
         highest_modseq: mailbox.highest_modseq,
     };
 
-    // UID SEARCH with optional SINCE date filter (RFC 3501 §6.4.4)
+    // UID SEARCH with optional SINCE date filter (RFC 3501 §6.4.4).
+    // NOT DELETED excludes messages marked for deletion but not yet expunged.
     let search_query = match &since_date {
-        Some(date) => format!("SINCE {date}"),
-        None => "ALL".to_string(),
+        Some(date) => format!("SINCE {date} NOT DELETED"),
+        None => "NOT DELETED".to_string(),
     };
     let uids_raw = tokio::time::timeout(IMAP_SEARCH_TIMEOUT, session.uid_search(&search_query))
         .await
@@ -861,9 +1091,9 @@ pub async fn sync_folder(
 
         let fetches = tokio::time::timeout(IMAP_FETCH_TIMEOUT, async {
             let stream = session
-                .uid_fetch(&uid_set, "UID FLAGS INTERNALDATE BODY.PEEK[]")
+                .uid_fetch(&uid_set, "UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[]")
                 .await
-                .map_err(|e| format!("UID FETCH {folder} uids={uid_set} failed: {e}"))?;
+                .map_err(|e| format!("UID FETCH for search results failed: {e}"))?;
             Ok::<_, String>(stream.collect::<Vec<_>>().await)
         })
         .await
@@ -881,8 +1111,15 @@ pub async fn sync_folder(
                         Some(b) => b,
                         None => { log::warn!("IMAP sync_folder {folder}: UID {uid} has no body"); continue; }
                     };
-                    let raw_size = raw.len() as u32;
+                    let raw_size = f.size.unwrap_or(raw.len() as u32);
                     let flags: Vec<_> = f.flags().collect();
+
+                    // Skip messages marked \Deleted but not yet expunged
+                    if flags.iter().any(|fl| matches!(fl, Flag::Deleted)) {
+                        log::debug!("IMAP sync_folder {folder}: skipping UID {uid} — has \\Deleted flag");
+                        continue;
+                    }
+
                     let is_read = flags.iter().any(|fl| matches!(fl, Flag::Seen));
                     let is_starred = flags.iter().any(|fl| matches!(fl, Flag::Flagged));
                     let is_draft = flags.iter().any(|fl| matches!(fl, Flag::Draft));
@@ -965,7 +1202,10 @@ pub async fn raw_fetch_messages(
         let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, xoauth2.as_bytes());
         format!("a1 AUTHENTICATE XOAUTH2 {b64}\r\n")
     } else {
-        format!("a1 LOGIN \"{}\" \"{}\"\r\n", config.username, config.password)
+        // RFC 3501: backslash and double-quote must be escaped in quoted strings
+        let esc_user = config.username.replace('\\', "\\\\").replace('"', "\\\"");
+        let esc_pass = config.password.replace('\\', "\\\\").replace('"', "\\\"");
+        format!("a1 LOGIN \"{esc_user}\" \"{esc_pass}\"\r\n")
     };
     raw_send_and_wait(&mut reader, login_cmd.as_bytes(), "a1").await?;
 
@@ -1062,8 +1302,10 @@ pub async fn raw_fetch_diagnostic(
         output.push_str(&format!("S: {}", String::from_utf8_lossy(&buf[..n])));
     }
 
-    // LOGIN
-    let login_cmd = format!("a1 LOGIN \"{}\" \"{}\"\r\n", config.username, config.password);
+    // LOGIN — RFC 3501: escape backslash and double-quote in quoted strings
+    let esc_user = config.username.replace('\\', "\\\\").replace('"', "\\\"");
+    let esc_pass = config.password.replace('\\', "\\\\").replace('"', "\\\"");
+    let login_cmd = format!("a1 LOGIN \"{esc_user}\" \"{esc_pass}\"\r\n");
     stream.write_all(login_cmd.as_bytes()).await.map_err(|e| format!("LOGIN: {e}"))?;
     let n = stream.read(&mut buf).await.map_err(|e| format!("LOGIN read: {e}"))?;
     output.push_str(&format!("S: {}", String::from_utf8_lossy(&buf[..n])));
@@ -1389,6 +1631,37 @@ fn is_leap_year(y: i64) -> bool {
     (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)
 }
 
+/// Format a Unix timestamp as `DD-Mon-YYYY` for the IMAP SINCE search criterion.
+fn format_imap_date(unix_ts: i64) -> String {
+    const MONTH_NAMES: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    // Compute days since Unix epoch
+    let days = unix_ts / 86_400;
+    // Compute year, month, day using a simple algorithm
+    let mut y = 1970i64;
+    let mut remaining = days;
+    loop {
+        let days_in_year = if is_leap_year(y) { 366 } else { 365 };
+        if remaining < days_in_year { break; }
+        remaining -= days_in_year;
+        y += 1;
+    }
+    let month_days_in_year: [i64; 12] = [
+        31, if is_leap_year(y) { 29 } else { 28 },
+        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+    ];
+    let mut month = 0usize;
+    for &d in &month_days_in_year {
+        if remaining < d { break; }
+        remaining -= d;
+        month += 1;
+    }
+    let day = remaining + 1;
+    format!("{}-{}-{}", day, MONTH_NAMES[month], y)
+}
+
 /// Extract literal size from a line ending with {1234}\r\n
 fn extract_literal_size(line: &str) -> Option<usize> {
     let trimmed = line.trim_end();
@@ -1575,6 +1848,7 @@ fn detect_special_use(name: &async_imap::types::Name) -> Option<String> {
 ///
 /// `internal_date`: optional INTERNALDATE timestamp from the IMAP server,
 /// used as fallback when the Date header cannot be parsed.
+#[allow(clippy::too_many_arguments)]
 fn parse_message(
     parser: &MessageParser,
     raw: &[u8],
@@ -1659,11 +1933,10 @@ fn parse_message(
     let section_map = build_imap_section_map(&message);
 
     log::debug!(
-        "IMAP parse UID {uid}: {} parts, {} attachment indices {:?}, section_map: {:?}",
+        "IMAP parse UID {uid}: {} parts, {} attachment indices {:?}",
         message.parts.len(),
         message.attachments.len(),
         message.attachments,
-        section_map,
     );
 
     // Attachments
@@ -1701,7 +1974,7 @@ fn parse_message(
                 mime_type,
                 size: att.len() as u32,
                 content_id: att.content_id().map(|s| s.to_string()),
-                is_inline: att.content_disposition().map_or(false, |cd| cd.is_inline()),
+                is_inline: att.content_disposition().is_some_and(|cd| cd.is_inline()),
             })
         })
         .collect();
@@ -1812,10 +2085,7 @@ fn extract_first_address(
 
 /// Format an address list as a comma-separated string of "Name <email>" or "email".
 fn format_address_list(addr: Option<&mail_parser::Address>) -> Option<String> {
-    let addr = match addr {
-        Some(a) => a,
-        None => return None,
-    };
+    let addr = addr?;
 
     let parts: Vec<String> = addr
         .iter()

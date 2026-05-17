@@ -84,6 +84,10 @@ export function AddCalDavAccount({ onClose, onSuccess, onBack }: AddCalDavAccoun
         displayName: displayName || null,
         avatarUrl: null,
         isActive: true,
+        color: null,
+        includeInGlobal: true,
+        sortOrder: 0,
+        label: null,
       });
 
       setStep("done");

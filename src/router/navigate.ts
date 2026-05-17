@@ -3,6 +3,7 @@ import { router } from "./index";
 /** Known system labels that map to /mail/$label */
 const SYSTEM_LABELS = new Set([
   "inbox", "starred", "snoozed", "sent", "drafts", "trash", "spam", "all",
+  "unified-inbox",
 ]);
 
 /**
@@ -234,6 +235,10 @@ export function getSelectedThreadId(): string | null {
     const params = match.params as Record<string, string>;
     if (params["threadId"]) {
       return params["threadId"];
+    }
+    // Fallback for ThreadWindow which uses "thread" param
+    if (params["thread"]) {
+      return params["thread"];
     }
   }
   return null;

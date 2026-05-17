@@ -56,6 +56,10 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
         displayName: userInfo.name,
         avatarUrl: userInfo.picture,
         isActive: true,
+        color: null,
+        includeInGlobal: true,
+        sortOrder: 0,
+        label: null,
       });
 
       onSuccess();
@@ -109,7 +113,7 @@ export function AddAccount({ onClose, onSuccess }: AddAccountProps) {
       <Modal isOpen={true} onClose={onClose} title="Add Gmail Account" width="w-full max-w-md">
         <div className="p-4">
           <p className="text-text-secondary text-sm mb-6">
-            Sign in with your Google account to connect it to Velo.
+            Sign in with your Google account to connect it to Melo.
           </p>
 
           {error && (
