@@ -1,5 +1,5 @@
 import { useComposerStore } from "@/stores/composerStore";
-import { createDraft as createDraftAction, updateDraft as updateDraftAction } from "@/services/emailActions";
+import { createDraft as createDraftAction, updateDraft as updateDraftAction, tombstoneImapDraft } from "@/services/emailActions";
 import { buildRawEmail } from "@/utils/emailBuilder";
 import { useAccountStore } from "@/stores/accountStore";
 import { getSetting, setSetting, deleteSetting } from "@/services/db/settings";
@@ -124,7 +124,12 @@ async function saveDraft(): Promise<void> {
           state.setDraftId(data.draftId);
           // Remove the stale DB record for the old UID so the user doesn't see duplicate drafts
           void cleanupOldDraftFromDb(accountId, oldDraftId);
-          if (!isDiscarding) {
+          if (isDiscarding) {
+            // Pre-emptive tombstone: a discard started while this save was in-flight.
+            // The IMAP APPEND already happened so a new UID exists on the server.
+            // Tombstone it now while JS is alive — handleDiscard's cleanup may be killed.
+            await tombstoneImapDraft(accountId, data.draftId);
+          } else {
             const key = getPersistenceKey(accountId);
             await setSetting(key, data.draftId);
           }
@@ -145,7 +150,9 @@ async function saveDraft(): Promise<void> {
             if (data.draftId !== persistedId) {
               void cleanupOldDraftFromDb(accountId, persistedId);
             }
-            if (!isDiscarding) {
+            if (isDiscarding) {
+              await tombstoneImapDraft(accountId, data.draftId);
+            } else {
               await setSetting(key, data.draftId);
               if (data.threadId && !state.threadId) {
                 useComposerStore.setState({ threadId: data.threadId });
@@ -282,6 +289,11 @@ export function startAutoSave(accountId: string): void {
     openTime = 0; // bypass the open-cooldown: user already typed in the inline editor
     scheduleSave();
   }
+}
+
+/** Returns true while a discard is in progress (i.e. between startDiscard() and startAutoSave()). */
+export function getIsDiscarding(): boolean {
+  return isDiscarding;
 }
 
 /**

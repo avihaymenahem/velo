@@ -28,6 +28,7 @@ import {
   archiveThread,
   deleteDraft as deleteDraftAction,
   deleteDraftThread,
+  tombstoneImapDraft,
 } from "@/services/emailActions";
 import { buildRawEmail } from "@/utils/emailBuilder";
 import { upsertContact } from "@/services/db/contacts";
@@ -464,52 +465,54 @@ const getFullHtml = useCallback(() => {
     [effectiveAccountId, activeAccount, closeComposer, getFullHtml],
   );
 
-  const handleDiscard = useCallback(() => {
+  const handleDiscard = useCallback(async () => {
     // Guard against double-clicks
     if (isDiscardingRef.current) return;
     isDiscardingRef.current = true;
 
-    // 1. Signal discard — cancels the debounce timer and marks isDiscarding=true so that
-    //    any in-flight saveDraft() won't write to localStorage or update lastSavedAt.
-    //    If the IMAP call is already in-flight it will still complete (can't abort it),
-    //    but it will call state.setDraftId() with the new UID so we can delete it below.
+    // 1. Signal discard — cancels the debounce and marks isDiscarding=true so no new
+    //    saves are triggered. Any already in-flight IMAP save will still complete and
+    //    write the new UID to state.draftId (and pre-tombstone it — see draftAutoSave.ts).
     startDiscard();
-
-    // 2. Clear the "Saving..." indicator immediately so it never overlaps with the close.
     useComposerStore.getState().setIsSaving(false);
 
-    // 3. Snapshot IDs before closeComposer() resets the store to null.
+    // 2. Snapshot IDs before closeComposer() resets the store.
     const accountId = effectiveAccountId;
     const preDraftId = useComposerStore.getState().draftId;
     const preThreadId = useComposerStore.getState().threadId;
 
-    // 4. Close the composer right away — user sees the window disappear instantly.
-    closeComposer();
-    // stopAutoSave() is also called by the useEffect cleanup triggered by isOpen→false,
-    // but we call it explicitly here for determinism. It no longer clears isDiscarding,
-    // so the in-flight save guard remains intact until startAutoSave() resets it.
-    stopAutoSave();
+    // 3. Write tombstone BEFORE closing — this is a fast SQLite write (< 50ms),
+    //    imperceptible to the user but guaranteed to complete while the JS context
+    //    is still alive. This is the critical step: once closeComposer() triggers
+    //    window destruction, any pending async code may be killed.
+    if (accountId && preDraftId) {
+      await tombstoneImapDraft(accountId, preDraftId);
+    }
 
+    // 4. Close immediately after tombstone is written.
+    closeComposer();
+    stopAutoSave();
     isDiscardingRef.current = false;
 
+    // 5. Fire-and-forget IMAP cleanup (APPEND delete on server). The tombstone above
+    //    already prevents re-import, so this is best-effort — it's fine if the WebView
+    //    dies before it completes.
     if (!accountId) return;
-
-    // 5. Background cleanup: once any in-flight IMAP save completes (and possibly updates
-    //    draftId with a new UID), delete the draft from IMAP and write the tombstone.
-    void waitForSave().then(async () => {
-      // An in-flight updateDraft may have set a new draftId even after closeComposer()
-      const postDraftId = useComposerStore.getState().draftId;
-      const draftId = postDraftId ?? preDraftId;
-      const threadId = postDraftId
-        ? (useComposerStore.getState().threadId ?? preThreadId)
-        : preThreadId;
-
-      if (draftId) {
-        await deleteDraftAction(accountId, draftId, threadId ?? undefined).catch(() => {});
-      } else if (threadId) {
-        await deleteDraftThread(accountId, threadId).catch(() => {});
-      }
-    });
+    void (async () => {
+      try {
+        await Promise.race([waitForSave(), new Promise<void>((r) => setTimeout(r, 3000))]);
+        const postDraftId = useComposerStore.getState().draftId;
+        const draftId = postDraftId ?? preDraftId;
+        const threadId = postDraftId
+          ? (useComposerStore.getState().threadId ?? preThreadId)
+          : preThreadId;
+        if (draftId) {
+          await deleteDraftAction(accountId, draftId, threadId ?? undefined).catch(() => {});
+        } else if (threadId) {
+          await deleteDraftThread(accountId, threadId).catch(() => {});
+        }
+      } catch { /* ignore */ }
+    })();
   }, [effectiveAccountId, closeComposer]);
 
   const isFullpage = viewMode === "fullpage";

@@ -12,7 +12,7 @@ import { initializeClients } from "./services/gmail/tokenManager";
 import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
 import type { ComposerMode } from "./stores/composerStore";
-import { saveNow } from "./services/composer/draftAutoSave";
+import { saveNow, getIsDiscarding } from "./services/composer/draftAutoSave";
 
 export default function ComposerWindow() {
   const { setTheme, setFontScale, setColorTheme, setComposerFontFamily, setComposerFontSize } = useUIStore();
@@ -242,6 +242,10 @@ export default function ComposerWindow() {
       const win = getCurrentWebviewWindow();
       win.onCloseRequested(async (event) => {
         if (!useComposerStore.getState().isOpen) return;
+        // If handleDiscard() is already running let the OS close proceed so the
+        // user is never permanently stuck. The 6-second timeout in handleDiscard
+        // covers normal cases; the OS button is the emergency escape hatch.
+        if (getIsDiscarding()) return;
         event.preventDefault();
         await saveNow();
         await win.destroy();

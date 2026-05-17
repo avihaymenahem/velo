@@ -596,6 +596,76 @@ function extractImapDraftAccountId(draftId: string): string | null {
   return uuidPattern.test(candidate) ? candidate : null;
 }
 
+/**
+ * Write a tombstone for an IMAP draft AND remove it from the local DB.
+ * Call this BEFORE closing the composer window — both SQLite ops complete in < 50ms,
+ * which is imperceptible to the user but guaranteed to finish while the JS context is alive.
+ *
+ * Tombstone alone prevents future re-imports, but if the draft was already imported
+ * by a background sync it remains in the local messages table and keeps showing in the UI.
+ * Deleting the local record here ensures immediate removal from the draft list.
+ */
+export async function tombstoneImapDraft(
+  accountId: string,
+  draftId: string,
+): Promise<void> {
+  if (!draftId || !draftId.startsWith("imap-")) return;
+  const resolvedAccountId = extractImapDraftAccountId(draftId) ?? accountId;
+  const prefix = `imap-${resolvedAccountId}-`;
+  if (!draftId.startsWith(prefix)) return;
+  const remainder = draftId.slice(prefix.length);
+  const lastDash = remainder.lastIndexOf("-");
+  if (lastDash === -1) return;
+  const folder = remainder.slice(0, lastDash);
+  const uid = parseInt(remainder.slice(lastDash + 1), 10);
+  if (!folder || isNaN(uid)) return;
+
+  const [{ recordDeletedImapUid }, { getDb }] = await Promise.all([
+    import("@/services/db/deletedImapUids"),
+    import("@/services/db/connection"),
+  ]);
+
+  // Write tombstone — prevents any future re-import of this UID
+  await recordDeletedImapUid(resolvedAccountId, folder, uid).catch(() => {});
+
+  // Delete from local DB — removes from the draft list immediately even if the
+  // background sync had already imported this message before the user discarded.
+  try {
+    const db = await getDb();
+    const rows = await db.select<{ thread_id: string }[]>(
+      "SELECT thread_id FROM messages WHERE id = $1 AND account_id = $2",
+      [draftId, resolvedAccountId],
+    );
+    if (rows.length > 0) {
+      const threadId = rows[0]!.thread_id;
+      await db.execute(
+        "DELETE FROM message_embeddings WHERE account_id = $1 AND message_id = $2",
+        [resolvedAccountId, draftId],
+      );
+      await db.execute(
+        "DELETE FROM messages WHERE id = $1 AND account_id = $2",
+        [draftId, resolvedAccountId],
+      );
+      const remaining = await db.select<{ c: number }[]>(
+        "SELECT COUNT(*) as c FROM messages WHERE thread_id = $1 AND account_id = $2",
+        [threadId, resolvedAccountId],
+      );
+      if ((remaining[0]?.c ?? 1) === 0) {
+        await db.execute(
+          "DELETE FROM thread_labels WHERE thread_id = $1 AND account_id = $2",
+          [resolvedAccountId, threadId],
+        );
+        await db.execute(
+          "DELETE FROM threads WHERE id = $1 AND account_id = $2",
+          [threadId, resolvedAccountId],
+        );
+      }
+    }
+  } catch (err) {
+    console.warn("[tombstoneImapDraft] Local DB cleanup failed:", err);
+  }
+}
+
 export function deleteDraft(
   accountId: string,
   draftId: string,

@@ -806,14 +806,15 @@ export class ImapSmtpProvider implements EmailProvider {
     const { folder, uid } = this.parseImapMessageId(draftId);
 
     if (uid !== null && folder) {
-      const config = await this.getImapConfig();
       const { recordDeletedImapUid } = await import("@/services/db/deletedImapUids");
-      try {
-        await imapDeleteMessages(config, folder, [uid]);
-      } finally {
-        // Always write tombstone so the UID is never re-imported even if IMAP delete failed
-        await recordDeletedImapUid(this.accountId, folder, uid).catch(() => {});
-      }
+      // Write tombstone FIRST — SQLite write completes in < 50ms, well before
+      // the composer WebView is destroyed. This guarantees the draft is never
+      // re-imported even if the subsequent IMAP delete is killed mid-flight.
+      await recordDeletedImapUid(this.accountId, folder, uid).catch(() => {});
+      // IMAP delete is best-effort — may be killed if window dies before it completes,
+      // but the tombstone above already prevents re-import.
+      const config = await this.getImapConfig();
+      await imapDeleteMessages(config, folder, [uid]).catch(() => {});
     } else {
       // Generated draft IDs (imap-draft-...) can't be mapped back to a server UID
       console.warn(

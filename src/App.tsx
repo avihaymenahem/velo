@@ -617,6 +617,7 @@ export default function App() {
       root.style.setProperty("--color-accent", colors.accent);
       root.style.setProperty("--color-accent-hover", colors.accentHover);
       root.style.setProperty("--color-accent-light", colors.accentLight);
+      root.style.setProperty("--color-accent-lower-bar", colors.accentLowerBar);
       root.style.setProperty("--color-bg-selected", colors.bgSelected);
       root.style.setProperty("--color-sidebar-active", colors.sidebarActive);
     };
@@ -713,8 +714,9 @@ export default function App() {
           className={`fixed bottom-0 left-0 right-0 glass-panel text-white text-xs px-4 py-1.5 text-center z-40 animate-[slideUp_200ms_ease-out,fadeIn_200ms_ease-out] ${
             syncStatus.startsWith("Sync failed")
               ? "bg-danger/90"
-              : "bg-accent/90"
+              : ""
           }`}
+          style={syncStatus.startsWith("Sync failed") ? undefined : { backgroundColor: "color-mix(in srgb, var(--color-accent-lower-bar) 90%, transparent)" }}
         >
           {syncStatus}
         </div>
