@@ -11,11 +11,16 @@ export function createOpenAIProvider(apiKey: string, model: string): AiProviderC
 
   return {
     async complete(req: AiCompletionRequest): Promise<string> {
+      const history = (req.conversationHistory ?? []).map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }));
       const response = await client.chat.completions.create({
         model,
         max_tokens: req.maxTokens ?? 1024,
         messages: [
           { role: "system", content: req.systemPrompt },
+          ...history,
           { role: "user", content: req.userContent },
         ],
       });

@@ -775,7 +775,470 @@ const MIGRATIONS = [
     description: "Accept self-signed certificates for IMAP/SMTP",
     sql: `ALTER TABLE accounts ADD COLUMN accept_invalid_certs INTEGER DEFAULT 0;`,
   },
+   {
+     version: 24,
+     description: "Reset contact frequency inflated by Google Contacts sync bug",
+     sql: `UPDATE contacts SET frequency = 0;`,
+   },
+   {
+     version: 25,
+     description: "Add group_id to signatures for cross-account signature sharing",
+     sql: `
+       -- Add group_id column.
+       -- SQLite does not support "IF NOT EXISTS" for ADD COLUMN,
+       -- but this migration runs only once (version check in runner).
+       ALTER TABLE signatures ADD COLUMN group_id TEXT;
+
+       -- For existing signatures, set group_id = id (each is its own group/master)
+       UPDATE signatures SET group_id = id WHERE group_id IS NULL;
+
+       -- Add index for group lookups
+       CREATE INDEX IF NOT EXISTS idx_signatures_group ON signatures(group_id);
+     `,
+   },
+   {
+     version: 26,
+     description: "Add tombstone table for deleted IMAP UIDs to prevent zombie re-import",
+     sql: `
+       CREATE TABLE IF NOT EXISTS deleted_imap_uids (
+         account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+         folder_path TEXT NOT NULL,
+         uid INTEGER NOT NULL,
+         deleted_at INTEGER NOT NULL DEFAULT (unixepoch()),
+         PRIMARY KEY (account_id, folder_path, uid)
+       );
+       CREATE INDEX IF NOT EXISTS idx_deleted_imap_uids_account ON deleted_imap_uids(account_id, folder_path);
+     `,
+   },
+   {
+     version: 27,
+     description: "Remove spurious DRAFT labels from IMAP INBOX threads caused by incorrect \\Draft flag handling",
+     sql: `
+       DELETE FROM thread_labels
+       WHERE label_id = 'DRAFT'
+         AND EXISTS (
+           SELECT 1 FROM thread_labels tl2
+           WHERE tl2.account_id = thread_labels.account_id
+             AND tl2.thread_id = thread_labels.thread_id
+             AND tl2.label_id = 'INBOX'
+         );
+     `,
+   },
+   {
+     version: 28,
+     description: "Separate SMTP credentials (smtp_username, smtp_password) for accounts that require different outgoing auth",
+     sql: `
+       ALTER TABLE accounts ADD COLUMN smtp_username TEXT;
+       ALTER TABLE accounts ADD COLUMN smtp_password TEXT;
+     `,
+   },
+   {
+     version: 29,
+     description: "Add direction (incoming/outgoing) and soft-delete (deleted_at) to tasks",
+     sql: `
+       ALTER TABLE tasks ADD COLUMN direction TEXT NOT NULL DEFAULT 'outgoing';
+       ALTER TABLE tasks ADD COLUMN deleted_at INTEGER;
+       CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted_at);
+       CREATE INDEX IF NOT EXISTS idx_tasks_direction ON tasks(direction);
+     `,
+   },
+   {
+     version: 30,
+     description: "Add standalone index on tasks(thread_id) for efficient thread-based grouping queries",
+     sql: `
+       CREATE INDEX IF NOT EXISTS idx_tasks_thread_id ON tasks(thread_id);
+     `,
+   },
+  {
+    version: 31,
+    description: "Add message_embeddings table for local semantic search (RAG) and initialize embedding settings",
+    sql: `
+      CREATE TABLE IF NOT EXISTS message_embeddings (
+        message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        account_id TEXT NOT NULL,
+        embedding TEXT NOT NULL,
+        model TEXT NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (message_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account ON message_embeddings(account_id);
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account_created ON message_embeddings(account_id, created_at);
+
+      INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('rag_enabled', 'false'),
+        ('embedding_model', 'nomic-embed-text'),
+        ('rag_chunk_size', '512'),
+        ('rag_batch_size', '10');
+    `,
+  },
+  {
+    version: 32,
+    description: "Migrate message_embeddings to Base64-encoded binary (3x smaller than JSON), triggering clean re-indexing",
+    sql: `
+      DROP TABLE IF EXISTS message_embeddings;
+      CREATE TABLE IF NOT EXISTS message_embeddings (
+        message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        account_id TEXT NOT NULL,
+        embedding TEXT NOT NULL,
+        model TEXT NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (message_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account ON message_embeddings(account_id);
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account_created ON message_embeddings(account_id, created_at);
+    `,
+  },
+  {
+    version: 33,
+    description: "Add urgency/sentiment/heat scores to threads and interaction_history table for sender reputation engine",
+    sql: `
+      ALTER TABLE threads ADD COLUMN urgency_score REAL DEFAULT 0;
+      ALTER TABLE threads ADD COLUMN sentiment_score REAL DEFAULT 0;
+      ALTER TABLE threads ADD COLUMN manual_urgency_override INTEGER DEFAULT 0;
+      ALTER TABLE threads ADD COLUMN is_heat_extinguished INTEGER DEFAULT 0;
+
+      CREATE TABLE IF NOT EXISTS interaction_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id TEXT NOT NULL,
+        from_address TEXT NOT NULL,
+        action TEXT NOT NULL,
+        thread_id TEXT,
+        created_at INTEGER DEFAULT (unixepoch())
+      );
+      CREATE INDEX IF NOT EXISTS idx_interaction_account_from ON interaction_history(account_id, from_address, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_interaction_created ON interaction_history(created_at);
+
+      INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('ai_urgency_mute_window_days', '30'),
+        ('ai_urgency_mute_threshold', '3'),
+        ('ai_urgency_auto_extinguish', 'true');
+    `,
+  },
+  {
+    version: 34,
+    description: "Add temporal urgency decay settings and RAG priority domains for contextual boosting",
+    sql: `
+      INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('ai_urgency_decay_start_days', '20'),
+        ('ai_urgency_decay_floor_days', '30'),
+        ('rag_priority_domains', '');
+    `,
+  },
+  {
+    version: 35,
+    description: "Add per-account rag_enabled flag and global behavioral intelligence settings",
+    sql: `
+      ALTER TABLE accounts ADD COLUMN rag_enabled INTEGER DEFAULT 0;
+
+      INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('ai_behavior_enabled', 'true'),
+        ('ai_urgency_enabled', 'true');
+    `,
+  },
+  {
+    version: 36,
+    description: "Fix message_embeddings FK mismatch: reference composite PK (account_id, id) instead of standalone id",
+    sql: `
+      DROP TABLE IF EXISTS message_embeddings;
+      CREATE TABLE IF NOT EXISTS message_embeddings (
+        message_id TEXT NOT NULL,
+        account_id TEXT NOT NULL,
+        embedding TEXT NOT NULL,
+        model TEXT NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (account_id, message_id),
+        FOREIGN KEY (account_id, message_id) REFERENCES messages(account_id, id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account ON message_embeddings(account_id);
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account_created ON message_embeddings(account_id, created_at);
+    `,
+  },
+  {
+    version: 37,
+    description: "Add app_icon_style setting for dock/tray icon appearance preference",
+    sql: `
+      INSERT OR IGNORE INTO settings (key, value) VALUES ('app_icon_style', 'auto');
+    `,
+  },
+  {
+    version: 38,
+    description: "Migrate message_embeddings from Base64 TEXT to binary BLOB for native Rust vector search; clears existing data to force re-indexing",
+    sql: `
+      DROP TABLE IF EXISTS message_embeddings;
+      CREATE TABLE IF NOT EXISTS message_embeddings (
+        message_id TEXT NOT NULL,
+        account_id TEXT NOT NULL,
+        embedding BLOB,
+        model TEXT NOT NULL DEFAULT 'nomic-embed-text',
+        created_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (account_id, message_id),
+        FOREIGN KEY (account_id, message_id) REFERENCES messages(account_id, id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account ON message_embeddings(account_id);
+      CREATE INDEX IF NOT EXISTS idx_embeddings_account_created ON message_embeddings(account_id, created_at);
+    `,
+  },
+  {
+    version: 39,
+    description: "Fix IMAP attachment part IDs: move from gmail_attachment_id to imap_part_id for rows populated before the column separation was in place",
+    sql: `
+      UPDATE attachments
+      SET imap_part_id = gmail_attachment_id, gmail_attachment_id = NULL
+      WHERE imap_part_id IS NULL
+        AND gmail_attachment_id IS NOT NULL
+        AND message_id LIKE 'imap-%';
+    `,
+  },
+  {
+    version: 40,
+    description: "Add composite indexes to eliminate full-table-scans in unread-count and label-filter queries",
+    sql: `
+      CREATE INDEX IF NOT EXISTS idx_threads_account_unread
+        ON threads(account_id, is_read);
+
+      CREATE INDEX IF NOT EXISTS idx_thread_labels_thread
+        ON thread_labels(account_id, thread_id);
+
+      CREATE INDEX IF NOT EXISTS idx_thread_categories_thread
+        ON thread_categories(account_id, thread_id);
+    `,
+  },
+  {
+    version: 41,
+    description: "Add per-account color, include_in_global flag, sort_order for Spark-style multi-account sidebar; index messages for unified inbox subquery",
+    sql: `
+      ALTER TABLE accounts ADD COLUMN color TEXT DEFAULT NULL;
+      ALTER TABLE accounts ADD COLUMN include_in_global INTEGER DEFAULT 1;
+      ALTER TABLE accounts ADD COLUMN sort_order INTEGER DEFAULT 0;
+
+      CREATE INDEX IF NOT EXISTS idx_messages_thread_account_date
+        ON messages (thread_id, account_id, date DESC);
+    `,
+  },
+  {
+    version: 42,
+    description: "Ensure accounts.color/include_in_global/sort_order columns exist (repair for v41 partial failures)",
+    sql: `
+      ALTER TABLE accounts ADD COLUMN color TEXT DEFAULT NULL;
+      ALTER TABLE accounts ADD COLUMN include_in_global INTEGER DEFAULT 1;
+      ALTER TABLE accounts ADD COLUMN sort_order INTEGER DEFAULT 0;
+    `,
+  },
+  {
+    version: 43,
+    description: "Add display label column to accounts for custom in-app identification (e.g. Work, Personal)",
+    sql: `
+      ALTER TABLE accounts ADD COLUMN label TEXT DEFAULT NULL;
+    `,
+  },
+  {
+    version: 44,
+    description: "Add user_label and user_color columns to calendars for per-calendar customization (CalDAV)",
+    sql: `
+      ALTER TABLE calendars ADD COLUMN user_label TEXT DEFAULT NULL;
+      ALTER TABLE calendars ADD COLUMN user_color TEXT DEFAULT NULL;
+    `,
+  },
+  {
+    version: 45,
+    description: "Add source_message_id, rsvp_status and last_notified_at to calendar_events for email invite tracking",
+    sql: `
+      ALTER TABLE calendar_events ADD COLUMN source_message_id TEXT DEFAULT NULL;
+      ALTER TABLE calendar_events ADD COLUMN rsvp_status TEXT DEFAULT NULL;
+      ALTER TABLE calendar_events ADD COLUMN last_notified_at INTEGER DEFAULT NULL;
+      CREATE INDEX IF NOT EXISTS idx_calendar_events_message ON calendar_events(source_message_id);
+    `,
+  },
+  {
+    version: 46,
+    description: "Add is_draft flag to messages table for stable local draft tracking",
+    sql: `ALTER TABLE messages ADD COLUMN is_draft INTEGER DEFAULT 0;`,
+  },
+  {
+    version: 47,
+    description: "Normalize messages.date to milliseconds (IMAP stored seconds, Gmail stored ms)",
+    sql: `UPDATE messages SET date = date * 1000 WHERE date > 0 AND date < 10000000000;`,
+  },
+  {
+    version: 48,
+    description: "Add covering index for IMAP duplicate detection query (message_id_header + imap_folder + imap_uid)",
+    sql: `CREATE INDEX IF NOT EXISTS idx_messages_dedup
+          ON messages(account_id, message_id_header, imap_folder, imap_uid)
+          WHERE message_id_header IS NOT NULL AND imap_folder IS NOT NULL AND imap_uid IS NOT NULL;`,
+  },
+  {
+    version: 49,
+    description: "Add Calendar Invites default smart folder and pruning setting",
+    sql: `INSERT OR IGNORE INTO smart_folders (id, account_id, name, query, icon, sort_order, is_default)
+          VALUES ('sf-calendar', NULL, 'Calendar Invites', 'has:calendar after:__LAST_6_MONTHS__', 'CalendarDays', 3, 1);
+          INSERT OR IGNORE INTO settings (key, value) VALUES ('calendar_invite_pruning_months', '6');`,
+  },
+  {
+    version: 50,
+    description: "Reset keyword-based urgency scores so AI backfill can re-score all threads",
+    sql: `UPDATE threads SET urgency_score = 0
+          WHERE (manual_urgency_override IS NULL OR manual_urgency_override = 0)
+            AND is_muted = 0;
+          DELETE FROM ai_cache WHERE type = 'urgency';`,
+  },
+  {
+    version: 51,
+    description: "Remove orphaned local draft messages (is_draft=1, imap_uid IS NULL) that were never sent or appended to server",
+    sql: `DELETE FROM messages WHERE is_draft = 1 AND imap_uid IS NULL;`,
+  },
+  {
+    version: 52,
+    description: "Remove all orphaned local draft messages (is_draft=1) regardless of imap_uid — drafts with a server UID but empty server Drafts folder are also stale",
+    sql: `DELETE FROM messages WHERE is_draft = 1;`,
+  },
+  {
+    version: 53,
+    description: "Recalculate message_count for all threads excluding drafts to fix stale counts",
+    sql: `UPDATE threads
+          SET message_count = (
+            SELECT COUNT(*) FROM messages
+            WHERE account_id = threads.account_id
+              AND thread_id = threads.id
+              AND is_draft = 0
+          );`,
+  },
+  {
+    version: 54,
+    description: "Add per-message Gmail label storage (gmail_label_ids) and fast trash flag (is_trashed)",
+    sql: `ALTER TABLE messages ADD COLUMN gmail_label_ids TEXT;
+          ALTER TABLE messages ADD COLUMN is_trashed INTEGER DEFAULT 0;
+          CREATE INDEX IF NOT EXISTS idx_messages_trashed ON messages(account_id, thread_id, is_trashed);
+          UPDATE messages SET is_trashed = 1
+          WHERE imap_folder IS NOT NULL
+            AND EXISTS (
+              SELECT 1 FROM labels l
+              WHERE l.account_id = messages.account_id
+                AND l.imap_folder_path = messages.imap_folder
+                AND l.id = 'TRASH'
+            );`,
+  },
+  {
+    version: 55,
+    description: "Add index to speed up attachment inline/CID filtering",
+    sql: `CREATE INDEX IF NOT EXISTS idx_attachments_inline_cid ON attachments(message_id, is_inline, content_id);`,
+  },
 ];
+
+// ---------------------------------------------------------------------------
+// Post-migration data repair
+// ---------------------------------------------------------------------------
+
+/**
+ * Windows-1252 code points that don't exist in Latin-1 (the 0x80–0x9F block).
+ * Maps Unicode code point → Windows-1252 byte value.
+ */
+const WIN1252_EXTRA: Record<number, number> = {
+  0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84,
+  0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88,
+  0x2030: 0x89, 0x0160: 0x8A, 0x2039: 0x8B, 0x0152: 0x8C,
+  0x017D: 0x8E, 0x2018: 0x91, 0x2019: 0x92, 0x201C: 0x93,
+  0x201D: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97,
+  0x02DC: 0x98, 0x2122: 0x99, 0x0161: 0x9A, 0x203A: 0x9B,
+  0x0153: 0x9C, 0x017E: 0x9E, 0x0178: 0x9F,
+};
+
+function fixMojibake(s: string): string {
+  let current = s;
+  for (let iter = 0; iter < 3; iter++) {
+    const bytes: number[] = [];
+    let canMap = true;
+    for (const ch of current) {
+      const cp = ch.codePointAt(0)!;
+      if (cp <= 0xFF) {
+        bytes.push(cp);
+      } else if (WIN1252_EXTRA[cp] !== undefined) {
+        bytes.push(WIN1252_EXTRA[cp]!);
+      } else {
+        canMap = false;
+        break;
+      }
+    }
+    if (!canMap || !bytes.some((b) => b > 0x7F)) break;
+    try {
+      const fixed = new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes));
+      if (fixed !== current) { current = fixed; continue; }
+    } catch { /* invalid UTF-8 — stop */ }
+    break;
+  }
+  return current;
+}
+
+/**
+ * One-shot repair of Windows-1252 mojibake in existing subject/from_name fields.
+ * Stored in settings so it only runs once per installation.
+ */
+export async function repairMojibakeData(): Promise<void> {
+  const { getSetting, setSetting } = await import('./settings');
+  const already = await getSetting('mojibake_repair_v1');
+  if (already === '1') return;
+
+  const db = await getDb();
+
+  // Threads
+  const threadRows = await db.select<{ id: string; account_id: string; subject: string }[]>(
+    `SELECT id, account_id, subject FROM threads WHERE subject IS NOT NULL AND subject != ''`,
+  );
+  for (const row of threadRows) {
+    const fixed = fixMojibake(row.subject);
+    if (fixed !== row.subject) {
+      await db.execute(
+        `UPDATE threads SET subject = $1 WHERE account_id = $2 AND id = $3`,
+        [fixed, row.account_id, row.id],
+      );
+    }
+  }
+
+  // Messages — subject and from_name
+  const msgRows = await db.select<{ id: string; account_id: string; subject: string | null; from_name: string | null }[]>(
+    `SELECT id, account_id, subject, from_name FROM messages WHERE subject IS NOT NULL OR from_name IS NOT NULL`,
+  );
+  for (const row of msgRows) {
+    const fixedSubject = row.subject ? fixMojibake(row.subject) : null;
+    const fixedName = row.from_name ? fixMojibake(row.from_name) : null;
+    if (fixedSubject !== row.subject || fixedName !== row.from_name) {
+      await db.execute(
+        `UPDATE messages SET subject = $1, from_name = $2 WHERE account_id = $3 AND id = $4`,
+        [fixedSubject, fixedName, row.account_id, row.id],
+      );
+    }
+  }
+
+  await setSetting('mojibake_repair_v1', '1');
+  console.log(`[migrations] mojibake repair done: ${threadRows.length} threads, ${msgRows.length} messages checked`);
+}
+
+/**
+ * One-shot repair: recalculate has_attachments on all threads excluding inline
+ * and CID embedded images. Tracked in settings so it runs only once.
+ * Call this fire-and-forget after startup — it must NOT block the splash screen.
+ */
+export async function repairHasAttachmentsFlags(): Promise<void> {
+  const { getSetting, setSetting } = await import('./settings');
+  const already = await getSetting('has_attachments_repair_v1');
+  if (already === '1') return;
+
+  const db = await getDb();
+  await db.execute(
+    `UPDATE threads
+     SET has_attachments = CASE
+       WHEN EXISTS (
+         SELECT 1 FROM attachments a
+         JOIN messages m ON a.message_id = m.id
+         WHERE m.account_id = threads.account_id
+           AND m.thread_id = threads.id
+           AND m.is_trashed = 0
+           AND a.is_inline = 0
+           AND a.content_id IS NULL
+       ) THEN 1 ELSE 0 END`,
+  );
+  await setSetting('has_attachments_repair_v1', '1');
+  console.log('[migrations] has_attachments repair done');
+}
 
 /**
  * Split a SQL string into individual statements, correctly handling
@@ -822,7 +1285,16 @@ function splitStatements(sql: string): string[] {
   return statements;
 }
 
-export async function runMigrations(): Promise<void> {
+let _migrationPromise: Promise<void> | null = null;
+
+export function runMigrations(): Promise<void> {
+  if (!_migrationPromise) {
+    _migrationPromise = _runMigrations();
+  }
+  return _migrationPromise;
+}
+
+async function _runMigrations(): Promise<void> {
   const db = await getDb();
 
   // Ensure migrations table exists
@@ -840,6 +1312,19 @@ export async function runMigrations(): Promise<void> {
   );
   const appliedVersions = new Set(applied.map((r) => r.version));
 
+  // Repair: if migration 14 is marked applied but imap_folder_path column is missing
+  // from labels (schema change failed to persist), force re-run from v14.
+  if (appliedVersions.has(14)) {
+    const cols = await db.select<{ name: string }[]>(
+      "SELECT name FROM pragma_table_info('labels') WHERE name = 'imap_folder_path'",
+    );
+    if (cols.length === 0) {
+      console.warn("Migration v14 marked applied but imap_folder_path column missing — re-running from v14");
+      await db.execute("DELETE FROM _migrations WHERE version >= 14");
+      for (const v of [...appliedVersions].filter((v) => v >= 14)) appliedVersions.delete(v);
+    }
+  }
+
   // Repair: if migration 18 is marked applied but tasks table is missing,
   // remove the stale record so it re-runs
   if (appliedVersions.has(18)) {
@@ -850,6 +1335,76 @@ export async function runMigrations(): Promise<void> {
       console.warn("Migration v18 marked applied but tasks table missing — re-running");
       await db.execute("DELETE FROM _migrations WHERE version = 18");
       appliedVersions.delete(18);
+    }
+  }
+
+  // Repair: if migration 25 is marked applied but group_id column is missing
+  // from signatures, force re-run v25.
+  if (appliedVersions.has(25)) {
+    const cols = await db.select<{ name: string }[]>(
+      "SELECT name FROM pragma_table_info('signatures') WHERE name = 'group_id'",
+    );
+    if (cols.length === 0) {
+      console.warn("Migration v25 marked applied but group_id column missing — re-running v25");
+      await db.execute("DELETE FROM _migrations WHERE version = 25");
+      appliedVersions.delete(25);
+    }
+  }
+
+  // Repair: if migration 26 is marked applied but deleted_imap_uids table is missing,
+  // force re-run v26 (can happen when HMR deploys code before app restart runs migrations).
+  if (appliedVersions.has(26)) {
+    const tables = await db.select<{ name: string }[]>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='deleted_imap_uids'",
+    );
+    if (tables.length === 0) {
+      console.warn("Migration v26 marked applied but deleted_imap_uids table missing — re-running v26");
+      await db.execute("DELETE FROM _migrations WHERE version = 26");
+      appliedVersions.delete(26);
+    }
+  }
+
+  // Repair: if migration 38 is marked applied but message_embeddings.embedding still has
+  // NOT NULL (meaning the DROP+CREATE in v38 did not fully persist), force re-run v38.
+  if (appliedVersions.has(38)) {
+    const cols = await db.select<{ notnull: number }[]>(
+      `SELECT "notnull" FROM pragma_table_info('message_embeddings') WHERE name = 'embedding'`,
+    );
+    if (cols.length === 0 || cols[0]?.notnull === 1) {
+      console.warn("Migration v38 marked applied but message_embeddings.embedding is NOT NULL — re-running v38");
+      await db.execute("DELETE FROM _migrations WHERE version = 38");
+      appliedVersions.delete(38);
+    }
+  }
+
+  // Repair: if migration 41 is marked applied but color column is missing from accounts
+  // (can happen when the multi-statement ALTER TABLE block only partially persisted)
+  if (appliedVersions.has(41)) {
+    const cols = await db.select<{ name: string }[]>(
+      "SELECT name FROM pragma_table_info('accounts') WHERE name = 'color'",
+    );
+    if (cols.length === 0) {
+      console.warn("Migration v41 marked applied but accounts.color column missing — re-running v41");
+      await db.execute("DELETE FROM _migrations WHERE version = 41");
+      appliedVersions.delete(41);
+    }
+  }
+
+  // Pre-apply v42 without DDL if the color column already exists.
+  // v42 re-runs the same ALTER TABLE ADD COLUMN statements as v41. Running them
+  // inside BEGIN acquires a write lock even when they fail with "duplicate column",
+  // blocking other connections for the full busy-timeout. Detecting up-front avoids
+  // the lock entirely for users who already have the columns.
+  if (!appliedVersions.has(42)) {
+    const colorCols = await db.select<{ name: string }[]>(
+      "SELECT name FROM pragma_table_info('accounts') WHERE name = 'color'",
+    );
+    if (colorCols.length > 0) {
+      await db.execute(
+        "INSERT OR IGNORE INTO _migrations (version, description) VALUES ($1, $2)",
+        [42, "Ensure accounts.color/include_in_global/sort_order columns exist (repair for v41 partial failures)"],
+      );
+      appliedVersions.add(42);
     }
   }
 
@@ -894,6 +1449,73 @@ export async function runMigrations(): Promise<void> {
   }
 
   console.log("All migrations applied.");
+
+  // One-time repair: fix IMAP messages stored with date=0 (Unix epoch / January 1970).
+  // Root cause: mail-parser's to_timestamp() returned 0 for malformed Date headers and
+  // the internal_date fallback was not applied because Some(0) is not None.
+  // Fix: delete affected messages, roll back last_uid in folder_sync_state so the next
+  // delta sync re-fetches only the broken UIDs with the corrected parsing logic.
+  const dateRepairFlag = await db.select<{ value: string }[]>(
+    "SELECT value FROM settings WHERE key = 'imap_date_repair_v1'",
+  );
+  if (dateRepairFlag.length === 0) {
+    const broken = await db.select<{ id: string; account_id: string }[]>(
+      "SELECT id, account_id FROM messages WHERE date = 0 AND id LIKE 'imap-%'",
+    );
+    if (broken.length > 0) {
+      console.log(`[repair] Found ${broken.length} IMAP messages with date=0 — fixing...`);
+
+      // Group by (account_id, folder), track minimum UID per folder so we can
+      // roll back last_uid just enough to re-fetch only the affected messages.
+      const folderMinUid = new Map<string, { accountId: string; folder: string; minUid: number }>();
+      for (const msg of broken) {
+        // id format: "imap-{account_id}-{folder}-{uid}"
+        // account_id is known from the row — strip prefix + account_id to isolate "{folder}-{uid}"
+        const prefix = `imap-${msg.account_id}-`;
+        const rest = msg.id.slice(prefix.length);
+        const lastDash = rest.lastIndexOf("-");
+        if (lastDash < 0) continue;
+        const folder = rest.slice(0, lastDash);
+        const uid = parseInt(rest.slice(lastDash + 1), 10);
+        if (isNaN(uid)) continue;
+
+        const key = `${msg.account_id}::${folder}`;
+        const existing = folderMinUid.get(key);
+        if (!existing || uid < existing.minUid) {
+          folderMinUid.set(key, { accountId: msg.account_id, folder, minUid: uid });
+        }
+      }
+
+      // Roll back last_uid so delta sync re-fetches from just before the first broken UID.
+      for (const { accountId, folder, minUid } of folderMinUid.values()) {
+        await db.execute(
+          "UPDATE folder_sync_state SET last_uid = $1 WHERE account_id = $2 AND folder_path = $3",
+          [Math.max(0, minUid - 1), accountId, folder],
+        );
+      }
+
+      // Delete broken messages and orphaned threads.
+      await db.execute("DELETE FROM messages WHERE date = 0 AND id LIKE 'imap-%'");
+      await db.execute(`
+        DELETE FROM threads
+        WHERE (account_id, id) NOT IN (SELECT account_id, thread_id FROM messages)
+        AND account_id IN (SELECT id FROM accounts WHERE provider = 'imap')
+      `);
+
+      // Record the affected account IDs so App.tsx can trigger an explicit sync
+      // immediately after startup (before the 60s background timer fires).
+      const affectedAccountIds = [...new Set(broken.map((m) => m.account_id))];
+      await db.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('imap_date_repair_v1_pending_sync', $1)",
+        [JSON.stringify(affectedAccountIds)],
+      );
+
+      console.log("[repair] IMAP date repair complete — affected folders will be re-synced.");
+    }
+    await db.execute(
+      "INSERT OR REPLACE INTO settings (key, value) VALUES ('imap_date_repair_v1', '1')",
+    );
+  }
 
   // One-time repair: force IMAP attachment resync with corrected Rust binary.
   // Migrations 20/21 may have run before the Rust fix was compiled in.

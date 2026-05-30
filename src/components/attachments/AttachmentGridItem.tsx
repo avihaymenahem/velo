@@ -1,4 +1,5 @@
 import { Download, Eye, ExternalLink } from "lucide-react";
+import { t } from "@/i18n";
 import { formatFileSize, getFileIcon, canPreview } from "@/utils/fileTypeHelpers";
 import type { AttachmentWithContext } from "@/services/db/attachments";
 
@@ -25,7 +26,7 @@ function formatRelativeDate(timestamp: number | null): string {
 
 export function AttachmentGridItem({ attachment, onPreview, onDownload, onJumpToEmail }: AttachmentGridItemProps) {
   const previewable = canPreview(attachment.mime_type, attachment.filename);
-  const senderName = attachment.from_name || attachment.from_address || "Unknown";
+  const senderName = attachment.from_name || attachment.from_address || t("attachments.library.unknownSender");
 
   return (
     <div className="group relative flex flex-col border border-border-primary rounded-lg hover:border-border-secondary hover:bg-bg-hover transition-colors overflow-hidden">
@@ -34,13 +35,13 @@ export function AttachmentGridItem({ attachment, onPreview, onDownload, onJumpTo
         onClick={previewable ? onPreview : onDownload}
         className="flex items-center justify-center h-24 bg-bg-secondary text-3xl"
       >
-        {getFileIcon(attachment.mime_type)}
+        {getFileIcon(attachment.mime_type, attachment.filename)}
       </button>
 
       {/* Info */}
       <div className="px-3 py-2 flex flex-col gap-0.5 min-w-0">
         <span className="text-xs font-medium text-text-primary truncate" title={attachment.filename ?? undefined}>
-          {attachment.filename ?? "Unnamed"}
+          {attachment.filename ?? t("attachments.library.unnamed")}
         </span>
         <span className="text-[0.6875rem] text-text-tertiary truncate" title={senderName}>
           {senderName}
@@ -57,7 +58,7 @@ export function AttachmentGridItem({ attachment, onPreview, onDownload, onJumpTo
           <button
             onClick={onPreview}
             className="p-1.5 rounded-md bg-bg-primary/90 border border-border-primary text-text-secondary hover:text-text-primary transition-colors"
-            title="Preview"
+            title={t("attachments.library.actionPreview")}
           >
             <Eye size={13} />
           </button>
@@ -65,14 +66,14 @@ export function AttachmentGridItem({ attachment, onPreview, onDownload, onJumpTo
         <button
           onClick={onDownload}
           className="p-1.5 rounded-md bg-bg-primary/90 border border-border-primary text-text-secondary hover:text-text-primary transition-colors"
-          title="Download"
+          title={t("attachments.library.actionDownload")}
         >
           <Download size={13} />
         </button>
         <button
           onClick={onJumpToEmail}
           className="p-1.5 rounded-md bg-bg-primary/90 border border-border-primary text-text-secondary hover:text-text-primary transition-colors"
-          title="Jump to email"
+          title={t("attachments.library.actionJumpToEmail")}
         >
           <ExternalLink size={13} />
         </button>

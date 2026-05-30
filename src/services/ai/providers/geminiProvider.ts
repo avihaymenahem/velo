@@ -16,6 +16,17 @@ export function createGeminiProvider(apiKey: string, modelId: string): AiProvide
         systemInstruction: req.systemPrompt,
       });
 
+      if (req.conversationHistory?.length) {
+        const chat = model.startChat({
+          history: req.conversationHistory.map((m) => ({
+            role: m.role === "user" ? "user" : "model",
+            parts: [{ text: m.content }],
+          })),
+        });
+        const result = await chat.sendMessage(req.userContent);
+        return result.response.text();
+      }
+
       const result = await model.generateContent(req.userContent);
       return result.response.text();
     },

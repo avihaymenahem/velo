@@ -30,7 +30,7 @@ describe("contacts service", () => {
 
       expect(mockDb.select).toHaveBeenCalledWith(
         expect.stringContaining("SELECT * FROM contacts"),
-        [500, 0],
+        [10000, 0],
       );
     });
 

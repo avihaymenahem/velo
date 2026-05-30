@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Sparkles, RefreshCw } from "lucide-react";
+import { t } from "@/i18n";
 import { isAiAvailable } from "@/services/ai/providerManager";
 import { generateSmartReplies } from "@/services/ai/aiService";
 import { deleteAiCache } from "@/services/db/aiCache";
@@ -73,9 +74,10 @@ export function SmartReplySuggestions({ threadId, accountId, messages, noReply }
       subject: `Re: ${lastMessage.subject ?? ""}`,
       bodyHtml: `<p>${replyText}</p>`,
       threadId: lastMessage.thread_id,
-      inReplyToMessageId: lastMessage.id,
+      inReplyToMessageId: lastMessage.message_id_header ?? lastMessage.id,
+      accountId,
     });
-  }, [messages, openComposer]);
+  }, [messages, openComposer, accountId]);
 
   if (!available || messages.length === 0 || noReply) return null;
 
@@ -83,11 +85,11 @@ export function SmartReplySuggestions({ threadId, accountId, messages, noReply }
     <div className="mx-4 my-2 p-3 rounded-lg bg-accent/5 border border-accent/20">
       <div className="flex items-center gap-2 mb-2">
         <Sparkles size={14} className="text-accent shrink-0" />
-        <span className="text-xs font-medium text-accent flex-1">Quick Replies</span>
+        <span className="text-xs font-medium text-accent flex-1">{t("email.smartReply.quickReplies")}</span>
         <button
           onClick={handleRefresh}
           className="p-0.5 text-text-tertiary hover:text-accent transition-colors"
-          title="Refresh suggestions"
+          title={t("email.smartReply.refreshSuggestions")}
         >
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
         </button>
@@ -95,7 +97,7 @@ export function SmartReplySuggestions({ threadId, accountId, messages, noReply }
       {loading && !replies && (
         <div className="flex items-center gap-2 text-text-tertiary">
           <div className="w-3 h-3 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
-          <span className="text-xs">Generating suggestions...</span>
+          <span className="text-xs">{t("email.smartReply.generating")}</span>
         </div>
       )}
       {replies && (

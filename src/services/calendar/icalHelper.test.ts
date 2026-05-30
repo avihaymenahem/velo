@@ -24,7 +24,7 @@ describe("generateVEvent", () => {
 
     expect(result).toContain("BEGIN:VCALENDAR");
     expect(result).toContain("VERSION:2.0");
-    expect(result).toContain("PRODID:-//Velo Mail//CalDAV Client//EN");
+    expect(result).toContain("PRODID:-//Melo Mail//CalDAV Client//EN");
     expect(result).toContain("BEGIN:VEVENT");
     expect(result).toContain("UID:test-uuid-1234");
     expect(result).toContain("SUMMARY:Team Meeting");
@@ -203,7 +203,7 @@ describe("parseVEvent", () => {
     expect(result.isAllDay).toBe(true);
     expect(result.summary).toBe("Conference");
     const expectedStart = Math.floor(new Date(2025, 6, 1).getTime() / 1000);
-    const expectedEnd = Math.floor(new Date(2025, 6, 3).getTime() / 1000);
+    const expectedEnd = Math.floor(new Date(2025, 6, 3).getTime() / 1000) - 1; // DTEND is exclusive for all-day events (RFC 5545)
     expect(result.startTime).toBe(expectedStart);
     expect(result.endTime).toBe(expectedEnd);
   });

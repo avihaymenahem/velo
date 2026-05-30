@@ -8,12 +8,21 @@ vi.mock("@/services/emailActions", () => ({
   updateDraft: vi.fn().mockResolvedValue({ success: true }),
 }));
 
+// The Gmail autosave path persists the draft id via the settings table — stub it out.
+vi.mock("@/services/db/settings", () => ({
+  getSetting: vi.fn().mockResolvedValue(null),
+  setSetting: vi.fn().mockResolvedValue(undefined),
+  deleteSetting: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { createMockAccountStoreState } from "@/test/mocks";
 
+// provider "gmail_api" routes autosave through the Gmail (single-tier) path, which is
+// what this test asserts. IMAP accounts use the two-tier local+server path instead.
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: {
     getState: () => createMockAccountStoreState({
-      accounts: [{ id: "account-1", email: "test@example.com" }],
+      accounts: [{ id: "account-1", email: "test@example.com", provider: "gmail_api" }],
     }),
   },
 }));
@@ -21,6 +30,11 @@ vi.mock("@/stores/accountStore", () => ({
 describe("draftAutoSave", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn().mockReturnValue(null),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    });
     useComposerStore.setState({
       isOpen: true,
       mode: "new",
@@ -38,6 +52,7 @@ describe("draftAutoSave", () => {
       attachments: [],
       lastSavedAt: null,
       isSaving: false,
+      isSending: false,
       signatureHtml: "",
       signatureId: null,
     });

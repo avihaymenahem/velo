@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CSSTransition } from "react-transition-group";
+import { t } from "@/i18n";
 import {
   setUpdateCallback,
   installUpdate,
@@ -48,7 +49,7 @@ export function UpdateToast() {
       >
         <div className="px-4 py-3 space-y-2">
           <p className="text-sm font-medium text-text-primary">
-            Velo v{version} is available
+            {t("ui.updateToast.available", { version: version ?? "" })}
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -56,14 +57,14 @@ export function UpdateToast() {
               disabled={installing}
               className="text-xs text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
             >
-              Later
+              {t("ui.updateToast.later")}
             </button>
             <button
               onClick={handleInstall}
               disabled={installing}
               className="text-xs font-medium text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
             >
-              {installing ? "Updating..." : "Update Now"}
+              {installing ? t("ui.updateToast.updating") : t("ui.updateToast.updateNow")}
             </button>
           </div>
         </div>

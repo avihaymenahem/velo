@@ -1,12 +1,13 @@
 import { useRef } from "react";
 import { Paperclip, X } from "lucide-react";
+import { t } from "@/i18n";
 import { useComposerStore, type ComposerAttachment } from "@/stores/composerStore";
 import { readFileAsBase64 } from "@/utils/fileUtils";
 import { formatFileSize } from "@/utils/fileTypeHelpers";
 
 const MAX_TOTAL_SIZE = 24 * 1024 * 1024; // 24MB
 
-export function AttachmentPicker() {
+export function AttachmentPicker({ endSlot }: { endSlot?: React.ReactNode }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const attachments = useComposerStore((s) => s.attachments);
   const addAttachment = useComposerStore((s) => s.addAttachment);
@@ -52,10 +53,10 @@ export function AttachmentPicker() {
           type="button"
           onClick={() => inputRef.current?.click()}
           className="flex items-center gap-1 text-xs text-text-tertiary hover:text-text-primary transition-colors py-1"
-          title="Attach files"
+          title={t("composer.attachmentPicker.attachFiles")}
         >
           <Paperclip size={14} />
-          <span>Attach</span>
+          <span>{t("composer.attachmentPicker.attach")}</span>
         </button>
 
         {attachments.map((att) => (
@@ -80,9 +81,10 @@ export function AttachmentPicker() {
 
         {attachments.length > 0 && (
           <span className="text-xs text-text-tertiary">
-            {formatFileSize(totalSize)} total
+            {formatFileSize(totalSize)} {t("composer.attachmentPicker.total")}
           </span>
         )}
+        {endSlot && <div className="ml-auto">{endSlot}</div>}
       </div>
     </div>
   );

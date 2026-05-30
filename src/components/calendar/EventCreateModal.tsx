@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { TextField } from "@/components/ui/TextField";
 import type { DbCalendar } from "@/services/db/calendars";
+import { t } from "@/i18n";
 
 interface EventCreateModalProps {
   calendars?: DbCalendar[];
@@ -41,20 +42,20 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
   }, [summary, description, location, startTime, endTime, calendarId, onCreate]);
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Create Event" width="w-full max-w-md">
+    <Modal isOpen={true} onClose={onClose} title={t("calendar.eventCreateTitle")} width="w-full max-w-md">
       <form onSubmit={handleSubmit} className="p-4 space-y-3">
         <TextField
-          label="Title"
+          label={t("calendar.eventTitle")}
           type="text"
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
-          placeholder="Event title"
+          placeholder={t("calendar.eventTitlePlaceholder")}
           autoFocus
         />
 
         {calendars && calendars.length > 1 && (
           <div>
-            <label className="text-xs text-text-secondary block mb-1">Calendar</label>
+            <label className="text-xs text-text-secondary block mb-1">{t("calendar.eventCalendar")}</label>
             <select
               value={calendarId}
               onChange={(e) => setCalendarId(e.target.value)}
@@ -62,8 +63,8 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
             >
               {calendars.map((cal) => (
                 <option key={cal.id} value={cal.id}>
-                  {cal.display_name ?? "Calendar"}
-                  {cal.is_primary ? " (Primary)" : ""}
+                  {cal.display_name ?? t("calendar.calendarDefault")}
+                  {cal.is_primary ? ` ${t("calendar.calendarPrimary")}` : ""}
                 </option>
               ))}
             </select>
@@ -72,13 +73,13 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
 
         <div className="grid grid-cols-2 gap-3">
           <TextField
-            label="Start"
+            label={t("calendar.eventStart")}
             type="datetime-local"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
           />
           <TextField
-            label="End"
+            label={t("calendar.eventEnd")}
             type="datetime-local"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
@@ -86,19 +87,19 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
         </div>
 
         <TextField
-          label="Location"
+          label={t("calendar.eventLocation")}
           type="text"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          placeholder="Add location"
+          placeholder={t("calendar.eventLocationPlaceholder")}
         />
 
         <div>
-          <label className="text-xs text-text-secondary block mb-1">Description</label>
+          <label className="text-xs text-text-secondary block mb-1">{t("calendar.eventDescription")}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Add description"
+            placeholder={t("calendar.eventDescriptionPlaceholder")}
             rows={3}
             className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent resize-none"
           />
@@ -111,7 +112,7 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
             size="md"
             onClick={onClose}
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             type="submit"
@@ -119,7 +120,7 @@ export function EventCreateModal({ calendars, onClose, onCreate }: EventCreateMo
             size="md"
             disabled={!summary.trim()}
           >
-            Create
+            {t("common.create")}
           </Button>
         </div>
       </form>

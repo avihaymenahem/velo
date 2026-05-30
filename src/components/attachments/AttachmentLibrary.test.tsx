@@ -90,7 +90,7 @@ describe("AttachmentLibrary", () => {
 
     render(<AttachmentLibrary />);
 
-    expect(await screen.findByText("No attachments yet")).toBeInTheDocument();
+    expect(await screen.findByText("No attachments found")).toBeInTheDocument();
   });
 
   it("renders attachments in grid view", async () => {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Trash2, Pencil, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { t } from "@/i18n";
 import { TextField } from "@/components/ui/TextField";
 import { useAccountStore } from "@/stores/accountStore";
 import { getLabelsForAccount, type DbLabel } from "@/services/db/labels";
@@ -129,9 +130,9 @@ export function SmartLabelEditor() {
     setBackfillResult(null);
     try {
       const count = await backfillSmartLabels(activeAccountId);
-      setBackfillResult(`Applied ${count} label${count !== 1 ? "s" : ""} to existing emails.`);
+      setBackfillResult(t("settings.smartLabelEditor.backfillResult", { count }));
     } catch (err) {
-      setBackfillResult("Backfill failed. Check your AI provider settings.");
+      setBackfillResult(t("settings.smartLabelEditor.backfillFailed"));
       console.error("Smart label backfill failed:", err);
     } finally {
       setBackfilling(false);
@@ -152,7 +153,7 @@ export function SmartLabelEditor() {
           className="text-xs text-accent hover:text-accent-hover disabled:opacity-50 flex items-center gap-1.5"
         >
           {backfilling && <Loader2 size={12} className="animate-spin" />}
-          {backfilling ? "Applying to existing emails..." : "Apply to existing emails"}
+          {backfilling ? t("settings.smartLabelEditor.backfilling") : t("settings.smartLabelEditor.applyToExisting")}
         </button>
       )}
 
@@ -170,7 +171,7 @@ export function SmartLabelEditor() {
               {getLabelName(rule.label_id)}
               {rule.is_enabled !== 1 && (
                 <span className="text-[0.625rem] bg-bg-tertiary text-text-tertiary px-1.5 py-0.5 rounded">
-                  Disabled
+                  {t("settings.filterEditor.disabled")}
                 </span>
               )}
             </div>
@@ -184,7 +185,7 @@ export function SmartLabelEditor() {
               className={`w-8 h-4 rounded-full transition-colors relative ${
                 rule.is_enabled === 1 ? "bg-accent" : "bg-bg-tertiary"
               }`}
-              title={rule.is_enabled === 1 ? "Disable" : "Enable"}
+              title={rule.is_enabled === 1 ? t("settings.filterEditor.disabled") : t("settings.filterEditor.enabled")}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform shadow ${
@@ -212,13 +213,13 @@ export function SmartLabelEditor() {
         <div className="border border-border-primary rounded-md p-3 space-y-3">
           {labels.length > 0 ? (
             <div>
-              <div className="text-xs font-medium text-text-secondary mb-1.5">Label</div>
+              <div className="text-xs font-medium text-text-secondary mb-1.5">{t("settings.smartLabelEditor.name")}</div>
               <select
                 value={labelId}
                 onChange={(e) => setLabelId(e.target.value)}
                 className="w-full bg-bg-tertiary text-text-primary text-xs px-2 py-1.5 rounded border border-border-primary"
               >
-                <option value="">Select a label...</option>
+                <option value="">{t("settings.smartLabelEditor.selectLabel")}</option>
                 {labels.map((l) => (
                   <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
@@ -226,16 +227,16 @@ export function SmartLabelEditor() {
             </div>
           ) : (
             <div className="text-xs text-text-tertiary">
-              No user labels found. Create a label first.
+              {t("settings.smartLabelEditor.noLabels")}
             </div>
           )}
 
           <div>
-            <div className="text-xs font-medium text-text-secondary mb-1.5">AI Description</div>
+            <div className="text-xs font-medium text-text-secondary mb-1.5">{t("settings.smartLabelEditor.aiDescription")}</div>
             <textarea
               value={aiDescription}
               onChange={(e) => setAiDescription(e.target.value)}
-              placeholder="e.g., Job applications and career opportunities"
+              placeholder={t("settings.smartLabelEditor.aiDescriptionPlaceholder")}
               rows={2}
               className="w-full bg-bg-tertiary text-text-primary text-xs px-2 py-1.5 rounded border border-border-primary resize-none placeholder:text-text-tertiary"
             />
@@ -247,7 +248,7 @@ export function SmartLabelEditor() {
               className="flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
             >
               {showCriteria ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              Optional filter criteria
+              {t("settings.smartLabelEditor.optionalCriteria")}
             </button>
 
             {showCriteria && (
@@ -295,13 +296,13 @@ export function SmartLabelEditor() {
               disabled={!labelId || !aiDescription.trim()}
               className="px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
             >
-              {editingId ? "Update" : "Save"}
+              {editingId ? t("settings.smartLabelEditor.save") : t("settings.smartLabelEditor.save")}
             </button>
             <button
               onClick={resetForm}
               className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary rounded-md transition-colors"
             >
-              Cancel
+              {t("settings.smartLabelEditor.cancel")}
             </button>
           </div>
         </div>
@@ -310,7 +311,7 @@ export function SmartLabelEditor() {
           onClick={() => setShowForm(true)}
           className="text-xs text-accent hover:text-accent-hover"
         >
-          + Add smart label
+          + {t("settings.smartLabelEditor.newRule")}
         </button>
       )}
     </div>

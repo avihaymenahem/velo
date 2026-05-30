@@ -5,20 +5,28 @@ import {
   registerActionTypes,
   onAction,
 } from "@tauri-apps/plugin-notification";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { getSetting } from "../db/settings";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useComposerStore } from "../../stores/composerStore";
 import { navigateToLabel } from "../../router/navigate";
 import { normalizeEmail } from "@/utils/emailUtils";
+import { playSound } from "../soundService";
 
 let initialized = false;
 let notificationsEnabled = true;
+// Tracks whether custom action types (Reply/Archive buttons) were successfully
+// registered. On macOS, action buttons require "Alert" notification style; if
+// registerActionTypes fails or the style isn't Alerts, fall back to "default"
+// so the banner actually appears on the desktop instead of going to NC silently.
+let actionTypesRegistered = false;
 
 interface NotificationContext {
   threadId?: string;
   accountId?: string;
   fromAddress?: string;
   subject?: string;
+  meetingUrl?: string;
 }
 
 let lastNotificationContext: NotificationContext | null = null;
@@ -55,7 +63,10 @@ export async function initNotifications(): Promise<void> {
     return;
   }
 
-  // Register action types and handlers (not available on all platforms)
+  // Register action types and handlers (not available on all platforms).
+  // On macOS, action buttons (Reply/Archive) only appear with "Alerts" notification
+  // style. If registration succeeds we use actionTypeId "email"; otherwise we fall
+  // back to "default" so the notification still shows as a banner.
   try {
     await registerActionTypes([
       {
@@ -69,13 +80,28 @@ export async function initNotifications(): Promise<void> {
           { id: "archive", title: "Archive" },
         ],
       },
+      {
+        id: "calendar",
+        actions: [
+          { id: "join", title: "Join" },
+        ],
+      },
+      {
+        id: "calendar-no-join",
+        actions: [],
+      },
     ]);
+    actionTypesRegistered = true;
 
     await onAction(async (event) => {
       const actionId = event.actionTypeId;
       const ctx = lastNotificationContext;
 
-      if (actionId === "reply" && ctx?.threadId && ctx?.accountId) {
+      if (actionId === "join" && ctx?.meetingUrl) {
+        openUrl(ctx.meetingUrl).catch((err) =>
+          console.error("Failed to open meeting URL:", err),
+        );
+      } else if (actionId === "reply" && ctx?.threadId && ctx?.accountId) {
         await showAndFocusMainWindow();
         useComposerStore.getState().openComposer({
           mode: "reply",
@@ -115,6 +141,7 @@ export function queueNewEmailNotification(
   threadId?: string,
   accountId?: string,
   fromAddress?: string,
+  snippet?: string,
 ): void {
   if (!notificationsEnabled) return;
 
@@ -125,20 +152,30 @@ export function queueNewEmailNotification(
   lastNotificationContext = ctx;
   if (threadId) recentContexts.set(threadId, ctx);
 
+  // Play sound immediately (once per batch, debounced with the notification)
+  if (!notifyTimer) void playSound("receive");
+
   // Debounce: wait 2s before showing, to batch during sync
   if (notifyTimer) clearTimeout(notifyTimer);
   notifyTimer = setTimeout(() => {
+    const emailActionTypeId = actionTypesRegistered ? "email" : "default";
     if (pendingCount === 1) {
+      // Title = sender name (shown bold on macOS, appears first); body = subject + snippet
+      const bodyParts: string[] = [subject || "(No subject)"];
+      if (snippet) {
+        const preview = snippet.trim().slice(0, 200);
+        bodyParts.push(preview);
+      }
       sendNotification({
         title: from,
-        body: subject || "(No subject)",
-        actionTypeId: "email",
+        body: bodyParts.join("\n"),
+        actionTypeId: emailActionTypeId,
       });
     } else if (pendingCount > 1) {
       sendNotification({
-        title: "Velo",
+        title: "Melo",
         body: `${pendingCount} new emails`,
-        actionTypeId: "email",
+        actionTypeId: emailActionTypeId,
       });
     }
     pendingCount = 0;
@@ -191,5 +228,23 @@ export function notifySnoozeReturn(subject: string): void {
     title: "Snoozed email returned",
     body: subject || "(No subject)",
     actionTypeId: "default",
+  });
+}
+
+/**
+ * Show a notification for an upcoming calendar event (5 minutes before start).
+ * If a meeting URL is present, shows a "Join" action button.
+ */
+export function notifyUpcomingCalendarEvent(
+  summary: string,
+  meetingUrl: string | null,
+): void {
+  if (!notificationsEnabled) return;
+  const ctx: NotificationContext = { subject: summary, meetingUrl: meetingUrl ?? undefined };
+  lastNotificationContext = ctx;
+  sendNotification({
+    title: summary || "Upcoming event",
+    body: meetingUrl ? "Starting in 5 minutes — tap Join to connect." : "Starting in 5 minutes.",
+    actionTypeId: meetingUrl ? "calendar" : "calendar-no-join",
   });
 }

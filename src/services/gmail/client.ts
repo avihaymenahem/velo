@@ -30,7 +30,7 @@ export class GmailClient {
     this.tokenInfo = tokenInfo;
   }
 
-  private async getValidToken(): Promise<string> {
+  async getValidToken(): Promise<string> {
     const now = getCurrentUnixTimestamp();
     // Refresh if token expires within 5 minutes
     if (this.tokenInfo.expiresAt - now < 300) {
@@ -184,6 +184,13 @@ export class GmailClient {
     });
   }
 
+  async modifyMessage(messageId: string, addLabelIds?: string[], removeLabelIds?: string[]): Promise<GmailMessage> {
+    return this.request(`/messages/${messageId}/modify`, {
+      method: "POST",
+      body: JSON.stringify({ addLabelIds, removeLabelIds }),
+    });
+  }
+
   async getHistory(
     startHistoryId: string,
     historyTypes: string[] = ["messageAdded", "messageDeleted", "labelAdded", "labelRemoved"],
@@ -264,6 +271,35 @@ export class GmailClient {
   }
 
   /**
+   * Move a single message to Trash.
+   */
+  async trashMessage(messageId: string): Promise<void> {
+    await this.request(`/messages/${messageId}/trash`, { method: "POST" });
+  }
+
+  /**
+   * Move an entire thread to Trash via the threads.trash endpoint.
+   */
+  async trashThread(threadId: string): Promise<void> {
+    await this.request(`/threads/${threadId}/trash`, { method: "POST" });
+  }
+
+  /**
+   * Permanently delete a single message (cannot be undone).
+   */
+  async deleteMessage(messageId: string): Promise<void> {
+    const token = await this.getValidToken();
+    const url = `${GMAIL_API_BASE}/users/me/messages/${messageId}`;
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      throw new Error(`Gmail API error: ${response.status} ${await response.text()}`);
+    }
+  }
+
+  /**
    * Send an email via Gmail API.
    * Accepts a raw RFC 2822 message encoded as base64url.
    */
@@ -318,8 +354,14 @@ export class GmailClient {
   /**
    * List drafts. Returns draft stubs with draft ID and message ID/threadId.
    */
-  async listDrafts(): Promise<{ id: string; message: { id: string; threadId: string } }[]> {
-    const resp = await this.request<{ drafts?: { id: string; message: { id: string; threadId: string } }[] }>("/drafts?maxResults=500");
+  async listDrafts(options: { q?: string; maxResults?: number; pageToken?: string } = {}): Promise<{ id: string; message: { id: string; threadId: string } }[]> {
+    const params = new URLSearchParams();
+    if (options.q) params.append("q", options.q);
+    if (options.maxResults) params.append("maxResults", options.maxResults.toString());
+    else params.append("maxResults", "500");
+    if (options.pageToken) params.append("pageToken", options.pageToken);
+
+    const resp = await this.request<{ drafts?: { id: string; message: { id: string; threadId: string } }[] }>(`/drafts?${params.toString()}`);
     return resp.drafts ?? [];
   }
 }

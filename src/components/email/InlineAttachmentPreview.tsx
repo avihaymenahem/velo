@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { DbAttachment } from "@/services/db/attachments";
 import { getEmailProvider } from "@/services/email/providerFactory";
 import { FileText } from "lucide-react";
+import { t } from "@/i18n";
 import { formatFileSize, isImage, isPdf } from "@/utils/fileTypeHelpers";
 
 /** Dedup attachments by filename+size (content-based) */
@@ -72,7 +73,7 @@ export function InlineAttachmentPreview({
               <FileText size={16} className="text-danger shrink-0" />
               <div className="min-w-0">
                 <div className="text-xs text-text-primary truncate">
-                  {att.filename ?? "Document.pdf"}
+                  {att.filename ?? t("email.inlineAttachment.defaultPdf")}
                 </div>
                 {att.size != null && (
                   <div className="text-[0.625rem] text-text-tertiary">
@@ -105,16 +106,21 @@ function ImageThumbnail({
   const loadedRef = useRef(false);
 
   const loadThumbnail = useCallback(async () => {
-    if (loadedRef.current || !attachment.gmail_attachment_id) return;
+    if (loadedRef.current || (!attachment.gmail_attachment_id && !attachment.imap_part_id)) return;
     loadedRef.current = true;
     setLoading(true);
 
     try {
       const provider = await getEmailProvider(accountId);
-      const response = await provider.fetchAttachment(messageId, attachment.gmail_attachment_id);
+      const attachmentId = attachment.gmail_attachment_id ?? attachment.imap_part_id!;
+      const response = await provider.fetchAttachment(messageId, attachmentId);
 
-      // Normalize URL-safe base64 (Gmail API) to standard base64
-      const base64 = response.data.replace(/-/g, "+").replace(/_/g, "/");
+      // Normalize URL-safe base64 (Gmail API) to standard base64.
+      // IMAP returns standard base64; Gmail returns URL-safe. Standard base64 never has - or _,
+      // so we can safely detect and convert only URL-safe format.
+      const base64 = response.data.includes("-") || response.data.includes("_")
+        ? response.data.replace(/-/g, "+").replace(/_/g, "/")
+        : response.data;
       const binaryStr = atob(base64);
       const bytes = new Uint8Array(binaryStr.length);
       for (let i = 0; i < binaryStr.length; i++) {
@@ -163,23 +169,23 @@ function ImageThumbnail({
       <button
         onClick={onClick}
         className="block rounded-md overflow-hidden border border-border-secondary hover:border-accent transition-colors"
-        title={attachment.filename ?? "Image"}
+        title={attachment.filename ?? t("email.inlineAttachment.image")}
       >
         {loading && (
           <div className="w-[200px] h-[120px] bg-bg-tertiary animate-pulse flex items-center justify-center">
-            <span className="text-xs text-text-tertiary">Loading...</span>
+            <span className="text-xs text-text-tertiary">{t("email.inlineAttachment.loading")}</span>
           </div>
         )}
         {thumbnailUrl && (
           <img
             src={thumbnailUrl}
-            alt={attachment.filename ?? "Image"}
+            alt={attachment.filename ?? t("email.inlineAttachment.image")}
             className="max-w-[200px] max-h-[200px] object-cover"
           />
         )}
         {!loading && !thumbnailUrl && (
           <div className="w-[200px] h-[120px] bg-bg-tertiary flex items-center justify-center">
-            <span className="text-xs text-text-tertiary">Image</span>
+            <span className="text-xs text-text-tertiary">{t("email.inlineAttachment.image")}</span>
           </div>
         )}
       </button>

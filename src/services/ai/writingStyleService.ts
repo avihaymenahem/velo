@@ -6,7 +6,7 @@ import {
   upsertWritingStyleProfile,
   deleteWritingStyleProfile,
 } from "@/services/db/writingStyleProfiles";
-import { getRecentSentMessages, type DbMessage } from "@/services/db/messages";
+import { getRecentSentMessages, getRecentSentMessagesToAddress, type DbMessage } from "@/services/db/messages";
 import { getAccount } from "@/services/db/accounts";
 import { getSetting } from "@/services/db/settings";
 import { WRITING_STYLE_ANALYSIS_PROMPT, AUTO_DRAFT_REPLY_PROMPT } from "./prompts";
@@ -75,6 +75,26 @@ export async function refreshWritingStyle(accountId: string): Promise<string | n
   return getOrCreateStyleProfile(accountId);
 }
 
+/**
+ * Fetch the user's past replies to a specific sender and format them as style examples.
+ * Returns an empty array if no prior history or not enough data.
+ */
+export async function getSenderPastReplies(
+  accountId: string,
+  accountEmail: string,
+  senderEmail: string,
+  limit: number = 4,
+): Promise<string[]> {
+  try {
+    const messages = await getRecentSentMessagesToAddress(accountId, accountEmail, senderEmail, limit);
+    return messages
+      .map((msg) => (msg.body_text ?? "").trim().slice(0, 600))
+      .filter((t) => t.length > 20);
+  } catch {
+    return [];
+  }
+}
+
 function formatThreadForDraft(messages: DbMessage[]): string {
   return messages
     .map((msg) => {
@@ -113,6 +133,18 @@ export async function generateAutoDraft(
   // Get writing style profile (lazy creation)
   const styleProfile = await getOrCreateStyleProfile(accountId);
 
+  // Fetch sender-specific past replies for tone/language matching
+  const senderEmail = messages[messages.length - 1]?.from_address ?? null;
+  const account = await getAccount(accountId);
+  const accountEmail = account?.email ?? null;
+  let senderSection = "";
+  if (senderEmail && accountEmail && senderEmail.toLowerCase() !== accountEmail.toLowerCase()) {
+    const pastReplies = await getSenderPastReplies(accountId, accountEmail, senderEmail);
+    if (pastReplies.length > 0) {
+      senderSection = `\n\n<past_replies_to_sender>\n${pastReplies.map((r, i) => `[Reply ${i + 1}]\n${r}`).join("\n\n")}\n</past_replies_to_sender>`;
+    }
+  }
+
   // Build the prompt
   const subject = messages[0]?.subject ?? "No subject";
   const threadContent = formatThreadForDraft(messages);
@@ -120,7 +152,7 @@ export async function generateAutoDraft(
     ? `\n\nUser's writing style:\n${styleProfile}`
     : "";
 
-  const userContent = `<email_content>Subject: ${subject}\n\n${threadContent}</email_content>${styleSection}`.slice(
+  const userContent = `<email_content>Subject: ${subject}\n\n${threadContent}</email_content>${styleSection}${senderSection}`.slice(
     0,
     6000,
   );

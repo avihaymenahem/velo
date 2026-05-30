@@ -10,18 +10,19 @@ export interface ParsedSearchQuery {
   to?: string;
   subject?: string;
   hasAttachment?: boolean;
+  hasCalendar?: boolean;
   isUnread?: boolean;
   isRead?: boolean;
   isStarred?: boolean;
-  before?: number; // unix timestamp (seconds)
-  after?: number;  // unix timestamp (seconds)
+  before?: number; // unix timestamp (milliseconds)
+  after?: number;  // unix timestamp (milliseconds)
   label?: string;
 }
 
 const OPERATOR_REGEX = /(?:^|\s)(from|to|subject|has|is|before|after|label):\s*(?:"([^"]+)"|(\S+))/gi;
 
 /**
- * Parse a date string like YYYY/MM/DD or YYYY-MM-DD into a unix timestamp (seconds).
+ * Parse a date string like YYYY/MM/DD or YYYY-MM-DD into a unix timestamp (milliseconds).
  * Returns undefined if the string is not a valid date.
  */
 function parseDateToTimestamp(dateStr: string): number | undefined {
@@ -34,7 +35,7 @@ function parseDateToTimestamp(dateStr: string): number | undefined {
   if (isNaN(year) || isNaN(month) || isNaN(day)) return undefined;
   const date = new Date(year, month - 1, day);
   if (isNaN(date.getTime())) return undefined;
-  return Math.floor(date.getTime() / 1000);
+  return date.getTime();
 }
 
 export function parseSearchQuery(input: string): ParsedSearchQuery {
@@ -68,6 +69,8 @@ export function parseSearchQuery(input: string): ParsedSearchQuery {
       case "has":
         if (value.toLowerCase() === "attachment") {
           result.hasAttachment = true;
+        } else if (value.toLowerCase() === "calendar") {
+          result.hasCalendar = true;
         }
         break;
       case "is":

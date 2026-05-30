@@ -8,6 +8,20 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
+
+// Custom PointerSensor that ignores right-clicks (button !== 0).
+// Without this, dnd-kit calls setPointerCapture on right-click which
+// prevents the subsequent contextmenu event from firing in WebKit.
+class LeftClickPointerSensor extends PointerSensor {
+  static activators = [
+    {
+      eventName: "onPointerDown" as const,
+      handler: ({ nativeEvent }: { nativeEvent: PointerEvent }) => {
+        return nativeEvent.button === 0;
+      },
+    },
+  ];
+}
 import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { addThreadLabel, removeThreadLabel } from "@/services/emailActions";
@@ -70,7 +84,7 @@ export function DndProvider({ children }: DndProviderProps) {
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(LeftClickPointerSensor, {
       activationConstraint: { distance: 8 },
     }),
   );

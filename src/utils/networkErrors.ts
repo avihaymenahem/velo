@@ -33,6 +33,21 @@ const AUTH_PATTERNS = [
   "authenticate failed",
 ];
 
+// IMAP server responses that indicate a transient failure worth retrying.
+// "BAD" (invalid command) and auth errors are excluded — those are permanent.
+const IMAP_RETRYABLE_PATTERNS = [
+  "imap error: no",   // IMAP NO response (server busy, quota, temp failure)
+  "imap error: bye",  // Server closed connection
+  "imap error: io",   // I/O error during IMAP operation
+  "no selected mailbox",
+  "server unavailable",
+  "too many connections",
+  "maximum connections",
+  "try again",
+  "temporarily unavailable",
+  "service unavailable",
+];
+
 export function classifyError(error: unknown): ClassifiedError {
   const message =
     error instanceof Error ? error.message : String(error ?? "Unknown error");
@@ -62,6 +77,11 @@ export function classifyError(error: unknown): ClassifiedError {
   // Check network error patterns
   if (NETWORK_PATTERNS.some((pattern) => lower.includes(pattern))) {
     return { type: "network", isRetryable: true, message };
+  }
+
+  // Check IMAP transient error patterns (must come after auth check)
+  if (IMAP_RETRYABLE_PATTERNS.some((pattern) => lower.includes(pattern))) {
+    return { type: "server", isRetryable: true, message };
   }
 
   // Check if the error object has a status property (e.g., fetch Response errors)

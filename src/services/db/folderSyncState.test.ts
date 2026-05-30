@@ -15,6 +15,13 @@ vi.mock("./connection", () => ({
     select: (...args: unknown[]) => mockSelect(...args),
   })),
   selectFirstBy: vi.fn(),
+  withTransaction: vi.fn(async (fn: (db: unknown) => Promise<void>) => {
+    const db = {
+      execute: (...args: unknown[]) => mockExecute(...args),
+      select: (...args: unknown[]) => mockSelect(...args),
+    };
+    await fn(db);
+  }),
 }));
 
 import { selectFirstBy } from "./connection";

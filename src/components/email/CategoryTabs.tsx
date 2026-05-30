@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useCallback, useRef, useState } from "react";
 import { Inbox, Bell, Tag, Users, Newspaper, type LucideIcon } from "lucide-react";
 import { ALL_CATEGORIES } from "@/services/db/threadCategories";
+import { t } from "@/i18n";
 
 export interface CategoryTabsProps {
   activeCategory: string;
@@ -83,7 +84,7 @@ export function CategoryTabs({ activeCategory, onCategoryChange, unreadCounts }:
               }`}
             >
               {Icon && <Icon size={13} />}
-              {cat}
+              {t(`email.categoryTabs.${cat.toLowerCase()}`)}
               {count > 0 && (
                 <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 rounded-full leading-normal">
                   {count}

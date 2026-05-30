@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Search, Pencil, Trash2, Check, X } from "lucide-react";
+import { t } from "@/i18n";
 import {
   getAllContacts,
   updateContact,
@@ -61,14 +62,14 @@ export function ContactEditor() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search contacts..."
+          placeholder={t("settings.contactEditor.searchPlaceholder")}
           className="w-full pl-8 pr-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
         />
       </div>
 
       {filtered.length === 0 ? (
         <p className="text-sm text-text-tertiary py-2">
-          {search ? "No matching contacts" : "No contacts yet"}
+          {search ? t("settings.contactEditor.noMatchingContacts") : t("settings.contactEditor.noContacts")}
         </p>
       ) : (
         <div className="space-y-1 max-h-[300px] overflow-y-auto">
@@ -89,7 +90,7 @@ export function ContactEditor() {
                     }}
                     className="flex-1 min-w-0 px-2 py-0.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
                     autoFocus
-                    placeholder="Display name"
+                    placeholder={t("settings.contactEditor.name")}
                   />
                   <button
                     onClick={handleSaveEdit}
@@ -123,14 +124,14 @@ export function ContactEditor() {
                     <button
                       onClick={() => handleEdit(contact)}
                       className="p-1 text-text-tertiary hover:text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Edit name"
+                      title={t("email.contactSidebar.editName")}
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       onClick={() => handleDelete(contact.id)}
                       className="p-1 text-text-tertiary hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Delete contact"
+                      title={t("settings.contactEditor.delete")}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -143,7 +144,7 @@ export function ContactEditor() {
       )}
 
       <p className="text-xs text-text-tertiary">
-        {contacts.length} contact{contacts.length !== 1 ? "s" : ""} total
+        {t("settings.contactEditor.contactsTotal", { count: contacts.length })}
       </p>
     </div>
   );

@@ -31,6 +31,12 @@ export function useActiveLabel(): string {
     if (match.routeId === "/settings/$tab" || match.routeId === "/settings") {
       return "settings";
     }
+    if (match.routeId === "/tasks") {
+      return "tasks";
+    }
+    if (match.routeId === "/attachments") {
+      return "attachments";
+    }
     if (match.routeId === "/calendar") {
       return "calendar";
     }

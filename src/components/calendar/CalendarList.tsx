@@ -1,4 +1,6 @@
 import type { DbCalendar } from "@/services/db/calendars";
+import { calColor, calDisplayName } from "@/services/db/calendars";
+import { t } from "@/i18n";
 
 interface CalendarListProps {
   calendars: DbCalendar[];
@@ -7,9 +9,9 @@ interface CalendarListProps {
 
 export function CalendarList({ calendars, onVisibilityChange }: CalendarListProps) {
   return (
-    <div className="w-52 border-r border-border-primary p-3 overflow-y-auto shrink-0">
+    <div className="w-52 border-l border-border-primary p-3 overflow-y-auto shrink-0">
       <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-2">
-        Calendars
+        {t("calendar.calendarsHeader")}
       </h3>
       <div className="space-y-1">
         {calendars.map((cal) => (
@@ -29,7 +31,7 @@ export function CalendarList({ calendars, onVisibilityChange }: CalendarListProp
                   ? "border-transparent"
                   : "border-border-primary bg-transparent"
               }`}
-              style={cal.is_visible ? { backgroundColor: cal.color ?? "var(--color-accent)" } : undefined}
+              style={cal.is_visible ? { backgroundColor: calColor(cal) ?? "var(--color-accent)" } : undefined}
             >
               {!!cal.is_visible && (
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
@@ -38,10 +40,10 @@ export function CalendarList({ calendars, onVisibilityChange }: CalendarListProp
               )}
             </span>
             <span className="text-sm text-text-primary truncate">
-              {cal.display_name ?? "Calendar"}
+              {calDisplayName(cal)}
             </span>
             {!!cal.is_primary && (
-              <span className="text-[0.6rem] text-text-tertiary ml-auto shrink-0">Primary</span>
+              <span className="text-[0.6rem] text-text-tertiary ml-auto shrink-0">{t("calendar.calendarPrimaryBadge")}</span>
             )}
           </label>
         ))}

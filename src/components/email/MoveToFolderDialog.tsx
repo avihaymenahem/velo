@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import { CSSTransition } from "react-transition-group";
+import { t } from "@/i18n";
 import { useLabelStore } from "@/stores/labelStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useThreadStore } from "@/stores/threadStore";
@@ -200,7 +201,7 @@ export function MoveToFolderDialog({
                 setQuery(e.target.value);
                 setSelectedIdx(0);
               }}
-              placeholder="Move to..."
+              placeholder={t("email.moveToFolder.placeholder")}
               className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-tertiary outline-none"
               autoFocus
             />
@@ -214,7 +215,7 @@ export function MoveToFolderDialog({
           >
             {filtered.length === 0 && (
               <div className="px-3 py-4 text-center text-xs text-text-tertiary">
-                No matching folders or labels
+                {t("email.moveToFolder.noMatch")}
               </div>
             )}
             {filtered.map((dest, idx) => {
@@ -244,7 +245,7 @@ export function MoveToFolderDialog({
                   <span className="truncate">{dest.label}</span>
                   {dest.type === "system" && (
                     <span className="ml-auto text-[10px] text-text-tertiary uppercase tracking-wider">
-                      System
+                      {t("email.moveToFolder.systemBadge")}
                     </span>
                   )}
                 </button>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Trash2, Pencil, ChevronUp, ChevronDown, X } from "lucide-react";
+import { t } from "@/i18n";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLabelStore, type Label } from "@/stores/labelStore";
 import { LabelForm } from "@/components/labels/LabelForm";
@@ -38,13 +39,13 @@ export function LabelEditor() {
       await deleteLabel(activeAccountId, label.id);
       if (editingId === label.id) resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete label");
+      setError(err instanceof Error ? err.message : t("settings.labelEditor.deleteLabel") + " failed");
     }
   }, [activeAccountId, deleteLabel, editingId, resetForm]);
 
   const handleMoveUp = useCallback(async (index: number) => {
     if (!activeAccountId || index === 0) return;
-    const newOrder = labels.map((l) => l.id);
+    const newOrder = labels.map((l: Label) => l.id);
     const a = newOrder[index - 1]!;
     const b = newOrder[index]!;
     newOrder[index - 1] = b;
@@ -54,7 +55,7 @@ export function LabelEditor() {
 
   const handleMoveDown = useCallback(async (index: number) => {
     if (!activeAccountId || index >= labels.length - 1) return;
-    const newOrder = labels.map((l) => l.id);
+    const newOrder = labels.map((l: Label) => l.id);
     const a = newOrder[index]!;
     const b = newOrder[index + 1]!;
     newOrder[index] = b;
@@ -62,7 +63,7 @@ export function LabelEditor() {
     await reorderLabels(activeAccountId, newOrder);
   }, [activeAccountId, labels, reorderLabels]);
 
-  const editingLabel = editingId ? labels.find((l) => l.id === editingId) ?? null : null;
+  const editingLabel = editingId ? labels.find((l: Label) => l.id === editingId) ?? null : null;
 
   return (
     <div className="space-y-3">
@@ -76,10 +77,10 @@ export function LabelEditor() {
       )}
 
       {labels.length === 0 && !showForm && (
-        <p className="text-sm text-text-tertiary">No user labels</p>
+        <p className="text-sm text-text-tertiary">{t("settings.labelEditor.noLabels")}</p>
       )}
 
-      {labels.map((label, index) => (
+      {labels.map((label: Label, index: number) => (
         <div key={label.id}>
           <div className="flex items-center justify-between py-2 px-3 bg-bg-secondary rounded-md">
             <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -100,7 +101,7 @@ export function LabelEditor() {
                 onClick={() => handleMoveUp(index)}
                 disabled={index === 0}
                 className="p-1 text-text-tertiary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Move up"
+                title={t("settings.labelEditor.moveUp")}
               >
                 <ChevronUp size={13} />
               </button>
@@ -108,21 +109,21 @@ export function LabelEditor() {
                 onClick={() => handleMoveDown(index)}
                 disabled={index === labels.length - 1}
                 className="p-1 text-text-tertiary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Move down"
+                title={t("settings.labelEditor.moveDown")}
               >
                 <ChevronDown size={13} />
               </button>
               <button
                 onClick={() => handleEdit(label)}
                 className="p-1 text-text-tertiary hover:text-text-primary"
-                title="Edit"
+                title={t("settings.labelEditor.editLabel")}
               >
                 <Pencil size={13} />
               </button>
               <button
                 onClick={() => handleDelete(label)}
                 className="p-1 text-text-tertiary hover:text-danger"
-                title="Delete"
+                title={t("settings.labelEditor.deleteLabel")}
               >
                 <Trash2 size={13} />
               </button>
@@ -152,7 +153,7 @@ export function LabelEditor() {
           onClick={() => { setShowForm(true); setEditingId(null); setError(null); }}
           className="text-xs text-accent hover:text-accent-hover"
         >
-          + Add label
+          + {t("settings.labelEditor.addLabel")}
         </button>
       )}
     </div>

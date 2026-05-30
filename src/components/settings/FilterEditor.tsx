@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Trash2, Pencil } from "lucide-react";
+import { t } from "@/i18n";
 import { TextField } from "@/components/ui/TextField";
 import { useAccountStore } from "@/stores/accountStore";
 import { getLabelsForAccount, type DbLabel } from "@/services/db/labels";
@@ -147,10 +148,10 @@ export function FilterEditor() {
         if (c.to) parts.push(`to: ${c.to}`);
         if (c.subject) parts.push(`subject: ${c.subject}`);
         if (c.body) parts.push(`body: ${c.body}`);
-        if (c.hasAttachment) parts.push("has attachment");
-        map.set(filter.id, parts.join(", ") || "No criteria");
+        if (c.hasAttachment) parts.push(t("settings.filterEditor.hasAttachment"));
+        map.set(filter.id, parts.join(", ") || t("settings.filterEditor.criteriaTitle"));
       } catch {
-        map.set(filter.id, "Invalid criteria");
+        map.set(filter.id, t("common.error"));
       }
     }
     return map;
@@ -168,12 +169,12 @@ export function FilterEditor() {
               {filter.name}
               {filter.is_enabled !== 1 && (
                 <span className="text-[0.625rem] bg-bg-tertiary text-text-tertiary px-1.5 py-0.5 rounded">
-                  Disabled
+                  {t("settings.filterEditor.disabled")}
                 </span>
               )}
             </div>
             <div className="text-xs text-text-tertiary truncate">
-              {filterDescriptions.get(filter.id) ?? "No criteria"}
+              {filterDescriptions.get(filter.id) ?? t("settings.filterEditor.criteriaTitle")}
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -182,7 +183,7 @@ export function FilterEditor() {
               className={`w-8 h-4 rounded-full transition-colors relative ${
                 filter.is_enabled === 1 ? "bg-accent" : "bg-bg-tertiary"
               }`}
-              title={filter.is_enabled === 1 ? "Disable" : "Enable"}
+              title={filter.is_enabled === 1 ? t("settings.filterEditor.disabled") : t("settings.filterEditor.enabled")}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform shadow ${
@@ -212,35 +213,35 @@ export function FilterEditor() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Filter name"
+            placeholder={t("settings.filterEditor.filterName")}
           />
 
           <div>
-            <div className="text-xs font-medium text-text-secondary mb-1.5">Match criteria</div>
+            <div className="text-xs font-medium text-text-secondary mb-1.5">{t("settings.filterEditor.criteriaTitle")}</div>
             <div className="space-y-1.5">
               <TextField
                 type="text"
                 value={criteriaFrom}
                 onChange={(e) => setCriteriaFrom(e.target.value)}
-                placeholder="From contains..."
+                placeholder={t("settings.filterEditor.from") + " contains..."}
               />
               <TextField
                 type="text"
                 value={criteriaTo}
                 onChange={(e) => setCriteriaTo(e.target.value)}
-                placeholder="To contains..."
+                placeholder={t("settings.filterEditor.to") + " contains..."}
               />
               <TextField
                 type="text"
                 value={criteriaSubject}
                 onChange={(e) => setCriteriaSubject(e.target.value)}
-                placeholder="Subject contains..."
+                placeholder={t("settings.filterEditor.subject") + " contains..."}
               />
               <TextField
                 type="text"
                 value={criteriaBody}
                 onChange={(e) => setCriteriaBody(e.target.value)}
-                placeholder="Body contains..."
+                placeholder={t("settings.filterEditor.body") + " contains..."}
               />
               <label className="flex items-center gap-1.5 text-xs text-text-secondary">
                 <input
@@ -249,23 +250,23 @@ export function FilterEditor() {
                   onChange={(e) => setCriteriaHasAttachment(e.target.checked)}
                   className="rounded"
                 />
-                Has attachment
+                {t("settings.filterEditor.hasAttachment")}
               </label>
             </div>
           </div>
 
           <div>
-            <div className="text-xs font-medium text-text-secondary mb-1.5">Actions</div>
+            <div className="text-xs font-medium text-text-secondary mb-1.5">{t("settings.filterEditor.actionsTitle")}</div>
             <div className="space-y-1.5">
               {labels.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-text-secondary w-20">Apply label</span>
+                  <span className="text-xs text-text-secondary w-20">{t("settings.filterEditor.applyLabel")}</span>
                   <select
                     value={actionLabel}
                     onChange={(e) => setActionLabel(e.target.value)}
                     className="flex-1 bg-bg-tertiary text-text-primary text-xs px-2 py-1 rounded border border-border-primary"
                   >
-                    <option value="">None</option>
+                    <option value="">{t("settings.filterEditor.noLabels")}</option>
                     {labels.map((l) => (
                       <option key={l.id} value={l.id}>{l.name}</option>
                     ))}
@@ -275,19 +276,19 @@ export function FilterEditor() {
               <div className="flex flex-wrap gap-3">
                 <label className="flex items-center gap-1.5 text-xs text-text-secondary">
                   <input type="checkbox" checked={actionArchive} onChange={(e) => setActionArchive(e.target.checked)} className="rounded" />
-                  Archive
+                  {t("settings.filterEditor.archive")}
                 </label>
                 <label className="flex items-center gap-1.5 text-xs text-text-secondary">
                   <input type="checkbox" checked={actionStar} onChange={(e) => setActionStar(e.target.checked)} className="rounded" />
-                  Star
+                  {t("settings.filterEditor.star")}
                 </label>
                 <label className="flex items-center gap-1.5 text-xs text-text-secondary">
                   <input type="checkbox" checked={actionMarkRead} onChange={(e) => setActionMarkRead(e.target.checked)} className="rounded" />
-                  Mark as read
+                  {t("settings.filterEditor.markRead")}
                 </label>
                 <label className="flex items-center gap-1.5 text-xs text-text-secondary">
                   <input type="checkbox" checked={actionTrash} onChange={(e) => setActionTrash(e.target.checked)} className="rounded" />
-                  Trash
+                  {t("settings.filterEditor.trash")}
                 </label>
               </div>
             </div>
@@ -299,13 +300,13 @@ export function FilterEditor() {
               disabled={!name.trim()}
               className="px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
             >
-              {editingId ? "Update" : "Save"}
+              {editingId ? t("settings.filterEditor.editFilter") : t("settings.filterEditor.saveFilter")}
             </button>
             <button
               onClick={resetForm}
               className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary rounded-md transition-colors"
             >
-              Cancel
+              {t("settings.filterEditor.cancelFilter")}
             </button>
           </div>
         </div>
@@ -314,7 +315,7 @@ export function FilterEditor() {
           onClick={() => setShowForm(true)}
           className="text-xs text-accent hover:text-accent-hover"
         >
-          + Add filter
+          + {t("settings.filterEditor.newFilter")}
         </button>
       )}
     </div>

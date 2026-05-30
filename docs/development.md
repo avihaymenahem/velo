@@ -40,7 +40,7 @@ cd src-tauri && cargo build
 - **Setup:** `src/test/setup.ts` (imports `@testing-library/jest-dom/vitest`)
 - **Config:** `globals: true` -- no imports needed for `describe`, `it`, `expect`
 - **Location:** Tests are colocated with source files (e.g., `uiStore.test.ts` next to `uiStore.ts`)
-- **Count:** 130 test files across stores (8), services (70), utils (14), components (31), constants (3), router (1), hooks (2), and config (1)
+- **Count:** 133 test files across stores (8), services (72), utils (14), components (32), constants (3), hooks (2), router (1), and config (1)
 
 ### Zustand test pattern
 
@@ -71,15 +71,15 @@ Produces native installers:
 
 ### Gmail (OAuth)
 
-Velo connects directly to Gmail via OAuth. You need your own Google Cloud credentials:
+Melo connects directly to Gmail via OAuth. You need your own Google Cloud credentials:
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project (or use an existing one)
 3. Enable the **Gmail API** and **Google Calendar API**
 4. Create OAuth 2.0 credentials (Desktop application)
-5. In Velo's Settings, enter your Client ID
+5. In Melo's Settings, enter your Client ID
 
-> Velo uses PKCE flow -- no client secret is required.
+> Melo uses PKCE flow -- no client secret is required.
 
 ### IMAP/SMTP
 
@@ -87,11 +87,51 @@ For non-Gmail providers (Outlook, Yahoo, iCloud, Fastmail, etc.):
 
 1. Click the account switcher in the sidebar → **Add IMAP Account**
 2. Enter your email address and password (or app-password)
-3. Velo auto-discovers server settings for well-known providers
+3. Melo auto-discovers server settings for well-known providers
 4. For other providers, enter IMAP/SMTP host, port, and security manually
 5. Test connection, then save
 
 > No Google Cloud project or Client ID needed. Passwords are encrypted with AES-256-GCM in the local database. Some providers (e.g., Gmail, Yahoo) require an app-specific password instead of your main password.
+
+## Internationalization (i18n)
+
+All user-visible strings are stored in `public/locale/en-US.json` and accessed via the `t()` helper in `src/i18n.ts`. The locale is bundled at build time (Vite static import), so `t()` is synchronous with no async loading step.
+
+### Adding or changing UI strings
+
+1. **Add the key** to `public/locale/en-US.json` under the appropriate nested section:
+   ```json
+   "myComponent": {
+     "myLabel": "My Label",
+     "myPlaceholder": "Type something...",
+     "countMessage": "{count} item found"
+   }
+   ```
+
+2. **Use `t()` in the component:**
+   ```ts
+   import { t } from "@/i18n";
+
+   // Simple lookup
+   t("myComponent.myLabel")                       // → "My Label"
+
+   // With interpolation
+   t("myComponent.countMessage", { count: 3 })    // → "3 items found"
+   ```
+
+3. **If other locale files exist** (e.g., `public/locale/it-IT.json`), add the key there too. Missing keys fall back to the last segment of the key path.
+
+### Key naming conventions
+
+- Use camelCase for keys: `myComponent.buttonLabel`
+- Group by component/feature at the top level: `sidebar`, `composer`, `settings`, `email`, `tasks`, `calendar`, `attachments`, `help`, `search`, `ui`, `common`
+- Settings subtabs go under `settings.*`: `settings.ai.*`, `settings.general.*`, etc.
+- For plural forms, use separate keys: `messageCount` / `messageCountPlural`
+- For parameterized strings, use `{name}` placeholders: `"Found {count} results"`
+
+### Rule
+
+**Any PR that changes, adds, or removes user-visible UI text must also update `public/locale/en-US.json`** and any other locale files present in `public/locale/`.
 
 ## AI Setup (Optional)
 
@@ -100,5 +140,7 @@ To enable AI features, add your API key for one or more providers in Settings:
 - **Anthropic Claude** -- [Get API key](https://console.anthropic.com/) -- Haiku 4.5 (default), Sonnet 4, Opus 4
 - **OpenAI** -- [Get API key](https://platform.openai.com/) -- GPT-4o Mini (default), GPT-4o, GPT-4.1 series
 - **Google Gemini** -- [Get API key](https://aistudio.google.com/) -- 2.5 Flash (default), 2.5 Pro
+- **Ollama** (local) -- Install [Ollama](https://ollama.com/), set server URL (default `http://localhost:11434`) and model (default `llama3.2`) in Settings > AI. No API key required.
+- **GitHub Copilot** -- Requires a Copilot subscription. Set your API key in Settings > AI.
 
-After adding an API key, select which model to use for each provider in Settings > AI.
+After configuring a provider, select which model to use per feature in Settings > AI.

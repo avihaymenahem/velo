@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Trash2, Pencil } from "lucide-react";
+import { t } from "@/i18n";
 import { useAccountStore } from "@/stores/accountStore";
 import {
   getSmartFolders,
@@ -95,7 +96,7 @@ export function SmartFolderEditor() {
               {folder.name}
               {folder.is_default === 1 && (
                 <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 py-0.5 rounded">
-                  Default
+                  {t("settings.signatureEditor.default")}
                 </span>
               )}
             </div>
@@ -107,7 +108,7 @@ export function SmartFolderEditor() {
             <button
               onClick={() => handleEdit(folder)}
               className="p-1 text-text-tertiary hover:text-text-primary"
-              title="Edit"
+              title={t("settings.labelEditor.editLabel")}
             >
               <Pencil size={13} />
             </button>
@@ -115,7 +116,7 @@ export function SmartFolderEditor() {
               <button
                 onClick={() => handleDelete(folder.id)}
                 className="p-1 text-text-tertiary hover:text-danger"
-                title="Delete"
+                title={t("settings.labelEditor.deleteLabel")}
               >
                 <Trash2 size={13} />
               </button>
@@ -130,20 +131,20 @@ export function SmartFolderEditor() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Folder name"
+            placeholder={t("settings.smartFolderEditor.name")}
             className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
           />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search query (e.g. is:unread from:boss)"
+            placeholder={t("settings.smartFolderEditor.query")}
             className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
           />
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="text-xs text-text-secondary block mb-1">
-                Icon name
+                {t("settings.smartFolderEditor.iconName")}
               </label>
               <input
                 type="text"
@@ -158,7 +159,7 @@ export function SmartFolderEditor() {
             </div>
             <div className="flex-1">
               <label className="text-xs text-text-secondary block mb-1">
-                Color (optional)
+                {t("settings.smartFolderEditor.colorOptional")}
               </label>
               <input
                 type="text"
@@ -176,13 +177,13 @@ export function SmartFolderEditor() {
               disabled={!name.trim() || !query.trim()}
               className="px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
             >
-              {editingId ? "Update" : "Save"}
+              {editingId ? t("settings.smartFolderEditor.save") : t("settings.smartFolderEditor.save")}
             </button>
             <button
               onClick={resetForm}
               className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary rounded-md transition-colors"
             >
-              Cancel
+              {t("settings.smartFolderEditor.cancel")}
             </button>
           </div>
         </div>
@@ -191,7 +192,7 @@ export function SmartFolderEditor() {
           onClick={() => setShowForm(true)}
           className="text-xs text-accent hover:text-accent-hover"
         >
-          + Add smart folder
+          + {t("settings.smartFolderEditor.newSmartFolder")}
         </button>
       )}
     </div>

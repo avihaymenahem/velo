@@ -73,13 +73,13 @@ export function buildSmtpConfig(
   const password =
     authMethod === "oauth2" && accessToken
       ? accessToken
-      : account.imap_password ?? "";
+      : account.smtp_password ?? account.imap_password ?? "";
 
   return {
     host: account.smtp_host,
     port: account.smtp_port ?? 587,
     security: mapSecurity(account.smtp_security),
-    username: account.imap_username || account.email,
+    username: account.smtp_username || account.imap_username || account.email,
     password,
     auth_method: authMethod,
     accept_invalid_certs: !!account.accept_invalid_certs,

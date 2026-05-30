@@ -3,17 +3,17 @@ import type { Thread } from "@/stores/threadStore";
 import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
-import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread } from "@/services/emailActions";
+import { archiveThread, trashThread, permanentDeleteThread, markThreadRead, starThread, spamThread, deleteDraftThread, deleteSingleMessage } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
-import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
+import { logInteraction } from "@/services/ai/reputationEngine";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
-import { getGmailClient } from "@/services/gmail/tokenManager";
 import { SnoozeDialog } from "./SnoozeDialog";
 import { FollowUpDialog } from "./FollowUpDialog";
-import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, FolderInput, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen, ListTodo } from "lucide-react";
+import { Archive, Trash2, Trash, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, FolderInput, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen, ListTodo } from "lucide-react";
 import type { DbMessage } from "@/services/db/messages";
 import { insertFollowUpReminder, getFollowUpForThread, cancelFollowUpForThread } from "@/services/db/followUpReminders";
 import { Button } from "@/components/ui/Button";
+import { t } from "@/i18n";
 
 interface ActionBarProps {
   thread: Thread;
@@ -39,7 +39,10 @@ function Separator() {
 export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply", contactSidebarVisible, taskSidebarVisible, onReply, onReplyAll, onForward, onPrint, onExport, onPopOut, onToggleContactSidebar, onToggleTaskSidebar }: ActionBarProps) {
   const updateThread = useThreadStore((s) => s.updateThread);
   const removeThread = useThreadStore((s) => s.removeThread);
+  const selectedMessageId = useThreadStore((s) => s.selectedMessageId);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  // In unified/global view activeAccountId is null — fall back to the thread's own account.
+  const accountId = activeAccountId ?? thread.accountId;
   const activeLabel = useActiveLabel();
   const [showSnooze, setShowSnooze] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
@@ -49,52 +52,55 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
 
   // Check if thread has an active follow-up reminder
   useEffect(() => {
-    if (!activeAccountId) return;
-    getFollowUpForThread(activeAccountId, thread.id)
+    if (!accountId) return;
+    getFollowUpForThread(accountId, thread.id)
       .then((r) => setHasFollowUp(r !== null))
       .catch(() => setHasFollowUp(false));
-  }, [activeAccountId, thread.id]);
+  }, [accountId, thread.id]);
 
   const handleToggleRead = async () => {
-    if (!activeAccountId) return;
-    await markThreadRead(activeAccountId, thread.id, [], !thread.isRead);
+    if (!accountId) return;
+    await markThreadRead(accountId, thread.id, messages?.map(m => m.id) || [], !thread.isRead);
   };
 
   const handleToggleStar = async () => {
-    if (!activeAccountId) return;
-    await starThread(activeAccountId, thread.id, [], !thread.isStarred);
+    if (!accountId) return;
+    await starThread(accountId, thread.id, messages?.map(m => m.id) || [], !thread.isStarred);
   };
 
   const handleArchive = async () => {
-    if (!activeAccountId) return;
-    await archiveThread(activeAccountId, thread.id, []);
+    if (!accountId) return;
+    await archiveThread(accountId, thread.id, messages?.map(m => m.id) || []);
   };
 
   const handleDelete = async () => {
-    if (!activeAccountId) return;
+    if (!accountId) return;
     const isTrashView = activeLabel === "trash";
     const isDraftsView = activeLabel === "drafts";
+    const msgIds = messages?.map((m) => m.id) || [];
     if (isTrashView) {
-      await permanentDeleteThread(activeAccountId, thread.id, []);
-      await deleteThreadFromDb(activeAccountId, thread.id);
+      await permanentDeleteThread(accountId, thread.id, msgIds);
+      await deleteThreadFromDb(accountId, thread.id);
     } else if (isDraftsView) {
       removeThread(thread.id);
-      try {
-        const client = await getGmailClient(activeAccountId);
-        await deleteDraftsForThread(client, activeAccountId, thread.id);
-      } catch (err) {
-        console.error("Failed to delete drafts:", err);
-      }
+      await deleteDraftThread(accountId, thread.id);
     } else {
-      await trashThread(activeAccountId, thread.id, []);
+      await trashThread(accountId, thread.id, msgIds);
     }
   };
 
+  const handleDeleteMessage = async () => {
+    if (!accountId || !messages || messages.length === 0) return;
+    const isTrashView = activeLabel === "trash";
+    const msgId = selectedMessageId ?? messages[messages.length - 1]!.id;
+    await deleteSingleMessage(accountId, thread.id, msgId, isTrashView);
+  };
+
   const handleSnooze = async (until: number) => {
-    if (!activeAccountId) return;
+    if (!accountId) return;
     setShowSnooze(false);
     try {
-      await snoozeThread(activeAccountId, thread.id, until);
+      await snoozeThread(accountId, thread.id, until);
       removeThread(thread.id);
     } catch (err) {
       console.error("Failed to snooze:", err);
@@ -102,8 +108,8 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   };
 
   const handleSpam = async () => {
-    if (!activeAccountId) return;
-    await spamThread(activeAccountId, thread.id, [], !isSpamView);
+    if (!accountId) return;
+    await spamThread(accountId, thread.id, messages?.map(m => m.id) || [], !isSpamView);
   };
 
   // Find the first message with an unsubscribe header
@@ -112,12 +118,12 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   const [unsubscribeStatus, setUnsubscribeStatus] = useState<"idle" | "loading" | "done">("idle");
 
   const handleUnsubscribe = async () => {
-    if (!unsubscribeMessage?.list_unsubscribe || !activeAccountId) return;
+    if (!unsubscribeMessage?.list_unsubscribe || !accountId) return;
     setUnsubscribeStatus("loading");
     try {
       const { executeUnsubscribe } = await import("@/services/unsubscribe/unsubscribeManager");
       const result = await executeUnsubscribe(
-        activeAccountId,
+        accountId,
         thread.id,
         unsubscribeMessage.from_address ?? "unknown",
         unsubscribeMessage.from_name,
@@ -126,8 +132,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
       );
       if (result.success) {
         setUnsubscribeStatus("done");
-        // Auto-archive after successful unsubscribe
-        await archiveThread(activeAccountId, thread.id, []);
+        await archiveThread(accountId, thread.id, []);
       } else {
         setUnsubscribeStatus("idle");
       }
@@ -138,14 +143,14 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   };
 
   const handleTogglePin = async () => {
-    if (!activeAccountId) return;
+    if (!accountId) return;
     const newPinned = !thread.isPinned;
     updateThread(thread.id, { isPinned: newPinned });
     try {
       if (newPinned) {
-        await pinThreadDb(activeAccountId, thread.id);
+        await pinThreadDb(accountId, thread.id);
       } else {
-        await unpinThreadDb(activeAccountId, thread.id);
+        await unpinThreadDb(accountId, thread.id);
       }
     } catch (err) {
       console.error("Failed to toggle pin:", err);
@@ -154,24 +159,24 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   };
 
   const handleToggleMute = async () => {
-    if (!activeAccountId) return;
+    if (!accountId) return;
     const newMuted = !thread.isMuted;
     if (newMuted) {
-      // Mute: mark as muted and archive
-      updateThread(thread.id, { isMuted: true });
+      updateThread(thread.id, { isMuted: true, urgencyScore: 0.05 });
       try {
-        await muteThreadDb(activeAccountId, thread.id);
-        await archiveThread(activeAccountId, thread.id, []);
+        await muteThreadDb(accountId, thread.id);
+        if (thread.fromAddress) {
+          logInteraction(accountId, thread.fromAddress, "MUTE_URGENCY", thread.id).catch(() => {});
+        }
       } catch (err) {
         console.error("Failed to mute:", err);
-        await unmuteThreadDb(activeAccountId, thread.id);
+        await unmuteThreadDb(accountId, thread.id);
         updateThread(thread.id, { isMuted: false });
       }
     } else {
-      // Unmute
       updateThread(thread.id, { isMuted: false });
       try {
-        await unmuteThreadDb(activeAccountId, thread.id);
+        await unmuteThreadDb(accountId, thread.id);
       } catch (err) {
         console.error("Failed to unmute:", err);
         updateThread(thread.id, { isMuted: true });
@@ -180,11 +185,11 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   };
 
   const handleFollowUp = async (remindAt: number) => {
-    if (!activeAccountId || !messages || messages.length === 0) return;
+    if (!accountId || !messages || messages.length === 0) return;
     setShowFollowUp(false);
     const lastMsg = messages[messages.length - 1]!;
     try {
-      await insertFollowUpReminder(activeAccountId, thread.id, lastMsg.id, remindAt);
+      await insertFollowUpReminder(accountId, thread.id, lastMsg.id, remindAt);
       setHasFollowUp(true);
     } catch (err) {
       console.error("Failed to set follow-up reminder:", err);
@@ -192,9 +197,9 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   };
 
   const handleCancelFollowUp = async () => {
-    if (!activeAccountId) return;
+    if (!accountId) return;
     try {
-      await cancelFollowUpForThread(activeAccountId, thread.id);
+      await cancelFollowUpForThread(accountId, thread.id);
       setHasFollowUp(false);
     } catch (err) {
       console.error("Failed to cancel follow-up:", err);
@@ -203,7 +208,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
 
   return (
     <>
-      <div className="flex items-center gap-1 px-3 py-3 border-b border-border-secondary bg-bg-secondary">
+      <div className="action-bar flex items-center gap-1 px-3 py-3 border-b border-border-secondary bg-bg-secondary">
         {/* Reply / Forward group */}
         {hasLastMessage && (
           <>
@@ -213,7 +218,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
               icon={defaultReplyMode === "replyAll" ? <ReplyAll size={15} /> : <Reply size={15} />}
               onClick={defaultReplyMode === "replyAll" ? onReplyAll : onReply}
               disabled={noReply}
-              title={noReply ? "This sender does not accept replies" : defaultReplyMode === "replyAll" ? "Reply All (r)" : "Reply (r)"}
+              title={noReply ? t("actionBar.noReply") : defaultReplyMode === "replyAll" ? t("actionBar.replyAllSwitched") : t("actionBar.reply")}
               className="disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
             />
             <Button
@@ -222,7 +227,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
               icon={defaultReplyMode === "replyAll" ? <Reply size={15} /> : <ReplyAll size={15} />}
               onClick={defaultReplyMode === "replyAll" ? onReply : onReplyAll}
               disabled={noReply}
-              title={noReply ? "This sender does not accept replies" : defaultReplyMode === "replyAll" ? "Reply (a)" : "Reply All (a)"}
+              title={noReply ? t("actionBar.noReply") : defaultReplyMode === "replyAll" ? t("actionBar.replySwitched") : t("actionBar.replyAll")}
               className="disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
             />
             <Button
@@ -230,37 +235,40 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
               iconOnly
               icon={<Forward size={15} />}
               onClick={onForward}
-              title="Forward (f)"
+              title={t("actionBar.forward")}
             />
             <Separator />
           </>
         )}
 
         {/* Core actions group */}
-        <Button variant="secondary" iconOnly icon={<Archive size={15} />} onClick={handleArchive} title="Archive (e)" />
-        <Button variant="secondary" iconOnly icon={<Trash2 size={15} />} onClick={handleDelete} title="Delete (#)" />
+        <Button variant="secondary" iconOnly icon={<Archive size={15} />} onClick={handleArchive} title={t("actionBar.archive")} />
+        <Button variant="secondary" iconOnly icon={<Trash2 size={15} />} onClick={handleDelete} title={t("actionBar.deleteThread")} />
+        {messages && messages.length > 0 && (
+          <Button variant="secondary" iconOnly icon={<Trash size={15} />} onClick={handleDeleteMessage} title={t("actionBar.deleteMessage")} />
+        )}
         <Button
           variant="secondary"
           iconOnly
           icon={thread.isRead ? <Mail size={15} /> : <MailOpen size={15} />}
           onClick={handleToggleRead}
-          title={thread.isRead ? "Mark unread" : "Mark read"}
+          title={thread.isRead ? t("actionBar.markUnread") : t("actionBar.markRead")}
         />
         <Button
           variant="secondary"
           iconOnly
           icon={<Star size={15} className={thread.isStarred ? "fill-current" : ""} />}
           onClick={handleToggleStar}
-          title={thread.isStarred ? "Unstar (s)" : "Star (s)"}
+          title={thread.isStarred ? t("actionBar.unstar") : t("actionBar.star")}
           className={thread.isStarred ? "text-warning" : ""}
         />
-        <Button variant="secondary" iconOnly icon={<Clock size={15} />} onClick={() => setShowSnooze(true)} title="Snooze (h)" />
+        <Button variant="secondary" iconOnly icon={<Clock size={15} />} onClick={() => setShowSnooze(true)} title={t("actionBar.snooze")} />
         <Button
           variant="secondary"
           iconOnly
           icon={<Ban size={15} />}
           onClick={handleSpam}
-          title={isSpamView ? "Not Spam (!)" : "Report Spam (!)"}
+          title={isSpamView ? t("actionBar.notSpam") : t("actionBar.reportSpam")}
         />
         <Button
           variant="secondary"
@@ -270,14 +278,14 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
             if (!activeAccountId) return;
             window.dispatchEvent(new CustomEvent("velo-move-to-folder", { detail: { threadIds: [thread.id] } }));
           }}
-          title="Move to folder (v)"
+          title={t("actionBar.moveToFolder")}
         />
         <Button
           variant="secondary"
           iconOnly
           icon={<Pin size={15} className={thread.isPinned ? "fill-current" : ""} />}
           onClick={handleTogglePin}
-          title={thread.isPinned ? "Unpin (p)" : "Pin (p)"}
+          title={thread.isPinned ? t("actionBar.unpin") : t("actionBar.pin")}
           className={thread.isPinned ? "text-accent" : ""}
         />
         <Button
@@ -285,7 +293,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
           iconOnly
           icon={<VolumeX size={15} className={thread.isMuted ? "fill-current" : ""} />}
           onClick={handleToggleMute}
-          title={thread.isMuted ? "Unmute (m)" : "Mute (m)"}
+          title={thread.isMuted ? t("actionBar.unmute") : t("actionBar.mute")}
           className={thread.isMuted ? "text-warning" : ""}
         />
         {hasFollowUp ? (
@@ -294,7 +302,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
             iconOnly
             icon={<BellRing size={15} className="fill-current" />}
             onClick={handleCancelFollowUp}
-            title="Cancel follow-up reminder"
+            title={t("actionBar.cancelFollowUp")}
             className="text-accent"
           />
         ) : (
@@ -303,7 +311,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
             iconOnly
             icon={<BellRing size={15} />}
             onClick={() => setShowFollowUp(true)}
-            title="Remind me if no reply"
+            title={t("actionBar.followUp")}
           />
         )}
         {hasUnsubscribe && (
@@ -312,7 +320,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
             iconOnly
             icon={<MailMinus size={15} />}
             onClick={handleUnsubscribe}
-            title={unsubscribeStatus === "loading" ? "Unsubscribing..." : unsubscribeStatus === "done" ? "Unsubscribed" : "Unsubscribe (u)"}
+            title={unsubscribeStatus === "loading" ? t("actionBar.unsubscribing") : unsubscribeStatus === "done" ? t("actionBar.unsubscribed") : t("actionBar.unsubscribe")}
             className={unsubscribeStatus === "done" ? "text-success" : ""}
           />
         )}
@@ -321,9 +329,9 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
         <div className="ml-auto" />
 
         {/* Utility group */}
-        <Button variant="secondary" iconOnly icon={<Printer size={15} />} onClick={onPrint} title="Print" />
-        <Button variant="secondary" iconOnly icon={<Download size={15} />} onClick={onExport} title="Export as .eml" />
-        <Button variant="secondary" iconOnly icon={<ExternalLink size={15} />} onClick={onPopOut} title="Open in new window" />
+        <Button variant="secondary" iconOnly icon={<Printer size={15} strokeWidth={1.5} />} onClick={onPrint} title="Print" />
+        <Button variant="secondary" iconOnly icon={<Download size={15} strokeWidth={1.5} />} onClick={onExport} title="Export as .eml" />
+        <Button variant="secondary" iconOnly icon={<ExternalLink size={15} strokeWidth={1.5} />} onClick={onPopOut} title="Open in new window" />
         <Button
           variant="secondary"
           iconOnly

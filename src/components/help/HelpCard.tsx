@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react";
+import { t } from "@/i18n";
 import { navigateToSettings } from "@/router/navigate";
 import type { HelpCard as HelpCardData } from "@/constants/helpContent";
 
@@ -69,7 +70,7 @@ export function HelpCard({ card, isExpanded, onToggle }: HelpCardProps) {
                 }}
                 className="text-xs text-accent hover:text-accent-hover transition-colors"
               >
-                Open in Settings &rarr;
+                {t("help.openInSettings")}
               </button>
             )}
           </div>

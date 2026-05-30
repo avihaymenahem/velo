@@ -75,7 +75,8 @@ describe("calendarEvents service", () => {
         uid: "uid-123@example.com",
       });
 
-      expect(mockDb.execute).toHaveBeenCalledTimes(1);
+      // INSERT + a scoped dedup DELETE (event has a uid)
+      expect(mockDb.execute).toHaveBeenCalledTimes(2);
       const [sql, params] = mockDb.execute.mock.calls[0] as [string, unknown[]];
       expect(sql).toContain("INSERT INTO calendar_events");
       expect(sql).toContain("ON CONFLICT(account_id, google_event_id) DO UPDATE");

@@ -43,7 +43,10 @@ interface Container {
 export function normalizeSubject(subject: string | null): string {
   if (!subject) return '';
 
-  let s = subject.trim();
+  // Collapse internal whitespace runs to a single space so subjects that some
+  // clients re-emit with extra spaces (e.g. Spark inserting a double space) still
+  // match their otherwise-identical replies from clients that normalize whitespace.
+  let s = subject.replace(/\s+/g, ' ').trim();
   let changed = true;
 
   while (changed) {
@@ -56,8 +59,8 @@ export function normalizeSubject(subject: string | null): string {
       changed = true;
     }
 
-    // Strip leading Re:/Fwd:/Fw: (case-insensitive)
-    const prefixMatch = /^(?:re|fwd|fw)\s*:\s*/i.exec(s);
+    // Strip leading Re:/R:/Fwd:/Fw: (case-insensitive; R: is used by some clients as Re:)
+    const prefixMatch = /^(?:re|r|fwd|fw)\s*:\s*/i.exec(s);
     if (prefixMatch) {
       s = s.slice(prefixMatch[0].length);
       changed = true;

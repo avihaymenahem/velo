@@ -61,11 +61,13 @@ describe("ollamaProvider", () => {
       expect(result).toBe("Hello!");
       expect(mockCreate).toHaveBeenCalledWith({
         model: "llama3.2",
-        max_tokens: 1024,
+        max_tokens: 4096,
         messages: [
           { role: "system", content: "You are helpful" },
           { role: "user", content: "Hi" },
         ],
+        stream: false,
+        think: false,
       });
     });
 
@@ -84,16 +86,19 @@ describe("ollamaProvider", () => {
 
   describe("testConnection", () => {
     it("returns true on successful completion", async () => {
-      mockCreate.mockResolvedValue({
-        choices: [{ message: { content: "hi" } }],
-      });
+      const { fetch } = await import("@tauri-apps/plugin-http");
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ models: [{ name: "llama3.2" }] }),
+      } as Response);
 
       const provider = createOllamaProvider("http://localhost:11434", "llama3.2");
       expect(await provider.testConnection()).toBe(true);
     });
 
     it("returns false when completion throws", async () => {
-      mockCreate.mockRejectedValue(new Error("Connection refused"));
+      const { fetch } = await import("@tauri-apps/plugin-http");
+      vi.mocked(fetch).mockRejectedValueOnce(new Error("Connection refused"));
 
       const provider = createOllamaProvider("http://localhost:11434", "llama3.2");
       expect(await provider.testConnection()).toBe(false);

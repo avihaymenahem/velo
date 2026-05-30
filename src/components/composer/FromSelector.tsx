@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 import type { SendAsAlias } from "@/services/db/sendAsAliases";
 
 interface FromSelectorProps {
@@ -16,7 +17,7 @@ export function FromSelector({ aliases, selectedEmail, onChange }: FromSelectorP
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-text-tertiary w-8 shrink-0">
-        From
+        {t("composer.fromSelector.from")}
       </span>
       <select
         value={selectedEmail}

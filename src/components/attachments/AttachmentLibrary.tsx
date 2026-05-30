@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { Paperclip, Search, LayoutGrid, List } from "lucide-react";
+import { t } from "@/i18n";
 import { useAccountStore } from "@/stores/accountStore";
 import {
   getAttachmentsForAccount,
@@ -22,29 +23,29 @@ type DateFilter = "all" | "today" | "week" | "month" | "year";
 type SizeFilter = "all" | "small" | "medium" | "large";
 type ViewMode = "grid" | "list";
 
-const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
-  { value: "all", label: "All types" },
-  { value: "images", label: "Images" },
-  { value: "pdfs", label: "PDFs" },
-  { value: "documents", label: "Documents" },
-  { value: "spreadsheets", label: "Spreadsheets" },
-  { value: "archives", label: "Archives" },
-  { value: "other", label: "Other" },
+const TYPE_OPTIONS: { value: TypeFilter; label: () => string }[] = [
+  { value: "all", label: () => t("attachments.library.filterAllTypes") },
+  { value: "images", label: () => t("attachments.library.filterImages") },
+  { value: "pdfs", label: () => t("attachments.library.filterPdfs") },
+  { value: "documents", label: () => t("attachments.library.filterDocuments") },
+  { value: "spreadsheets", label: () => t("attachments.library.filterSpreadsheets") },
+  { value: "archives", label: () => t("attachments.library.filterArchives") },
+  { value: "other", label: () => t("attachments.library.filterOther") },
 ];
 
-const DATE_OPTIONS: { value: DateFilter; label: string }[] = [
-  { value: "all", label: "Any time" },
-  { value: "today", label: "Today" },
-  { value: "week", label: "Past week" },
-  { value: "month", label: "Past month" },
-  { value: "year", label: "Past year" },
+const DATE_OPTIONS: { value: DateFilter; label: () => string }[] = [
+  { value: "all", label: () => t("attachments.library.dateAnyTime") },
+  { value: "today", label: () => t("attachments.library.dateToday") },
+  { value: "week", label: () => t("attachments.library.datePastWeek") },
+  { value: "month", label: () => t("attachments.library.datePastMonth") },
+  { value: "year", label: () => t("attachments.library.datePastYear") },
 ];
 
-const SIZE_OPTIONS: { value: SizeFilter; label: string }[] = [
-  { value: "all", label: "Any size" },
-  { value: "small", label: "< 1 MB" },
-  { value: "medium", label: "1–10 MB" },
-  { value: "large", label: "> 10 MB" },
+const SIZE_OPTIONS: { value: SizeFilter; label: () => string }[] = [
+  { value: "all", label: () => t("attachments.library.sizeAny") },
+  { value: "small", label: () => t("attachments.library.sizeSmall") },
+  { value: "medium", label: () => t("attachments.library.sizeMedium") },
+  { value: "large", label: () => t("attachments.library.sizeLarge") },
 ];
 
 function matchesType(att: AttachmentWithContext, filter: TypeFilter): boolean {
@@ -54,11 +55,11 @@ function matchesType(att: AttachmentWithContext, filter: TypeFilter): boolean {
     case "pdfs": return isPdf(att.mime_type, att.filename);
     case "documents": return isDocument(att.mime_type, att.filename);
     case "spreadsheets": return isSpreadsheet(att.mime_type, att.filename);
-    case "archives": return isArchive(att.mime_type);
+    case "archives": return isArchive(att.mime_type, att.filename);
     case "other":
       return !isImage(att.mime_type) && !isPdf(att.mime_type, att.filename) &&
         !isDocument(att.mime_type, att.filename) && !isSpreadsheet(att.mime_type, att.filename) &&
-        !isArchive(att.mime_type);
+        !isArchive(att.mime_type, att.filename);
   }
 }
 
@@ -155,7 +156,8 @@ export function AttachmentLibrary() {
   }, [attachments, searchQuery, typeFilter, senderFilter, dateFilter, sizeFilter]);
 
   const handleDownload = useCallback(async (att: AttachmentWithContext) => {
-    if (!att.gmail_attachment_id || !accountId) return;
+    const attachmentId = att.gmail_attachment_id ?? att.imap_part_id;
+    if (!attachmentId || !accountId) return;
     try {
       const filePath = await save({
         defaultPath: att.filename ?? "attachment",
@@ -164,7 +166,7 @@ export function AttachmentLibrary() {
       if (!filePath) return;
 
       const provider = await getEmailProvider(accountId);
-      const response = await provider.fetchAttachment(att.message_id, att.gmail_attachment_id);
+      const response = await provider.fetchAttachment(att.message_id, attachmentId);
       const base64 = response.data.replace(/-/g, "+").replace(/_/g, "/");
       const binaryStr = atob(base64);
       const bytes = new Uint8Array(binaryStr.length);
@@ -193,7 +195,7 @@ export function AttachmentLibrary() {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <Paperclip size={18} className="text-text-secondary" />
-            <h1 className="text-base font-semibold text-text-primary">Attachments</h1>
+            <h1 className="text-base font-semibold text-text-primary">{t("attachments.library.title")}</h1>
             <span className="text-xs text-text-tertiary">({filtered.length})</span>
           </div>
 
@@ -205,7 +207,7 @@ export function AttachmentLibrary() {
             <input
               ref={searchRef}
               type="text"
-              placeholder="Search attachments..."
+              placeholder={t("attachments.library.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 pr-3 py-1.5 text-xs rounded-md border border-border-primary bg-bg-secondary text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent w-48"
@@ -219,7 +221,7 @@ export function AttachmentLibrary() {
             className="text-xs rounded-md border border-border-primary bg-bg-secondary text-text-primary px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent"
           >
             {TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>{o.label()}</option>
             ))}
           </select>
 
@@ -228,7 +230,7 @@ export function AttachmentLibrary() {
             onChange={(e) => setSenderFilter(e.target.value)}
             className="text-xs rounded-md border border-border-primary bg-bg-secondary text-text-primary px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent max-w-40"
           >
-            <option value="all">All senders</option>
+            <option value="all">{t("attachments.library.senderFilterAll")}</option>
             {senders.map((s) => (
               <option key={s.from_address} value={s.from_address}>
                 {s.from_name || s.from_address} ({s.count})
@@ -242,7 +244,7 @@ export function AttachmentLibrary() {
             className="text-xs rounded-md border border-border-primary bg-bg-secondary text-text-primary px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent"
           >
             {DATE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>{o.label()}</option>
             ))}
           </select>
 
@@ -252,7 +254,7 @@ export function AttachmentLibrary() {
             className="text-xs rounded-md border border-border-primary bg-bg-secondary text-text-primary px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent"
           >
             {SIZE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>{o.label()}</option>
             ))}
           </select>
 
@@ -261,14 +263,14 @@ export function AttachmentLibrary() {
             <button
               onClick={() => setViewMode("grid")}
               className={`p-1.5 ${viewMode === "grid" ? "bg-accent/10 text-accent" : "text-text-tertiary hover:text-text-primary"}`}
-              title="Grid view"
+              title={t("attachments.library.gridView")}
             >
               <LayoutGrid size={14} />
             </button>
             <button
               onClick={() => setViewMode("list")}
               className={`p-1.5 ${viewMode === "list" ? "bg-accent/10 text-accent" : "text-text-tertiary hover:text-text-primary"}`}
-              title="List view"
+              title={t("attachments.library.listView")}
             >
               <List size={14} />
             </button>
@@ -280,13 +282,13 @@ export function AttachmentLibrary() {
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <p className="text-sm text-text-tertiary">Loading attachments...</p>
+            <p className="text-sm text-text-tertiary">{t("attachments.library.loading")}</p>
           </div>
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Paperclip}
-            title={attachments.length === 0 ? "No attachments yet" : "No matching attachments"}
-            subtitle={attachments.length === 0 ? "Attachments from your emails will appear here" : "Try adjusting your filters or search query"}
+            title={attachments.length === 0 ? t("attachments.library.noAttachments") : t("attachments.library.noMatchingAttachments")}
+            subtitle={attachments.length === 0 ? t("attachments.library.noAttachmentsHint") : t("attachments.library.noMatchingAttachmentsHint")}
           />
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">

@@ -1,21 +1,27 @@
 import { useMemo } from "react";
+import { t } from "@/i18n";
 import type { DbCalendarEvent } from "@/services/db/calendarEvents";
 import { EventCard } from "./EventCard";
 
 interface MonthViewProps {
   currentDate: Date;
   events: DbCalendarEvent[];
+  colorMap?: Record<string, string>;
   onEventClick: (event: DbCalendarEvent) => void;
 }
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Monday-first week — Jan 2 2023 is a Monday, so i+2 maps to Mon..Sun
+const DAY_NAMES = Array.from({ length: 7 }, (_, i) =>
+  new Date(2023, 0, i + 2).toLocaleDateString(undefined, { weekday: "short" }),
+);
 
-export function MonthView({ currentDate, events, onEventClick }: MonthViewProps) {
+export function MonthView({ currentDate, events, colorMap = {}, onEventClick }: MonthViewProps) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  const startOffset = firstDay.getDay();
+  // Monday-first: Mon→0, Tue→1, ..., Sun→6
+  const startOffset = (firstDay.getDay() + 6) % 7;
   const totalDays = lastDay.getDate();
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
@@ -52,21 +58,34 @@ export function MonthView({ currentDate, events, onEventClick }: MonthViewProps)
       {/* Day cells */}
       <div className="grid grid-cols-7 flex-1 auto-rows-fr overflow-y-auto">
         {cells.map((day, idx) => {
+          const isWeekend = idx % 7 >= 5;
+
           if (day === null) {
-            return <div key={`empty-${idx}`} className="border-b border-r border-border-secondary bg-bg-tertiary/30" />;
+            const outBg = isWeekend
+              ? "bg-black/[0.06] dark:bg-white/[0.09]"
+              : "bg-black/[0.04] dark:bg-white/[0.03]";
+            return <div key={`empty-${idx}`} className={`border-b border-r border-border-secondary ${outBg}`} />;
           }
+
           const isToday = `${year}-${month}-${day}` === todayStr;
           const dayEvents = eventsByDay.get(day) ?? [];
+
+          const cellBg = isToday
+            ? "bg-white/35 dark:bg-black/20"
+            : isWeekend
+              ? "bg-black/[0.05] dark:bg-white/[0.02]"
+              : "";
 
           return (
             <div
               key={day}
-              className="border-b border-r border-border-secondary p-1 min-h-[80px]"
+              className={`border-b border-r border-border-secondary p-1 min-h-[80px] ${cellBg}`}
             >
-              <div className={`text-xs font-medium mb-0.5 w-6 h-6 flex items-center justify-center rounded-full ${
-                isToday ? "bg-accent text-white" : "text-text-secondary"
-              }`}>
-                {day}
+              <div className="flex justify-end mb-1">
+                <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-accent text-white" : "text-text-secondary"
+                  }`}>
+                  {day}
+                </div>
               </div>
               <div className="space-y-0.5">
                 {dayEvents.slice(0, 3).map((event) => (
@@ -74,12 +93,13 @@ export function MonthView({ currentDate, events, onEventClick }: MonthViewProps)
                     key={event.id}
                     event={event}
                     compact
+                    color={colorMap[event.calendar_id ?? ""]}
                     onClick={() => onEventClick(event)}
                   />
                 ))}
                 {dayEvents.length > 3 && (
                   <div className="text-[0.625rem] text-text-tertiary pl-1">
-                    +{dayEvents.length - 3} more
+                    {t("calendar.moreEvents", { count: dayEvents.length - 3 })}
                   </div>
                 )}
               </div>

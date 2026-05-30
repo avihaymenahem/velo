@@ -26,6 +26,17 @@ vi.mock("./cacheManager", () => ({
   cacheAttachment: vi.fn(),
 }));
 
+// Pre-caching skips IMAP accounts and caches Gmail attachments via a Tauri command.
+const mockGetAccount = vi.fn();
+vi.mock("../db/accounts", () => ({
+  getAccount: (...args: unknown[]) => mockGetAccount(...args),
+}));
+
+const mockInvoke = vi.fn();
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (...args: unknown[]) => mockInvoke(...args),
+}));
+
 let lastRunPromise: Promise<void> = Promise.resolve();
 vi.mock("../backgroundCheckers", () => ({
   createBackgroundChecker: vi.fn((_name: string, fn: () => Promise<void>) => ({
@@ -35,12 +46,20 @@ vi.mock("../backgroundCheckers", () => ({
 }));
 
 import { useUIStore } from "@/stores/uiStore";
-import { cacheAttachment } from "./cacheManager";
 import { startPreCacheManager, stopPreCacheManager } from "./preCacheManager";
 import { createMockUIStoreState } from "@/test/mocks";
 
 async function runPreCache() {
-  startPreCacheManager();
+  // startPreCacheManager defers the first run behind a ~2-minute startup delay, and
+  // preCacheRecent yields between attachments via setTimeout(0). Drive both with fake
+  // timers so the (mocked) checker actually fires its check function.
+  vi.useFakeTimers();
+  try {
+    startPreCacheManager();
+    await vi.runAllTimersAsync();
+  } finally {
+    vi.useRealTimers();
+  }
   await lastRunPromise;
 }
 
@@ -51,6 +70,10 @@ describe("preCacheManager", () => {
     (useUIStore.getState as ReturnType<typeof vi.fn>).mockReturnValue(createMockUIStoreState());
     mockSelect.mockReset();
     mockFetchAttachment.mockReset();
+    mockInvoke.mockReset();
+    mockGetAccount.mockReset();
+    // Default: a Gmail account (no imap_host) so pre-caching proceeds.
+    mockGetAccount.mockResolvedValue({ id: "acc-1", email: "a@b.com", imap_host: null });
   });
 
   it("skips when offline", async () => {
@@ -88,48 +111,33 @@ describe("preCacheManager", () => {
 
     await runPreCache();
 
+    // Provider has no getValidToken → fallback path fetches then caches via Rust command.
     expect(mockFetchAttachment).toHaveBeenCalledWith("msg-1", "gmail-att-1");
-    expect(cacheAttachment).toHaveBeenCalledWith("att-1", expect.any(Uint8Array));
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "cache_attachment_b64",
+      expect.objectContaining({ attId: "att-1" }),
+    );
   });
 
-  it("uses imap_part_id when gmail_attachment_id is null", async () => {
+  it("skips IMAP accounts", async () => {
+    mockGetAccount.mockResolvedValue({ id: "acc-imap", email: "a@b.com", imap_host: "imap.example.com" });
     mockSelect
       .mockResolvedValueOnce([{ total: 0 }])
       .mockResolvedValueOnce([
         {
-          id: "att-2",
-          message_id: "msg-2",
-          account_id: "acc-2",
+          id: "att-imap",
+          message_id: "msg-imap",
+          account_id: "acc-imap",
           size: 2048,
-          gmail_attachment_id: null,
-          imap_part_id: "1.2",
-        },
-      ]);
-
-    mockFetchAttachment.mockResolvedValueOnce({ data: btoa("data") });
-
-    await runPreCache();
-
-    expect(mockFetchAttachment).toHaveBeenCalledWith("msg-2", "1.2");
-  });
-
-  it("skips attachments without any attachment id", async () => {
-    mockSelect
-      .mockResolvedValueOnce([{ total: 0 }])
-      .mockResolvedValueOnce([
-        {
-          id: "att-3",
-          message_id: "msg-3",
-          account_id: "acc-3",
-          size: 512,
-          gmail_attachment_id: null,
-          imap_part_id: null,
+          gmail_attachment_id: "gmail-att-imap",
         },
       ]);
 
     await runPreCache();
 
+    // IMAP accounts are intentionally excluded from pre-caching.
     expect(mockFetchAttachment).not.toHaveBeenCalled();
+    expect(mockInvoke).not.toHaveBeenCalled();
   });
 
   it("silently skips on fetch error", async () => {
@@ -142,7 +150,6 @@ describe("preCacheManager", () => {
           account_id: "acc-4",
           size: 1024,
           gmail_attachment_id: "gmail-att-4",
-          imap_part_id: null,
         },
       ]);
 
@@ -150,7 +157,8 @@ describe("preCacheManager", () => {
 
     await runPreCache();
 
-    expect(cacheAttachment).not.toHaveBeenCalled();
+    // Fetch threw → nothing is cached.
+    expect(mockInvoke).not.toHaveBeenCalled();
   });
 
   it("stops when cache limit would be exceeded", async () => {

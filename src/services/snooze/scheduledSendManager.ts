@@ -2,7 +2,7 @@ import {
   getPendingScheduledEmails,
   updateScheduledEmailStatus,
 } from "../db/scheduledEmails";
-import { getGmailClient } from "../gmail/tokenManager";
+import { getEmailProvider } from "../email/providerFactory";
 import { buildRawEmail, type EmailAttachment } from "@/utils/emailBuilder";
 import { getAccount } from "../db/accounts";
 import { createBackgroundChecker } from "../backgroundCheckers";
@@ -24,7 +24,7 @@ async function checkScheduledEmails(): Promise<void> {
       // Mark as "sending" BEFORE attempting send to prevent duplicate sends
       await updateScheduledEmailStatus(email.id, "sending");
 
-      const client = await getGmailClient(email.account_id);
+      const provider = await getEmailProvider(email.account_id);
 
       // Parse attachments from JSON if present
       let attachments: EmailAttachment[] | undefined;
@@ -51,7 +51,7 @@ async function checkScheduledEmails(): Promise<void> {
         attachments,
       });
 
-      await client.sendMessage(raw, email.thread_id ?? undefined);
+      await provider.sendMessage(raw, email.thread_id ?? undefined);
       await updateScheduledEmailStatus(email.id, "sent");
     } catch (err) {
       console.error(`Failed to send scheduled email ${email.id}:`, err);

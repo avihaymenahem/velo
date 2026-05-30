@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { FileText, ChevronDown } from "lucide-react";
+import { t } from "@/i18n";
 import { useAccountStore } from "@/stores/accountStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
@@ -55,7 +56,7 @@ export function TemplatePicker({ editor }: TemplatePickerProps) {
         className="flex items-center gap-1 text-xs text-text-tertiary hover:text-text-secondary transition-colors"
       >
         <FileText size={12} />
-        Templates
+        {t("composer.templatePicker.label")}
         <ChevronDown size={10} />
       </button>
 

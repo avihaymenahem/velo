@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { getDb, withTransaction } from "./connection";
 
 export interface DbLabel {
   id: string;
@@ -33,25 +33,26 @@ export async function upsertLabel(label: {
   imapFolderPath?: string | null;
   imapSpecialUse?: string | null;
 }): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    `INSERT INTO labels (id, account_id, name, type, color_bg, color_fg, imap_folder_path, imap_special_use)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     ON CONFLICT(account_id, id) DO UPDATE SET
-       name = $3, type = $4, color_bg = $5, color_fg = $6,
-       imap_folder_path = COALESCE($7, imap_folder_path),
-       imap_special_use = COALESCE($8, imap_special_use)`,
-    [
-      label.id,
-      label.accountId,
-      label.name,
-      label.type,
-      label.colorBg ?? null,
-      label.colorFg ?? null,
-      label.imapFolderPath ?? null,
-      label.imapSpecialUse ?? null,
-    ],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      `INSERT INTO labels (id, account_id, name, type, color_bg, color_fg, imap_folder_path, imap_special_use)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT(account_id, id) DO UPDATE SET
+         name = $3, type = $4, color_bg = $5, color_fg = $6,
+         imap_folder_path = COALESCE($7, imap_folder_path),
+         imap_special_use = COALESCE($8, imap_special_use)`,
+      [
+        label.id,
+        label.accountId,
+        label.name,
+        label.type,
+        label.colorBg ?? null,
+        label.colorFg ?? null,
+        label.imapFolderPath ?? null,
+        label.imapSpecialUse ?? null,
+      ],
+    );
+  });
 }
 
 export async function deleteLabelsForAccount(

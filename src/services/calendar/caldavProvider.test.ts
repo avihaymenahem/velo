@@ -35,6 +35,15 @@ vi.mock("@/services/db/accounts", () => ({
   }),
 }));
 
+// listCalendars/fetchEvents/syncEvents go through the Tauri-http CalDAV client (PROPFIND/
+// REPORT bypassing WebKit CORS), not tsdav. Mock those network calls directly.
+const mockListCalDavCalendars = vi.fn();
+const mockFetchCalDavEvents = vi.fn();
+vi.mock("./caldavHttp", () => ({
+  listCalDavCalendars: (...args: unknown[]) => mockListCalDavCalendars(...args),
+  fetchCalDavEvents: (...args: unknown[]) => mockFetchCalDavEvents(...args),
+}));
+
 describe("CalDAVProvider", () => {
   let provider: CalDAVProvider;
 
@@ -44,24 +53,27 @@ describe("CalDAVProvider", () => {
   });
 
   describe("listCalendars", () => {
-    it("maps tsdav calendars to CalendarInfo array", async () => {
-      mockFetchCalendars.mockResolvedValue([
-        { url: "/cal/personal/", displayName: "Personal" },
-        { url: "/cal/work/", displayName: "Work", calendarColor: "#ff0000" },
-      ]);
+    it("delegates to the CalDAV http client with credentials", async () => {
+      const mapped = [
+        { remoteId: "/cal/personal/", displayName: "Personal", color: null, isPrimary: true },
+        { remoteId: "/cal/work/", displayName: "Work", color: "#ff0000", isPrimary: false },
+      ];
+      mockListCalDavCalendars.mockResolvedValue(mapped);
 
       const calendars = await provider.listCalendars();
 
-      expect(calendars).toEqual([
-        { remoteId: "/cal/personal/", displayName: "Personal", color: null, isPrimary: true },
-        { remoteId: "/cal/work/", displayName: "Work", color: "#ff0000", isPrimary: false },
-      ]);
+      expect(mockListCalDavCalendars).toHaveBeenCalledWith(
+        "https://caldav.example.com",
+        "user@example.com",
+        "secret",
+      );
+      expect(calendars).toEqual(mapped);
     });
 
-    it("handles non-string displayName by falling back to indexed name", async () => {
-      mockFetchCalendars.mockResolvedValue([
-        { url: "/cal/unnamed/", displayName: undefined },
-        { url: "/cal/also-unnamed/", displayName: null },
+    it("returns whatever the http client resolves (incl. fallback names)", async () => {
+      mockListCalDavCalendars.mockResolvedValue([
+        { remoteId: "/cal/unnamed/", displayName: "Calendar 1", color: null, isPrimary: true },
+        { remoteId: "/cal/also-unnamed/", displayName: "Calendar 2", color: null, isPrimary: false },
       ]);
 
       const calendars = await provider.listCalendars();
@@ -73,17 +85,20 @@ describe("CalDAVProvider", () => {
 
   describe("fetchEvents", () => {
     it("passes time range and parses iCalendar data from objects", async () => {
-      mockFetchCalendarObjects.mockResolvedValue([
-        { data: MOCK_ICAL_DATA, url: "/cal/personal/test-uid.ics", etag: '"etag-1"' },
-        { data: MOCK_ICAL_DATA_2, url: "/cal/personal/test-uid-2.ics", etag: '"etag-2"' },
+      mockFetchCalDavEvents.mockResolvedValue([
+        { icalData: MOCK_ICAL_DATA, url: "/cal/personal/test-uid.ics", etag: '"etag-1"' },
+        { icalData: MOCK_ICAL_DATA_2, url: "/cal/personal/test-uid-2.ics", etag: '"etag-2"' },
       ]);
 
       const events = await provider.fetchEvents("/cal/personal/", "2024-01-01T00:00:00Z", "2024-01-31T23:59:59Z");
 
-      expect(mockFetchCalendarObjects).toHaveBeenCalledWith({
-        calendar: { url: "/cal/personal/" },
-        timeRange: { start: "2024-01-01T00:00:00Z", end: "2024-01-31T23:59:59Z" },
-      });
+      expect(mockFetchCalDavEvents).toHaveBeenCalledWith(
+        "/cal/personal/",
+        "user@example.com",
+        "secret",
+        "2024-01-01T00:00:00Z",
+        "2024-01-31T23:59:59Z",
+      );
 
       expect(events).toHaveLength(2);
       expect(events[0]!.summary).toBe("Test Event");
@@ -94,15 +109,12 @@ describe("CalDAVProvider", () => {
       expect(events[1]!.etag).toBe('"etag-2"');
     });
 
-    it("filters out objects with no data", async () => {
-      mockFetchCalendarObjects.mockResolvedValue([
-        { data: MOCK_ICAL_DATA, url: "/cal/personal/test-uid.ics", etag: '"etag-1"' },
-        { data: null, url: "/cal/personal/empty.ics", etag: null },
-      ]);
+    it("returns no events when the http client returns none", async () => {
+      mockFetchCalDavEvents.mockResolvedValue([]);
 
       const events = await provider.fetchEvents("/cal/personal/", "2024-01-01T00:00:00Z", "2024-01-31T23:59:59Z");
 
-      expect(events).toHaveLength(1);
+      expect(events).toHaveLength(0);
     });
   });
 
@@ -195,20 +207,20 @@ describe("CalDAVProvider", () => {
 
   describe("syncEvents", () => {
     it("fetches all objects in time range and returns them as created events", async () => {
-      mockFetchCalendarObjects.mockResolvedValue([
-        { data: MOCK_ICAL_DATA, url: "/cal/personal/test-uid.ics", etag: '"sync-etag"' },
-        { data: MOCK_ICAL_DATA_2, url: "/cal/personal/test-uid-2.ics", etag: '"sync-etag-2"' },
+      mockFetchCalDavEvents.mockResolvedValue([
+        { icalData: MOCK_ICAL_DATA, url: "/cal/personal/test-uid.ics", etag: '"sync-etag"' },
+        { icalData: MOCK_ICAL_DATA_2, url: "/cal/personal/test-uid-2.ics", etag: '"sync-etag-2"' },
       ]);
 
       const result = await provider.syncEvents("/cal/personal/");
 
-      expect(mockFetchCalendarObjects).toHaveBeenCalledWith({
-        calendar: { url: "/cal/personal/" },
-        timeRange: {
-          start: expect.any(String),
-          end: expect.any(String),
-        },
-      });
+      expect(mockFetchCalDavEvents).toHaveBeenCalledWith(
+        "/cal/personal/",
+        "user@example.com",
+        "secret",
+        expect.any(String),
+        expect.any(String),
+      );
 
       expect(result.created).toHaveLength(2);
       expect(result.created[0]!.summary).toBe("Test Event");

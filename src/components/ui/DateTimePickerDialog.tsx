@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { t } from "@/i18n";
 
 interface Preset {
   label: string;
@@ -66,7 +67,7 @@ export function DateTimePickerDialog({
 
       <div className="border-t border-border-secondary px-4 py-3 space-y-2">
         <div className="text-xs text-text-tertiary font-medium">
-          Custom date & time
+          {t("ui.dateTimePicker.customDate")}
         </div>
         <div className="flex gap-2">
           <input

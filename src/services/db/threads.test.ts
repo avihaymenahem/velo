@@ -5,6 +5,7 @@ vi.mock("@/services/db/connection", async (importOriginal) => {
   return {
     ...actual,
     getDb: vi.fn(),
+    withTransaction: vi.fn(async (fn: (db: any) => Promise<any>) => fn(mockDb)),
   };
 });
 
@@ -41,7 +42,7 @@ describe("threads service - mute", () => {
       await muteThread("acc-1", "thread-1");
 
       expect(mockDb.execute).toHaveBeenCalledWith(
-        "UPDATE threads SET is_muted = 1 WHERE account_id = $1 AND id = $2",
+        "UPDATE threads SET is_muted = 1, urgency_score = 0.05 WHERE account_id = $1 AND id = $2",
         ["acc-1", "thread-1"],
       );
     });

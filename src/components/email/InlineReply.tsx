@@ -3,6 +3,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Reply, ReplyAll, Forward, Send, Maximize2, RotateCcw, X, Loader2 } from "lucide-react";
+import { t } from "@/i18n";
 import { useAccountStore } from "@/stores/accountStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -49,7 +50,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
     extensions: [
       StarterKit.configure({ heading: false, link: { openOnClick: false } }),
       Placeholder.configure({
-        placeholder: "Write your reply...",
+        placeholder: t("email.inlineReply.reply") + "...",
       }),
     ],
     content: "",
@@ -234,6 +235,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
       bodyHtml,
       threadId: thread.id,
       inReplyToMessageId: lastMessage.id,
+      accountId,
     });
 
     // Reset inline state
@@ -313,27 +315,27 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
         <button
           onClick={() => activateMode("reply")}
           disabled={noReply}
-          title={noReply ? "This sender does not accept replies" : undefined}
+          title={noReply ? t("email.inlineReply.noReplyTooltip") : undefined}
           className="flex items-center gap-1.5 px-4 py-2 text-xs text-text-secondary border border-border-primary rounded-lg hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-secondary"
         >
           <Reply size={14} />
-          Reply
+          {t("email.inlineReply.reply")}
         </button>
         <button
           onClick={() => activateMode("replyAll")}
           disabled={noReply}
-          title={noReply ? "This sender does not accept replies" : undefined}
+          title={noReply ? t("email.inlineReply.noReplyTooltip") : undefined}
           className="flex items-center gap-1.5 px-4 py-2 text-xs text-text-secondary border border-border-primary rounded-lg hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-secondary"
         >
           <ReplyAll size={14} />
-          Reply All
+          {t("email.inlineReply.replyAll")}
         </button>
         <button
           onClick={() => activateMode("forward")}
           className="flex items-center gap-1.5 px-4 py-2 text-xs text-text-secondary border border-border-primary rounded-lg hover:bg-bg-hover hover:text-text-primary transition-colors"
         >
           <Forward size={14} />
-          Forward
+          {t("email.inlineReply.forward")}
         </button>
       </div>
     );
@@ -341,7 +343,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
 
   // Expanded state — editor visible
   const { to } = getRecipients();
-  const modeLabel = mode === "reply" ? "Reply" : mode === "replyAll" ? "Reply All" : "Forward";
+  const modeLabel = mode === "reply" ? t("email.inlineReply.reply") : mode === "replyAll" ? t("email.inlineReply.replyAll") : t("email.inlineReply.forward");
 
   return (
     <div ref={containerRef} className="mx-4 my-3 border border-border-primary rounded-lg overflow-hidden bg-bg-primary">
@@ -359,13 +361,13 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
                     : "text-text-tertiary hover:text-text-primary"
                 }`}
               >
-                {m === "reply" ? "Reply" : m === "replyAll" ? "Reply All" : "Forward"}
+                {m === "reply" ? t("email.inlineReply.reply") : m === "replyAll" ? t("email.inlineReply.replyAll") : t("email.inlineReply.forward")}
               </button>
             ))}
           </div>
           {to.length > 0 && (
             <span className="text-[0.6875rem] text-text-tertiary truncate max-w-[200px]">
-              to {to.join(", ")}
+              {t("email.inlineReply.to")} {to.join(", ")}
             </span>
           )}
         </div>
@@ -373,7 +375,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
           onClick={() => setMode(null)}
           className="text-xs text-text-tertiary hover:text-text-primary transition-colors"
         >
-          Cancel
+          {t("email.inlineReply.cancel")}
         </button>
       </div>
 
@@ -384,7 +386,7 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
           <div className="absolute inset-0 flex items-center justify-center bg-bg-primary/60 backdrop-blur-[1px]">
             <div className="flex items-center gap-2 text-xs text-text-secondary">
               <Loader2 size={14} className="animate-spin" />
-              Generating draft...
+              {t("email.inlineReply.generatingDraft")}
             </div>
           </div>
         )}
@@ -395,30 +397,30 @@ export function InlineReply({ thread, messages, accountId, noReply, onSent }: In
         <div className="flex items-center gap-1">
           <button
             onClick={handleExpandToComposer}
-            title="Expand to full composer"
+            title={t("email.inlineReply.expandTooltip")}
             className="flex items-center gap-1.5 px-2 py-1 text-xs text-text-tertiary hover:text-text-primary transition-colors"
           >
             <Maximize2 size={12} />
-            Expand
+            {t("email.inlineReply.expand")}
           </button>
           {hasAutoDraft && mode !== "forward" && (
             <>
               <button
                 onClick={handleRegenerateDraft}
                 disabled={autoDraftLoading}
-                title="Regenerate AI draft"
+                title={t("email.inlineReply.regenerateTooltip")}
                 className="flex items-center gap-1 px-2 py-1 text-xs text-text-tertiary hover:text-accent transition-colors disabled:opacity-50"
               >
                 <RotateCcw size={11} />
-                Regenerate
+                {t("email.inlineReply.regenerate")}
               </button>
               <button
                 onClick={handleClearDraft}
-                title="Clear AI draft"
+                title={t("email.inlineReply.clearTooltip")}
                 className="flex items-center gap-1 px-2 py-1 text-xs text-text-tertiary hover:text-danger transition-colors"
               >
                 <X size={11} />
-                Clear
+                {t("email.inlineReply.clear")}
               </button>
             </>
           )}

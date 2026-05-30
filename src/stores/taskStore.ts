@@ -1,18 +1,31 @@
 import { create } from "zustand";
 import type { DbTask, TaskPriority } from "@/services/db/tasks";
+import { getTaskBadgeCounts } from "@/services/db/tasks";
+import type { ExtractedTask } from "@/services/ai/taskExtraction";
 
 export type TaskGroupBy = "none" | "priority" | "dueDate" | "tag";
-export type TaskFilterStatus = "all" | "incomplete" | "completed";
+export type TaskFilterStatus = "all" | "incomplete" | "completed" | "deleted";
+export type TaskDirectionFilter = "all" | "incoming" | "outgoing";
 
 interface TaskState {
   tasks: DbTask[];
   threadTasks: DbTask[];
   selectedTaskId: string | null;
   incompleteCount: number;
+  taskOverdueTotal: number;
+  taskBadgeByAccount: Record<string, { active: number; overdue: number }>;
   groupBy: TaskGroupBy;
   filterStatus: TaskFilterStatus;
   filterPriority: TaskPriority | "all";
+  filterDirection: TaskDirectionFilter;
   searchQuery: string;
+
+  // AI monitor: set of threadIds where AI is actively monitoring
+  aiMonitoredThreads: Set<string>;
+  // Draft tasks pending user confirmation (before saving to DB)
+  draftTasks: ExtractedTask[];
+  draftThreadId: string | null;
+  isDraftLoading: boolean;
 
   setTasks: (tasks: DbTask[]) => void;
   setThreadTasks: (tasks: DbTask[]) => void;
@@ -21,21 +34,37 @@ interface TaskState {
   removeTask: (id: string) => void;
   setSelectedTaskId: (id: string | null) => void;
   setIncompleteCount: (count: number) => void;
+  refreshTaskBadges: () => Promise<void>;
   setGroupBy: (groupBy: TaskGroupBy) => void;
   setFilterStatus: (status: TaskFilterStatus) => void;
   setFilterPriority: (priority: TaskPriority | "all") => void;
+  setFilterDirection: (direction: TaskDirectionFilter) => void;
   setSearchQuery: (query: string) => void;
+
+  toggleAiMonitor: (threadId: string) => void;
+  isThreadMonitored: (threadId: string) => boolean;
+  setDraftTasks: (tasks: ExtractedTask[], threadId: string) => void;
+  clearDraftTasks: () => void;
+  setDraftLoading: (loading: boolean) => void;
 }
 
-export const useTaskStore = create<TaskState>((set) => ({
+export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   threadTasks: [],
   selectedTaskId: null,
   incompleteCount: 0,
+  taskOverdueTotal: 0,
+  taskBadgeByAccount: {},
   groupBy: "none",
   filterStatus: "incomplete",
   filterPriority: "all",
+  filterDirection: "all",
   searchQuery: "",
+
+  aiMonitoredThreads: new Set(),
+  draftTasks: [],
+  draftThreadId: null,
+  isDraftLoading: false,
 
   setTasks: (tasks) => set({ tasks }),
   setThreadTasks: (threadTasks) => set({ threadTasks }),
@@ -75,8 +104,38 @@ export const useTaskStore = create<TaskState>((set) => ({
     }),
   setSelectedTaskId: (selectedTaskId) => set({ selectedTaskId }),
   setIncompleteCount: (incompleteCount) => set({ incompleteCount }),
+  refreshTaskBadges: async () => {
+    const rows = await getTaskBadgeCounts();
+    const byAccount: Record<string, { active: number; overdue: number }> = {};
+    let totalActive = 0;
+    let totalOverdue = 0;
+    for (const row of rows) {
+      const key = row.account_id ?? "__null__";
+      byAccount[key] = { active: row.active, overdue: row.overdue };
+      totalActive += row.active;
+      totalOverdue += row.overdue;
+    }
+    set({ taskBadgeByAccount: byAccount, taskOverdueTotal: totalOverdue, incompleteCount: totalActive });
+  },
   setGroupBy: (groupBy) => set({ groupBy }),
   setFilterStatus: (status) => set({ filterStatus: status }),
   setFilterPriority: (priority) => set({ filterPriority: priority }),
+  setFilterDirection: (direction) => set({ filterDirection: direction }),
   setSearchQuery: (searchQuery) => set({ searchQuery }),
+
+  toggleAiMonitor: (threadId) =>
+    set((state) => {
+      const next = new Set(state.aiMonitoredThreads);
+      if (next.has(threadId)) {
+        next.delete(threadId);
+      } else {
+        next.add(threadId);
+      }
+      return { aiMonitoredThreads: next };
+    }),
+  isThreadMonitored: (threadId) => get().aiMonitoredThreads.has(threadId),
+
+  setDraftTasks: (tasks, threadId) => set({ draftTasks: tasks, draftThreadId: threadId, isDraftLoading: false }),
+  clearDraftTasks: () => set({ draftTasks: [], draftThreadId: null, isDraftLoading: false }),
+  setDraftLoading: (loading) => set({ isDraftLoading: loading }),
 }));

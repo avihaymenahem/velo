@@ -1,5 +1,7 @@
-import { useState, useCallback } from "react";
-import { MapPin, Clock, User, Pencil, Trash2 } from "lucide-react";
+import { useState, useCallback, useMemo } from "react";
+import { MapPin, Clock, User, Pencil, Trash2, Check, X, HelpCircle, Video } from "lucide-react";
+import { t, getLocale } from "@/i18n";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { TextField } from "@/components/ui/TextField";
@@ -7,6 +9,7 @@ import type { DbCalendarEvent } from "@/services/db/calendarEvents";
 import type { DbCalendar } from "@/services/db/calendars";
 import { getCalendarProvider } from "@/services/calendar/providerFactory";
 import { deleteCalendarEvent as deleteCalendarEventDb } from "@/services/db/calendarEvents";
+import { getMeetingUrl, isMeetingActive } from "@/utils/meetingUrl";
 
 interface EventDetailModalProps {
   event: DbCalendarEvent;
@@ -28,6 +31,12 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const calendar = calendars.find((c) => c.id === event.calendar_id);
+
+  const meetingUrl = useMemo(() => getMeetingUrl(event), [event]);
+  const nowTs = Math.floor(Date.now() / 1000);
+  const todayMidnightTs = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return Math.floor(d.getTime() / 1000); }, []);
+  const isUpcoming = event.start_time >= todayMidnightTs;
+  const isActive = meetingUrl && isUpcoming ? isMeetingActive(event, nowTs) : false;
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -73,7 +82,7 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
   }, [accountId, calendar, event, onUpdated]);
 
   const formatTime = (ts: number) => {
-    return new Date(ts * 1000).toLocaleString(undefined, {
+    return new Date(ts * 1000).toLocaleString(getLocale(), {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -82,14 +91,17 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
     });
   };
 
-  const attendees = event.attendees_json ? JSON.parse(event.attendees_json) as { email: string; displayName?: string }[] : [];
+  const attendees = event.attendees_json
+    ? (JSON.parse(event.attendees_json) as { email: string; displayName?: string; responseStatus?: string }[])
+        .filter((a) => a.email !== event.organizer_email)
+    : [];
 
   if (editing) {
     return (
-      <Modal isOpen={true} onClose={onClose} title="Edit Event" width="w-full max-w-md">
+      <Modal isOpen={true} onClose={onClose} title={t("calendar.eventEditTitle")} width="w-full max-w-md">
         <div className="p-4 space-y-3">
           <TextField
-            label="Title"
+            label={t("calendar.eventTitle")}
             type="text"
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
@@ -98,13 +110,13 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
 
           <div className="grid grid-cols-2 gap-3">
             <TextField
-              label="Start"
+              label={t("calendar.eventStart")}
               type="datetime-local"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
             />
             <TextField
-              label="End"
+              label={t("calendar.eventEnd")}
               type="datetime-local"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
@@ -112,19 +124,19 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
           </div>
 
           <TextField
-            label="Location"
+            label={t("calendar.eventLocation")}
             type="text"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            placeholder="Add location"
+            placeholder={t("calendar.eventLocationPlaceholder")}
           />
 
           <div>
-            <label className="text-xs text-text-secondary block mb-1">Description</label>
+            <label className="text-xs text-text-secondary block mb-1">{t("calendar.eventDescription")}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add description"
+              placeholder={t("calendar.eventDescriptionPlaceholder")}
               rows={3}
               className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent resize-none"
             />
@@ -132,10 +144,10 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" size="md" onClick={() => setEditing(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button variant="primary" size="md" onClick={handleSave} disabled={saving || !summary.trim()}>
-              {saving ? "Saving..." : "Save"}
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
           </div>
         </div>
@@ -144,7 +156,7 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={event.summary ?? "Event"} width="w-full max-w-md">
+    <Modal isOpen={true} onClose={onClose} title={event.summary ?? t("calendar.eventUnknown")} width="w-full max-w-md">
       <div className="p-4 space-y-3">
         {calendar && (
           <div className="flex items-center gap-2 text-xs text-text-tertiary">
@@ -177,29 +189,58 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
           </div>
         )}
 
-        {attendees.length > 0 && (
+        {(event.organizer_email || attendees.length > 0) && (
           <div className="border-t border-border-primary pt-3">
-            <div className="text-xs text-text-tertiary mb-1.5">Attendees</div>
+            <div className="text-xs text-text-tertiary mb-1.5">{t("calendar.eventAttendees")}</div>
             <div className="space-y-1">
-              {attendees.map((a, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm text-text-secondary">
-                  <User size={12} className="text-text-tertiary" />
-                  <span>{a.displayName ?? a.email}</span>
+              {event.organizer_email && (
+                <div className="flex items-center gap-2 text-sm text-text-secondary">
+                  <User size={12} className="text-accent" />
+                  <span className="flex-1 min-w-0 truncate">{event.organizer_email}</span>
+                  <span className="text-[0.625rem] text-text-tertiary shrink-0">{t("calendar.eventOrganizer")}</span>
                 </div>
-              ))}
+              )}
+              {attendees.map((a, i) => {
+                const status = a.responseStatus?.toLowerCase();
+                return (
+                  <div key={i} className="flex items-center gap-2 text-sm text-text-secondary">
+                    <User size={12} className="text-text-tertiary shrink-0" />
+                    <span className="flex-1 min-w-0 truncate">{a.displayName ?? a.email}</span>
+                    {status === "accepted" && <Check size={11} className="text-emerald-500 shrink-0" />}
+                    {status === "declined" && <X size={11} className="text-danger shrink-0" />}
+                    {status === "tentative" && <HelpCircle size={11} className="text-amber-400 shrink-0" />}
+                  </div>
+                );
+              })}
             </div>
+          </div>
+        )}
+
+        {meetingUrl && isUpcoming && (
+          <div className="pt-2 border-t border-border-primary">
+            <button
+              onClick={() => openUrl(meetingUrl).catch(() => {})}
+              className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
+                isActive
+                  ? "bg-accent text-white animate-pulse shadow-md shadow-accent/30"
+                  : "bg-accent/10 text-accent hover:bg-accent/20"
+              }`}
+            >
+              <Video size={15} />
+              {t("calendar.joinButton")}
+            </button>
           </div>
         )}
 
         <div className="flex justify-between pt-2 border-t border-border-primary">
           {confirmDelete ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-danger">Delete this event?</span>
+              <span className="text-xs text-danger">{t("calendar.eventDeleteConfirm")}</span>
               <Button variant="danger" size="xs" onClick={handleDelete} disabled={deleting}>
-                {deleting ? "Deleting..." : "Yes, delete"}
+                {deleting ? t("common.deleting") : t("calendar.eventYesDelete")}
               </Button>
               <Button variant="secondary" size="xs" onClick={() => setConfirmDelete(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </div>
           ) : (
@@ -209,7 +250,7 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
               icon={<Trash2 size={14} />}
               onClick={() => setConfirmDelete(true)}
             >
-              Delete
+              {t("common.delete")}
             </Button>
           )}
           <Button
@@ -218,7 +259,7 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
             icon={<Pencil size={14} />}
             onClick={() => setEditing(true)}
           >
-            Edit
+            {t("common.edit")}
           </Button>
         </div>
       </div>

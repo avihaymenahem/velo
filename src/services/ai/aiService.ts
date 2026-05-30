@@ -1,10 +1,14 @@
+import { getSetting } from "@/services/db/settings";
 import { getActiveProvider } from "./providerManager";
 import { getAiCache, setAiCache } from "@/services/db/aiCache";
 import { AiError } from "./errors";
 import type { DbMessage } from "@/services/db/messages";
+import type { ConversationMessage } from "./types";
 import {
   SUMMARIZE_PROMPT,
   COMPOSE_PROMPT,
+  MODIFY_PROMPT,
+  COMPOSER_FEEDBACK_PROMPT,
   REPLY_PROMPT,
   IMPROVE_PROMPT,
   SHORTEN_PROMPT,
@@ -14,12 +18,58 @@ import {
   ASK_INBOX_PROMPT,
   SMART_LABEL_PROMPT,
   EXTRACT_TASK_PROMPT,
+  HEAT_EXTINGUISH_JUDGE_PROMPT,
+  URGENCY_SCORE_PROMPT,
 } from "./prompts";
+import { getSoul } from "./soulService";
 
-async function callAi(systemPrompt: string, userContent: string): Promise<string> {
+async function callAi(systemPrompt: string, userContent: string, options?: { skipLanguage?: boolean; skipSoul?: boolean; conversationHistory?: ConversationMessage[] }): Promise<string> {
+  let finalSystemPrompt = systemPrompt;
+
+  // Prepend SOUL.md content as base personality
+  if (!options?.skipSoul) {
+    try {
+      const soul = getSoul();
+      if (soul) {
+        finalSystemPrompt = soul + "\n\n---\n\n" + systemPrompt;
+      }
+    } catch {
+      // Continue without soul if unavailable
+    }
+  }
+
+  // Append language instruction for text-heavy responses if a non-English language is set
+  const textPrompts = [
+    SUMMARIZE_PROMPT,
+    COMPOSE_PROMPT,
+    REPLY_PROMPT,
+    IMPROVE_PROMPT,
+    SHORTEN_PROMPT,
+    FORMALIZE_PROMPT,
+    ASK_INBOX_PROMPT,
+    SMART_REPLY_PROMPT,
+    COMPOSER_FEEDBACK_PROMPT,
+  ];
+
+  if (textPrompts.includes(systemPrompt) && !options?.skipLanguage) {
+    try {
+      const lang = await getSetting("ai_language");
+      if (lang && lang !== "English") {
+        finalSystemPrompt += `\n\nIMPORTANT: You must output your response in ${lang}.`;
+      }
+    } catch (err) {
+      console.error("Failed to fetch AI language setting:", err);
+    }
+  }
+
   try {
     const provider = await getActiveProvider();
-    return await provider.complete({ systemPrompt, userContent });
+    return await provider.complete({
+      systemPrompt: finalSystemPrompt,
+      userContent,
+      conversationHistory: options?.conversationHistory,
+    });
+
   } catch (err) {
     if (err instanceof AiError) throw err;
     const message = err instanceof Error ? err.message : String(err);
@@ -65,19 +115,52 @@ export async function summarizeThread(
   return summary;
 }
 
-export async function composeFromPrompt(instructions: string): Promise<string> {
-  return callAi(COMPOSE_PROMPT, instructions);
+export async function composeFromPrompt(instructions: string, options?: { skipLanguage?: boolean; conversationHistory?: ConversationMessage[] }): Promise<string> {
+  return callAi(COMPOSE_PROMPT, instructions, options);
+}
+
+export async function generateComposerFeedback(
+  draftHtml: string,
+  context?: { operation?: string },
+): Promise<string> {
+  const draftText = draftHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 800);
+  // Draft is in <email_draft> tags so the AI can detect its language unambiguously.
+  // Operation context is outside those tags and must NOT influence the response language.
+  const operationBlock = context?.operation
+    ? `\n\n<operation_context>${context.operation}</operation_context>`
+    : "";
+  const userContent = `<email_draft>\n${draftText}\n</email_draft>${operationBlock}`;
+  return callAi(COMPOSER_FEEDBACK_PROMPT, userContent);
+}
+
+export async function modifyEmailContent(currentBody: string, instructions: string, conversationHistory?: ConversationMessage[]): Promise<string> {
+  const userContent = `<current_body>${currentBody}</current_body>\n\nUser instructions: ${instructions}`;
+  // skipLanguage: true because MODIFY_PROMPT itself handles language continuity
+  return callAi(MODIFY_PROMPT, userContent, { skipLanguage: true, conversationHistory });
 }
 
 export async function generateReply(
   messagesText: string[],
   instructions?: string,
+  senderPastReplies?: string[],
+  conversationHistory?: ConversationMessage[],
 ): Promise<string> {
   const combined = messagesText.join("\n---\n").slice(0, 4000);
-  const userContent = instructions
-    ? `<email_content>${combined}</email_content>\n\nInstructions: ${instructions}`
-    : `<email_content>${combined}</email_content>`;
-  return callAi(REPLY_PROMPT, userContent);
+  let userContent = `<email_content>${combined}</email_content>`;
+
+  if (senderPastReplies?.length) {
+    const repliesText = senderPastReplies
+      .map((r, i) => `[Reply ${i + 1}]\n${r}`)
+      .join("\n\n");
+    userContent += `\n\n<past_replies_to_sender>\n${repliesText}\n</past_replies_to_sender>`;
+  }
+
+  if (instructions) {
+    userContent += `\n\nInstructions: ${instructions}`;
+  }
+
+  // skipLanguage: true — REPLY_PROMPT detects email language and responds in kind
+  return callAi(REPLY_PROMPT, userContent, { skipLanguage: true, conversationHistory });
 }
 
 export type TransformType = "improve" | "shorten" | "formalize";
@@ -91,7 +174,8 @@ export async function transformText(
     shorten: SHORTEN_PROMPT,
     formalize: FORMALIZE_PROMPT,
   };
-  return callAi(prompts[type], text);
+  // skipLanguage: true — prompts already enforce "same language as input"
+  return callAi(prompts[type], text, { skipLanguage: true });
 }
 
 export async function generateSmartReplies(
@@ -111,7 +195,8 @@ export async function generateSmartReplies(
 
   const formatted = messages.map(formatMessageForSummary).join("\n---\n");
   const combined = formatted.slice(0, 4000);
-  const result = await callAi(SMART_REPLY_PROMPT, `<email_content>${combined}</email_content>`);
+  // skipLanguage: true — SMART_REPLY_PROMPT detects email language and responds in kind
+  const result = await callAi(SMART_REPLY_PROMPT, `<email_content>${combined}</email_content>`, { skipLanguage: true });
 
   // Parse JSON array from response
   let replies: string[];
@@ -145,7 +230,7 @@ export async function generateSmartReplies(
 
 export async function askInbox(
   question: string,
-  _accountId: string,
+  _accountId: string | null,
   context: string,
 ): Promise<string> {
   const userContent = `<email_content>${context}</email_content>\n\nQuestion: ${question}`;
@@ -232,7 +317,21 @@ export async function extractTaskFromThread(
   const subject = messages[0]?.subject ?? "No subject";
   const formatted = messages.map(formatMessageForSummary).join("\n---\n");
   const combined = `<email_content>Subject: ${subject}\n\n${formatted}</email_content>`.slice(0, 6000);
-  return callAi(EXTRACT_TASK_PROMPT, combined);
+  // Inject current timestamp so the AI can compute relative due dates
+  const nowTs = Math.floor(Date.now() / 1000).toString();
+  let prompt = EXTRACT_TASK_PROMPT.replace("CURRENT_UNIX_TS", nowTs).replace("CURRENT_UNIX_TS", nowTs);
+  // The timestamp injection produces a new string that no longer matches the EXTRACT_TASK_PROMPT
+  // constant, so callAi's textPrompts.includes() check would skip language injection.
+  // Apply the language setting manually here instead.
+  try {
+    const lang = await getSetting("ai_language");
+    if (lang && lang !== "English") {
+      prompt += `\n\nIMPORTANT: You must output the task titles and descriptions in ${lang}.`;
+    }
+  } catch {
+    // Continue without language setting
+  }
+  return callAi(prompt, combined, { skipLanguage: true });
 }
 
 export async function testConnection(): Promise<boolean> {
@@ -241,5 +340,72 @@ export async function testConnection(): Promise<boolean> {
     return await provider.testConnection();
   } catch {
     return false;
+  }
+}
+
+/**
+ * Smart Judge: determines whether replying to an urgent email likely resolves it.
+ * Returns true → RESOLVED (extinguish), false → PENDING (just log).
+ * Falls back to true on any AI error so the UX degrades gracefully.
+ */
+export async function judgeUrgencyResolved(
+  urgentEmailText: string,
+  replyText?: string,
+): Promise<boolean> {
+  try {
+    let userContent = `<original_email>${urgentEmailText.slice(0, 600)}</original_email>`;
+    if (replyText) {
+      userContent += `\n<user_reply>${replyText.slice(0, 400)}</user_reply>`;
+    }
+    const result = await callAi(HEAT_EXTINGUISH_JUDGE_PROMPT, userContent, { skipLanguage: true });
+    return result.trim().toUpperCase().startsWith("RESOLVED");
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Score urgency for an email thread using the active AI provider.
+ * Returns a value in [0, 1], or null if AI is not available / fails.
+ * Results are cached in ai_cache (type "urgency") to avoid repeated calls.
+ */
+export async function scoreUrgencyWithAi(
+  accountId: string,
+  threadId: string,
+  subject: string,
+  bodyText: string,
+  fromAddress: string,
+  fromName: string,
+): Promise<number | null> {
+  const cached = await getAiCache(accountId, threadId, "urgency");
+  if (cached !== null) {
+    try {
+      const parsed = JSON.parse(cached) as { score: number };
+      return typeof parsed.score === "number" ? Math.min(1, Math.max(0, parsed.score)) : null;
+    } catch {
+      // Corrupted cache — fall through to re-score
+    }
+  }
+
+  const header = `From: ${fromName ? `${fromName} ` : ""}<${fromAddress}>\nSubject: ${subject}`;
+  const content = `${header}\n\n${bodyText}`.slice(0, 2000);
+  const result = await callAi(
+    URGENCY_SCORE_PROMPT,
+    `<email_content>${content}</email_content>`,
+    { skipLanguage: true, skipSoul: true },
+  );
+
+  try {
+    const jsonMatch = result.match(/\{[\s\S]*?\}/);
+    const parsed = jsonMatch ? (JSON.parse(jsonMatch[0]) as { score: number }) : null;
+    const score = parsed && typeof parsed.score === "number"
+      ? Math.min(1, Math.max(0, parsed.score))
+      : null;
+    if (score !== null) {
+      await setAiCache(accountId, threadId, "urgency", JSON.stringify({ score }));
+    }
+    return score;
+  } catch {
+    return null;
   }
 }

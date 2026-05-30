@@ -7,9 +7,23 @@ vi.mock("../db/threads", () => ({
   upsertThread: vi.fn(),
   setThreadLabels: vi.fn(),
   getMutedThreadIds: vi.fn().mockResolvedValue(new Set()),
+  markThreadUnreadInDb: vi.fn().mockResolvedValue(undefined),
+  deleteThread: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../db/messages", () => ({
   upsertMessage: vi.fn(),
+}));
+// processAndStoreThread persists via the Rust gmail_store_thread command (Tauri invoke),
+// which is unavailable in jsdom — mock it out.
+vi.mock("./tauriCommands", () => ({
+  gmailStoreThread: vi.fn().mockResolvedValue(undefined),
+}));
+// processAndStoreThread also prunes orphaned local rows via getDb — return no rows.
+vi.mock("../db/connection", () => ({
+  getDb: vi.fn(async () => ({
+    select: vi.fn(async () => []),
+    execute: vi.fn(async () => ({ rowsAffected: 0 })),
+  })),
 }));
 vi.mock("../db/attachments", () => ({
   upsertAttachment: vi.fn(),
@@ -44,6 +58,7 @@ vi.mock("@/services/db/bundleRules", () => ({
 }));
 vi.mock("@/services/db/pendingOperations", () => ({
   getPendingOpsForResource: vi.fn().mockResolvedValue([]),
+  getPendingOpResourceIds: vi.fn().mockResolvedValue(new Set()),
 }));
 
 const mockNotify = vi.fn();
@@ -137,6 +152,7 @@ describe("deltaSync notifications", () => {
       "thread-1",
       "account-1",
       "sender@example.com",
+      "snippet",
     );
   });
 

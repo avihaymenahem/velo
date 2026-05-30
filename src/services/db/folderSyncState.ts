@@ -1,4 +1,4 @@
-import { getDb, selectFirstBy } from "./connection";
+import { getDb, selectFirstBy, withTransaction } from "./connection";
 
 export interface FolderSyncState {
   account_id: string;
@@ -22,21 +22,22 @@ export async function getFolderSyncState(
 export async function upsertFolderSyncState(
   state: FolderSyncState,
 ): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    `INSERT INTO folder_sync_state (account_id, folder_path, uidvalidity, last_uid, modseq, last_sync_at)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT(account_id, folder_path) DO UPDATE SET
-       uidvalidity = $3, last_uid = $4, modseq = $5, last_sync_at = $6`,
-    [
-      state.account_id,
-      state.folder_path,
-      state.uidvalidity,
-      state.last_uid,
-      state.modseq,
-      state.last_sync_at,
-    ],
-  );
+  await withTransaction(async (db) => {
+    await db.execute(
+      `INSERT INTO folder_sync_state (account_id, folder_path, uidvalidity, last_uid, modseq, last_sync_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT(account_id, folder_path) DO UPDATE SET
+         uidvalidity = $3, last_uid = $4, modseq = $5, last_sync_at = $6`,
+      [
+        state.account_id,
+        state.folder_path,
+        state.uidvalidity,
+        state.last_uid,
+        state.modseq,
+        state.last_sync_at,
+      ],
+    );
+  });
 }
 
 export async function deleteFolderSyncState(

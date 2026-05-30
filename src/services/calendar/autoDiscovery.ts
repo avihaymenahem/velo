@@ -138,31 +138,50 @@ async function tryNextcloudDiscovery(domain: string): Promise<string | null> {
 
 /**
  * Test CalDAV connection with given credentials.
+ *
+ * Uses Tauri's plugin-http fetch (Rust/reqwest) instead of tsdav's internal fetch,
+ * because tsdav captures the browser fetch at import time and WebKit blocks
+ * cross-origin WebDAV requests (PROPFIND) that lack CORS headers.
  */
 export async function testCalDavConnection(
   url: string,
   username: string,
   password: string,
 ): Promise<{ success: boolean; message: string; calendarCount?: number }> {
+  const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
+
   try {
-    const { DAVClient } = await import("tsdav");
-    const client = new DAVClient({
-      serverUrl: url,
-      credentials: { username, password },
-      authMethod: "Basic",
-      defaultAccountType: "caldav",
+    const credentials = btoa(`${username}:${password}`);
+    const response = await tauriFetch(url, {
+      method: "PROPFIND",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        Depth: "0",
+        "Content-Type": "application/xml; charset=utf-8",
+      },
+      body: `<?xml version="1.0" encoding="utf-8"?><D:propfind xmlns:D="DAV:"><D:prop><D:resourcetype/><D:displayname/></D:prop></D:propfind>`,
     });
 
-    await client.login();
-    const calendars = await client.fetchCalendars();
-
-    return {
-      success: true,
-      message: `Connected — found ${calendars.length} calendar${calendars.length !== 1 ? "s" : ""}`,
-      calendarCount: calendars.length,
-    };
+    if (response.status === 207) {
+      return { success: true, message: "Connected successfully" };
+    } else if (response.status === 401) {
+      return { success: false, message: "Authentication failed — check username and password" };
+    } else if (response.status === 404) {
+      return { success: false, message: "CalDAV URL not found — check the server URL" };
+    } else if (response.ok) {
+      return { success: true, message: "Connected (server responded OK)" };
+    } else {
+      let detail = "";
+      try {
+        const body = await response.text();
+        if (body) detail = ` — ${body.slice(0, 200)}`;
+      } catch { /* ignore */ }
+      return { success: false, message: `Server returned ${response.status}${detail}` };
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Connection failed";
     return { success: false, message };
   }
 }
+
+export { listCalDavCalendars, fetchCalDavEvents } from "./caldavHttp";

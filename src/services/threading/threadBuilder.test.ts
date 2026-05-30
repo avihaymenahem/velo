@@ -85,6 +85,12 @@ describe('normalizeSubject', () => {
   it('handles Re: with no space after colon', () => {
     expect(normalizeSubject('Re:Hello')).toBe('Hello');
   });
+
+  it('collapses internal whitespace so subjects with double spaces match single-space variants', () => {
+    expect(normalizeSubject("[Carrière-sous-Poissy]: Données d'entrée  TF")).toBe(
+      normalizeSubject("RE: [Carrière-sous-Poissy]: Données d'entrée TF"),
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

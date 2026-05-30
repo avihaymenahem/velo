@@ -1,11 +1,11 @@
 # Architecture
 
-Velo follows a **three-layer architecture** with clear separation of concerns.
+Melo follows a **three-layer architecture** with clear separation of concerns.
 
 ```
 +--------------------------+
 |     React 19 + Zustand   |   UI Layer
-|  Components + 9 Stores   |   (TypeScript)
+|  Components + 10 Stores  |   (TypeScript)
 +--------------------------+
 |     Service Layer         |   Business Logic
 |  Email Provider / Gmail / |   (TypeScript)
@@ -31,7 +31,7 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 | **Backend** | Rust |
 | **Database** | SQLite (via tauri-plugin-sql) |
 | **Search** | FTS5 with trigram tokenizer |
-| **AI** | Anthropic Claude, OpenAI GPT, Google Gemini (user-selectable models per provider) |
+| **AI** | Anthropic Claude, OpenAI GPT, Google Gemini, Ollama (local), GitHub Copilot (user-selectable models per provider) |
 | **Icons** | Lucide React |
 | **Drag & Drop** | @dnd-kit |
 | **Testing** | Vitest + Testing Library |
@@ -39,18 +39,18 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 ## Data Flow
 
 1. **Sync** -- Background sync every 60s. Gmail accounts use Gmail History API (delta sync, falls back to full sync if history expires ~30 days). IMAP accounts use UIDVALIDITY/last_uid tracking for efficient delta sync.
-2. **Storage** -- All messages, threads, labels, contacts, calendar events, and AI results stored in local SQLite (34 tables) with FTS5 full-text indexing.
-3. **State** -- Eight Zustand stores manage UI state. No middleware, no persistence needed -- ephemeral state rebuilds from SQLite on startup.
+2. **Storage** -- All messages, threads, labels, contacts, calendar events, and AI results stored in local SQLite (39 tables) with FTS5 full-text indexing.
+3. **State** -- Ten Zustand stores manage UI state. No middleware, no persistence needed -- ephemeral state rebuilds from SQLite on startup.
 4. **Rendering** -- Email HTML is sanitized with DOMPurify and rendered in sandboxed iframes. Remote images blocked by default.
-5. **Background services** -- Seven interval checkers run continuously: sync (60s), snooze (60s), scheduled send (60s), follow-up reminders (60s), newsletter bundles (60s), offline queue processor (30s), and attachment pre-cache (15min).
+5. **Background services** -- Multiple interval checkers run continuously: sync (60s), snooze (60s), scheduled send (60s), follow-up reminders (60s), newsletter bundles (60s), offline queue processor (30s), attachment pre-cache (15min), and update checker.
 6. **Security** -- Phishing link detection scores message links with 10 heuristic rules. SPF/DKIM/DMARC authentication headers parsed and displayed as badges.
 
 ## Project Structure
 
 ```
-velo/
+melo/
 ├── src/
-│   ├── components/           # React components (14 groups, ~94 files)
+│   ├── components/           # React components (~154 files)
 │   │   ├── layout/           # Sidebar, EmailList, ReadingPane, TitleBar
 │   │   ├── email/            # ThreadView, MessageItem, EmailRenderer,
 │   │   │                     # ContactSidebar, SmartReplySuggestions,
@@ -75,20 +75,22 @@ velo/
 │   │   ├── dnd/              # DndProvider (drag threads → sidebar labels)
 │   │   └── ui/               # EmptyState, Skeleton, ContextMenu, OfflineBanner, illustrations/
 │   ├── services/             # Business logic layer
-│   │   ├── db/               # SQLite queries (29 files), migrations, FTS5
+│   │   ├── db/               # SQLite queries, migrations, FTS5
 │   │   ├── email/            # EmailProvider abstraction, providerFactory,
 │   │   │                     # gmailProvider, imapSmtpProvider
 │   │   ├── gmail/            # GmailClient, tokenManager, syncManager
 │   │   ├── imap/             # IMAP sync, folder mapper, auto-discovery,
 │   │   │                     # config builder, Tauri command wrappers
+│   │   ├── oauth/            # OAuth PKCE flow, token manager
 │   │   ├── threading/        # JWZ threading engine for IMAP conversations
-│   │   ├── ai/               # AI service, 3 providers, categorization, Ask Inbox,
+│   │   ├── ai/               # AI service, 5 providers, categorization, Ask Inbox,
 │   │   │                     # writing style analysis, auto-drafts, task extraction
 │   │   ├── google/           # Google Calendar API
-│   │   ├── composer/         # Draft auto-save
+│   │   ├── composer/         # Draft auto-save (two-tier: local 3s + server 18s)
 │   │   ├── search/           # Query parser, SQL builder
 │   │   ├── filters/          # Auto-apply filter engine
 │   │   ├── categorization/   # Rule-based categorization engine
+│   │   ├── phishing/         # Link scoring, heuristic rules, allowlist
 │   │   ├── snooze/           # Snooze & scheduled send checkers
 │   │   ├── followup/         # Follow-up reminder checker
 │   │   ├── bundles/          # Newsletter bundle manager
@@ -99,13 +101,18 @@ velo/
 │   │   ├── quickSteps/       # Quick step executor, types, defaults
 │   │   ├── queue/            # Offline queue processor
 │   │   ├── tasks/            # Task recurrence manager
+│   │   ├── smartLabels/      # AI-powered auto-labeling
 │   │   ├── emailActions.ts   # Centralized email action service (offline-aware)
+│   │   ├── backgroundCheckers.ts # Factory for interval-based background checkers
+│   │   ├── updateManager.ts  # In-app update checker and installer
 │   │   ├── badgeManager.ts   # Taskbar badge count
 │   │   ├── deepLinkHandler.ts # mailto: protocol handler
 │   │   └── globalShortcut.ts # System-wide compose shortcut
-│   ├── stores/               # Zustand stores (9): ui, account, thread,
-│   │                         # composer, label, contextMenu, shortcut, smartFolder, task
-│   ├── hooks/                # useKeyboardShortcuts, useClickOutside, useContextMenu
+│   ├── stores/               # Zustand stores (10): ui, account, thread,
+│   │                         # composer, label, contextMenu, shortcut,
+│   │                         # smartFolder, task, outgoing
+│   ├── hooks/                # useKeyboardShortcuts, useClickOutside,
+│   │                         # useContextMenu, useResizeObserver
 │   ├── utils/                # crypto, date, emailBuilder, sanitize, imageBlocker,
 │   │                         # mailtoParser, fileUtils, templateVariables, noReply
 │   ├── constants/            # Keyboard shortcuts, color themes, help content
@@ -135,9 +142,9 @@ The Rust layer (`src-tauri/src/`) handles system integration and performance-cri
 - **Custom titlebar** -- Overlay on macOS, frameless on Windows/Linux
 - **Windows AUMID** -- Set for proper notification identity
 
-**Tauri commands:** `start_oauth_server`, `close_splashscreen`, `set_tray_tooltip`, `open_devtools`, 11 IMAP commands (`imap_test_connection`, `imap_list_folders`, `imap_fetch_messages`, etc.), 2 SMTP commands (`smtp_send_email`, `smtp_test_connection`)
+**Tauri commands:** `start_oauth_server`, `oauth_exchange_token`, `oauth_refresh_token`, `close_splashscreen`, `set_tray_tooltip`, `open_devtools`, 17 IMAP commands (`imap_test_connection`, `imap_list_folders`, `imap_fetch_messages`, `imap_fetch_new_uids`, `imap_search_all_uids`, `imap_fetch_message_body`, `imap_fetch_raw_message`, `imap_set_flags`, `imap_move_messages`, `imap_delete_messages`, `imap_get_folder_status`, `imap_fetch_attachment`, `imap_append_message`, `imap_search_folder`, `imap_sync_folder`, `imap_raw_fetch_diagnostic`, `imap_delta_check`), 2 SMTP commands (`smtp_send_email`, `smtp_test_connection`)
 
-**Plugins (13):** sql, notification, opener, log, dialog, fs, http, single-instance, autostart, deep-link, global-shortcut
+**Plugins (14):** sql, notification, opener, log, dialog, fs, http, single-instance, autostart, deep-link, global-shortcut, updater, process, os
 
 **Rust dependencies (IMAP/SMTP):** `async-imap`, `tokio-native-tls`, `mail-parser`, `lettre`
 
@@ -147,17 +154,19 @@ All business logic lives in `src/services/` as plain async functions (except `Gm
 
 | Service | Description |
 |---------|-------------|
-| `db/` | SQLite queries (29 files), migrations, FTS5 search |
+| `db/` | SQLite queries, migrations (46 versions), FTS5 search |
 | `email/` | EmailProvider abstraction, provider factory, Gmail/IMAP adapters |
 | `gmail/` | Gmail client, token management, sync engine |
 | `imap/` | IMAP sync, folder-to-label mapping, auto-discovery, Tauri command wrappers |
+| `oauth/` | OAuth PKCE flow, token refresh, multi-account token management |
 | `threading/` | JWZ threading algorithm for IMAP message grouping |
-| `ai/` | AI service with 3 providers (selectable models), categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction |
+| `ai/` | AI service with 5 providers — Claude, OpenAI, Gemini, Ollama (local), Copilot — selectable per feature, categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction |
 | `google/` | Google Calendar API |
-| `composer/` | Draft auto-save (3s debounce) |
+| `composer/` | Draft auto-save — two-tier: stable UUID row in SQLite (3s debounce) + server APPEND (18s debounce) |
 | `search/` | Gmail-style query parser, SQL builder |
 | `filters/` | Auto-apply filter engine (AND logic) |
 | `categorization/` | Rule-based categorization before AI fallback |
+| `phishing/` | Link heuristic scoring (10 rules), sensitivity config, per-sender allowlist |
 | `snooze/` | Snooze & scheduled send background checkers |
 | `followup/` | Follow-up reminder checker |
 | `bundles/` | Newsletter bundling with delivery schedules |
@@ -170,11 +179,11 @@ All business logic lives in `src/services/` as plain async functions (except `Gm
 | `tasks/` | Task recurrence manager |
 | `smartLabels/` | AI-powered auto-labeling with two-phase matching (criteria + AI) |
 
-**Root-level services:** `emailActions.ts` (centralized offline-aware email actions), `badgeManager.ts` (taskbar badge), `deepLinkHandler.ts` (mailto: protocol), `globalShortcut.ts` (system-wide compose)
+**Root-level services:** `emailActions.ts` (centralized offline-aware email actions), `backgroundCheckers.ts` (factory for interval checkers), `updateManager.ts` (in-app updates), `badgeManager.ts` (taskbar badge), `deepLinkHandler.ts` (mailto: protocol), `globalShortcut.ts` (system-wide compose)
 
 ## UI Layer
 
-Nine Zustand stores manage ephemeral UI state:
+Ten Zustand stores manage ephemeral UI state:
 
 | Store | Purpose |
 |-------|---------|
@@ -187,12 +196,13 @@ Nine Zustand stores manage ephemeral UI state:
 | `shortcutStore` | Custom keyboard shortcut bindings |
 | `smartFolderStore` | Saved searches with dynamic query tokens |
 | `taskStore` | Task list, filters, grouping, thread tasks, incomplete count |
+| `outgoingStore` | In-flight outgoing emails (undo-send window + sending status) |
 
 ## Database
 
-SQLite via Tauri SQL plugin. 19 migrations, 35 tables total.
+SQLite via Tauri SQL plugin. 46 migrations (version-tracked in `_migrations`, transactional), 39 tables total.
 
-Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS5 index, `auth_results`, IMAP headers, `imap_uid`, `imap_folder`), `threads` (with `is_pinned`, `is_muted`), `thread_labels`, `labels` (with `imap_folder_path`, `imap_special_use`), `contacts`, `attachments` (with `imap_part_id`), `filter_rules`, `scheduled_emails`, `templates`, `signatures`, `image_allowlist`, `settings`, `ai_cache`, `thread_categories`, `calendar_events`, `follow_up_reminders`, `notification_vips`, `unsubscribe_actions`, `bundle_rules`, `bundled_threads`, `send_as_aliases`, `smart_folders`, `link_scan_results`, `phishing_allowlist`, `quick_steps`, `folder_sync_state` (IMAP sync tracking), `pending_operations` (offline action queue), `local_drafts` (offline draft persistence), `writing_style_profiles` (AI writing style per account), `tasks` (full task management with priorities, subtasks, recurrence), `task_tags` (custom task tag colors), `smart_label_rules` (AI-powered auto-labeling rules).
+Key tables: `accounts` (with `provider` "gmail_api"|"imap", IMAP/SMTP fields, encrypted `imap_password`, optional `imap_username`), `messages` (FTS5 index `messages_fts`, `auth_results`, IMAP headers, `imap_uid`, `imap_folder`), `threads` (`is_pinned`, `is_muted`), `thread_labels`, `labels` (`imap_folder_path`, `imap_special_use`), `contacts`, `attachments` (`imap_part_id`, `cached_at`, `cache_size`), `filter_rules` (criteria/actions as JSON), `scheduled_emails`, `templates`, `signatures`, `image_allowlist`, `settings` (key-value), `ai_cache`, `thread_categories`, `calendar_events`, `follow_up_reminders`, `notification_vips`, `unsubscribe_actions`, `bundle_rules`, `bundled_threads`, `send_as_aliases`, `smart_folders`, `link_scan_results`, `phishing_allowlist`, `quick_steps`, `folder_sync_state` (IMAP UIDVALIDITY/last_uid/modseq tracking), `pending_operations` (offline queue with retry/backoff), `local_drafts` (schema exists, unused at code level — superseded by two-tier draft system in `messages`), `deleted_imap_uids` (tombstone — prevents re-import of deleted messages during sync), `writing_style_profiles`, `tasks` (priorities, subtasks, recurrence), `task_tags`, `smart_label_rules`, `_migrations`.
 
 ## Startup Sequence
 
@@ -211,7 +221,7 @@ Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS
 
 ## Packaging & Distribution
 
-Velo supports standard Linux distribution formats via automated and local build processes:
+Melo supports standard Linux distribution formats via automated and local build processes:
 
 - **RPM & COPR**: Native RPM generation is integrated via Tauri's bundler (`tauri build -b rpm`), making it trivial to build and test RPMs locally or publish SRPMs to Fedora COPR.
 - **Flatpak**: A Flatpak manifest (`com.velomail.app.yml`) defines the sandbox environment, leveraging the GNOME 46 runtime and Rust/Node.js SDK extensions. Local builds are streamlined via an npm script (`npm run flatpak`) which uses `flatpak-builder` while excluding host-specific artifacts to ensure reproducible sandboxed builds.

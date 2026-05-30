@@ -22,6 +22,10 @@ export interface CalendarEventData {
   attendeesJson: string | null;
   htmlLink: string | null;
   icalData: string | null;
+  // Unix seconds — set for recurring-instance overrides (RECURRENCE-ID).
+  // Used internally by expandVEvents to suppress the slot from RRULE expansion;
+  // not persisted to the DB.
+  recurrenceId?: number | null;
 }
 
 export interface CreateEventInput {

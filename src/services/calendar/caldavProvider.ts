@@ -8,8 +8,9 @@ import type {
   CreateEventInput,
   UpdateEventInput,
 } from "./types";
-import { generateVEvent, parseVEvent } from "./icalHelper";
+import { generateVEvent, parseVEvent, expandVEvents } from "./icalHelper";
 import { getAccount } from "@/services/db/accounts";
+import { listCalDavCalendars, fetchCalDavEvents } from "./caldavHttp";
 
 export class CalDAVProvider implements CalendarProvider {
   readonly type: CalendarProviderType = "caldav";
@@ -43,35 +44,45 @@ export class CalDAVProvider implements CalendarProvider {
   }
 
   async listCalendars(): Promise<CalendarInfo[]> {
-    const client = await this.getClient();
-    const calendars = await client.fetchCalendars();
-
-    return calendars.map((cal, index) => ({
-      remoteId: cal.url,
-      displayName: typeof cal.displayName === "string" ? cal.displayName : `Calendar ${index + 1}`,
-      color: extractCalendarColor(cal) ?? null,
-      isPrimary: index === 0,
-    }));
+    const account = await getAccount(this.accountId);
+    if (!account?.caldav_url || !account.caldav_password) {
+      throw new Error("CalDAV credentials not configured");
+    }
+    const username = account.caldav_username ?? account.email;
+    // Uses Tauri's plugin-http fetch (bypasses WebKit CORS for PROPFIND)
+    return listCalDavCalendars(account.caldav_url, username, account.caldav_password);
   }
 
   async fetchEvents(calendarRemoteId: string, timeMin: string, timeMax: string): Promise<CalendarEventData[]> {
-    const client = await this.getClient();
+    const account = await getAccount(this.accountId);
+    if (!account?.caldav_url || !account.caldav_password) throw new Error("CalDAV credentials not configured");
+    const username = account.caldav_username ?? account.email;
 
-    const objects = await client.fetchCalendarObjects({
-      calendar: { url: calendarRemoteId } as DAVCalendar,
-      timeRange: {
-        start: timeMin,
-        end: timeMax,
-      },
-    });
-
-    return objects
-      .filter((obj) => obj.data)
-      .map((obj) => {
-        const event = parseVEvent(obj.data!, obj.url);
-        event.etag = obj.etag ?? null;
-        return event;
+    const objects = await fetchCalDavEvents(calendarRemoteId, username, account.caldav_password, timeMin, timeMax);
+    const rangeStartTs = Math.floor(new Date(timeMin).getTime() / 1000);
+    const rangeEndTs = Math.floor(new Date(timeMax).getTime() / 1000);
+    const debug = (globalThis as { __VELO_CALDAV_DEBUG__?: boolean }).__VELO_CALDAV_DEBUG__;
+    if (debug) {
+      console.log("[caldav] fetchEvents response", {
+        calendarRemoteId,
+        timeMin,
+        timeMax,
+        objectCount: objects.length,
       });
+    }
+    const allEvents: CalendarEventData[] = [];
+    for (const obj of objects) {
+      if (debug && /RRULE/i.test(obj.icalData)) {
+        console.log("[caldav] raw iCal with RRULE", { url: obj.url, icalData: obj.icalData });
+      }
+      const events = expandVEvents(obj.icalData, obj.url, rangeStartTs, rangeEndTs);
+      for (const event of events) {
+        event.etag = obj.etag;
+        allEvents.push(event);
+      }
+    }
+    if (debug) console.log("[caldav] fetchEvents total events after expansion", allEvents.length);
+    return allEvents;
   }
 
   async createEvent(calendarRemoteId: string, event: CreateEventInput): Promise<CalendarEventData> {
@@ -152,29 +163,31 @@ export class CalDAVProvider implements CalendarProvider {
   }
 
   async syncEvents(calendarRemoteId: string, _syncToken?: string): Promise<CalendarSyncResult> {
-    const client = await this.getClient();
-    const created: CalendarEventData[] = [];
+    const account = await getAccount(this.accountId);
+    if (!account?.caldav_url || !account.caldav_password) throw new Error("CalDAV credentials not configured");
+    const username = account.caldav_username ?? account.email;
 
-    // Full fetch — tsdav's syncCalendars doesn't reliably expose per-object deltas,
-    // so we do a time-range fetch and let the DB upsert logic handle deduplication.
     const now = new Date();
     const timeMin = new Date(now);
     timeMin.setDate(timeMin.getDate() - 90);
     const timeMax = new Date(now);
     timeMax.setFullYear(timeMax.getFullYear() + 1);
 
-    const objects = await client.fetchCalendarObjects({
-      calendar: { url: calendarRemoteId } as DAVCalendar,
-      timeRange: {
-        start: timeMin.toISOString(),
-        end: timeMax.toISOString(),
-      },
-    });
+    const objects = await fetchCalDavEvents(
+      calendarRemoteId,
+      username,
+      account.caldav_password,
+      timeMin.toISOString(),
+      timeMax.toISOString(),
+    );
 
+    const rangeStartTs = Math.floor(timeMin.getTime() / 1000);
+    const rangeEndTs = Math.floor(timeMax.getTime() / 1000);
+    const created: CalendarEventData[] = [];
     for (const obj of objects) {
-      if (obj.data) {
-        const event = parseVEvent(obj.data, obj.url);
-        event.etag = obj.etag ?? null;
+      const events = expandVEvents(obj.icalData, obj.url, rangeStartTs, rangeEndTs);
+      for (const event of events) {
+        event.etag = obj.etag;
         created.push(event);
       }
     }
@@ -198,9 +211,3 @@ export class CalDAVProvider implements CalendarProvider {
   }
 }
 
-function extractCalendarColor(cal: DAVCalendar): string | null {
-  // tsdav may expose calendar-color in props
-  const props = cal as unknown as Record<string, unknown>;
-  if (typeof props.calendarColor === "string") return props.calendarColor;
-  return null;
-}

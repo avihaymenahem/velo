@@ -1,8 +1,14 @@
+// IMAP stores dates as Unix seconds; Gmail stores milliseconds.
+// Any value < 1e10 is certainly seconds (year 2001 in ms = 1e12).
+function toMs(timestamp: number): number {
+  return timestamp < 1e10 ? timestamp * 1000 : timestamp;
+}
+
 /**
- * Format a unix timestamp (milliseconds) into a relative date string.
+ * Format a unix timestamp (seconds or milliseconds) into a relative date string.
  */
 export function formatRelativeDate(timestamp: number): string {
-  const date = new Date(timestamp);
+  const date = new Date(toMs(timestamp));
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / 86_400_000);
@@ -44,10 +50,10 @@ export function formatRelativeDate(timestamp: number): string {
 }
 
 /**
- * Format a unix timestamp into a full date string for message headers.
+ * Format a unix timestamp (seconds or milliseconds) into a full date string for message headers.
  */
 export function formatFullDate(timestamp: number): string {
-  const date = new Date(timestamp);
+  const date = new Date(toMs(timestamp));
   return date.toLocaleDateString(undefined, {
     weekday: "short",
     month: "short",

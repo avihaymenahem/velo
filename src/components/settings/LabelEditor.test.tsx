@@ -36,7 +36,7 @@ describe("LabelEditor", () => {
   it("renders empty state", () => {
     render(<LabelEditor />);
     expect(screen.getByText("No user labels")).toBeInTheDocument();
-    expect(screen.getByText("+ Add label")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add Label/i })).toBeInTheDocument();
   });
 
   it("renders labels list", () => {
@@ -51,7 +51,7 @@ describe("LabelEditor", () => {
 
   it("shows form when + Add label is clicked", () => {
     render(<LabelEditor />);
-    fireEvent.click(screen.getByText("+ Add label"));
+    fireEvent.click(screen.getByRole("button", { name: /Add Label/i }));
     expect(screen.getByPlaceholderText("Label name")).toBeInTheDocument();
     expect(screen.getByText("Save")).toBeInTheDocument();
     expect(screen.getByText("Cancel")).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe("LabelEditor", () => {
 
   it("hides form when Cancel is clicked", () => {
     render(<LabelEditor />);
-    fireEvent.click(screen.getByText("+ Add label"));
+    fireEvent.click(screen.getByRole("button", { name: /Add Label/i }));
     expect(screen.getByPlaceholderText("Label name")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Cancel"));
     expect(screen.queryByPlaceholderText("Label name")).not.toBeInTheDocument();
@@ -68,7 +68,7 @@ describe("LabelEditor", () => {
   it("calls createLabel on save with name", async () => {
     mockCreateLabel.mockResolvedValue(undefined);
     render(<LabelEditor />);
-    fireEvent.click(screen.getByText("+ Add label"));
+    fireEvent.click(screen.getByRole("button", { name: /Add Label/i }));
     fireEvent.change(screen.getByPlaceholderText("Label name"), { target: { value: "New Label" } });
     fireEvent.click(screen.getByText("Save"));
 
@@ -84,12 +84,12 @@ describe("LabelEditor", () => {
     render(<LabelEditor />);
 
     // Click the edit button (pencil icon)
-    const editButtons = screen.getAllByTitle("Edit");
+    const editButtons = screen.getAllByTitle("Edit label");
     fireEvent.click(editButtons[0]!);
 
     const input = screen.getByPlaceholderText("Label name") as HTMLInputElement;
     expect(input.value).toBe("Work");
-    expect(screen.getByText("Update")).toBeInTheDocument();
+    expect(screen.getByText("Edit label")).toBeInTheDocument();
   });
 
   it("calls updateLabel on save when editing", async () => {
@@ -99,9 +99,9 @@ describe("LabelEditor", () => {
     ]);
     render(<LabelEditor />);
 
-    fireEvent.click(screen.getAllByTitle("Edit")[0]!);
+    fireEvent.click(screen.getAllByTitle("Edit label")[0]!);
     fireEvent.change(screen.getByPlaceholderText("Label name"), { target: { value: "Updated" } });
-    fireEvent.click(screen.getByText("Update"));
+    fireEvent.click(screen.getByText("Edit label"));
 
     await waitFor(() => {
       expect(mockUpdateLabel).toHaveBeenCalledWith("acc1", "L1", {
@@ -118,7 +118,7 @@ describe("LabelEditor", () => {
     ]);
     render(<LabelEditor />);
 
-    fireEvent.click(screen.getAllByTitle("Delete")[0]!);
+    fireEvent.click(screen.getAllByTitle("Delete label")[0]!);
 
     await waitFor(() => {
       expect(mockDeleteLabel).toHaveBeenCalledWith("acc1", "L1");
@@ -163,7 +163,7 @@ describe("LabelEditor", () => {
       { id: "L1", accountId: "acc1", name: "Work", type: "user", colorBg: null, colorFg: null, sortOrder: 0 },
     ]);
     render(<LabelEditor />);
-    fireEvent.click(screen.getAllByTitle("Delete")[0]!);
+    fireEvent.click(screen.getAllByTitle("Delete label")[0]!);
 
     await waitFor(() => {
       expect(screen.getByText("API error")).toBeInTheDocument();
@@ -172,13 +172,13 @@ describe("LabelEditor", () => {
 
   it("disables save button when name is empty", () => {
     render(<LabelEditor />);
-    fireEvent.click(screen.getByText("+ Add label"));
+    fireEvent.click(screen.getByRole("button", { name: /Add Label/i }));
     expect(screen.getByText("Save")).toBeDisabled();
   });
 
   it("selects a color in the color picker", () => {
     render(<LabelEditor />);
-    fireEvent.click(screen.getByText("+ Add label"));
+    fireEvent.click(screen.getByRole("button", { name: /Add Label/i }));
 
     // Click a color swatch (the red one #fb4c2f)
     const colorButton = screen.getByTitle("#fb4c2f");
@@ -196,13 +196,13 @@ describe("LabelEditor", () => {
     render(<LabelEditor />);
 
     // Click edit on the first label
-    fireEvent.click(screen.getAllByTitle("Edit")[0]!);
+    fireEvent.click(screen.getAllByTitle("Edit label")[0]!);
 
     // Form should be visible
     const input = screen.getByPlaceholderText("Label name") as HTMLInputElement;
     expect(input.value).toBe("First");
 
     // The "+ Add label" button should not be visible while editing
-    expect(screen.queryByText("+ Add label")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add Label/i })).not.toBeInTheDocument();
   });
 });

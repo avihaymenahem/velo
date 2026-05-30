@@ -1,4 +1,5 @@
 import { Download, Eye, ExternalLink } from "lucide-react";
+import { t } from "@/i18n";
 import { formatFileSize, getFileIcon, canPreview } from "@/utils/fileTypeHelpers";
 import type { AttachmentWithContext } from "@/services/db/attachments";
 
@@ -20,16 +21,16 @@ function formatShortDate(timestamp: number | null): string {
 
 export function AttachmentListItem({ attachment, onPreview, onDownload, onJumpToEmail }: AttachmentListItemProps) {
   const previewable = canPreview(attachment.mime_type, attachment.filename);
-  const senderName = attachment.from_name || attachment.from_address || "Unknown";
+  const senderName = attachment.from_name || attachment.from_address || t("attachments.library.unknownSender");
 
   return (
     <div className="group flex items-center gap-3 px-3 py-2 hover:bg-bg-hover rounded-md transition-colors">
       {/* Icon */}
-      <span className="text-lg shrink-0 w-7 text-center">{getFileIcon(attachment.mime_type)}</span>
+      <span className="text-lg shrink-0 w-7 text-center">{getFileIcon(attachment.mime_type, attachment.filename)}</span>
 
       {/* Filename */}
       <span className="text-sm text-text-primary truncate min-w-0 flex-1" title={attachment.filename ?? undefined}>
-        {attachment.filename ?? "Unnamed"}
+        {attachment.filename ?? t("attachments.library.unnamed")}
       </span>
 
       {/* Sender */}
@@ -53,7 +54,7 @@ export function AttachmentListItem({ attachment, onPreview, onDownload, onJumpTo
           <button
             onClick={onPreview}
             className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors"
-            title="Preview"
+            title={t("attachments.library.actionPreview")}
           >
             <Eye size={14} />
           </button>
@@ -61,14 +62,14 @@ export function AttachmentListItem({ attachment, onPreview, onDownload, onJumpTo
         <button
           onClick={onDownload}
           className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors"
-          title="Download"
+          title={t("attachments.library.actionDownload")}
         >
           <Download size={14} />
         </button>
         <button
           onClick={onJumpToEmail}
           className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors"
-          title="Jump to email"
+          title={t("attachments.library.actionJumpToEmail")}
         >
           <ExternalLink size={14} />
         </button>

@@ -8,11 +8,16 @@ interface BuiltQuery {
 /**
  * Build a parameterized SQL query from a parsed search query.
  * Returns { sql, params } for safe execution.
+ *
+ * @param excludeSystemLabels - When true, threads in TRASH or SPAM are excluded
+ *   unless the query already filters by those labels (mirrors Gmail's default behaviour).
  */
 export function buildSearchQuery(
   parsed: ParsedSearchQuery,
-  accountId?: string,
+  accountId?: string | string[],
   limit = 50,
+  excludeSystemLabels = false,
+  orderByDate = false,
 ): BuiltQuery {
   const params: unknown[] = [];
   let paramIdx = 1;
@@ -33,7 +38,14 @@ export function buildSearchQuery(
   }
 
   // Account filter
-  if (accountId) {
+  if (Array.isArray(accountId)) {
+    if (accountId.length > 0) {
+      const placeholders = accountId.map((_, i) => `$${paramIdx + i}`).join(", ");
+      whereClauses.push(`m.account_id IN (${placeholders})`);
+      params.push(...accountId);
+      paramIdx += accountId.length;
+    }
+  } else if (accountId) {
     whereClauses.push(`m.account_id = $${paramIdx}`);
     params.push(accountId);
     paramIdx++;
@@ -60,16 +72,24 @@ export function buildSearchQuery(
     paramIdx++;
   }
 
-  // has:attachment
+  // has:attachment — exclude inline CID images (e.g. signature logos)
   if (parsed.hasAttachment) {
     whereClauses.push(
-      `EXISTS (SELECT 1 FROM attachments a WHERE a.account_id = m.account_id AND a.message_id = m.id)`,
+      `EXISTS (SELECT 1 FROM attachments a WHERE a.account_id = m.account_id AND a.message_id = m.id AND a.is_inline = 0)`,
+    );
+  }
+
+  // has:calendar — messages with .ics attachments or calendar MIME type
+  if (parsed.hasCalendar) {
+    whereClauses.push(
+      `EXISTS (SELECT 1 FROM attachments a WHERE a.account_id = m.account_id AND a.message_id = m.id AND (a.mime_type LIKE '%calendar%' OR a.filename LIKE '%.ics'))`,
     );
   }
 
   // is:unread
   if (parsed.isUnread) {
     whereClauses.push(`m.is_read = 0`);
+    whereClauses.push(`m.is_draft = 0`);
   }
 
   // is:read
@@ -105,8 +125,23 @@ export function buildSearchQuery(
     paramIdx++;
   }
 
+  // Exclude TRASH and SPAM unless the query explicitly targets those labels.
+  // DRAFT is excluded only for pure-draft threads (DRAFT without INBOX) — threads
+  // with a draft reply in progress (DRAFT + INBOX) should still appear in smart folders.
+  if (excludeSystemLabels && !parsed.label) {
+    // Exclude threads that are in TRASH/SPAM but NOT in INBOX (fully trashed/spammed threads).
+    // Threads with both INBOX and TRASH are valid (some messages individually trashed) and must
+    // still appear in smart folders and badge counts.
+    whereClauses.push(
+      `NOT (EXISTS (SELECT 1 FROM thread_labels tl2 WHERE tl2.account_id = m.account_id AND tl2.thread_id = m.thread_id AND tl2.label_id IN ('TRASH', 'SPAM')) AND NOT EXISTS (SELECT 1 FROM thread_labels tl2i WHERE tl2i.account_id = m.account_id AND tl2i.thread_id = m.thread_id AND tl2i.label_id = 'INBOX'))`,
+    );
+    whereClauses.push(
+      `NOT (EXISTS (SELECT 1 FROM thread_labels tl3 WHERE tl3.account_id = m.account_id AND tl3.thread_id = m.thread_id AND tl3.label_id = 'DRAFT') AND NOT EXISTS (SELECT 1 FROM thread_labels tl4 WHERE tl4.account_id = m.account_id AND tl4.thread_id = m.thread_id AND tl4.label_id = 'INBOX'))`,
+    );
+  }
+
   const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
-  const orderBy = needsFts ? "ORDER BY rank" : "ORDER BY m.date DESC";
+  const orderBy = orderByDate ? "ORDER BY m.date DESC" : needsFts ? "ORDER BY rank, m.date DESC" : "ORDER BY m.date DESC";
 
   params.push(limit);
 

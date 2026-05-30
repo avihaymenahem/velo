@@ -1,5 +1,131 @@
 # Changelog
 
+## [1.0.0](https://github.com/avihaymenahem/velo/releases/tag/velo-v1.0.0) (2026-05-21)
+
+This is the first stable release of Melo. It marks the transition from rapid beta development to a production-ready email client. Everything below is a curated summary of what has been built across the 0.x series.
+
+### Features
+
+#### Email
+
+* Multi-account support for Gmail (OAuth2 API), Microsoft/Outlook (OAuth2 PKCE), and any IMAP/SMTP provider
+* Auto-discovery of server settings for popular providers (Outlook, Yahoo, iCloud, Fastmail)
+* Self-signed certificate support for private IMAP/SMTP servers
+* Threaded conversations with collapsible messages and arrow-key navigation
+* Full-text search with Gmail-style operators (`from:`, `to:`, `subject:`, `has:attachment`, `label:`, etc.)
+* Command palette (`/` or `Ctrl+K`) for quick actions across the entire app
+* Drag-and-drop labels, multi-select, pin threads, mute threads, context menus
+* Split inbox with category tabs (Primary, Updates, Promotions, Social, Newsletters)
+* Inline reply, contact sidebar with Gravatar, message view source
+* Attachment library with keyboard shortcut and inline preview
+* SPF/DKIM/DMARC authentication badges and warnings
+* Per-account color indicators and sync status
+* Auto-advance to next thread after archive / trash / delete
+* Per-folder manual sync via F5 or sidebar context menu
+
+#### Composer
+
+* TipTap v3 rich text editor (bold, italic, lists, code, links, images)
+* Undo send, schedule send, auto-save drafts (local 3s debounce + server APPEND 18s debounce)
+* Multiple signatures with HTML source editor toggle
+* Reusable templates with variable substitution
+* Send-as email aliases with from-address selector
+* Drag-and-drop attachments with inline preview
+* Frequency-ranked contact autocomplete
+
+#### Smart Inbox
+
+* Snooze threads with quick presets or custom date/time
+* Filters to auto-label, archive, trash, star, or mark read
+* AI + rule-based auto-categorization (Primary, Updates, Promotions, Social, Newsletters)
+* AI smart labels — automatic content-based labeling
+* One-click unsubscribe (RFC 8058) and subscription manager
+* Newsletter bundling with configurable delivery schedules
+* Smart folders / saved searches with dynamic query tokens (`__TODAY__`, `__LAST_7_DAYS__`, etc.)
+* Quick steps — custom action chains for batch thread processing
+* Follow-up reminders triggered when no reply is received
+
+#### Tasks
+
+* Built-in task manager with tags and deadline tracking
+* AI auto-draft replies with per-account writing style learning
+
+#### AI
+
+* Five AI providers: Anthropic Claude, OpenAI, Google Gemini, Ollama / LMStudio (local, no API key), GitHub Copilot (GitHub Models)
+* Per-provider model selection in Settings
+* Thread summaries, smart reply suggestions, AI compose, AI reply
+* Text transform: improve writing, shorten, formalize
+* Ask My Inbox: natural language search over your email
+* Writing style learning for auto-draft
+* All AI results cached locally in SQLite (`ai_cache` table)
+
+#### Calendar
+
+* Google Calendar sync (month, week, day views)
+* CalDAV sync for IMAP and standalone accounts
+* Create, update, and respond to events without leaving Velo
+
+#### UI & Design
+
+* Glassmorphism design with animated gradient background
+* Reduce-motion setting for users with vestibular disorders or GPU compatibility issues
+* Dark / light / system theme with 8 accent color presets
+* Flexible reading pane (right, bottom, hidden) with resizable panels
+* Configurable density (comfortable / compact) and font scaling (small / default / large / x-large)
+* Pop-out thread windows with independent router context
+* Custom titlebar, splash screen with skeleton loading animation
+* Reorderable and hideable sidebar navigation items
+* System tray with taskbar badge count and tray-triggered mail check
+
+#### Privacy & Security
+
+* OAuth PKCE for Gmail and Microsoft — no client secret, no backend servers
+* AES-256-GCM encrypted storage for IMAP passwords and OAuth tokens
+* Remote image blocking with per-sender allowlist
+* Phishing link detection: 10 heuristic scoring rules, configurable sensitivity (low / default / high)
+* DOMPurify sanitization inside sandboxed iframe (`allow-same-origin` only)
+
+#### System Integration
+
+* `mailto:` deep-link handler
+* Global compose shortcut (configurable)
+* Autostart on login (hidden in system tray)
+* Single-instance enforcement
+* Auto-update via Tauri updater plugin
+* Fully customizable keyboard shortcuts (stored in SQLite, editable in Settings)
+
+#### Distribution
+
+* Windows: `.msi` / `.exe` installer
+* macOS: `.dmg` + Homebrew cask (`brew install --cask avihaymenahem/tap/velo`)
+* Linux: `.deb`, `.AppImage`, Flatpak, RPM (`.srpm`)
+* Automated release pipeline with release-please (conventional commits → version bump → GitHub release → platform packages → Homebrew tap update)
+
+### Performance
+
+* Chunked IMAP sync with UID-range batching and single-connection folder sync — eliminates OOM on large mailboxes
+* Dedicated Rust commands (`imap_fetch_and_store`, `imap_store_threads`) using rusqlite directly, bypassing the Tauri SQL plugin during bulk sync — removes ~70K IPC round-trips per 10K emails
+* Parallelized Gmail sync with 429 rate-limit retry and exponential backoff
+* Gmail History API with automatic full-sync fallback after ~30 days of expiry
+* Offline operation queue with exponential backoff (60s → 300s → 900s → 3600s), flushed on reconnect
+* Pre-parsed filter JSON, lazy-loaded route components, memoized calendar event buckets
+
+### Bug Fixes
+
+* Resolved SQLite transaction errors during IMAP initial sync
+* Fixed IMAP messages downloaded but not stored in database
+* Fixed IMAP trash for servers with non-standard folder names
+* Fixed starred threads not appearing in the Starred folder
+* Fixed IMAP attachment fetching and display for all servers
+* Fixed sent messages not saved to local DB or Sent folder for IMAP accounts
+* Fixed Ollama / LMStudio connection via Tauri native fetch (bypasses CORS)
+* Fixed pop-out thread window missing active account context
+* Fixed muted thread notifications leaking through delta sync
+* Fixed dark mode background rendering regression on Windows
+
+---
+
 ## [0.4.21](https://github.com/avihaymenahem/velo/compare/velo-v0.4.20...velo-v0.4.21) (2026-02-27)
 
 

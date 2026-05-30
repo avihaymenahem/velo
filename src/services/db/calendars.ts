@@ -7,12 +7,22 @@ export interface DbCalendar {
   remote_id: string;
   display_name: string | null;
   color: string | null;
+  user_label: string | null;
+  user_color: string | null;
   is_primary: number;
   is_visible: number;
   sync_token: string | null;
   ctag: string | null;
   created_at: number;
   updated_at: number;
+}
+
+export function calDisplayName(cal: DbCalendar): string {
+  return cal.user_label ?? cal.display_name ?? "Calendar";
+}
+
+export function calColor(cal: DbCalendar): string | null {
+  return cal.user_color ?? cal.color ?? null;
 }
 
 export async function upsertCalendar(calendar: {
@@ -79,6 +89,18 @@ export async function updateCalendarSyncToken(
 export async function deleteCalendarsForAccount(accountId: string): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM calendars WHERE account_id = $1", [accountId]);
+}
+
+export async function updateCalendarUserMeta(
+  calendarId: string,
+  userLabel: string | null,
+  userColor: string | null,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE calendars SET user_label = $1, user_color = $2, updated_at = unixepoch() WHERE id = $3",
+    [userLabel, userColor, calendarId],
+  );
 }
 
 export async function getCalendarById(calendarId: string): Promise<DbCalendar | null> {

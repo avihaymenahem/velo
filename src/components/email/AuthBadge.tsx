@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ShieldCheck, ShieldAlert, ShieldX, ShieldQuestion } from "lucide-react";
+import { t } from "@/i18n";
 import type { AuthResult } from "@/services/gmail/authParser";
 
 interface AuthBadgeProps {
@@ -36,22 +37,22 @@ export function AuthBadge({ authResults }: AuthBadgeProps) {
     case "pass":
       icon = <ShieldCheck {...iconProps} />;
       colorClass = "text-success";
-      label = "Authentication passed";
+      label = t("email.authBadge.passed");
       break;
     case "warning":
       icon = <ShieldAlert {...iconProps} />;
       colorClass = "text-warning";
-      label = "Authentication warning";
+      label = t("email.authBadge.warning");
       break;
     case "fail":
       icon = <ShieldX {...iconProps} />;
       colorClass = "text-danger";
-      label = "Authentication failed";
+      label = t("email.authBadge.failed");
       break;
     default:
       icon = <ShieldQuestion {...iconProps} />;
       colorClass = "text-text-tertiary";
-      label = "Authentication unknown";
+      label = t("email.authBadge.unknown");
       break;
   }
 

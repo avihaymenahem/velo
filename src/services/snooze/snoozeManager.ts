@@ -2,6 +2,7 @@ import { getDb } from "../db/connection";
 import { withTransaction } from "../db/connection";
 import { getCurrentUnixTimestamp } from "@/utils/timestamp";
 import { createBackgroundChecker } from "../backgroundCheckers";
+import { notifySnoozeReturn } from "../notifications/notificationManager";
 
 /**
  * Check for snoozed threads that should be un-snoozed (time has passed).
@@ -13,9 +14,9 @@ async function checkSnoozedThreads(): Promise<void> {
 
   // Find threads where snooze time has passed
   const snoozed = await db.select<
-    { id: string; account_id: string }[]
+    { id: string; account_id: string; subject: string | null }[]
   >(
-    "SELECT id, account_id FROM threads WHERE is_snoozed = 1 AND snooze_until <= $1",
+    "SELECT id, account_id, subject FROM threads WHERE is_snoozed = 1 AND snooze_until <= $1",
     [now],
   );
 
@@ -35,6 +36,11 @@ async function checkSnoozedThreads(): Promise<void> {
         );
       }
     });
+
+    // Desktop notifications for each returning thread
+    for (const thread of snoozed) {
+      notifySnoozeReturn(thread.subject ?? "");
+    }
 
     // Notify the UI to refresh
     window.dispatchEvent(new Event("velo-sync-done"));

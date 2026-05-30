@@ -144,42 +144,57 @@ describe("GmailApiProvider", () => {
   });
 
   describe("trash", () => {
-    it("calls modifyThread adding TRASH and removing INBOX", async () => {
-      vi.mocked(mockClient.modifyThread).mockResolvedValue({
-        id: "thread-1",
-        historyId: "123",
-        messages: [],
-      });
+    it("calls trashThread when no messageIds (thread-level)", async () => {
+      vi.mocked(mockClient.trashThread).mockResolvedValue(undefined);
 
-      await provider.trash("thread-1", ["msg-1"]);
+      await provider.trash("thread-1", []);
 
-      expect(mockClient.modifyThread).toHaveBeenCalledWith(
-        "thread-1",
-        ["TRASH"],
-        ["INBOX"],
-      );
+      expect(mockClient.trashThread).toHaveBeenCalledWith("thread-1");
+      expect(mockClient.modifyThread).not.toHaveBeenCalled();
+    });
+
+    it("calls trashMessage for each id when messageIds provided (message-level)", async () => {
+      vi.mocked(mockClient.trashMessage).mockResolvedValue(undefined);
+
+      await provider.trash("thread-1", ["msg-1", "msg-2"]);
+
+      expect(mockClient.trashMessage).toHaveBeenCalledTimes(2);
+      expect(mockClient.trashMessage).toHaveBeenCalledWith("msg-1");
+      expect(mockClient.trashMessage).toHaveBeenCalledWith("msg-2");
+      expect(mockClient.modifyThread).not.toHaveBeenCalled();
     });
   });
 
   describe("permanentDelete", () => {
-    it("calls deleteThread", async () => {
+    it("calls deleteThread when no messageIds (thread-level)", async () => {
       vi.mocked(mockClient.deleteThread).mockResolvedValue(undefined);
 
-      await provider.permanentDelete("thread-1", ["msg-1"]);
+      await provider.permanentDelete("thread-1", []);
 
       expect(mockClient.deleteThread).toHaveBeenCalledWith("thread-1");
+    });
+
+    it("calls deleteMessage for each id when messageIds provided (message-level)", async () => {
+      vi.mocked(mockClient.deleteMessage).mockResolvedValue(undefined);
+
+      await provider.permanentDelete("thread-1", ["msg-1", "msg-2"]);
+
+      expect(mockClient.deleteMessage).toHaveBeenCalledTimes(2);
+      expect(mockClient.deleteMessage).toHaveBeenCalledWith("msg-1");
+      expect(mockClient.deleteMessage).toHaveBeenCalledWith("msg-2");
+      expect(mockClient.deleteThread).not.toHaveBeenCalled();
     });
   });
 
   describe("markRead", () => {
-    it("removes UNREAD label when marking as read", async () => {
+    it("removes UNREAD label when marking as read (thread-level)", async () => {
       vi.mocked(mockClient.modifyThread).mockResolvedValue({
         id: "thread-1",
         historyId: "123",
         messages: [],
       });
 
-      await provider.markRead("thread-1", ["msg-1"], true);
+      await provider.markRead("thread-1", [], true);
 
       expect(mockClient.modifyThread).toHaveBeenCalledWith(
         "thread-1",
@@ -188,14 +203,14 @@ describe("GmailApiProvider", () => {
       );
     });
 
-    it("adds UNREAD label when marking as unread", async () => {
+    it("adds UNREAD label when marking as unread (thread-level)", async () => {
       vi.mocked(mockClient.modifyThread).mockResolvedValue({
         id: "thread-1",
         historyId: "123",
         messages: [],
       });
 
-      await provider.markRead("thread-1", ["msg-1"], false);
+      await provider.markRead("thread-1", [], false);
 
       expect(mockClient.modifyThread).toHaveBeenCalledWith(
         "thread-1",
@@ -330,7 +345,7 @@ describe("GmailApiProvider", () => {
         "base64data",
         "thread-1",
       );
-      expect(result).toEqual({ draftId: "draft-1" });
+      expect(result).toEqual({ draftId: "draft-1", threadId: "thread-1" });
     });
   });
 
@@ -367,7 +382,7 @@ describe("GmailApiProvider", () => {
         "base64data",
         "thread-1",
       );
-      expect(result).toEqual({ draftId: "draft-1" });
+      expect(result).toEqual({ draftId: "draft-1", threadId: "thread-1" });
     });
   });
 

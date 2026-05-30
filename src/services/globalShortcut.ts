@@ -2,6 +2,7 @@ import { register, unregister, isRegistered } from "@tauri-apps/plugin-global-sh
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getSetting, setSetting } from "./db/settings";
 import { useComposerStore } from "../stores/composerStore";
+import { useAccountStore } from "../stores/accountStore";
 
 const DEFAULT_SHORTCUT = "CmdOrCtrl+Shift+M";
 let currentShortcut: string | null = null;
@@ -12,7 +13,9 @@ async function handleComposeShortcut(): Promise<void> {
     await mainWindow.show();
     await mainWindow.setFocus();
   }
-  useComposerStore.getState().openComposer();
+  const { activeAccountId, viewingAccountId } = useAccountStore.getState();
+  const accountId = activeAccountId ?? viewingAccountId ?? undefined;
+  useComposerStore.getState().openComposer(accountId ? { accountId } : undefined);
 }
 
 export async function initGlobalShortcut(): Promise<void> {

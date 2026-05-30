@@ -5,6 +5,7 @@ vi.mock("@/services/db/connection", async (importOriginal) => {
   return {
     ...actual,
     getDb: vi.fn(),
+    withTransaction: vi.fn(async (fn: (db: any) => Promise<any>) => fn(mockDb)),
   };
 });
 

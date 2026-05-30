@@ -44,15 +44,15 @@ describe("SmartLabelEditor", () => {
   it("renders add button", async () => {
     render(<SmartLabelEditor />);
     await waitFor(() => {
-      expect(screen.getByText("+ Add smart label")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /New Rule/i })).toBeInTheDocument();
     });
   });
 
   it("shows form when + Add smart label is clicked", async () => {
     render(<SmartLabelEditor />);
-    await waitFor(() => screen.getByText("+ Add smart label"));
+    await waitFor(() => screen.getByRole("button", { name: /New Rule/i }));
 
-    fireEvent.click(screen.getByText("+ Add smart label"));
+    fireEvent.click(screen.getByRole("button", { name: /New Rule/i }));
 
     expect(screen.getByText("Label")).toBeInTheDocument();
     expect(screen.getByText("AI Description")).toBeInTheDocument();
@@ -62,9 +62,9 @@ describe("SmartLabelEditor", () => {
 
   it("hides form when Cancel is clicked", async () => {
     render(<SmartLabelEditor />);
-    await waitFor(() => screen.getByText("+ Add smart label"));
+    await waitFor(() => screen.getByRole("button", { name: /New Rule/i }));
 
-    fireEvent.click(screen.getByText("+ Add smart label"));
+    fireEvent.click(screen.getByRole("button", { name: /New Rule/i }));
     expect(screen.getByText("AI Description")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Cancel"));
@@ -116,9 +116,9 @@ describe("SmartLabelEditor", () => {
 
   it("calls insertSmartLabelRule on save", async () => {
     render(<SmartLabelEditor />);
-    await waitFor(() => screen.getByText("+ Add smart label"));
+    await waitFor(() => screen.getByRole("button", { name: /New Rule/i }));
 
-    fireEvent.click(screen.getByText("+ Add smart label"));
+    fireEvent.click(screen.getByRole("button", { name: /New Rule/i }));
 
     // Select label
     const select = screen.getByRole("combobox");
@@ -189,9 +189,9 @@ describe("SmartLabelEditor", () => {
 
   it("only shows user labels in dropdown (filters out system labels)", async () => {
     render(<SmartLabelEditor />);
-    await waitFor(() => screen.getByText("+ Add smart label"));
+    await waitFor(() => screen.getByRole("button", { name: /New Rule/i }));
 
-    fireEvent.click(screen.getByText("+ Add smart label"));
+    fireEvent.click(screen.getByRole("button", { name: /New Rule/i }));
 
     const options = screen.getAllByRole("option");
     const optionTexts = options.map((o) => o.textContent);
@@ -202,9 +202,9 @@ describe("SmartLabelEditor", () => {
 
   it("shows optional criteria section when toggled", async () => {
     render(<SmartLabelEditor />);
-    await waitFor(() => screen.getByText("+ Add smart label"));
+    await waitFor(() => screen.getByRole("button", { name: /New Rule/i }));
 
-    fireEvent.click(screen.getByText("+ Add smart label"));
+    fireEvent.click(screen.getByRole("button", { name: /New Rule/i }));
     fireEvent.click(screen.getByText("Optional filter criteria"));
 
     expect(screen.getByPlaceholderText("From contains...")).toBeInTheDocument();

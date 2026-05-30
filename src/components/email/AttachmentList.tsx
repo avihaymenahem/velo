@@ -5,7 +5,9 @@ import { getAttachmentsForMessage, type DbAttachment } from "@/services/db/attac
 import { getEmailProvider } from "@/services/email/providerFactory";
 import { Modal } from "@/components/ui/Modal";
 import { Download, Eye } from "lucide-react";
-import { formatFileSize, isImage, isPdf, isText, canPreview, getFileIcon } from "@/utils/fileTypeHelpers";
+import { t } from "@/i18n";
+import { formatFileSize, isImage, isPdf, isText, isOfficeDoc, isOfficeSpreadsheet, canPreview, getFileIcon } from "@/utils/fileTypeHelpers";
+import { OfficeDocPreview } from "@/components/ui/OfficeDocPreview";
 
 /** Dedup attachments by filename+size (content-based) */
 function dedup(attachments: DbAttachment[]): DbAttachment[] {
@@ -43,7 +45,9 @@ export function AttachmentList({ accountId, messageId, attachments, referencedCi
     <>
       <div className="mt-3 pt-3 border-t border-border-secondary">
         <div className="text-xs text-text-tertiary mb-2">
-          {fileAttachments.length} attachment{fileAttachments.length !== 1 ? "s" : ""}
+          {fileAttachments.length !== 1
+            ? t("email.attachmentList.countPlural", { count: fileAttachments.length })
+            : t("email.attachmentList.count", { count: fileAttachments.length })}
         </div>
         <div className="flex flex-wrap gap-2">
           {fileAttachments.map((att) => (
@@ -52,9 +56,9 @@ export function AttachmentList({ accountId, messageId, attachments, referencedCi
               onClick={() => setPreview(att)}
               className="flex items-center gap-2 px-3 py-1.5 text-xs rounded-md border border-border-primary hover:bg-bg-hover transition-colors"
             >
-              <span className="text-text-tertiary">{getFileIcon(att.mime_type)}</span>
+              <span className="text-text-tertiary">{getFileIcon(att.mime_type, att.filename)}</span>
               <span className="text-text-secondary truncate max-w-[200px]">
-                {att.filename ?? "Unnamed"}
+                {att.filename ?? t("email.attachmentList.unnamed")}
               </span>
               {att.size != null && (
                 <span className="text-text-tertiary whitespace-nowrap">
@@ -92,16 +96,20 @@ export function AttachmentPreview({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bytesRef = useRef<Uint8Array | null>(null);
 
   const isPreviewable = canPreview(attachment.mime_type, attachment.filename);
+  const isOffice = isOfficeDoc(attachment.mime_type, attachment.filename) || isOfficeSpreadsheet(attachment.mime_type, attachment.filename);
+
+  const attachmentId = attachment.gmail_attachment_id ?? attachment.imap_part_id;
 
   const fetchData = useCallback(async (): Promise<Uint8Array> => {
     if (bytesRef.current) return bytesRef.current;
 
     const provider = await getEmailProvider(accountId);
-    const response = await provider.fetchAttachment(messageId, attachment.gmail_attachment_id!);
+    const response = await provider.fetchAttachment(messageId, attachmentId!);
 
     // Normalize URL-safe base64 (Gmail API) to standard base64
     const base64 = response.data.replace(/-/g, "+").replace(/_/g, "/");
@@ -112,36 +120,39 @@ export function AttachmentPreview({
     }
     bytesRef.current = bytes;
     return bytes;
-  }, [accountId, messageId, attachment.gmail_attachment_id]);
+  }, [accountId, messageId, attachmentId]);
 
   const handlePreviewLoad = useCallback(async () => {
-    if (!attachment.gmail_attachment_id || !isPreviewable || blobUrl) return;
+    if (!attachmentId || !isPreviewable || blobUrl || previewBytes) return;
 
     setLoading(true);
     try {
       const bytes = await fetchData();
-      const effectiveMime = isPdf(attachment.mime_type, attachment.filename)
-        ? "application/pdf"
-        : (attachment.mime_type ?? "application/octet-stream");
-      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: effectiveMime });
-      setBlobUrl(URL.createObjectURL(blob));
+      if (isOffice) {
+        setPreviewBytes(bytes);
+      } else {
+        const effectiveMime = isPdf(attachment.mime_type, attachment.filename)
+          ? "application/pdf"
+          : (attachment.mime_type ?? "application/octet-stream");
+        const blob = new Blob([bytes.buffer as ArrayBuffer], { type: effectiveMime });
+        setBlobUrl(URL.createObjectURL(blob));
+      }
     } catch (err) {
       console.error("Failed to load preview:", err);
       setError("Failed to load preview");
     } finally {
       setLoading(false);
     }
-  }, [attachment, isPreviewable, blobUrl, fetchData]);
+  }, [attachment, isPreviewable, isOffice, blobUrl, previewBytes, fetchData]);
 
-  // Trigger preview load for previewable types
   useEffect(() => {
-    if (isPreviewable && !blobUrl && !loading && !error) {
+    if (isPreviewable && !blobUrl && !previewBytes && !loading && !error) {
       handlePreviewLoad();
     }
-  }, [isPreviewable, blobUrl, loading, error, handlePreviewLoad]);
+  }, [isPreviewable, blobUrl, previewBytes, loading, error, handlePreviewLoad]);
 
   const handleDownload = async () => {
-    if (!attachment.gmail_attachment_id || saving) return;
+    if (!attachmentId || saving) return;
 
     setSaving(true);
     try {
@@ -172,7 +183,7 @@ export function AttachmentPreview({
   const header = (
     <div className="px-4 py-3 border-b border-border-primary flex items-center justify-between shrink-0">
       <div className="flex items-center gap-2 min-w-0">
-        <span>{getFileIcon(attachment.mime_type)}</span>
+        <span>{getFileIcon(attachment.mime_type, attachment.filename)}</span>
         <span className="text-sm font-medium text-text-primary truncate">
           {attachment.filename ?? "Unnamed"}
         </span>
@@ -189,7 +200,7 @@ export function AttachmentPreview({
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
         >
           <Download size={13} />
-          {saving ? "Saving..." : "Download"}
+          {saving ? t("email.attachmentList.saving") : t("email.attachmentList.download")}
         </button>
         <button
           onClick={handleClose}
@@ -213,7 +224,7 @@ export function AttachmentPreview({
       {/* Allow native right-click in preview (save image, copy, etc.) */}
       <div className="flex-1 overflow-auto min-h-[200px] flex items-center justify-center p-4" data-native-context-menu>
         {loading && (
-          <p className="text-sm text-text-tertiary">Loading preview...</p>
+          <p className="text-sm text-text-tertiary">{t("email.attachmentList.loadingPreview")}</p>
         )}
         {error && (
           <p className="text-sm text-text-tertiary">{error}</p>
@@ -235,11 +246,14 @@ export function AttachmentPreview({
         {!loading && !error && blobUrl && isText(attachment.mime_type) && (
           <TextPreview url={blobUrl} />
         )}
+        {!loading && !error && previewBytes && (
+          <OfficeDocPreview bytes={previewBytes} mimeType={attachment.mime_type} filename={attachment.filename ?? null} />
+        )}
         {!isPreviewable && !loading && (
           <div className="flex flex-col items-center gap-3 text-text-tertiary">
             <Eye size={40} strokeWidth={1} />
-            <p className="text-sm">Preview not available for this file type</p>
-            <p className="text-xs">{attachment.mime_type ?? "Unknown type"}</p>
+            <p className="text-sm">{t("email.attachmentList.previewNotAvailable")}</p>
+            <p className="text-xs">{attachment.mime_type ?? t("email.attachmentList.unknownType")}</p>
           </div>
         )}
       </div>

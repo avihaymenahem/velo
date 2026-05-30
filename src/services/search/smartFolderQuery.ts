@@ -33,6 +33,24 @@ export function resolveQueryTokens(query: string): string {
     resolved = resolved.replace(/__LAST_30_DAYS__/g, formatDate(d));
   }
 
+  if (resolved.includes("__LAST_3_MONTHS__")) {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - 3);
+    resolved = resolved.replace(/__LAST_3_MONTHS__/g, formatDate(d));
+  }
+
+  if (resolved.includes("__LAST_6_MONTHS__")) {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - 6);
+    resolved = resolved.replace(/__LAST_6_MONTHS__/g, formatDate(d));
+  }
+
+  if (resolved.includes("__LAST_12_MONTHS__")) {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - 12);
+    resolved = resolved.replace(/__LAST_12_MONTHS__/g, formatDate(d));
+  }
+
   if (resolved.includes("__TODAY__")) {
     resolved = resolved.replace(/__TODAY__/g, formatDate(now));
   }
@@ -46,12 +64,13 @@ export function resolveQueryTokens(query: string): string {
  */
 export function getSmartFolderSearchQuery(
   rawQuery: string,
-  accountId: string,
+  accountId: string | string[],
   limit?: number,
 ): { sql: string; params: unknown[] } {
   const resolved = resolveQueryTokens(rawQuery);
   const parsed = parseSearchQuery(resolved);
-  return buildSearchQuery(parsed, accountId, limit ?? 50);
+  const excludeSystem = !parsed.label || !["trash", "spam"].includes(parsed.label.toLowerCase());
+  return buildSearchQuery(parsed, accountId, limit ?? 50, excludeSystem);
 }
 
 /**
@@ -60,18 +79,19 @@ export function getSmartFolderSearchQuery(
  */
 export function getSmartFolderUnreadCount(
   rawQuery: string,
-  accountId: string,
+  accountId: string | string[],
 ): { sql: string; params: unknown[] } {
   const resolved = resolveQueryTokens(rawQuery);
   const parsed = parseSearchQuery(resolved);
 
   // Force unread filter
   const withUnread = { ...parsed, isUnread: true };
-  const { sql: baseSql, params } = buildSearchQuery(withUnread, accountId, 999999);
+  const excludeSystem = !parsed.label || !["trash", "spam"].includes(parsed.label.toLowerCase());
+  const { sql: baseSql, params } = buildSearchQuery(withUnread, accountId, 999999, excludeSystem);
 
-  // Replace SELECT ... FROM with SELECT COUNT(DISTINCT ...) FROM and remove LIMIT
+  // Replace SELECT ... FROM with SELECT COUNT(DISTINCT thread_id) FROM and remove LIMIT
   const countSql = baseSql
-    .replace(/SELECT DISTINCT[\s\S]*?(?=\bFROM\s)/i, "SELECT COUNT(DISTINCT m.id) as count ")
+    .replace(/SELECT DISTINCT[\s\S]*?(?=\bFROM\s)/i, "SELECT COUNT(DISTINCT m.thread_id) as count ")
     .replace(/ORDER BY[\s\S]*?(?=LIMIT|$)/i, "")
     .replace(/LIMIT \$\d+/i, "");
 
@@ -118,6 +138,7 @@ export async function mapSmartFolderRows(rows: SmartFolderRow[]): Promise<Thread
         snippet: r.snippet,
         lastMessageAt: r.date,
         messageCount: dbThread?.message_count ?? 1,
+        unreadCount: dbThread?.unread_count ?? 0,
         isRead: dbThread ? dbThread.is_read === 1 : false,
         isStarred: dbThread ? dbThread.is_starred === 1 : false,
         isPinned: dbThread ? dbThread.is_pinned === 1 : false,
@@ -126,6 +147,8 @@ export async function mapSmartFolderRows(rows: SmartFolderRow[]): Promise<Thread
         labelIds,
         fromName: r.from_name,
         fromAddress: r.from_address,
+        allSenders: dbThread?.all_senders ?? null,
+        allRecipients: dbThread?.all_recipients ?? null,
       };
     }),
   );

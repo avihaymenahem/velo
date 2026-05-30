@@ -42,12 +42,25 @@ vi.mock("../imap/messageHelper", () => ({
 
 vi.mock("../db/messages", () => ({
   upsertMessage: vi.fn(),
+  getMessagesForThread: vi.fn().mockResolvedValue([]),
+  purgeImapDuplicates: vi.fn().mockResolvedValue(undefined),
+}));
+
+// resolveGrouped() queries the DB first, then falls back to parsing imap UIDs from the
+// local message ID. With no real DB in jsdom, return no rows so the ID-parsing fallback
+// (what these tests assert) is exercised.
+vi.mock("../db/connection", () => ({
+  getDb: vi.fn(async () => ({
+    select: vi.fn(async () => []),
+    execute: vi.fn(async () => ({ rowsAffected: 0 })),
+  })),
 }));
 
 vi.mock("../db/threads", () => ({
   upsertThread: vi.fn(),
   setThreadLabels: vi.fn(),
   getThreadLabelIds: vi.fn().mockResolvedValue([]),
+  recalculateThreadStats: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { getAccount } from "../db/accounts";
@@ -65,7 +78,7 @@ import {
 } from "../imap/tauriCommands";
 import { findSpecialFolder } from "../imap/messageHelper";
 import { upsertMessage } from "../db/messages";
-import { upsertThread, setThreadLabels, getThreadLabelIds } from "../db/threads";
+import { upsertThread, setThreadLabels, recalculateThreadStats } from "../db/threads";
 
 const mockImapConfig = {
   host: "imap.example.com",
@@ -407,8 +420,8 @@ describe("ImapSmtpProvider", () => {
       spy.mockRestore();
     });
 
-    it("removeLabel does not throw (warns instead)", async () => {
-      const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    it("removeLabel does not throw (logs instead)", async () => {
+      const spy = vi.spyOn(console, "log").mockImplementation(() => {});
       await provider.removeLabel("thread-1", "Label_1");
       expect(spy).toHaveBeenCalled();
       spy.mockRestore();
@@ -428,16 +441,17 @@ describe("ImapSmtpProvider", () => {
         message: "OK",
       });
       vi.mocked(findSpecialFolder).mockResolvedValue("Sent Items");
-      vi.mocked(imapAppendMessage).mockResolvedValue(undefined);
+      // A positive APPENDUID means we got a real server UID → save locally.
+      vi.mocked(imapAppendMessage).mockResolvedValue(100);
 
       const result = await provider.sendMessage(rawBase64Url);
 
       expect(smtpSendEmail).toHaveBeenCalledWith(mockSmtpConfig, rawBase64Url);
-      // Should save message to local DB
+      // Should save message to local DB under a new thread (id derived from UID).
       expect(upsertThread).toHaveBeenCalled();
       expect(setThreadLabels).toHaveBeenCalledWith(
         "acc-1",
-        expect.stringMatching(/^imap-sent-/),
+        expect.stringMatching(/^imap-acc-1-/),
         ["SENT"],
       );
       expect(upsertMessage).toHaveBeenCalledWith(
@@ -456,7 +470,7 @@ describe("ImapSmtpProvider", () => {
         rawBase64Url,
         "(\\Seen)",
       );
-      expect(result.id).toMatch(/^imap-sent-/);
+      expect(result.id).toMatch(/^imap-acc-1-/);
     });
 
     it("adds SENT label to existing thread when replying", async () => {
@@ -465,17 +479,13 @@ describe("ImapSmtpProvider", () => {
         message: "OK",
       });
       vi.mocked(findSpecialFolder).mockResolvedValue("Sent");
-      vi.mocked(imapAppendMessage).mockResolvedValue(undefined);
-      vi.mocked(getThreadLabelIds).mockResolvedValue(["INBOX"]);
+      vi.mocked(imapAppendMessage).mockResolvedValue(100);
 
       const result = await provider.sendMessage(rawBase64Url, "existing-thread-1");
 
-      // Should add SENT to existing labels
-      expect(setThreadLabels).toHaveBeenCalledWith(
-        "acc-1",
-        "existing-thread-1",
-        ["INBOX", "SENT"],
-      );
+      // Reply: stats/labels are recomputed from the thread's messages (adds INBOX+SENT),
+      // rather than overwriting labels directly.
+      expect(recalculateThreadStats).toHaveBeenCalledWith("acc-1", "existing-thread-1");
       // Should NOT create a new thread (reply uses existing thread)
       expect(upsertThread).not.toHaveBeenCalled();
       // Should save message with existing thread ID
@@ -484,7 +494,7 @@ describe("ImapSmtpProvider", () => {
           threadId: "existing-thread-1",
         }),
       );
-      expect(result.id).toMatch(/^imap-sent-/);
+      expect(result.id).toMatch(/^imap-acc-1-/);
     });
 
     it("throws if SMTP send fails", async () => {
@@ -510,9 +520,11 @@ describe("ImapSmtpProvider", () => {
 
       const spy = vi.spyOn(console, "error").mockImplementation(() => {});
       const result = await provider.sendMessage(rawBase64Url);
-      expect(result.id).toMatch(/^imap-sent-/);
-      // Should still have saved locally
-      expect(upsertMessage).toHaveBeenCalled();
+      // Send still succeeds and returns a synthetic Sent id.
+      expect(result.id).toMatch(/^imap-acc-1-sent-/);
+      // No server UID → no local save (avoids creating a duplicate random-ID row;
+      // the next delta sync imports the real message).
+      expect(upsertMessage).not.toHaveBeenCalled();
       spy.mockRestore();
     });
   });
@@ -520,7 +532,7 @@ describe("ImapSmtpProvider", () => {
   describe("createDraft", () => {
     it("appends to Drafts folder with Draft flag", async () => {
       vi.mocked(findSpecialFolder).mockResolvedValue("INBOX.Drafts");
-      vi.mocked(imapAppendMessage).mockResolvedValue(undefined);
+      vi.mocked(imapAppendMessage).mockResolvedValue(42);
 
       const result = await provider.createDraft("base64data");
 
@@ -530,12 +542,12 @@ describe("ImapSmtpProvider", () => {
         "base64data",
         "(\\Draft)",
       );
-      expect(result.draftId).toMatch(/^imap-draft-/);
+      expect(result.draftId).toBe("imap-acc-1-INBOX.Drafts-42");
     });
 
     it("falls back to 'Drafts' when special folder not found", async () => {
       vi.mocked(findSpecialFolder).mockResolvedValue(null);
-      vi.mocked(imapAppendMessage).mockResolvedValue(undefined);
+      vi.mocked(imapAppendMessage).mockResolvedValue(10);
 
       await provider.createDraft("base64data");
 
@@ -552,7 +564,7 @@ describe("ImapSmtpProvider", () => {
     it("deletes old draft and creates new one", async () => {
       vi.mocked(findSpecialFolder).mockResolvedValue("Drafts");
       vi.mocked(imapDeleteMessages).mockResolvedValue(undefined);
-      vi.mocked(imapAppendMessage).mockResolvedValue(undefined);
+      vi.mocked(imapAppendMessage).mockResolvedValue(501);
 
       const result = await provider.updateDraft(
         "imap-acc-1-Drafts-500",
@@ -572,7 +584,7 @@ describe("ImapSmtpProvider", () => {
         "newBase64data",
         "(\\Draft)",
       );
-      expect(result.draftId).toMatch(/^imap-draft-/);
+      expect(result.draftId).toBe("imap-acc-1-Drafts-501");
     });
   });
 

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { X } from "lucide-react";
+import { t } from "@/i18n";
 import { useLabelStore, type Label } from "@/stores/labelStore";
 
 // Gmail's predefined label colors (background, text)
@@ -70,7 +71,7 @@ export function LabelForm({ accountId, label, onDone, variant = "settings" }: La
       }
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save label");
+      setError(err instanceof Error ? err.message : t("settings.labelEditor.editLabel") + " failed");
     } finally {
       setIsSaving(false);
     }
@@ -109,7 +110,7 @@ export function LabelForm({ accountId, label, onDone, variant = "settings" }: La
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Label name"
+        placeholder={t("labels.namePlaceholder")}
         className={
           isSidebar
             ? "w-full px-2 py-1 bg-sidebar-hover border border-sidebar-text/20 rounded text-xs text-sidebar-text outline-none focus:border-accent"
@@ -127,7 +128,7 @@ export function LabelForm({ accountId, label, onDone, variant = "settings" }: La
                 ? "border-accent ring-1 ring-accent"
                 : "border-border-primary hover:border-text-tertiary"
             }`}
-            title="No color"
+            title={t("labels.noColor")}
           >
             <X size={isSidebar ? 8 : 10} className="mx-auto text-text-tertiary" />
           </button>
@@ -155,7 +156,7 @@ export function LabelForm({ accountId, label, onDone, variant = "settings" }: La
             isSidebar ? "px-2 py-1 text-[0.625rem]" : "px-3 py-1.5 text-xs"
           } font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          {isSaving ? "Saving..." : label ? "Update" : "Save"}
+          {isSaving ? t("common.saving") : label ? t("settings.labelEditor.editLabel") : t("common.save")}
         </button>
         <button
           onClick={onDone}
@@ -163,7 +164,7 @@ export function LabelForm({ accountId, label, onDone, variant = "settings" }: La
             isSidebar ? "px-2 py-1 text-[0.625rem]" : "px-3 py-1.5 text-xs"
           } text-text-secondary hover:text-text-primary rounded-md transition-colors`}
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </div>

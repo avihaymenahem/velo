@@ -6,14 +6,36 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { navigateToLabel, navigateToThread, navigateBack, getActiveLabel, getSelectedThreadId } from "@/router/navigate";
-import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread } from "@/services/emailActions";
+import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread, markThreadRead, deleteDraftThread, deleteSingleMessage } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
-import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
-import { getGmailClient } from "@/services/gmail/tokenManager";
-import { getMessagesForThread } from "@/services/db/messages";
+import { logInteraction } from "@/services/ai/reputationEngine";
+import { getMessagesForThread, type DbMessage } from "@/services/db/messages";
+import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { parseUnsubscribeUrl } from "@/components/email/MessageItem";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { triggerSync } from "@/services/gmail/syncManager";
+
+function buildReplyQuote(msgs: DbMessage[]): string {
+  if (msgs.length === 0) return "";
+  return "<br><br>" + [...msgs].reverse().map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    const from = msg.from_name
+      ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
+      : escapeHtml(msg.from_address ?? "Unknown");
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `<div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666;margin-bottom:8px">On ${date}, ${from} wrote:<br>${body}</div>`;
+  }).join("");
+}
+
+function buildForwardQuote(msgs: DbMessage[]): string {
+  if (msgs.length === 0) return "";
+  const parts = msgs.map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `From: ${escapeHtml(msg.from_name ?? "")} &lt;${escapeHtml(msg.from_address ?? "")}&gt;<br>Date: ${date}<br>Subject: ${escapeHtml(msg.subject ?? "")}<br>To: ${escapeHtml(msg.to_addresses ?? "")}<br><br>${body}`;
+  });
+  return `<br><br>---------- Forwarded message ---------<br><br>${parts.join("<br><br>---------- Previous message ---------<br><br>")}`;
+}
 
 /**
  * Parse a key binding string and check if it matches a keyboard event.
@@ -200,15 +222,31 @@ export function useKeyboardShortcuts() {
 
 async function executeAction(actionId: string): Promise<void> {
   const threads = useThreadStore.getState().threads;
-  const selectedId = getSelectedThreadId();
-  const currentIdx = threads.findIndex((t) => t.id === selectedId);
-  const activeAccountId = useAccountStore.getState().activeAccountId;
+  // Get selected thread: prefer store's selectedThreadId, then router, then first thread
+  let selectedId: string | null = useThreadStore.getState().selectedThreadId;
+  if (!selectedId) {
+    selectedId = getSelectedThreadId();
+  }
+  if (!selectedId && threads.length > 0) {
+    const firstThread = threads[0];
+    if (firstThread) {
+      selectedId = firstThread.id;
+    }
+  }
+const currentIdx = threads.findIndex((t) => t.id === selectedId);
+   let activeAccountId = useAccountStore.getState().activeAccountId;
+   if (!activeAccountId) {
+     // Fallback: try to get from URL params (for ThreadWindow)
+     const params = new URLSearchParams(window.location.search);
+     activeAccountId = params.get("account");
+   }
 
-  switch (actionId) {
+   switch (actionId) {
     case "nav.next": {
       const nextIdx = Math.min(currentIdx + 1, threads.length - 1);
       if (threads[nextIdx]) {
         navigateToThread(threads[nextIdx].id);
+        useThreadStore.getState().selectThread(threads[nextIdx].id);
       }
       break;
     }
@@ -216,6 +254,7 @@ async function executeAction(actionId: string): Promise<void> {
       const prevIdx = Math.max(currentIdx - 1, 0);
       if (threads[prevIdx]) {
         navigateToThread(threads[prevIdx].id);
+        useThreadStore.getState().selectThread(threads[prevIdx].id);
       }
       break;
     }
@@ -278,24 +317,59 @@ async function executeAction(actionId: string): Promise<void> {
       }
       break;
     }
-    case "action.compose":
-      useComposerStore.getState().openComposer();
+    case "action.compose": {
+      const threadAccountId = selectedId
+        ? (useThreadStore.getState().threadMap.get(selectedId)?.accountId ?? null)
+        : null;
+      const composeAccountId = threadAccountId ?? activeAccountId ?? undefined;
+      useComposerStore.getState().openComposer(composeAccountId ? { accountId: composeAccountId } : undefined);
       break;
-    case "action.reply": {
-      if (selectedId) {
-        const replyMode = useUIStore.getState().defaultReplyMode;
-        window.dispatchEvent(new CustomEvent("velo-inline-reply", { detail: { mode: replyMode } }));
+    }
+case "action.reply": {
+       if (selectedId && activeAccountId) {
+         const messages = await getMessagesForThread(activeAccountId, selectedId);
+         const lastMessage = messages[messages.length - 1];
+         if (lastMessage) {
+          const replyMode = useUIStore.getState().defaultReplyMode;
+          const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
+          if (replyMode === "replyAll") {
+            const myEmails = new Set(useAccountStore.getState().accounts.map(a => a.email.toLowerCase()));
+            const allRecipients = new Set<string>();
+            if (replyTo) allRecipients.add(replyTo);
+            lastMessage.to_addresses?.split(",").forEach(a => { const t = a.trim(); if (t && !myEmails.has(t.toLowerCase())) allRecipients.add(t); });
+            const ccList: string[] = [];
+            lastMessage.cc_addresses?.split(",").forEach(a => { const t = a.trim(); if (t && !myEmails.has(t.toLowerCase())) ccList.push(t); });
+            useComposerStore.getState().openComposer({ mode: "replyAll", to: [...allRecipients].filter(r => !myEmails.has(r.toLowerCase())), cc: ccList, subject: `Re: ${lastMessage.subject ?? ""}`, quotedHtml: buildReplyQuote(messages), threadId: lastMessage.thread_id, inReplyToMessageId: lastMessage.id });
+          } else {
+            useComposerStore.getState().openComposer({ mode: "reply", to: replyTo ? [replyTo] : [], subject: `Re: ${lastMessage.subject ?? ""}`, quotedHtml: buildReplyQuote(messages), threadId: lastMessage.thread_id, inReplyToMessageId: lastMessage.id });
+          }
+        }
       }
       break;
     }
     case "action.replyAll":
-      if (selectedId) {
-        window.dispatchEvent(new CustomEvent("velo-inline-reply", { detail: { mode: "replyAll" } }));
+      if (selectedId && activeAccountId) {
+        const messages = await getMessagesForThread(activeAccountId, selectedId);
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage) {
+          const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
+          const myEmails = new Set(useAccountStore.getState().accounts.map(a => a.email.toLowerCase()));
+          const allRecipients = new Set<string>();
+          if (replyTo) allRecipients.add(replyTo);
+          lastMessage.to_addresses?.split(",").forEach(a => { const t = a.trim(); if (t && !myEmails.has(t.toLowerCase())) allRecipients.add(t); });
+          const ccList: string[] = [];
+          lastMessage.cc_addresses?.split(",").forEach(a => { const t = a.trim(); if (t && !myEmails.has(t.toLowerCase())) ccList.push(t); });
+          useComposerStore.getState().openComposer({ mode: "replyAll", to: [...allRecipients].filter(r => !myEmails.has(r.toLowerCase())), cc: ccList, subject: `Re: ${lastMessage.subject ?? ""}`, quotedHtml: buildReplyQuote(messages), threadId: lastMessage.thread_id, inReplyToMessageId: lastMessage.id });
+        }
       }
       break;
     case "action.forward":
-      if (selectedId) {
-        window.dispatchEvent(new CustomEvent("velo-inline-reply", { detail: { mode: "forward" } }));
+      if (selectedId && activeAccountId) {
+        const messages = await getMessagesForThread(activeAccountId, selectedId);
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage) {
+          useComposerStore.getState().openComposer({ mode: "forward", to: [], subject: `Fwd: ${lastMessage.subject ?? ""}`, quotedHtml: buildForwardQuote(messages), threadId: lastMessage.thread_id, inReplyToMessageId: lastMessage.id });
+        }
       }
       break;
     case "action.archive": {
@@ -315,40 +389,67 @@ async function executeAction(actionId: string): Promise<void> {
       const isTrashView = deleteLabelCtx === "trash";
       const isDraftsView = deleteLabelCtx === "drafts";
       const multiDeleteIds = useThreadStore.getState().selectedThreadIds;
-      if (multiDeleteIds.size > 0 && activeAccountId) {
+      const allThreads = useThreadStore.getState().threads;
+      if (multiDeleteIds.size > 0) {
         const ids = [...multiDeleteIds];
         for (const id of ids) {
+          const t = allThreads.find((th) => th.id === id);
+          const resolvedId = activeAccountId ?? t?.accountId;
+          if (!resolvedId) continue;
           if (isTrashView) {
-            await permanentDeleteThread(activeAccountId, id, []);
-            await deleteThreadFromDb(activeAccountId, id);
+            await permanentDeleteThread(resolvedId, id, []);
+            await deleteThreadFromDb(resolvedId, id);
           } else if (isDraftsView) {
-            try {
-              const client = await getGmailClient(activeAccountId);
-              await deleteDraftsForThread(client, activeAccountId, id);
-              useThreadStore.getState().removeThread(id);
-            } catch (err) {
-              console.error("Draft delete failed:", err);
-            }
+            useThreadStore.getState().removeThread(id);
+            await deleteDraftThread(resolvedId, id);
           } else {
-            await trashThread(activeAccountId, id, []);
+            await trashThread(resolvedId, id, []);
           }
         }
-      } else if (selectedId && activeAccountId) {
-        if (isTrashView) {
-          await permanentDeleteThread(activeAccountId, selectedId, []);
-          await deleteThreadFromDb(activeAccountId, selectedId);
-        } else if (isDraftsView) {
-          try {
-            const client = await getGmailClient(activeAccountId);
-            await deleteDraftsForThread(client, activeAccountId, selectedId);
+      } else if (selectedId) {
+        const t = allThreads.find((th) => th.id === selectedId);
+        const resolvedId = activeAccountId ?? t?.accountId;
+        if (resolvedId) {
+          if (isTrashView) {
+            await permanentDeleteThread(resolvedId, selectedId, []);
+            await deleteThreadFromDb(resolvedId, selectedId);
+          } else if (isDraftsView) {
             useThreadStore.getState().removeThread(selectedId);
-          } catch (err) {
-            console.error("Draft delete failed:", err);
+            await deleteDraftThread(resolvedId, selectedId);
+          } else {
+            await trashThread(resolvedId, selectedId, []);
           }
-        } else {
-          await trashThread(activeAccountId, selectedId, []);
         }
       }
+      break;
+    }
+    case "action.deleteMessage": {
+      // In scheduled view, d cancels the selected scheduled email
+      if (getActiveLabel() === "scheduled") {
+        window.dispatchEvent(new Event("velo-scheduled-cancel-selected"));
+        break;
+      }
+      if (!selectedId || !activeAccountId) break;
+      const deleteMsgLabelCtx = getActiveLabel();
+      const isTrashViewMsg = deleteMsgLabelCtx === "trash";
+      const isDraftsViewMsg = deleteMsgLabelCtx === "drafts";
+
+      if (isDraftsViewMsg) {
+        useThreadStore.getState().removeThread(selectedId);
+        await deleteDraftThread(activeAccountId, selectedId);
+        break;
+      }
+
+      // Determine which message to delete: selected one or fallback to last
+      let messageId = useThreadStore.getState().selectedMessageId;
+      if (!messageId) {
+        const msgs = await getMessagesForThread(activeAccountId, selectedId);
+        const last = msgs[msgs.length - 1];
+        if (!last) break;
+        messageId = last.id;
+      }
+
+      await deleteSingleMessage(activeAccountId, selectedId, messageId, isTrashViewMsg);
       break;
     }
     case "action.star": {
@@ -357,6 +458,21 @@ async function executeAction(actionId: string): Promise<void> {
         if (thread) {
           await starThread(activeAccountId, selectedId, [], !thread.isStarred);
         }
+      }
+      break;
+    }
+    case "action.markRead":
+    case "action.markUnread": {
+      const read = actionId === "action.markRead";
+      const multiMarkIds = useThreadStore.getState().selectedThreadIds;
+      if (multiMarkIds.size > 0 && activeAccountId) {
+        const ids = [...multiMarkIds];
+        for (const id of ids) {
+          await markThreadRead(activeAccountId, id, [], read);
+        }
+        useThreadStore.getState().clearMultiSelect();
+      } else if (selectedId && activeAccountId) {
+        await markThreadRead(activeAccountId, selectedId, [], read);
       }
       break;
     }
@@ -430,7 +546,10 @@ async function executeAction(actionId: string): Promise<void> {
             useThreadStore.getState().updateThread(id, { isMuted: false });
           } else {
             await muteThreadDb(activeAccountId, id);
-            await archiveThread(activeAccountId, id, []);
+            useThreadStore.getState().updateThread(id, { isMuted: true, urgencyScore: 0.05 });
+            if (t?.fromAddress) {
+              logInteraction(activeAccountId, t.fromAddress, "MUTE_URGENCY", id).catch(() => {});
+            }
           }
         }
       } else if (selectedId && activeAccountId) {
@@ -441,7 +560,10 @@ async function executeAction(actionId: string): Promise<void> {
             useThreadStore.getState().updateThread(selectedId, { isMuted: false });
           } else {
             await muteThreadDb(activeAccountId, selectedId);
-            await archiveThread(activeAccountId, selectedId, []);
+            useThreadStore.getState().updateThread(selectedId, { isMuted: true, urgencyScore: 0.05 });
+            if (thread.fromAddress) {
+              logInteraction(activeAccountId, thread.fromAddress, "MUTE_URGENCY", selectedId).catch(() => {});
+            }
           }
         }
       }
@@ -461,6 +583,15 @@ async function executeAction(actionId: string): Promise<void> {
       }
       break;
     }
+    case "action.scheduled.edit":
+      window.dispatchEvent(new Event("velo-scheduled-edit-selected"));
+      break;
+    case "action.scheduled.reschedule":
+      window.dispatchEvent(new Event("velo-scheduled-reschedule-selected"));
+      break;
+    case "action.scheduled.cancel":
+      window.dispatchEvent(new Event("velo-scheduled-cancel-selected"));
+      break;
     case "app.commandPalette":
       window.dispatchEvent(new Event("velo-toggle-command-palette"));
       break;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X, Copy } from "lucide-react";
+import { t } from "@/i18n";
 
 const isMac = navigator.userAgent.includes("Macintosh");
 
@@ -24,6 +25,9 @@ export function TitleBar() {
   const handleMaximize = () => getCurrentWindow().toggleMaximize();
   const handleClose = () => getCurrentWindow().close();
 
+  // On macOS traffic lights live in the sidebar — no top bar needed
+  if (isMac) return null;
+
   return (
     <div
       data-tauri-drag-region
@@ -42,21 +46,21 @@ export function TitleBar() {
           <button
             onClick={handleMinimize}
             className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-sidebar-hover transition-colors"
-            title="Minimize"
+            title={t("layout.titleBar.minimize")}
           >
             <Minus size={14} />
           </button>
           <button
             onClick={handleMaximize}
             className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-sidebar-hover transition-colors"
-            title={maximized ? "Restore" : "Maximize"}
+            title={maximized ? t("layout.titleBar.restore") : t("layout.titleBar.maximize")}
           >
             {maximized ? <Copy size={12} /> : <Square size={12} />}
           </button>
           <button
             onClick={handleClose}
             className="h-full px-3.5 flex items-center justify-center text-sidebar-text/70 hover:bg-danger hover:text-white transition-colors"
-            title="Close"
+            title={t("layout.titleBar.close")}
           >
             <X size={14} />
           </button>

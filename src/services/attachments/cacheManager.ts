@@ -43,6 +43,9 @@ export async function cacheAttachment(
       [relPath, data.length, attachmentId],
     );
 
+    // Fire-and-forget eviction — never blocks the caller.
+    evictOldestCached().catch(() => {});
+
     return relPath;
   } catch (err) {
     console.error("Failed to cache attachment:", err);

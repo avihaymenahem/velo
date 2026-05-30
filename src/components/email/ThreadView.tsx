@@ -1,18 +1,25 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { MessageItem } from "./MessageItem";
 import { ActionBar } from "./ActionBar";
-import { getMessagesForThread, type DbMessage } from "@/services/db/messages";
+import {
+  getMessagesForThread,
+  type DbMessage,
+} from "@/services/db/messages";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useThreadStore, type Thread } from "@/stores/threadStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
-import { markThreadRead } from "@/services/emailActions";
+import { markThreadRead, deleteSingleMessage } from "@/services/emailActions";
+import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { getSetting } from "@/services/db/settings";
 import { getAllowlistedSenders } from "@/services/db/imageAllowlist";
+import { normalizeEmail } from "@/utils/emailUtils";
 import { VolumeX } from "lucide-react";
 import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
+import { restoreRemoteImages } from "@/utils/imageBlocker";
 import { isNoReplyAddress } from "@/utils/noReply";
+import { getDefaultSignature } from "@/services/db/signatures";
 import { ThreadSummary } from "./ThreadSummary";
 import { SmartReplySuggestions } from "./SmartReplySuggestions";
 import { InlineReply } from "./InlineReply";
@@ -22,6 +29,9 @@ import { AiTaskExtractDialog } from "@/components/tasks/AiTaskExtractDialog";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { MessageSkeleton } from "@/components/ui/Skeleton";
 import { RawMessageModal } from "./RawMessageModal";
+import { t } from "@/i18n";
+
+const INITIAL_MESSAGES_TO_SHOW = 20;
 
 interface ThreadViewProps {
   thread: Thread;
@@ -47,6 +57,8 @@ async function handlePopOut(thread: Thread) {
       height: 700,
       center: true,
       dragDropEnabled: false,
+      // @ts-ignore - titleBarStyle is valid for macOS in Tauri 2
+      titleBarStyle: "Overlay",
     });
 
     win.once("tauri://error", (e) => {
@@ -59,14 +71,23 @@ async function handlePopOut(thread: Thread) {
 
 export function ThreadView({ thread }: ThreadViewProps) {
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  // In global/unified view activeAccountId is null; fall back to the thread's own account.
+  const threadAccountId = activeAccountId ?? thread.accountId;
+  const activeLabel = useActiveLabel();
+  const includeTrashed = activeLabel === "trash";
   const contactSidebarVisible = useUIStore((s) => s.contactSidebarVisible);
   const toggleContactSidebar = useUIStore((s) => s.toggleContactSidebar);
   const taskSidebarVisible = useUIStore((s) => s.taskSidebarVisible);
   const [showTaskExtract, setShowTaskExtract] = useState(false);
-  const updateThread = useThreadStore((s) => s.updateThread);
-  const [messages, setMessages] = useState<DbMessage[]>([]);
+   const storeSelectedMessageId = useThreadStore((s) => s.selectedMessageId);
+   const [messages, setMessages] = useState<DbMessage[]>([]);
+   const [selectedMessageId, setLocalSelectedMessageId] = useState<string | null>(null);
+   const storeSetSelectedMessageId = useThreadStore((s) => s.setSelectedMessageId);
+   const setSelectedMessageId = useCallback((id: string | null) => {
+     setLocalSelectedMessageId(id);
+     storeSetSelectedMessageId(id);
+   }, [storeSetSelectedMessageId]);
   const [loading, setLoading] = useState(true);
-  const markedReadRef = useRef<string | null>(null);
   // null = not yet loaded; defer iframe rendering until setting is known
   const [blockImages, setBlockImages] = useState<boolean | null>(null);
   const [allowlistedSenders, setAllowlistedSenders] = useState<Set<string>>(new Set());
@@ -76,19 +97,23 @@ export function ThreadView({ thread }: ThreadViewProps) {
     getSetting("block_remote_images").then((val) => setBlockImages(val !== "false"));
   }, []);
 
-  // Load messages
+  // Load all messages for the thread immediately.
   useEffect(() => {
-    if (!activeAccountId) return;
     setLoading(true);
-    getMessagesForThread(activeAccountId, thread.id)
-      .then(setMessages)
+    getMessagesForThread(threadAccountId, thread.id, includeTrashed)
+      .then((msgs) => {
+        setMessages(msgs);
+        if (storeSelectedMessageId && msgs.some((m) => m.id === storeSelectedMessageId)) {
+          setLocalSelectedMessageId(storeSelectedMessageId);
+        }
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [activeAccountId, thread.id]);
+  }, [threadAccountId, thread.id]);
 
   // Check per-sender allowlist (single batch query instead of N queries)
   useEffect(() => {
-    if (!activeAccountId || messages.length === 0) return;
+    if (messages.length === 0) return;
     let cancelled = false;
 
     const senders: string[] = [];
@@ -97,131 +122,250 @@ export function ThreadView({ thread }: ThreadViewProps) {
     }
     const uniqueSenders = [...new Set(senders)];
 
-    getAllowlistedSenders(activeAccountId, uniqueSenders).then((allowed) => {
+    getAllowlistedSenders(threadAccountId, uniqueSenders).then((allowed) => {
       if (!cancelled) setAllowlistedSenders(allowed);
     });
 
     return () => { cancelled = true; };
-  }, [activeAccountId, messages]);
+  }, [threadAccountId, messages]);
 
-  // Auto-mark unread threads as read when opened (respects mark-as-read setting)
-  const markAsReadBehavior = useUIStore((s) => s.markAsReadBehavior);
+  // Update selected message when store value changes (e.g., from citation click)
   useEffect(() => {
-    if (!activeAccountId || thread.isRead || markedReadRef.current === thread.id) return;
-    if (markAsReadBehavior === "manual") return;
-
-    const markRead = () => {
-      markedReadRef.current = thread.id;
-      markThreadRead(activeAccountId, thread.id, [], true).catch((err) => {
-        console.error("Failed to mark thread as read:", err);
-      });
-    };
-
-    if (markAsReadBehavior === "2s") {
-      const timer = setTimeout(markRead, 2000);
-      return () => clearTimeout(timer);
+    if (storeSelectedMessageId && messages.some(m => m.id === storeSelectedMessageId)) {
+      setLocalSelectedMessageId(storeSelectedMessageId);
     }
-
-    // instant
-    markRead();
-  }, [activeAccountId, thread.id, thread.isRead, updateThread, markAsReadBehavior]);
+  }, [storeSelectedMessageId, messages]);
 
   const openComposer = useComposerStore((s) => s.openComposer);
   const openMenu = useContextMenuStore((s) => s.openMenu);
   const defaultReplyMode = useUIStore((s) => s.defaultReplyMode);
   const lastMessage = messages[messages.length - 1];
 
-  const handleReply = useCallback(() => {
-    if (!lastMessage) return;
-    const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
+  const accounts = useAccountStore((s) => s.accounts);
+  const activeAccount = accounts.find((a) => a.id === threadAccountId);
+
+// Get selected message - either explicitly selected or last message as fallback
+  const selectedMessage = messages.find(m => m.id === selectedMessageId) || lastMessage;
+
+
+  const handleReply = useCallback(async (msgOverride?: DbMessage) => {
+    const msg = msgOverride ?? selectedMessage;
+    if (!msg) return;
+    const replyTo = msg.reply_to ?? msg.from_address;
+    const msgIndex = messages.findIndex(m => m.id === msg.id);
+    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
+    const rfcMsgId = msg.message_id_header ?? null;
+    const refs = rfcMsgId
+      ? [msg.references_header, rfcMsgId].filter(Boolean).join(" ")
+      : null;
     openComposer({
       mode: "reply",
       to: replyTo ? [replyTo] : [],
-      subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
-      threadId: lastMessage.thread_id,
-      inReplyToMessageId: lastMessage.id,
+      subject: `Re: ${msg.subject ?? ""}`,
+      quotedHtml: buildThreadQuote(quotedMessages),
+      threadId: msg.thread_id,
+      inReplyToMessageId: rfcMsgId,
+      references: refs,
+      accountId: thread.accountId,
     });
-  }, [lastMessage, openComposer]);
+  }, [selectedMessage, openComposer, messages, thread.accountId]);
 
-  const handleReplyAll = useCallback(() => {
-    if (!lastMessage) return;
-    const replyTo = lastMessage.reply_to ?? lastMessage.from_address;
+  const handleReplyAll = useCallback(async (msgOverride?: DbMessage) => {
+    const msg = msgOverride ?? selectedMessage;
+    if (!msg || !activeAccount) return;
+    const replyTo = msg.reply_to ?? msg.from_address;
     const allRecipients = new Set<string>();
     if (replyTo) allRecipients.add(replyTo);
-    if (lastMessage.to_addresses) {
-      lastMessage.to_addresses.split(",").forEach((a) => allRecipients.add(a.trim()));
+
+    const myEmails = new Set(accounts.map((a) => normalizeEmail(a.email)));
+
+    if (msg.to_addresses) {
+      msg.to_addresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          allRecipients.add(trimmed);
+        }
+      });
     }
+
+    for (const email of myEmails) {
+      allRecipients.delete(email);
+    }
+
     const ccList: string[] = [];
-    if (lastMessage.cc_addresses) {
-      lastMessage.cc_addresses.split(",").forEach((a) => ccList.push(a.trim()));
+    if (msg.cc_addresses) {
+      msg.cc_addresses.split(",").forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed && !myEmails.has(normalizeEmail(trimmed))) {
+          ccList.push(trimmed);
+        }
+      });
     }
+
+    const msgIndex = messages.findIndex(m => m.id === msg.id);
+    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
+    const rfcMsgId = msg.message_id_header ?? null;
+    const refs = rfcMsgId
+      ? [msg.references_header, rfcMsgId].filter(Boolean).join(" ")
+      : null;
+
     openComposer({
       mode: "replyAll",
-      to: Array.from(allRecipients),
+      to: Array.from(allRecipients).filter(r => !myEmails.has(normalizeEmail(r))),
       cc: ccList,
-      subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
-      threadId: lastMessage.thread_id,
-      inReplyToMessageId: lastMessage.id,
+      subject: `Re: ${msg.subject ?? ""}`,
+      quotedHtml: buildThreadQuote(quotedMessages),
+      threadId: msg.thread_id,
+      inReplyToMessageId: rfcMsgId,
+      references: refs,
+      accountId: thread.accountId,
     });
-  }, [lastMessage, openComposer]);
+  }, [selectedMessage, openComposer, activeAccount, accounts, messages, thread.accountId]);
 
-  const handleForward = useCallback(() => {
-    if (!lastMessage) return;
+  const handleForward = useCallback(async (msgOverride?: DbMessage) => {
+    const msg = msgOverride ?? selectedMessage;
+    if (!msg) return;
+    const msgIndex = messages.findIndex(m => m.id === msg.id);
+    const quotedMessages = msgIndex >= 0 ? messages.slice(0, msgIndex + 1) : messages;
+    const rfcMsgId = msg.message_id_header ?? null;
+    const refs = rfcMsgId
+      ? [msg.references_header, rfcMsgId].filter(Boolean).join(" ")
+      : null;
     openComposer({
       mode: "forward",
       to: [],
-      subject: `Fwd: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildForwardQuote(lastMessage),
-      threadId: lastMessage.thread_id,
-      inReplyToMessageId: lastMessage.id,
+      subject: `Fwd: ${msg.subject ?? ""}`,
+      quotedHtml: buildThreadForwardQuote(quotedMessages),
+      threadId: msg.thread_id,
+      inReplyToMessageId: rfcMsgId,
+      references: refs,
+      accountId: thread.accountId,
     });
-  }, [lastMessage, openComposer]);
+  }, [selectedMessage, openComposer, messages, thread.accountId]);
 
-  const handlePrint = useCallback(() => {
-    if (messages.length === 0) return;
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.left = "-9999px";
-    iframe.style.top = "-9999px";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    document.body.appendChild(iframe);
+const handlePrint = useCallback(async () => {
+    if (messages.length === 0) {
+      console.warn("No messages to print");
+      return;
+    }
 
-    const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
-    if (!doc) { document.body.removeChild(iframe); return; }
+    const messageToPrint = selectedMessage || lastMessage;
+    if (!messageToPrint) return;
 
-    const messagesHtml = messages.map((msg) => {
-      const date = new Date(msg.date).toLocaleString();
-      const from = msg.from_name
-        ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
-        : escapeHtml(msg.from_address ?? "Unknown");
-      const to = escapeHtml(msg.to_addresses ?? "");
-      const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-      return `
-        <div style="margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e5e5e5">
-          <div style="margin-bottom:8px;color:#666;font-size:12px">
-            <strong>From:</strong> ${from}<br/>
-            <strong>To:</strong> ${to}<br/>
-            <strong>Date:</strong> ${date}
-          </div>
-          <div>${body}</div>
-        </div>`;
-    }).join("");
+    const date = new Date(messageToPrint.date).toLocaleString();
+    const from = messageToPrint.from_name
+      ? `${escapeHtml(messageToPrint.from_name)} &lt;${escapeHtml(messageToPrint.from_address ?? "")}&gt;`
+      : escapeHtml(messageToPrint.from_address ?? "Unknown");
+    const to = escapeHtml(messageToPrint.to_addresses ?? "");
+    const cc = messageToPrint.cc_addresses ? escapeHtml(messageToPrint.cc_addresses) : "";
+    const body = messageToPrint.body_html ? sanitizeHtml(messageToPrint.body_html) : escapeHtml(messageToPrint.body_text ?? "");
+
+    let signatureHtml = "";
+    try {
+      const sig = await getDefaultSignature(threadAccountId);
+      if (sig) signatureHtml = sig.body_html;
+    } catch {
+      // ignore
+    }
+
+    const printHtml = `
+      <div style="margin-bottom:16px;color:#666;font-size:12px">
+        <strong>From:</strong> ${from}<br/>
+        <strong>To:</strong> ${to}${cc ? `<br/><strong>Cc:</strong> ${cc}` : ''}<br/>
+        <strong>Date:</strong> ${date}
+      </div>
+      <div style="font-size:14px;line-height:1.6">${body}${signatureHtml ? `<div style="margin-top:24px;border-top:1px solid #ddd;padding-top:12px">${signatureHtml}</div>` : ''}</div>
+    `;
+
+    const dateObj = new Date(messageToPrint.date);
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const dd = String(dateObj.getDate()).padStart(2, "0");
+    const sender = messageToPrint.from_name || messageToPrint.from_address || "Unknown";
+    const subjectTitle = messageToPrint.subject || thread.subject || "No Subject";
+    const printTitle = `${yyyy}.${mm}.${dd} - ${sender} - ${subjectTitle}`;
 
     const safeSubject = escapeHtml(thread.subject ?? "");
-    doc.open();
-    doc.write(`<!DOCTYPE html><html><head><title>${safeSubject || "Email"}</title>
-      <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:800px;margin:20px auto;color:#333;font-size:14px}
-      h1{font-size:18px;margin-bottom:8px}img{max-width:100%}</style></head>
-      <body><h1>${safeSubject || "(No subject)"}</h1>${messagesHtml}</body></html>`);
-    doc.close();
 
-    iframe.contentWindow?.focus();
-    iframe.contentWindow?.print();
-    setTimeout(() => document.body.removeChild(iframe), 1000);
-  }, [messages, thread.subject]);
+    const printDiv = document.createElement("div");
+    printDiv.id = "velo-print-content";
+    printDiv.innerHTML = `
+      <div style="margin-top: 0 !important; padding-top: 0 !important;">
+        <h1 style="font-size:20px; margin-top: 0 !important; margin-bottom: 16px; border-bottom: 2px solid #333; padding-bottom: 8px;">${safeSubject || "(No subject)"}</h1>
+        ${printHtml}
+      </div>
+    `;
+    document.body.appendChild(printDiv);
+
+    const style = document.createElement("style");
+    style.id = "velo-print-styles";
+    style.textContent = `
+      @page {
+        margin: 10mm 15mm 15mm 15mm !important; /* Applica i margini a TUTTE le pagine (Top Right Bottom Left) */
+      }
+
+      @media print {
+        body > *:not(#velo-print-content) {
+          display: none !important;
+        }
+
+        #velo-print-content {
+          display: block !important;
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important; /* Rimuoviamo il padding che si applicava solo all'inizio e fine del blocco */
+          box-sizing: border-box !important;
+          background: white !important;
+          color: black !important;
+        }
+
+        html, body {
+          background: white !important;
+          background-image: none !important;
+          overflow: visible !important;
+          height: auto !important;
+          min-height: auto !important;
+          position: static !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+
+        #velo-print-content img {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+      }
+
+      @media screen {
+        #velo-print-content { display: none !important; }
+      }
+    `;
+    document.head.appendChild(style);
+
+    const oldTitle = document.title;
+    document.title = printTitle;
+
+    setTimeout(() => {
+      try {
+        window.print();
+      } catch (err) {
+        console.error("Print failed:", err);
+      }
+    }, 250);
+
+    const cleanup = () => {
+      const printContent = document.getElementById("velo-print-content");
+      const printStyles = document.getElementById("velo-print-styles");
+      if (printContent) printContent.remove();
+      if (printStyles) printStyles.remove();
+      document.title = oldTitle;
+      window.removeEventListener("afterprint", cleanup);
+    };
+
+    window.addEventListener("afterprint", cleanup);
+    // Increased to 5 minutes so it doesn't destroy the DOM before "Save as PDF" completes
+    setTimeout(cleanup, 300000);
+  }, [messages, thread.subject, selectedMessage, lastMessage, threadAccountId]);
 
   // Message-level keyboard navigation (ArrowUp / ArrowDown)
   const [focusedMsgIdx, setFocusedMsgIdx] = useState(-1);
@@ -230,6 +374,7 @@ export function ThreadView({ thread }: ThreadViewProps) {
   // Reset focused index when thread changes
   useEffect(() => {
     setFocusedMsgIdx(-1);
+    setSelectedMessageId(null);
   }, [thread.id]);
 
   // Scroll focused message into view
@@ -271,10 +416,90 @@ export function ThreadView({ thread }: ThreadViewProps) {
     return () => window.removeEventListener("keydown", handler);
   }, [messages.length, readingPanePosition]);
 
+  const [visibleStart, setVisibleStart] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const initialScrollDoneRef = useRef(false);
+
+  // Reset visible window, stale refs, and scroll state when thread changes
+  useEffect(() => {
+    setVisibleStart(0);
+    initialScrollDoneRef.current = false;
+    messageRefs.current = [];
+  }, [thread.id]);
+
+  // On initial load, scroll so that message n-2 (third-to-last) is at the top.
+  // We use a ResizeObserver because the last message's iframe loads asynchronously,
+  // expanding scrollHeight after the initial render. We retry until scrollHeight is
+  // large enough to reach the target offset, then disconnect.
+  useEffect(() => {
+    if (loading || messages.length < 3 || initialScrollDoneRef.current) return;
+
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const tryScroll = (): boolean => {
+      const targetEl = messageRefs.current[messages.length - 3];
+      if (!targetEl) return false;
+      const offset = targetEl.getBoundingClientRect().top - container.getBoundingClientRect().top;
+      // If scrollHeight hasn't grown enough yet, report failure so we retry on resize
+      if (offset > container.scrollHeight - container.clientHeight) return false;
+      container.scrollTop += offset;
+      initialScrollDoneRef.current = true;
+      return true;
+    };
+
+    if (tryScroll()) return;
+
+    // Content still loading — observe the container's children for size changes
+    const observer = new ResizeObserver(() => {
+      if (tryScroll()) observer.disconnect();
+    });
+    for (const child of container.children) observer.observe(child);
+
+    return () => observer.disconnect();
+  }, [loading, messages.length]);
+
+  // Compute visible slice — always shows last INITIAL_MESSAGES_TO_SHOW messages,
+  // expanding upward when the user loads earlier messages.
+  const visibleMessages = messages.length <= INITIAL_MESSAGES_TO_SHOW
+    ? messages
+    : messages.slice(messages.length - INITIAL_MESSAGES_TO_SHOW - visibleStart);
+
+  const hiddenCount = messages.length - visibleMessages.length;
+
   const [rawMessageTarget, setRawMessageTarget] = useState<{
     messageId: string;
     accountId: string;
   } | null>(null);
+
+  // Reload message list when a new message is sent within this thread (reply/forward)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { threadId: string };
+      if (detail.threadId !== thread.id) return;
+      getMessagesForThread(threadAccountId, thread.id, includeTrashed)
+        .then(setMessages)
+        .catch(console.error);
+    };
+    window.addEventListener("velo-message-sent", handler);
+    return () => window.removeEventListener("velo-message-sent", handler);
+  }, [thread.id, threadAccountId]);
+
+  // Reload message list when a single message is deleted within this thread
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { messageId: string; threadId: string };
+      if (detail.threadId !== thread.id) return;
+      getMessagesForThread(threadAccountId, thread.id, includeTrashed)
+        .then((msgs) => {
+          setMessages(msgs);
+          setSelectedMessageId(null);
+        })
+        .catch(console.error);
+    };
+    window.addEventListener("velo-message-deleted", handler);
+    return () => window.removeEventListener("velo-message-deleted", handler);
+  }, [thread.id, threadAccountId, setSelectedMessageId]);
 
   // Listen for "View Source" event from context menu
   useEffect(() => {
@@ -373,9 +598,8 @@ export function ThreadView({ thread }: ThreadViewProps) {
   // Detect no-reply senders — disable reply buttons but still allow forward
   const noReply = isNoReplyAddress(lastMessage?.reply_to ?? lastMessage?.from_address);
 
-  // Get the primary sender for the contact sidebar
-  const primarySender = lastMessage?.from_address ?? null;
-  const primarySenderName = lastMessage?.from_name ?? null;
+  const primarySender = selectedMessage?.from_address ?? null;
+  const primarySenderName = selectedMessage?.from_name ?? null;
 
   return (
     <div className="flex h-full @container relative">
@@ -399,77 +623,99 @@ export function ThreadView({ thread }: ThreadViewProps) {
         />
 
         {/* Thread subject */}
-        <div className="px-6 py-3 border-b border-border-primary">
+        <div data-tauri-drag-region className="px-6 py-3 border-b border-border-primary">
           <h1 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-            {thread.subject ?? "(No subject)"}
+            {thread.subject ?? t("threadView.noSubject")}
             {thread.isMuted && (
-              <span className="text-warning shrink-0" title="Muted">
+              <span className="text-warning shrink-0" title={t("threadView.muted")}>
                 <VolumeX size={16} />
               </span>
             )}
           </h1>
           <div className="text-xs text-text-tertiary mt-1">
-            {messages.length} message{messages.length !== 1 ? "s" : ""} in this thread
+            {messages.length !== 1
+              ? t("threadView.messageCountPlural", { count: messages.length })
+              : t("threadView.messageCount", { count: messages.length })}
           </div>
         </div>
 
         {/* AI Summary */}
-        {activeAccountId && (
-          <ThreadSummary
-            threadId={thread.id}
-            accountId={activeAccountId}
-            messages={messages}
-          />
-        )}
+        <ThreadSummary
+          threadId={thread.id}
+          accountId={threadAccountId}
+          messages={messages}
+        />
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
           <ErrorBoundary name="MessageList">
-            {messages.map((msg, i) => (
-              <MessageItem
-                key={msg.id}
-                ref={(el) => { messageRefs.current[i] = el; }}
-                message={msg}
-                isLast={i === messages.length - 1}
-                focused={i === focusedMsgIdx}
-                blockImages={blockImages}
-                senderAllowlisted={msg.from_address ? allowlistedSenders.has(msg.from_address) : false}
-                isSpam={thread.labelIds.includes("SPAM")}
-                onContextMenu={(e) => handleMessageContextMenu(e, msg)}
-              />
-            ))}
+            {hiddenCount > 0 && (
+              <div className="px-6 py-3 border-b border-border-secondary">
+                <button
+                  onClick={() => setVisibleStart((s) => s + INITIAL_MESSAGES_TO_SHOW)}
+                  className="text-xs text-accent hover:text-accent-hover transition-colors"
+                >
+                  {Math.min(hiddenCount, INITIAL_MESSAGES_TO_SHOW) !== 1
+                    ? t("threadView.loadEarlierPlural", { count: Math.min(hiddenCount, INITIAL_MESSAGES_TO_SHOW), hidden: hiddenCount })
+                    : t("threadView.loadEarlier", { count: Math.min(hiddenCount, INITIAL_MESSAGES_TO_SHOW), hidden: hiddenCount })}
+                </button>
+              </div>
+            )}
+            {visibleMessages.map((msg, i) => {
+              const globalIdx = messages.length - visibleMessages.length + i;
+              return (
+                <MessageItem
+                  key={msg.id}
+                  ref={(el) => { messageRefs.current[globalIdx] = el; }}
+                  message={msg}
+                  isLast={globalIdx === messages.length - 1}
+                  focused={globalIdx === focusedMsgIdx}
+                  onSelect={setSelectedMessageId}
+                  onNeedBody={async () => {}}
+                  blockImages={blockImages}
+                  senderAllowlisted={msg.from_address ? allowlistedSenders.has(normalizeEmail(msg.from_address)) : false}
+                  isSpam={thread.labelIds.includes("SPAM")}
+                  onContextMenu={(e) => handleMessageContextMenu(e, msg)}
+                  onReply={() => handleReply(msg)}
+                  onReplyAll={() => handleReplyAll(msg)}
+                  onForward={() => handleForward(msg)}
+                  onDelete={() => deleteSingleMessage(msg.account_id, msg.thread_id, msg.id).catch(console.error)}
+                  onMarkRead={msg.is_read === 0 ? () => {
+                    markThreadRead(threadAccountId, thread.id, [msg.id], true).catch(console.error);
+                    setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, is_read: 1 } : m));
+                  } : undefined}
+                />
+              );
+            })}
           </ErrorBoundary>
 
           {/* Smart Reply Suggestions */}
-          {activeAccountId && messages.length > 0 && (
+          {messages.length > 0 && (
             <SmartReplySuggestions
               threadId={thread.id}
-              accountId={activeAccountId}
+              accountId={threadAccountId}
               messages={messages}
               noReply={noReply}
             />
           )}
 
           {/* Inline Reply */}
-          {activeAccountId && (
-            <InlineReply
-              thread={thread}
-              messages={messages}
-              accountId={activeAccountId}
-              noReply={noReply}
-              onSent={() => {
-                // Reload messages after sending
-                getMessagesForThread(activeAccountId, thread.id)
-                  .then(setMessages)
-                  .catch(console.error);
-              }}
-            />
-          )}
+          <InlineReply
+            thread={thread}
+            messages={messages}
+            accountId={threadAccountId}
+            noReply={noReply}
+            onSent={() => {
+              getMessagesForThread(threadAccountId, thread.id, includeTrashed)
+                .then(setMessages)
+                .catch(console.error);
+            }}
+          />
         </div>
       </div>
 
       {/* Contact sidebar — overlay at narrow widths, inline at wide */}
-      {contactSidebarVisible && primarySender && activeAccountId && (
+      {contactSidebarVisible && primarySender && (
         <>
           {/* Backdrop for overlay mode (narrow widths) */}
           <div
@@ -480,7 +726,7 @@ export function ThreadView({ thread }: ThreadViewProps) {
             <ContactSidebar
               email={primarySender}
               name={primarySenderName}
-              accountId={activeAccountId}
+              accountId={threadAccountId}
               onClose={toggleContactSidebar}
             />
           </div>
@@ -488,8 +734,8 @@ export function ThreadView({ thread }: ThreadViewProps) {
       )}
 
       {/* Task sidebar */}
-      {taskSidebarVisible && activeAccountId && (
-        <TaskSidebar accountId={activeAccountId} threadId={thread.id} />
+      {taskSidebarVisible && (
+        <TaskSidebar accountId={thread.accountId} threadId={thread.id} messages={messages} />
       )}
 
       {/* Raw message source modal */}
@@ -503,10 +749,10 @@ export function ThreadView({ thread }: ThreadViewProps) {
       )}
 
       {/* AI Task Extraction Dialog */}
-      {showTaskExtract && activeAccountId && (
+      {showTaskExtract && (
         <AiTaskExtractDialog
           threadId={thread.id}
-          accountId={activeAccountId}
+          accountId={threadAccountId}
           messages={messages}
           onClose={() => setShowTaskExtract(false)}
         />
@@ -515,17 +761,27 @@ export function ThreadView({ thread }: ThreadViewProps) {
   );
 }
 
-function buildQuote(msg: DbMessage): string {
-  const date = new Date(msg.date).toLocaleString();
-  const from = msg.from_name
-    ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
-    : escapeHtml(msg.from_address ?? "Unknown");
-  const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-  return `<br><br><div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666">On ${date}, ${from} wrote:<br>${body}</div>`;
+function buildThreadQuote(msgs: DbMessage[]): string {
+  if (msgs.length === 0) return "";
+  return "<br><br>" + [...msgs].reverse().map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    const from = msg.from_name
+      ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
+      : escapeHtml(msg.from_address ?? "Unknown");
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `<div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666;margin-bottom:8px">On ${date}, ${from} wrote:<br>${body}</div>`;
+  }).join("");
 }
 
-function buildForwardQuote(msg: DbMessage): string {
-  const date = new Date(msg.date).toLocaleString();
-  const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-  return `<br><br>---------- Forwarded message ---------<br>From: ${escapeHtml(msg.from_name ?? "")} &lt;${escapeHtml(msg.from_address ?? "")}&gt;<br>Date: ${date}<br>Subject: ${escapeHtml(msg.subject ?? "")}<br>To: ${escapeHtml(msg.to_addresses ?? "")}<br><br>${body}`;
+function buildThreadForwardQuote(msgs: DbMessage[]): string {
+  if (msgs.length === 0) return "";
+  // Newest message first (standard email forward convention)
+  const parts = [...msgs].reverse().map(msg => {
+    const date = new Date(msg.date).toLocaleString();
+    // Restore blocked remote images so they appear correctly in the forwarded email
+    const rawHtml = msg.body_html ? restoreRemoteImages(msg.body_html) : null;
+    const body = rawHtml ? sanitizeHtml(rawHtml) : escapeHtml(msg.body_text ?? "");
+    return `From: ${escapeHtml(msg.from_name ?? "")} &lt;${escapeHtml(msg.from_address ?? "")}&gt;<br>Date: ${date}<br>Subject: ${escapeHtml(msg.subject ?? "")}<br>To: ${escapeHtml(msg.to_addresses ?? "")}<br><br>${body}`;
+  });
+  return `<br><br>---------- Forwarded message ---------<br><br>${parts.join("<br><br>---------- Previous message ---------<br><br>")}`;
 }

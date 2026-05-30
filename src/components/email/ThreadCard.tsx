@@ -3,10 +3,14 @@ import { useDraggable } from "@dnd-kit/core";
 import type { Thread } from "@/stores/threadStore";
 import { useThreadStore } from "@/stores/threadStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useAccountStore } from "@/stores/accountStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { formatRelativeDate } from "@/utils/date";
-import { Paperclip, Star, Check, Pin, BellRing, VolumeX } from "lucide-react";
+import { decodeHtml } from "@/utils/sanitize";
+import { Paperclip, Star, Check, Pin, BellRing, VolumeX, Zap, Wind } from "lucide-react";
 import type { DragData } from "@/components/dnd/DndProvider";
+import { t } from "@/i18n";
+import { useContactsStore } from "@/stores/contactsStore";
 
 const CATEGORY_COLORS: Record<string, string> = {
   Updates: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400",
@@ -32,7 +36,66 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
   const selectThreadRange = useThreadStore((s) => s.selectThreadRange);
   const activeLabel = useActiveLabel();
   const emailDensity = useUIStore((s) => s.emailDensity);
+  const contactsMap = useContactsStore((s) => s.contactsMap);
   const isSpam = thread.labelIds.includes("SPAM");
+  const account = useAccountStore((s) => s.accounts.find((a) => a.id === thread.accountId) ?? null);
+  const accountColor = account?.color ?? null;
+
+  const isSent = thread.labelIds.includes("SENT") && !thread.labelIds.includes("INBOX");
+
+  const senderDisplay = useMemo(() => {
+    const accountEmail = account?.email.toLowerCase() ?? "";
+
+    if (isSent) {
+      const raw = thread.allRecipients ?? thread.fromAddress ?? "";
+      if (!raw) return t("threadCard.unknown");
+      const names = raw.split(/,\s*/).flatMap((entry) => {
+        const match = entry.trim().match(/^(.*?)\s*<([^>]+)>$/);
+        const email = (match ? match[2]! : entry).trim().toLowerCase();
+        if (email === accountEmail) return [];
+        const name = match ? match[1]!.trim().replace(/^["']|["']$/g, "") : entry.trim();
+        return [name || email];
+      });
+      return names.join(", ") || t("threadCard.unknown");
+    }
+
+    // allSenders is pre-filtered in SQL to exclude the account's own from_address.
+    // Format: "Name <email>" or plain "email" — parse to do contactsMap lookup.
+    // Do NOT use thread.fromAddress for contact lookup here: fromAddress comes from
+    // the latest message, which may be the account's own reply, not the external sender.
+    if (thread.allSenders) {
+      const names = thread.allSenders.split(/,\s*/).map((entry) => {
+        const match = entry.trim().match(/^(.*?)\s*<([^>]+)>$/);
+        const email = (match ? match[2]! : entry).trim().toLowerCase();
+        const fallbackName = match ? match[1]!.trim() : entry.trim();
+        return contactsMap[email] || fallbackName || email;
+      });
+      return names.join(", ") || t("threadCard.unknown");
+    }
+
+    // Fallback: allSenders is null means every sender in the thread is the account itself
+    // (e.g. self-sent email, or trashed before being categorised). Show recipients instead,
+    // mirroring the isSent path so trash/draft threads don't show "sconosciuto".
+    if (!thread.fromAddress || thread.fromAddress.toLowerCase() === accountEmail) {
+      const raw = thread.allRecipients ?? "";
+      if (raw) {
+        const names = raw.split(/,\s*/).flatMap((entry) => {
+          const match = entry.trim().match(/^(.*?)\s*<([^>]+)>$/);
+          const email = (match ? match[2]! : entry).trim().toLowerCase();
+          if (email === accountEmail) return [];
+          const name = match ? match[1]!.trim().replace(/^["']|["']$/g, "") : entry.trim();
+          return [contactsMap[email] || name || email];
+        });
+        const nameStr = names.join(", ");
+        if (nameStr) return nameStr;
+      }
+      return t("threadCard.unknown");
+    }
+    return contactsMap[thread.fromAddress.toLowerCase()] ||
+      thread.fromName ||
+      thread.fromAddress ||
+      t("threadCard.unknown");
+  }, [account, isSent, thread.allRecipients, thread.allSenders, thread.fromName, thread.fromAddress, contactsMap]);
 
   // Read selectedThreadIds lazily for drag — avoids subscribing all cards to the Set reference
   const dragData: DragData = useMemo(() => ({
@@ -64,11 +127,7 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
   const handleContextMenu = onContextMenu
     ? (e: React.MouseEvent) => onContextMenu(e, thread.id)
     : undefined;
-  const initial = (
-    thread.fromName?.[0] ??
-    thread.fromAddress?.[0] ??
-    "?"
-  ).toUpperCase();
+  const initial = (senderDisplay[0] ?? "?").toUpperCase();
 
   return (
     <button
@@ -77,10 +136,10 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
       {...listeners}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
-      aria-label={`${thread.isRead ? "" : "Unread "}email from ${thread.fromName ?? thread.fromAddress ?? "Unknown"}: ${thread.subject ?? "(No subject)"}`}
+      aria-label={`${thread.isRead ? "" : t("threadCard.unreadPrefix")}email from ${senderDisplay}: ${thread.subject ?? t("threadCard.noSubject")}`}
       aria-selected={isSelected}
-      className={`w-full text-left border-b border-border-secondary group hover-lift press-scale ${
-        emailDensity === "compact" ? "px-3 py-1.5" : emailDensity === "spacious" ? "px-4 py-4" : "px-4 py-3"
+      className={`relative w-full text-left border-b border-border-secondary group hover-lift press-scale ${
+        emailDensity === "compact" ? "pl-4 pr-3 py-1.5" : emailDensity === "spacious" ? "pl-5 pr-4 py-4" : "pl-5 pr-4 py-3"
       } ${
         isDragging
           ? "opacity-50"
@@ -91,6 +150,12 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
               : "hover:bg-bg-hover"
       } ${isSpam ? "bg-red-500/8 dark:bg-red-500/10" : ""}`}
     >
+      {accountColor && (
+        <span
+          className="absolute left-0 top-0 -bottom-px w-0.5"
+          style={{ backgroundColor: accountColor }}
+        />
+      )}
       <div className="flex items-start gap-3">
         {/* Avatar */}
         <div
@@ -114,7 +179,7 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
                   : "font-semibold text-text-primary"
               }`}
             >
-              {thread.fromName ?? thread.fromAddress ?? "Unknown"}
+              {senderDisplay}
             </span>
             <span className="text-xs text-text-tertiary whitespace-nowrap shrink-0">
               {formatRelativeDate(thread.lastMessageAt)}
@@ -127,13 +192,13 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
               thread.isRead ? "text-text-secondary" : "text-text-primary"
             }`}
           >
-            {thread.subject ?? "(No subject)"}
+            {thread.subject ?? t("threadCard.noSubject")}
           </div>
 
           {/* Snippet + indicators */}
           <div className={`flex items-center gap-1.5 mt-0.5 ${emailDensity === "compact" ? "hidden" : ""}`}>
             <span className="text-xs text-text-tertiary truncate flex-1">
-              {thread.snippet}
+              {decodeHtml(thread.snippet ?? "")}
             </span>
             {showCategoryBadge && category && category !== "Primary" && CATEGORY_COLORS[category] && (
               <span className={`shrink-0 text-[0.625rem] px-1.5 rounded-full leading-normal ${CATEGORY_COLORS[category]}`}>
@@ -141,33 +206,48 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
               </span>
             )}
             {hasFollowUp && (
-              <span className="shrink-0 text-accent" title="Follow-up reminder set">
+              <span className="shrink-0 text-accent" title={t("threadCard.followUpReminder")}>
                 <BellRing size={12} />
               </span>
             )}
+            {!thread.isMuted && !thread.isHeatExtinguished && (thread.urgencyScore ?? 0) >= 0.6 && (
+              <span className="shrink-0 text-danger" title={t("threadCard.highUrgency")}>
+                <Zap size={12} className="fill-current" />
+              </span>
+            )}
+            {!thread.isMuted && !thread.isHeatExtinguished && (thread.urgencyScore ?? 0) >= 0.3 && (thread.urgencyScore ?? 0) < 0.6 && (
+              <span className="shrink-0 text-warning" title={t("threadCard.moderateUrgency")}>
+                <Zap size={12} />
+              </span>
+            )}
+            {!thread.isMuted && thread.isHeatExtinguished && (thread.urgencyScore ?? 0) === 0 && (
+              <span className="shrink-0 text-success" title={t("threadCard.urgencyResolved")}>
+                <Wind size={12} />
+              </span>
+            )}
             {thread.isMuted && (
-              <span className="shrink-0 text-warning" title="Muted">
+              <span className="shrink-0 text-text-tertiary" title={t("threadCard.mutedUrgency")}>
                 <VolumeX size={12} />
               </span>
             )}
             {thread.isPinned && (
-              <span className="shrink-0 text-accent" title="Pinned">
+              <span className="shrink-0 text-accent" title={t("threadCard.pinned")}>
                 <Pin size={12} className="fill-current" />
               </span>
             )}
             {thread.hasAttachments && (
-              <span className="shrink-0 text-text-tertiary" title="Has attachments">
+              <span className="shrink-0 text-text-tertiary" title={t("threadCard.hasAttachments")}>
                 <Paperclip size={12} />
               </span>
             )}
             {thread.isStarred && (
-              <span className="shrink-0 text-warning star-animate" title="Starred">
+              <span className="shrink-0 text-warning star-animate" title={t("threadCard.starred")}>
                 <Star size={12} className="fill-current" />
               </span>
             )}
-            {thread.messageCount > 1 && (
-              <span className="text-xs text-text-tertiary shrink-0 bg-bg-tertiary rounded-full px-1.5">
-                {thread.messageCount}
+            {(thread.unreadCount > 0 || thread.messageCount > 1) && (
+              <span className={`text-xs shrink-0 rounded-full px-1.5 ${thread.unreadCount > 0 ? "bg-accent text-white font-medium" : "bg-bg-tertiary text-text-tertiary"}`}>
+                {thread.unreadCount > 0 ? `${thread.unreadCount}/${thread.messageCount}` : thread.messageCount}
               </span>
             )}
           </div>

@@ -96,7 +96,7 @@ describe("emailActions", () => {
     it("marks thread read via provider", async () => {
       const result = await markThreadRead("acct-1", "t1", ["m1"], true);
       expect(result.success).toBe(true);
-      expect(mockUpdateThread).toHaveBeenCalledWith("t1", { isRead: true });
+      expect(mockUpdateThread).toHaveBeenCalledWith("t1", { isRead: true, unreadCount: 0 });
       expect(mockProvider.markRead).toHaveBeenCalledWith("t1", ["m1"], true);
     });
 

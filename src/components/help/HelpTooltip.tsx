@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { HelpCircle } from "lucide-react";
+import { t } from "@/i18n";
 import { CONTEXTUAL_TIPS } from "@/constants/helpContent";
 import { navigateToHelp } from "@/router/navigate";
 
@@ -70,7 +71,7 @@ export function HelpTooltip({ contextId, size = 14 }: HelpTooltipProps) {
               onClick={handleLearnMore}
               className="mt-2 text-xs text-accent hover:text-accent-hover transition-colors"
             >
-              Learn more
+              {t("help.learnMore")}
             </button>
           </div>,
           document.body,

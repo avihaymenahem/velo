@@ -1,9 +1,15 @@
 export type AiProvider = "claude" | "openai" | "gemini" | "ollama" | "copilot";
 
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface AiCompletionRequest {
   systemPrompt: string;
   userContent: string;
   maxTokens?: number;
+  conversationHistory?: ConversationMessage[];
 }
 
 export interface AiProviderClient {

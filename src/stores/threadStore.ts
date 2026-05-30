@@ -7,6 +7,7 @@ export interface Thread {
   snippet: string | null;
   lastMessageAt: number;
   messageCount: number;
+  unreadCount: number;
   isRead: boolean;
   isStarred: boolean;
   isPinned: boolean;
@@ -15,6 +16,11 @@ export interface Thread {
   labelIds: string[];
   fromName: string | null;
   fromAddress: string | null;
+  allSenders?: string | null;
+  allRecipients?: string | null;
+  urgencyScore?: number;
+  sentimentScore?: number;
+  isHeatExtinguished?: boolean;
 }
 
 interface ThreadState {
@@ -22,11 +28,15 @@ interface ThreadState {
   threadMap: Map<string, Thread>;
   selectedThreadId: string | null;
   selectedThreadIds: Set<string>;
+  selectedMessageId: string | null;
   isLoading: boolean;
   searchQuery: string;
   searchThreadIds: Set<string> | null; // null = no active search
+  searchResults: Thread[] | null; // null = no active search, [] = search returned no hits
+  searchLoading: boolean;
   setThreads: (threads: Thread[]) => void;
   selectThread: (id: string | null) => void;
+  setSelectedMessageId: (id: string | null) => void;
   toggleThreadSelection: (id: string) => void;
   selectThreadRange: (id: string) => void;
   clearMultiSelect: () => void;
@@ -37,7 +47,11 @@ interface ThreadState {
   removeThread: (id: string) => void;
   removeThreads: (ids: string[]) => void;
   setSearch: (query: string, threadIds: Set<string> | null) => void;
+  setSearchResults: (results: Thread[] | null) => void;
+  setSearchLoading: (loading: boolean) => void;
   clearSearch: () => void;
+  addThreads: (newThreads: Thread[]) => void;
+  mergeSemanticResults: (results: Thread[]) => void;
 }
 
 export const useThreadStore = create<ThreadState>((set, get) => ({
@@ -45,12 +59,16 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   threadMap: new Map(),
   selectedThreadId: null,
   selectedThreadIds: new Set(),
+  selectedMessageId: null,
   isLoading: false,
   searchQuery: "",
   searchThreadIds: null,
+  searchResults: null,
+  searchLoading: false,
 
   setThreads: (threads) => set({ threads, threadMap: new Map(threads.map((t) => [t.id, t])) }),
   selectThread: (selectedThreadId) => set({ selectedThreadId, selectedThreadIds: new Set() }),
+  setSelectedMessageId: (selectedMessageId) => set({ selectedMessageId }),
   toggleThreadSelection: (id) =>
     set((state) => {
       const next = new Set(state.selectedThreadIds);
@@ -103,7 +121,10 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
       const threadMap = new Map(state.threadMap);
       const existing = threadMap.get(id);
       if (existing) threadMap.set(id, { ...existing, ...updates });
-      return { threads, threadMap };
+      const searchResults = state.searchResults
+        ? state.searchResults.map((t) => t.id === id ? { ...t, ...updates } : t)
+        : null;
+      return { threads, threadMap, searchResults };
     }),
   removeThread: (id) =>
     set((state) => {
@@ -133,5 +154,38 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
       };
     }),
   setSearch: (query, threadIds) => set({ searchQuery: query, searchThreadIds: threadIds }),
-  clearSearch: () => set({ searchQuery: "", searchThreadIds: null }),
+  setSearchResults: (searchResults) =>
+    set((state) => {
+      if (!searchResults) return { searchResults };
+      const threadMap = new Map(state.threadMap);
+      for (const t of searchResults) threadMap.set(t.id, t);
+      return { searchResults, threadMap };
+    }),
+  setSearchLoading: (searchLoading) => set({ searchLoading }),
+  clearSearch: () => set({ searchQuery: "", searchThreadIds: null, searchResults: null, searchLoading: false }),
+  mergeSemanticResults: (results) =>
+    set((state) => {
+      if (state.searchResults === null) return {};
+      return {
+        searchResults: results,
+        searchThreadIds: new Set(results.map((t) => t.id)),
+      };
+    }),
+  addThreads: (newThreads) =>
+    set((state) => {
+      const existingIds = new Set(state.threads.map((t) => t.id));
+      const filteredNew = newThreads.filter((t) => !existingIds.has(t.id));
+
+      const threads = [...filteredNew, ...state.threads];
+      const threadMap = new Map(state.threadMap);
+      for (const t of filteredNew) threadMap.set(t.id, t);
+
+      let searchThreadIds = state.searchThreadIds;
+      if (searchThreadIds) {
+        searchThreadIds = new Set(searchThreadIds);
+        for (const t of newThreads) searchThreadIds.add(t.id);
+      }
+
+      return { threads, threadMap, searchThreadIds };
+    }),
 }));

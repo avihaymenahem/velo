@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef } from "react";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
+import { t } from "@/i18n";
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -20,11 +21,13 @@ export function ConfirmDialog({
   onConfirm,
   title,
   message,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   variant = "primary",
   loading = false,
 }: ConfirmDialogProps) {
+  const resolvedConfirmLabel = confirmLabel ?? t("ui.confirmDialog.defaultConfirm");
+  const resolvedCancelLabel = cancelLabel ?? t("ui.confirmDialog.defaultCancel");
   const confirmRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -48,7 +51,7 @@ export function ConfirmDialog({
         <div className="text-sm text-text-secondary mb-4">{message}</div>
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={loading}>
-            {cancelLabel}
+            {resolvedCancelLabel}
           </Button>
           <Button
             ref={confirmRef}
@@ -56,7 +59,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={loading}
           >
-            {loading ? "..." : confirmLabel}
+            {loading ? "..." : resolvedConfirmLabel}
           </Button>
         </div>
       </div>

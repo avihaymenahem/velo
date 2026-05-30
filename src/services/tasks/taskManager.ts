@@ -1,14 +1,12 @@
-import { completeTask, insertTask, getTaskById, updateTask } from "@/services/db/tasks";
+import { completeTask, insertTask, getTaskById, updateTask, purgeOldDeletedTasks as dbPurge, purgeOldCompletedTasks as dbPurgeCompleted } from "@/services/db/tasks";
+import { getSetting } from "@/services/db/settings";
 
 export interface RecurrenceRule {
   type: "daily" | "weekly" | "monthly" | "yearly";
-  interval: number; // every N days/weeks/months/years
-  daysOfWeek?: number[]; // 0=Sun - 6=Sat, for weekly
+  interval: number;
+  daysOfWeek?: number[];
 }
 
-/**
- * Parse a recurrence rule from its JSON string.
- */
 export function parseRecurrenceRule(json: string | null): RecurrenceRule | null {
   if (!json) return null;
   try {
@@ -18,9 +16,6 @@ export function parseRecurrenceRule(json: string | null): RecurrenceRule | null 
   }
 }
 
-/**
- * Calculate the next occurrence date from a given start date and recurrence rule.
- */
 export function calculateNextOccurrence(
   fromDate: Date,
   rule: RecurrenceRule,
@@ -45,35 +40,27 @@ export function calculateNextOccurrence(
   return next;
 }
 
-/**
- * Handle task completion when the task has a recurrence rule.
- * Completes the current task and creates a new one for the next occurrence.
- * Returns the new task ID if a recurring task was created, null otherwise.
- */
 export async function handleRecurringTaskCompletion(
   taskId: string,
 ): Promise<string | null> {
   const task = await getTaskById(taskId);
   if (!task) return null;
 
-  // Complete the current task
   await completeTask(taskId);
 
-  // Check for recurrence
   const rule = parseRecurrenceRule(task.recurrence_rule);
   if (!rule) return null;
 
-  // Calculate next due date
   const fromDate = task.due_date ? new Date(task.due_date * 1000) : new Date();
   const nextDate = calculateNextOccurrence(fromDate, rule);
   const nextDueDate = Math.floor(nextDate.getTime() / 1000);
 
-  // Create the next occurrence
   const newId = await insertTask({
     accountId: task.account_id,
     title: task.title,
     description: task.description,
     priority: task.priority,
+    direction: task.direction,
     dueDate: nextDueDate,
     parentId: task.parent_id,
     threadId: task.thread_id,
@@ -83,8 +70,37 @@ export async function handleRecurringTaskCompletion(
     tagsJson: task.tags_json,
   });
 
-  // Update next_recurrence_at on the new task
   await updateTask(newId, { nextRecurrenceAt: nextDueDate });
 
   return newId;
+}
+
+/**
+ * Purge soft-deleted tasks using the configured retention period.
+ * Reads `task_retention_days_deleted` from settings (default: 7 days).
+ */
+export async function purgeOldDeletedTasks(): Promise<void> {
+  try {
+    const raw = await getSetting("task_retention_days_deleted");
+    const days = raw ? parseInt(raw, 10) : 7;
+    await dbPurge(isNaN(days) || days <= 0 ? 7 : days);
+  } catch (err) {
+    console.warn("[taskManager] purgeOldDeletedTasks failed:", err);
+  }
+}
+
+/**
+ * Permanently delete completed tasks older than `task_retention_days_completed` days.
+ * No-ops if the setting is unset or ≤ 0 (user opted out).
+ */
+export async function purgeOldCompletedTasks(): Promise<void> {
+  try {
+    const raw = await getSetting("task_retention_days_completed");
+    if (!raw) return;
+    const days = parseInt(raw, 10);
+    if (isNaN(days) || days <= 0) return;
+    await dbPurgeCompleted(days);
+  } catch (err) {
+    console.warn("[taskManager] purgeOldCompletedTasks failed:", err);
+  }
 }

@@ -10,15 +10,25 @@ export async function updateBadgeCount(): Promise<void> {
     if (count === lastCount) return;
     lastCount = count;
 
+    const win = getCurrentWindow();
+    // setBadgeCount sets the dock/taskbar badge number (macOS + Linux).
+    // setBadgeLabel sets the dock tile label string (macOS only).
+    // We call both: some macOS versions respond better to one than the other.
     try {
-      await getCurrentWindow().setBadgeCount(count > 0 ? count : undefined);
+      await win.setBadgeCount(count > 0 ? count : undefined);
+    } catch (err) {
+      console.warn("[badge] setBadgeCount failed:", err);
+    }
+    try {
+      await win.setBadgeLabel(count > 0 ? String(count) : undefined);
     } catch {
-      // badge count may not be supported on all platforms
+      // setBadgeLabel is macOS-only; silently ignore on other platforms
     }
 
-    const tooltip = count > 0 ? `Velo - ${count} unread` : "Velo";
+    const tooltip = count > 0 ? `Melo - ${count} unread` : "Melo";
     try {
       await invoke("set_tray_tooltip", { tooltip });
+      await invoke("set_tray_badge", { count: count > 0 ? count : null });
     } catch {
       // tray tooltip update is best-effort
     }
