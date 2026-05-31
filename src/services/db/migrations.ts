@@ -840,6 +840,25 @@ export async function runMigrations(): Promise<void> {
   );
   const appliedVersions = new Set(applied.map((r) => r.version));
 
+  // Repair: if migration 14 is marked applied but an IMAP label column is
+  // missing, remove only the v14 record so v14 re-runs.
+  // The migration runner tolerates duplicate ALTER TABLE ADD COLUMN errors,
+  // which lets it recover from a partially persisted migration.
+  // Do not remove v14+ records: later migrations include destructive IMAP
+  // attachment resync steps and should not be replayed for a schema repair.
+  if (appliedVersions.has(14)) {
+    const labelColumns = await db.select<{ name: string }[]>(
+      "PRAGMA table_info(labels)",
+    );
+    if (!labelColumns.some((column) => column.name === "imap_folder_path")) {
+      console.warn(
+        "Migration v14 marked applied but imap_folder_path column missing — re-running v14",
+      );
+      await db.execute("DELETE FROM _migrations WHERE version = 14");
+      appliedVersions.delete(14);
+    }
+  }
+
   // Repair: if migration 18 is marked applied but tasks table is missing,
   // remove the stale record so it re-runs
   if (appliedVersions.has(18)) {
