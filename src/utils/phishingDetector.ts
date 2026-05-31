@@ -43,6 +43,18 @@ const SUSPICIOUS_TLDS_TIER3 = new Set([
   ".info", ".online", ".site", ".club", ".space", ".fun", ".store", ".live",
 ]);
 
+const MULTI_PART_TLDS = new Set([
+  "ac.uk", "co.uk", "gov.uk", "me.uk", "net.uk", "org.uk",
+  "ac.jp", "co.jp", "go.jp", "ne.jp", "or.jp",
+  "com.au", "edu.au", "net.au", "org.au",
+  "co.kr", "go.kr", "or.kr",
+  "com.br", "net.br", "org.br",
+  "co.nz", "net.nz", "org.nz",
+  "co.in", "net.in", "org.in",
+  "com.cn", "net.cn", "org.cn",
+  "co.za", "net.za", "org.za",
+]);
+
 const URL_SHORTENERS = new Set([
   "bit.ly", "t.co", "tinyurl.com", "goo.gl", "ow.ly", "is.gd", "buff.ly", "rebrand.ly",
 ]);
@@ -133,11 +145,16 @@ function checkSuspiciousTld(hostname: string): TriggeredRule | null {
 
 /**
  * Extract the registrable domain (effective second-level domain + TLD).
- * This is a simplified version that handles common cases.
+ * This is a simplified public suffix approximation for common email links.
  */
 function getRegistrableDomain(hostname: string): string {
   const parts = hostname.toLowerCase().split(".");
-  // Return last 2 parts (e.g. "example.com" from "sub.example.com")
+  if (parts.length >= 3) {
+    const suffix = parts.slice(-2).join(".");
+    if (MULTI_PART_TLDS.has(suffix)) {
+      return parts.slice(-3).join(".");
+    }
+  }
   if (parts.length >= 2) {
     return parts.slice(-2).join(".");
   }

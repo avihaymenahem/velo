@@ -191,6 +191,20 @@ describe("pendingOperations DB service", () => {
       expect(removed).toBe(0);
       expect(mockDb.execute).not.toHaveBeenCalled();
     });
+
+    it("uses a bound parameter for the optional account filter", async () => {
+      const maliciousAccountId = "acct-1' OR status = 'pending";
+      mockDb.select.mockResolvedValueOnce([]);
+
+      await compactQueue(maliciousAccountId);
+
+      expect(mockDb.select).toHaveBeenCalledWith(
+        expect.stringContaining("account_id = $1"),
+        [maliciousAccountId],
+      );
+      const sql = mockDb.select.mock.calls[0]?.[0] as string;
+      expect(sql).not.toContain(maliciousAccountId);
+    });
   });
 
   describe("clearFailedOperations", () => {

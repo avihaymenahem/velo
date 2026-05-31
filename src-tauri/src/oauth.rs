@@ -159,6 +159,42 @@ pub struct TokenExchangeResult {
     pub id_token: Option<String>,
 }
 
+fn validate_token_url(token_url: &str) -> Result<(), String> {
+    let parsed = reqwest::Url::parse(token_url)
+        .map_err(|_| "Rejected token URL: invalid OAuth token endpoint".to_string())?;
+
+    let host = parsed.host_str().unwrap_or("unknown");
+    let authority = token_url
+        .split_once("://")
+        .and_then(|(_, rest)| rest.split('/').next())
+        .unwrap_or("");
+    let has_explicit_port = authority
+        .rsplit('@')
+        .next()
+        .is_some_and(|host_port| host_port.contains(':'));
+    let is_allowed = parsed.scheme() == "https"
+        && parsed.username().is_empty()
+        && parsed.password().is_none()
+        && parsed.port().is_none()
+        && !has_explicit_port
+        && parsed.query().is_none()
+        && parsed.fragment().is_none()
+        && matches!(
+            (host, parsed.path()),
+            ("login.microsoftonline.com", "/consumers/oauth2/v2.0/token")
+                | ("api.login.yahoo.com", "/oauth2/get_token")
+        );
+
+    if is_allowed {
+        Ok(())
+    } else {
+        Err(format!(
+            "Rejected token URL: only known OAuth provider endpoints are allowed (host: {})",
+            host
+        ))
+    }
+}
+
 /// Exchange an OAuth authorization code for tokens via Rust HTTP client (avoids CORS).
 #[tauri::command]
 pub async fn oauth_exchange_token(
@@ -170,6 +206,8 @@ pub async fn oauth_exchange_token(
     client_secret: Option<String>,
     scope: Option<String>,
 ) -> Result<TokenExchangeResult, String> {
+    validate_token_url(&token_url)?;
+
     let mut params = vec![
         ("code", code),
         ("client_id", client_id),
@@ -219,6 +257,8 @@ pub async fn oauth_refresh_token(
     client_secret: Option<String>,
     scope: Option<String>,
 ) -> Result<TokenExchangeResult, String> {
+    validate_token_url(&token_url)?;
+
     let mut params = vec![
         ("refresh_token", refresh_token),
         ("client_id", client_id),
@@ -253,4 +293,63 @@ pub async fn oauth_refresh_token(
         .json::<TokenExchangeResult>()
         .await
         .map_err(|e| format!("Failed to parse token response: {}", e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_token_url;
+
+    #[test]
+    fn allows_current_oauth_provider_token_urls() {
+        assert!(validate_token_url(
+            "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
+        )
+        .is_ok());
+        assert!(validate_token_url("https://api.login.yahoo.com/oauth2/get_token").is_ok());
+    }
+
+    #[test]
+    fn rejects_unknown_provider_token_urls() {
+        assert!(validate_token_url("https://oauth2.googleapis.com/token").is_err());
+        assert!(validate_token_url("https://appleid.apple.com/auth/token").is_err());
+        assert!(validate_token_url("https://evil.example.com/oauth2/token").is_err());
+    }
+
+    #[test]
+    fn rejects_non_https_and_local_token_urls() {
+        assert!(
+            validate_token_url("http://login.microsoftonline.com/consumers/oauth2/v2.0/token")
+                .is_err()
+        );
+        assert!(validate_token_url("http://localhost:9000/token").is_err());
+        assert!(validate_token_url("https://127.0.0.1/token").is_err());
+    }
+
+    #[test]
+    fn rejects_extra_url_components() {
+        assert!(validate_token_url(
+            "https://login.microsoftonline.com/consumers/oauth2/v2.0/token?next=https://evil.example"
+        )
+        .is_err());
+        assert!(validate_token_url(
+            "https://login.microsoftonline.com:443/consumers/oauth2/v2.0/token"
+        )
+        .is_err());
+        assert!(validate_token_url(
+            "https://user@login.microsoftonline.com/consumers/oauth2/v2.0/token"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn rejects_unconfigured_microsoft_tenant_paths() {
+        assert!(
+            validate_token_url("https://login.microsoftonline.com/common/oauth2/v2.0/token")
+                .is_err()
+        );
+        assert!(validate_token_url(
+            "https://login.microsoftonline.com/organizations/oauth2/v2.0/token"
+        )
+        .is_err());
+    }
 }
