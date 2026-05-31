@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 版本：0.7
+- 版本：0.8
 - 状态：Ready_For_User_Review
 - 最后更新：2026-05-31
 - 范围：maintenance foundation、上游策略、CI/release governance 基线。
@@ -175,6 +175,18 @@ Stage 1B 收口验证：
 - #206、#245-A、#245-C、#245-D、#245-E 已按 Kirje 策略适配。
 - #245-F 不进入当前批次；credential corruption 需要先设计恢复 UX、设置页提示和账户级降级策略。
 - 当前批次可以进入用户 review 和 Git handoff；下一步不应该继续扩大 upstream PR scope。
+
+## Stage 2B Release Identity Migration
+
+- Draft PR #1 已创建：`https://github.com/iiwish/kirje/pull/1`。
+- PR #1 base 为 `main`，head 为 `codex/maintenance-foundation`。
+- Frontend 和 Rust CI 已启动。
+- 官网域名确认：`kirje.app`。
+- 新增 `docs/release-identity-migration.md`。
+- 审计发现：全仓身份引用约 443 处；关键发布/运行时/文档身份引用约 138 处。
+- 结论：Kirje 不能在 identity migration 前公开发布。updater、signing、bundle id、Homebrew/Flatpak/RPM、本地 DB/key 文件都必须拆分处理。
+- 建议 target identity：display name `Kirje`，website `https://kirje.app`，package/Cargo name `kirje`，Tauri identifier 待确认，当前推荐 `app.kirje.desktop`。
+- `kirje.app` 初期应承担 homepage、release notes、support、安全策略；updater endpoint 和 URL intelligence 数据源要等签名、版本、缓存和回滚策略建立后再接管。
 
 ## 用户审核闸门
 
