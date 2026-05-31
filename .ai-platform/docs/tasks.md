@@ -766,6 +766,60 @@ Packet path：
 Evidence required:
 - 威胁模型、数据格式、验证命令、失败路径截图或日志摘要。
 
+### T018：Stage 2B Release Identity Migration 审计与计划
+
+状态：Needs_Review
+优先级：P0
+依赖：Stage 1 maintenance foundation PR 已创建、用户批准进入 Stage 2B
+阻塞：Kirje 正式 release、updater endpoint 迁移、官网发布链路
+Story / Requirement: FR-004、NFR-005、NFR-006
+可并行：否
+冲突：release identity、package metadata、Tauri identifier、updater、packaging、local data identity。
+
+目标：
+审计 Kirje 仍继承 Velo 发布身份的位置，并制定迁移顺序。该任务只输出计划，不直接修改 app identity。
+
+Allowed files:
+- `docs/release-identity-migration.md`
+- `.ai-platform/docs/tasks.md`
+- `.ai-platform/docs/release-report.md`
+- `.ai-platform/evidence/T018/*`
+
+测试目标：
+- 全仓身份引用扫描。
+- GitHub PR/CI 状态检查。
+- Delivery artifact validator。
+
+Deliverables:
+- Kirje release identity migration plan。
+- `kirje.app` 在官网、updater、安全数据中的阶段性角色。
+- R001 到 R006 后续任务拆分。
+- T018 evidence。
+
+验收标准：
+- 明确哪些身份迁移是 P0 release blocker。
+- 明确哪些内部 `velo-*` 命名暂不改。
+- 明确本地 `velo.db` / `velo.key` 迁移风险。
+- 明确 implementation 前需要用户确认的问题。
+
+Definition of Done:
+- T018 evidence 写入 `.ai-platform/evidence/T018/`。
+- 计划文档可供用户审核。
+
+验证命令：
+- `rg -n "Velo|velo|velomail|avihaymenahem|com\\.velomail" --glob '!node_modules' --glob '!src-tauri/target' --glob '!dist' --glob '!*.patch' | wc -l`
+- `gh pr view 1 --repo iiwish/kirje --json url,state,isDraft,headRefName,baseRefName,statusCheckRollup`
+- `python3 /Users/iiwish/.codex/skills/ai-delivery-governor/scripts/validate_delivery_artifacts.py --root /Users/iiwish/self/kirje --task-id T018`
+
+TDD plan:
+- 不适用。该任务是 release identity 审计和计划，不改产品行为。
+
+Packet path：
+- Stage 2B 审计任务不需要独立 packet；采用 Direct Execute，因为用户已明确批准继续。
+
+Evidence required:
+- 身份引用扫描结果、PR/CI 状态、迁移计划、残余风险。
+
 ### T006：修复基线验证失败
 
 状态：Draft
