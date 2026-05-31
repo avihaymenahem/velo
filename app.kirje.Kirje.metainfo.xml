@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<component type="desktop-application">
+  <id>app.kirje.Kirje</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+  <name>Kirje</name>
+  <summary>Agentic desktop email client</summary>
+  <description>
+    <p>Kirje is an agentic desktop email client for handling messages, commitments, decisions, and follow-ups.</p>
+  </description>
+  <url type="homepage">https://kirje.app</url>
+  <url type="bugtracker">https://github.com/iiwish/kirje/issues</url>
+  <launchable type="desktop-id">app.kirje.Kirje.desktop</launchable>
+  <releases>
+    <release version="0.4.21" date="2026-02-20" /> <!-- x-release-please-version -->
+  </releases>
+  <developer id="app.kirje">
+    <name>Kirje contributors</name>
+  </developer>
+  <content_rating type="oars-1.1" />
+  <icons>
+    <icon type="cached" width="128" height="128">/app/share/icons/hicolor/128x128/apps/app.kirje.Kirje.png</icon>
+    <icon type="cached" width="256" height="256">/app/share/icons/hicolor/256x256/apps/app.kirje.Kirje.png</icon>
+  </icons>
+</component>

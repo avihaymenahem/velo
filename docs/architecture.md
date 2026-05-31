@@ -1,6 +1,6 @@
 # Architecture
 
-Velo follows a **three-layer architecture** with clear separation of concerns.
+Kirje follows a **three-layer architecture** with clear separation of concerns.
 
 ```
 +--------------------------+
@@ -48,7 +48,7 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 ## Project Structure
 
 ```
-velo/
+kirje/
 ├── src/
 │   ├── components/           # React components (14 groups, ~94 files)
 │   │   ├── layout/           # Sidebar, EmailList, ReadingPane, TitleBar
@@ -211,7 +211,7 @@ Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS
 
 ## Packaging & Distribution
 
-Velo supports standard Linux distribution formats via automated and local build processes:
+Kirje supports standard Linux distribution formats via automated and local build processes:
 
 - **RPM & COPR**: Native RPM generation is integrated via Tauri's bundler (`tauri build -b rpm`), making it trivial to build and test RPMs locally or publish SRPMs to Fedora COPR.
-- **Flatpak**: A Flatpak manifest (`com.velomail.app.yml`) defines the sandbox environment, leveraging the GNOME 46 runtime and Rust/Node.js SDK extensions. Local builds are streamlined via an npm script (`npm run flatpak`) which uses `flatpak-builder` while excluding host-specific artifacts to ensure reproducible sandboxed builds.
+- **Flatpak**: A Flatpak manifest (`app.kirje.Kirje.yml`) defines the sandbox environment, leveraging the GNOME 46 runtime and Rust/Node.js SDK extensions. Local builds are streamlined via an npm script (`npm run flatpak`) which uses `flatpak-builder` while excluding host-specific artifacts to ensure reproducible sandboxed builds.

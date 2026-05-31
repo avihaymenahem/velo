@@ -70,11 +70,11 @@ describe("crypto", () => {
     await encryptValue("test");
 
     expect(tauriFs.mock.exists).toHaveBeenCalledWith(
-      "velo.key",
+      "kirje.key",
       expect.objectContaining({ baseDir: 26 }),
     );
     expect(tauriFs.mock.writeTextFile).toHaveBeenCalledWith(
-      "velo.key",
+      "kirje.key",
       expect.any(String),
       expect.objectContaining({ baseDir: 26 }),
     );
@@ -83,13 +83,13 @@ describe("crypto", () => {
   it("reads existing key from file using baseDir", async () => {
     // Pre-seed a key in the mock store
     const mockKey = btoa(String.fromCharCode(...new Uint8Array(32).fill(42)));
-    tauriFs.store.set("velo.key", mockKey);
+    tauriFs.store.set("kirje.key", mockKey);
 
     const { encryptValue, decryptValue } = await import("./crypto");
     const encrypted = await encryptValue("round-trip-test");
 
     expect(tauriFs.mock.readTextFile).toHaveBeenCalledWith(
-      "velo.key",
+      "kirje.key",
       expect.objectContaining({ baseDir: 26 }),
     );
 

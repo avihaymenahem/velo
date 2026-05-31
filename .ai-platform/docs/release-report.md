@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 版本：0.8
+- 版本：0.9
 - 状态：Ready_For_User_Review
 - 最后更新：2026-05-31
 - 范围：maintenance foundation、上游策略、CI/release governance 基线。
@@ -187,6 +187,19 @@ Stage 1B 收口验证：
 - 结论：Kirje 不能在 identity migration 前公开发布。updater、signing、bundle id、Homebrew/Flatpak/RPM、本地 DB/key 文件都必须拆分处理。
 - 建议 target identity：display name `Kirje`，website `https://kirje.app`，package/Cargo name `kirje`，Tauri identifier 待确认，当前推荐 `app.kirje.desktop`。
 - `kirje.app` 初期应承担 homepage、release notes、support、安全策略；updater endpoint 和 URL intelligence 数据源要等签名、版本、缓存和回滚策略建立后再接管。
+
+## Stage 2C Release Freeze 与 Kirje Identity
+
+- 用户确认 Tauri identifier：`app.kirje.desktop`。
+- 用户确认不迁移旧本地 `velo.db` / `velo.key`。
+- 用户确认 Homebrew tap：`iiwish/homebrew-kirje`。
+- Release workflows 已加入 `KIRJE_RELEASES_ENABLED == true` guard；默认不执行正式 release 链路。
+- package/Cargo/Tauri identity 已迁移到 Kirje。
+- SQLite preload 已改为 `sqlite:kirje.db`。
+- crypto key 文件已改为 `kirje.key`。
+- Flatpak/metainfo/desktop/spec 文件名与内容已迁移到 Kirje。
+- Homebrew workflow 已改为 `iiwish/homebrew-kirje` 和 `kirje` cask。
+- updater endpoint 已改为 Kirje GitHub Releases，但 updater signing key 仍未迁移；正式 release 仍冻结。
 
 ## 用户审核闸门
 

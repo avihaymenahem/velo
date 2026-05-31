@@ -24,7 +24,7 @@ describe("generateVEvent", () => {
 
     expect(result).toContain("BEGIN:VCALENDAR");
     expect(result).toContain("VERSION:2.0");
-    expect(result).toContain("PRODID:-//Velo Mail//CalDAV Client//EN");
+    expect(result).toContain("PRODID:-//Kirje//CalDAV Client//EN");
     expect(result).toContain("BEGIN:VEVENT");
     expect(result).toContain("UID:test-uuid-1234");
     expect(result).toContain("SUMMARY:Team Meeting");

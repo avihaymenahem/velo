@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       tag_name:
-        description: "Release tag (e.g. velo-v0.4.3)"
+        description: "Release tag (e.g. v0.4.3)"
         type: string
         required: false
       release_id:
@@ -24,6 +24,7 @@ permissions:
 
 jobs:
   test:
+    if: vars.KIRJE_RELEASES_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -97,7 +98,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
-          releaseName: "Velo v__VERSION__"
+          releaseName: "Kirje v__VERSION__"
           releaseBody: "See the assets below to download for your platform."
           releaseDraft: false
           prerelease: false
@@ -185,7 +186,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
-          releaseName: "Velo v__VERSION__"
+          releaseName: "Kirje v__VERSION__"
           releaseBody: "See the assets below to download for your platform."
           releaseDraft: false
           prerelease: false
@@ -213,13 +214,13 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
-          releaseName: "Velo v__VERSION__"
+          releaseName: "Kirje v__VERSION__"
           releaseBody: |
             See the assets below to download for your platform.
 
             > **macOS users**: This build is unsigned. After downloading, run:
             > ```
-            > xattr -cr /Applications/Velo.app
+            > xattr -cr /Applications/Kirje.app
             > ```
             > Or right-click the app and select "Open" on first launch.
           releaseDraft: false
@@ -230,4 +231,3 @@ jobs:
       - name: Clean up keychain
         if: always() && steps.signing-check.outputs.has_signing == 'true'
         run: security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
-

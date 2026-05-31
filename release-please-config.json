@@ -16,11 +16,11 @@
         },
         {
           "type": "generic",
-          "path": "com.velomail.app.metainfo.xml"
+          "path": "app.kirje.Kirje.metainfo.xml"
         },
         {
           "type": "generic",
-          "path": "velo.spec"
+          "path": "kirje.spec"
         }
       ]
     }

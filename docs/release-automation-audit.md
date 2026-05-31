@@ -2,14 +2,14 @@
 
 ## 元数据
 
-- 版本：0.1
-- 状态：Ready_For_User_Review
+- 版本：0.2
+- 状态：Needs_Review
 - 日期：2026-05-31
 - 范围：Git 提交规范、CI、release-please、构建发布、包装分发、Homebrew、updater。
 
 ## 直接结论
 
-项目已经有 release-please、跨平台 Tauri release、Flatpak/SRPM packaging 和 Homebrew tap 更新 workflow，但它们仍然明显绑定 Velo 身份。
+Stage 2C 后，项目已经把主要发布身份迁移到 Kirje，并加入 release freeze guard。正式发布仍然禁止，直到 Kirje 自有 signing secrets、Homebrew token、updater 验证和 release dry run 完成。
 
 短期应做：
 
@@ -17,7 +17,7 @@
 2. 用新增 CI workflow 保护 PR 和 main。
 3. 继续使用 Conventional Commits 驱动 release-please。
 4. 暂不发布 Kirje。
-5. 单独开 governed task 做 release identity migration。
+5. 单独开 governed task 做 updater signing 和 release dry run。
 
 ## 已有能力
 
@@ -29,10 +29,10 @@
 - extra files 包括：
   - `src-tauri/tauri.conf.json`
   - `src-tauri/Cargo.toml`
-  - `com.velomail.app.metainfo.xml`
-  - `velo.spec`
+  - `app.kirje.Kirje.metainfo.xml`
+  - `kirje.spec`
 
-判断：基础版本管理已经存在，但 package/app identity 仍是 Velo。
+判断：基础版本管理已经存在，并已指向 Kirje identity files。
 
 ### Release Automation
 
@@ -41,7 +41,7 @@
 - `.github/workflows/packaging.yml`：构建 Flatpak 和 SRPM。
 - `.github/workflows/update-homebrew.yml`：更新 Homebrew tap。
 
-判断：自动化链条完整，但目标仍是 Velo release。
+判断：自动化链条完整，目标已迁移到 Kirje，但正式 release 被 `KIRJE_RELEASES_ENABLED` guard 冻结。
 
 ### CI
 
@@ -58,20 +58,18 @@
 
 ## 主要问题
 
-### P0：Release Identity 仍是 Velo
+### P0：Release 仍被冻结
 
 涉及：
 
-- `package.json` name：`velo`
-- `src-tauri/tauri.conf.json` productName：`Velo`
-- `src-tauri/tauri.conf.json` identifier：`com.velomail.app`
-- updater endpoint：`https://github.com/avihaymenahem/velo/releases/latest/download/latest.json`
-- Homebrew tap：`avihaymenahem/homebrew-velo`
-- Homebrew cask：`velo`
-- release asset 文案：`Velo`
-- Flatpak/RPM metadata：`com.velomail.app` / `velo`
+- release-please workflow。
+- build/release workflow。
+- packaging workflow。
+- Homebrew workflow。
+- updater endpoint。
+- signing secrets。
 
-判断：不能在未规划时发布 Kirje，否则会混用 Velo 的 app identity、updater 和 distribution channel。
+判断：Kirje identity 已迁移，但不能启用 release，直到 signing key、secrets、draft release 和 updater JSON 验证完成。
 
 ### P0：Updater Signing 与 Release Secrets 未确认
 
@@ -135,6 +133,8 @@
 
 目标：把 Velo 发布身份迁移为 Kirje。
 
+状态：Stage 2C 已完成主要 identity implementation；release freeze 仍有效。
+
 必须覆盖：
 
 - package name。
@@ -146,7 +146,7 @@
 - Flatpak/RPM/Homebrew。
 - signing/notarization secrets。
 
-风险：高。涉及发布、自动更新、安装包身份，不应顺手做。
+风险：高。涉及发布、自动更新、安装包身份；后续只应通过 dedicated release PR 继续。
 
 ### R002：Release Workflow Hardening
 
@@ -175,10 +175,11 @@
 
 ## 当前建议
 
-Stage 1 先接受 CI 和依赖安全基线；不要立刻做 release identity migration。
+Stage 2C 可以接受 Kirje identity implementation；不要立刻启用 release。
 
 下一步优先级：
 
-1. 审核并接受当前 CI/release governance 变更。
-2. 单独规划 `Release Identity Migration`。
-3. 之后再处理上游 P0 PR。
+1. 审核并接受 Stage 2C identity PR。
+2. 单独执行 updater signing key 和 GitHub secrets 配置。
+3. 用 draft release 验证 assets 和 updater JSON。
+4. 验证后再考虑设置 `KIRJE_RELEASES_ENABLED=true`。

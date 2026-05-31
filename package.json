@@ -1,5 +1,5 @@
 {
-  "name": "velo",
+  "name": "kirje",
   "version": "0.4.21",
   "private": true,
   "license": "Apache-2.0",
@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "tauri": "tauri",
     "dev:landing": "npm run dev --prefix landing",
-    "flatpak": "flatpak-builder --force-clean --user --install --install-deps-from=flathub build-dir com.velomail.app.yml"
+    "flatpak": "flatpak-builder --force-clean --user --install --install-deps-from=flathub build-dir app.kirje.Kirje.yml"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

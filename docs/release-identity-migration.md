@@ -2,23 +2,22 @@
 
 ## 元数据
 
-- 版本：0.1
-- 状态：Ready_For_User_Review
+- 版本：0.2
+- 状态：Needs_Review
 - 日期：2026-05-31
 - 官网：`https://kirje.app`
 - 范围：发布身份、应用身份、分发身份、官网链接、运行时数据身份。
 
 ## 直接判断
 
-Kirje 现在不能发布。代码已经 fork，但发布身份仍然是 Velo。
+Kirje 仍然不能公开发布。Stage 2C 已经迁移主要应用/包/分发身份，并加入 release freeze guard；但 updater signing key、release secrets 和真实发布验证还没有完成。
 
 最危险的不是 UI 里显示 Velo，而是以下几类身份还混在一起：
 
-- updater endpoint 仍指向 `avihaymenahem/velo`。
 - signing public key 仍是继承值，是否有 Kirje 私钥未确认。
-- bundle identifier / Windows AUMID 仍是 `com.velomail.app`。
-- Flatpak、RPM、Homebrew、release asset 仍叫 Velo。
-- 本地数据库和加密 key 文件仍叫 `velo.db` / `velo.key`。
+- release workflows 只有在 `KIRJE_RELEASES_ENABLED == true` 时才会执行正式发布链路。
+- updater endpoint 已切到 Kirje GitHub Releases，但因为 release frozen，不应被视为已可用发布通道。
+- 本地数据库和加密 key 文件已按用户确认直接切到 `kirje.db` / `kirje.key`，不做旧 Velo 数据迁移。
 
 这不是品牌问题，是信任链和用户数据路径问题。
 
@@ -33,12 +32,12 @@ Kirje 现在不能发布。代码已经 fork，但发布身份仍然是 Velo。
 | npm package name | `velo` | `kirje` | 私有 app 仍应和产品一致。 |
 | Rust package name | `velo` | `kirje` | release-please 和 Cargo.lock 需同步。 |
 | Tauri productName | `Velo` | `Kirje` | 影响 bundle 产物名。 |
-| Tauri identifier | `com.velomail.app` | `app.kirje.desktop` | 推荐作为桌面 app 主身份。实施前确认 macOS/Windows/Linux 影响。 |
-| SQLite DB | `velo.db` | `kirje.db` | 若已有真实用户数据，需要 migration/import fallback。 |
-| Crypto key file | `velo.key` | `kirje.key` | 高风险，必须保证旧 key 可读取或可迁移。 |
-| Updater endpoint | Velo GitHub latest | Kirje GitHub latest，后续可迁到 `kirje.app` | 先用 GitHub Releases，官网可做稳定跳转或 release notes。 |
+| Tauri identifier | `com.velomail.app` | `app.kirje.desktop` | 用户已确认。 |
+| SQLite DB | `velo.db` | `kirje.db` | 用户已确认不迁移旧数据。 |
+| Crypto key file | `velo.key` | `kirje.key` | 用户已确认不迁移旧数据。 |
+| Updater endpoint | Velo GitHub latest | Kirje GitHub latest，后续可迁到 `kirje.app` | 已配置到 Kirje GitHub Releases；release freeze 仍有效。 |
 | Update signing key | Velo inherited value | Kirje 自有 keypair | 必须在发布前确认 secret。 |
-| Homebrew tap | `avihaymenahem/homebrew-velo` | `iiwish/homebrew-kirje` 或 org tap | 不应继续写 upstream tap。 |
+| Homebrew tap | `avihaymenahem/homebrew-velo` | `iiwish/homebrew-kirje` | 用户已确认。 |
 | Homebrew cask | `velo` | `kirje` | app 名和 zap 路径一起改。 |
 | Flatpak id | `com.velomail.app` | `app.kirje.Kirje` 或确认后的 Flathub ID | Flatpak ID 可与 Tauri identifier 不完全相同。 |
 | RPM name | `velo` | `kirje` | spec、source tarball、desktop file 同步。 |
@@ -112,7 +111,9 @@ Kirje 现在不能发布。代码已经 fork，但发布身份仍然是 Velo。
 
 ## 本地数据迁移策略
 
-如果 Kirje 尚未公开发布，但你本机已有真实账户数据，则不能简单删除旧文件。
+用户已确认不需要保留旧 `velo.db` / `velo.key` 数据，因此 Stage 2C 采用直接切换。
+
+如果未来已有公开用户后再做类似迁移，则不能简单删除旧文件。
 
 建议策略：
 
@@ -122,7 +123,7 @@ Kirje 现在不能发布。代码已经 fork，但发布身份仍然是 Velo。
 4. 迁移成功后保留旧文件备份，不自动删除。
 5. 迁移失败时停止账户同步，不要尝试发信、删信或刷新 token。
 
-如果确认没有任何需要保留的本地数据，可以简化为直接改名。但这应该由用户确认，不应由代码假设。
+Stage 2C 不实现旧数据导入 fallback，这是明确产品/维护决策，不是遗漏。
 
 ## 官网 kirje.app 的角色
 
@@ -148,6 +149,8 @@ Kirje 现在不能发布。代码已经 fork，但发布身份仍然是 Velo。
 
 ### R001：Release Freeze Guard
 
+状态：Stage 2C 已实现。
+
 目标：在身份迁移期间防止误发布。
 
 动作：
@@ -156,6 +159,8 @@ Kirje 现在不能发布。代码已经 fork，但发布身份仍然是 Velo。
 - PR 描述明确“Kirje identity 未完成前禁止 release”。
 
 ### R002：Identity Contract Implementation
+
+状态：Stage 2C 已实现主要 app/package/display/runtime identity。
 
 目标：实现 Kirje app/package/display identity。
 
@@ -166,6 +171,8 @@ Kirje 现在不能发布。代码已经 fork，但发布身份仍然是 Velo。
 
 ### R003：Data Identity Migration
 
+状态：不执行。用户已确认旧数据不需要迁移。
+
 目标：处理 `velo.db` / `velo.key` 到 Kirje 名称的迁移。
 
 动作：
@@ -174,6 +181,8 @@ Kirje 现在不能发布。代码已经 fork，但发布身份仍然是 Velo。
 - 重点验证 OAuth token、IMAP password 解密。
 
 ### R004：Packaging Migration
+
+状态：Stage 2C 已迁移文件名和工作流引用；真实 packaging release 仍需 signing/secrets 验证。
 
 目标：迁移 Flatpak、RPM、Homebrew、release asset 命名。
 
@@ -201,18 +210,27 @@ Kirje 现在不能发布。代码已经 fork，但发布身份仍然是 Velo。
 - homepage、bugtracker、support email、privacy/security docs。
 - About 页面和 README 同步。
 
+## Stage 2C 已完成项
+
+- `package.json` / `package-lock.json` 包名改为 `kirje`。
+- `src-tauri/Cargo.toml` / `Cargo.lock` 包名改为 `kirje`。
+- Tauri `productName` 改为 `Kirje`。
+- Tauri identifier 改为 `app.kirje.desktop`。
+- SQLite preload 改为 `sqlite:kirje.db`。
+- crypto key 文件改为 `kirje.key`。
+- Windows AUMID、tray label、notification title、update toast 改为 Kirje。
+- Flatpak/RPM/metainfo/desktop files 迁移到 Kirje 文件名和内容。
+- Homebrew workflow 改为 `iiwish/homebrew-kirje` / `kirje` cask。
+- release workflows 加入 `KIRJE_RELEASES_ENABLED == true` guard。
+
 ## 不做项
 
-- 不在 Stage 2B 直接改 app identity。
-- 不迁移 updater endpoint，直到 signing key 和 release secret 确认。
+- 不生成或提交 updater signing private key。
+- 不启用正式 release。
 - 不改内部 `velo-*` event names。
 - 不做 CLI。
 - 不做 i18n。
 
 ## 最小下一步
 
-先执行 R001 + R002 的实现计划，但在动代码前需要确认三件事：
-
-1. Tauri identifier 是否采用 `app.kirje.desktop`。
-2. 是否需要迁移你本机现有 `velo.db` / `velo.key`。
-3. Homebrew tap 是否使用 `iiwish/homebrew-kirje`，还是未来组织账号。
+下一步应执行 R005：生成 Kirje updater signing keypair、配置 GitHub secrets，并用 draft release 或 dry run 验证 updater JSON。完成前不应设置 `KIRJE_RELEASES_ENABLED=true`。

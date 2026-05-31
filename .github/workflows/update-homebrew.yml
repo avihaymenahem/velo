@@ -15,6 +15,7 @@ on:
 
 jobs:
   update-homebrew:
+    if: vars.KIRJE_RELEASES_ENABLED == 'true'
     runs-on: macos-latest
     steps:
       - name: Get version
@@ -23,13 +24,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "${{ inputs.tag_name }}" ]; then
-            # Called from release-please workflow — tag_name is the full tag (e.g. velo-v0.4.12)
+            # Called from release-please workflow — tag_name is the full tag (e.g. v0.4.12)
             TAG="${{ inputs.tag_name }}"
           elif [ -n "${{ inputs.version }}" ]; then
             # Manual dispatch with a version — look up the actual tag from releases
             TAG=$(gh release list --repo ${{ github.repository }} --json tagName -q "[.[] | select(.tagName | test(\"${{ inputs.version }}\"))][0].tagName")
             if [ -z "$TAG" ]; then
-              TAG="velo-v${{ inputs.version }}"
+              TAG="v${{ inputs.version }}"
             fi
           else
             # Manual dispatch without version — use latest release
@@ -45,17 +46,17 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
-          DMG_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/Velo_${VERSION}_universal.dmg"
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/Kirje_${VERSION}_universal.dmg"
 
           echo "Downloading DMG from: ${DMG_URL}"
           for i in 1 2 3 4 5; do
-            HTTP_CODE=$(curl -sL -o Velo.dmg -w "%{http_code}" "$DMG_URL")
+            HTTP_CODE=$(curl -sL -o Kirje.dmg -w "%{http_code}" "$DMG_URL")
             if [ "$HTTP_CODE" = "200" ]; then
               echo "Download succeeded (attempt $i)"
               break
             fi
             echo "Attempt $i failed (HTTP $HTTP_CODE), retrying in 60s..."
-            rm -f Velo.dmg
+            rm -f Kirje.dmg
             if [ "$i" = "5" ]; then
               echo "::error::DMG not available after 5 attempts"
               exit 1
@@ -63,64 +64,64 @@ jobs:
             sleep 60
           done
 
-          SHA256=$(shasum -a 256 Velo.dmg | awk '{print $1}')
+          SHA256=$(shasum -a 256 Kirje.dmg | awk '{print $1}')
           echo "SHA256: ${SHA256}"
           echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout tap repository
         uses: actions/checkout@v4
         with:
-          repository: avihaymenahem/homebrew-velo
+          repository: iiwish/homebrew-kirje
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: homebrew-velo
+          path: homebrew-kirje
 
       - name: Update cask definition
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           SHA256="${{ steps.sha.outputs.sha256 }}"
 
-          cat > homebrew-velo/Casks/velo.rb << CASK_EOF
-          cask "velo" do
+          cat > homebrew-kirje/Casks/kirje.rb << CASK_EOF
+          cask "kirje" do
             version "${VERSION}"
             sha256 "${SHA256}"
 
-            url "https://github.com/avihaymenahem/velo/releases/download/velo-v#{version}/Velo_#{version}_universal.dmg",
-                verified: "github.com/avihaymenahem/velo/"
+            url "https://github.com/iiwish/kirje/releases/download/v#{version}/Kirje_#{version}_universal.dmg",
+                verified: "github.com/iiwish/kirje/"
 
-            name "Velo"
-            desc "Fast, beautiful desktop email client"
-            homepage "https://github.com/avihaymenahem/velo"
+            name "Kirje"
+            desc "Agentic desktop email client"
+            homepage "https://kirje.app"
 
             livecheck do
               url :url
               strategy :github_latest
             end
 
-            app "Velo.app"
+            app "Kirje.app"
 
             caveats <<~EOS
               If the app is not notarized, macOS may block it on first launch.
-              To allow it, right-click Velo.app and select "Open", or run:
-                xattr -cr /Applications/Velo.app
+              To allow it, right-click Kirje.app and select "Open", or run:
+                xattr -cr /Applications/Kirje.app
             EOS
 
             zap trash: [
-              "~/Library/Application Support/com.velomail.app",
-              "~/Library/Caches/com.velomail.app",
-              "~/Library/Preferences/com.velomail.app.plist",
-              "~/Library/Saved Application State/com.velomail.app.savedState",
-              "~/Library/WebKit/com.velomail.app",
+              "~/Library/Application Support/app.kirje.desktop",
+              "~/Library/Caches/app.kirje.desktop",
+              "~/Library/Preferences/app.kirje.desktop.plist",
+              "~/Library/Saved Application State/app.kirje.desktop.savedState",
+              "~/Library/WebKit/app.kirje.desktop",
             ]
           end
           CASK_EOF
 
       - name: Commit and push to tap
-        working-directory: homebrew-velo
+        working-directory: homebrew-kirje
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/velo.rb
+          git add Casks/kirje.rb
           git diff --cached --quiet && echo "No changes to commit" && exit 0
-          git commit -m "Update velo to ${VERSION}"
+          git commit -m "Update kirje to ${VERSION}"
           git push

@@ -820,6 +820,85 @@ Packet path：
 Evidence required:
 - 身份引用扫描结果、PR/CI 状态、迁移计划、残余风险。
 
+### T019：Stage 2C Release Freeze 与 Kirje Identity 实现
+
+状态：Needs_Review
+优先级：P0
+依赖：T018、用户确认 `app.kirje.desktop`、用户确认不迁移旧本地数据、用户确认 `iiwish/homebrew-kirje`
+阻塞：R005 updater signing、release dry run、正式 Kirje release
+Story / Requirement: FR-004、NFR-005、NFR-006
+可并行：否
+冲突：release workflows、package metadata、Tauri config、packaging metadata、local DB/key identity、visible app strings。
+
+目标：
+实现 Stage 2C：冻结 release automation，迁移 Kirje app/package/display/runtime identity，并保留 signing/updater 发布启用为后续任务。
+
+Allowed files:
+- `.github/workflows/release-please.yml`
+- `.github/workflows/release.yml`
+- `.github/workflows/packaging.yml`
+- `.github/workflows/update-homebrew.yml`
+- `.github/CODEOWNERS`
+- `package.json`
+- `package-lock.json`
+- `release-please-config.json`
+- `src-tauri/Cargo.toml`
+- `src-tauri/Cargo.lock`
+- `src-tauri/tauri.conf.json`
+- `src-tauri/src/lib.rs`
+- `src-tauri/src/oauth.rs`
+- `app.kirje.Kirje.*`
+- `kirje.spec`
+- source/docs visible identity files
+- `.ai-platform/docs/*`
+- `.ai-platform/evidence/T019/*`
+
+测试目标：
+- Identity regression tests。
+- TypeScript。
+- npm audit。
+- Vitest full suite。
+- Rust test/build locked。
+- Delivery artifact validator。
+
+Deliverables:
+- Release freeze guard。
+- Kirje package/Cargo/Tauri identity。
+- Kirje DB/key file names。
+- Kirje visible runtime strings。
+- Kirje Flatpak/RPM/Homebrew metadata paths。
+- T019 evidence。
+
+验收标准：
+- `src-tauri/tauri.conf.json` 使用 `Kirje`、`app.kirje.desktop`、`sqlite:kirje.db`、Kirje updater endpoint。
+- Crypto 使用 `kirje.key`。
+- Release workflows 默认不执行正式 release，除非 `KIRJE_RELEASES_ENABLED == true`。
+- Packaging metadata 不再引用 Velo release identity。
+- 内部 `velo-*` event names 保留并记录为暂不迁移。
+
+Definition of Done:
+- T019 evidence 写入 `.ai-platform/evidence/T019/`。
+- 验证命令通过或阻塞项明确记录。
+
+验证命令：
+- `npx vitest run src/config/tauriConfig.test.ts src/utils/crypto.test.ts src/components/ui/UpdateToast.test.tsx src/services/calendar/icalHelper.test.ts`
+- `npx tsc --noEmit`
+- `npm audit --audit-level=moderate`
+- `npm run test`
+- `cd src-tauri && cargo test --locked`
+- `cd src-tauri && cargo build --locked`
+- `python3 /Users/iiwish/.codex/skills/ai-delivery-governor/scripts/validate_delivery_artifacts.py --root /Users/iiwish/self/kirje --task-id T019`
+
+TDD plan:
+- 先新增/修改 identity regression tests 并确认旧实现失败。
+- 再实现 release identity 和 runtime identity 迁移。
+
+Packet path：
+- Stage 2C 采用 Direct Execute，因为用户已明确批准继续，且当前环境未启用 worker。
+
+Evidence required:
+- 失败测试摘要、验证结果、identity 扫描结果、残余 release blockers。
+
 ### T006：修复基线验证失败
 
 状态：Draft
