@@ -54,6 +54,9 @@ nul
 # Debug files
 debug-*.mjs
 
+# AI delivery generated snapshots
+.ai-platform/evidence/**/diff.patch
+
 # Tauri signing keys
 *.key
 *.pem
