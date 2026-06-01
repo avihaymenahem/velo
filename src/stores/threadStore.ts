@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ThreadPrimaryState } from "@/services/agentic/types";
 
 export interface Thread {
   id: string;
@@ -15,6 +16,7 @@ export interface Thread {
   labelIds: string[];
   fromName: string | null;
   fromAddress: string | null;
+  workState?: ThreadPrimaryState;
 }
 
 interface ThreadState {

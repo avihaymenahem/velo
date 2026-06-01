@@ -231,6 +231,17 @@ Stage 1B 收口验证：
 - 明确风险边界：高风险动作不能自动执行，不能批量 approve，发送/删除/承诺/拒绝/财务/法律/招聘/投资必须人工确认。
 - 明确 T023 最小实现范围：先做本地可控 Thread Work State v0，不做 AI 自动分类。
 
+## Stage 3C Thread Work State v0
+
+- PR #6 已合并，Stage 3B object model plan 已进入 `main`。
+- 新增 migration v24，创建 `thread_work_states`、`agent_actions`、`commitments`、`waiting_items`、`decisions`、`briefing_snapshots`。
+- 新增 `src/services/agentic/types.ts`，集中定义 Thread primary state、risk、priority 和 AgentAction lifecycle 类型。
+- 新增 `threadWorkStates` DB service，支持单线程查询、批量查询、manual upsert，并保护 manual state 不被 `agent_suggested` 覆盖。
+- 新增 `agentActions` 最小 DB service，支持 create、pending list、thread list、reject，为后续 Agent Review Queue 打底。
+- 线程列表通过 `EmailList` 批量加载 work state，并在 `ThreadCard` 显示紧凑状态 chip。
+- Command Palette 新增手动 work state 命令：Needs Reply、Waiting、Committed、Decision Needed、Can Archive、Done。
+- 本阶段没有实现 AI 自动分类、Agent Review Queue 页面、自动归档或发送动作。
+
 ## 用户审核闸门
 
 本报告已可供用户审核。继续进入发布身份迁移、P0 upstream PR 采纳或 i18n 前，需要用户明确接受对应任务计划。

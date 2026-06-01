@@ -6,6 +6,8 @@ import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
+import { setThreadPrimaryState } from "@/services/db/threadWorkStates";
+import type { ThreadPrimaryState } from "@/services/agentic/types";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { navigateToLabel, navigateBack, getSelectedThreadId } from "@/router/navigate";
 
@@ -22,6 +24,15 @@ interface CommandPaletteProps {
   onClose: () => void;
 }
 
+const WORK_STATE_COMMANDS: { state: ThreadPrimaryState; label: string }[] = [
+  { state: "needs_reply", label: "Mark as Needs Reply" },
+  { state: "waiting", label: "Mark as Waiting" },
+  { state: "committed", label: "Mark as Committed" },
+  { state: "decision_needed", label: "Mark as Decision Needed" },
+  { state: "can_archive", label: "Mark as Can Archive" },
+  { state: "done", label: "Mark as Done" },
+];
+
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -33,6 +44,19 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const activeLabel = useActiveLabel();
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const [templates, setTemplates] = useState<DbTemplate[]>([]);
+
+  const markSelectedThreadState = useCallback(async (state: ThreadPrimaryState) => {
+    onClose();
+    const threadId = getSelectedThreadId();
+    const accountId = useAccountStore.getState().activeAccountId;
+    if (!threadId || !accountId) return;
+    try {
+      await setThreadPrimaryState(accountId, threadId, state);
+      useThreadStore.getState().updateThread(threadId, { workState: state });
+    } catch (err) {
+      console.error("Failed to set thread work state:", err);
+    }
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen || !activeAccountId) return;
@@ -88,6 +112,14 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     // AI
     { id: "ask-ai", label: "Ask AI about your inbox", category: "AI", action: () => { onClose(); window.dispatchEvent(new Event("velo-toggle-ask-inbox")); } },
 
+    // Agentic Inbox
+    ...WORK_STATE_COMMANDS.map((cmd) => ({
+      id: `work-state-${cmd.state}`,
+      label: cmd.label,
+      category: "Agentic Inbox",
+      action: () => { void markSelectedThreadState(cmd.state); },
+    })),
+
     // Settings
     { id: "toggle-sidebar", label: "Toggle Sidebar", shortcut: "Ctrl+Shift+E", category: "Settings", action: () => { toggleSidebar(); onClose(); } },
     { id: "theme-light", label: "Switch to Light Theme", category: "Settings", action: () => { setTheme("light"); onClose(); } },
@@ -109,7 +141,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         onClose();
       },
     })),
-  ], [onClose, openComposer, activeLabel, toggleSidebar, setTheme, templates]);
+  ], [onClose, openComposer, activeLabel, toggleSidebar, setTheme, templates, markSelectedThreadState]);
 
   const filtered = query
     ? commands.filter(

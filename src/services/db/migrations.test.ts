@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { MIGRATIONS } from "./migrations";
 
 // Mirror of splitStatements from migrations.ts for testing
 function splitStatements(sql: string): string[] {
@@ -102,5 +103,21 @@ describe("splitStatements", () => {
     const sql = "CREATE TABLE backend (id INT); CREATE TABLE foo (id INT);";
     const result = splitStatements(sql);
     expect(result).toHaveLength(2);
+  });
+});
+
+describe("agentic inbox migration", () => {
+  it("adds v24 work state and agent action tables without mutating threads", () => {
+    const migration = MIGRATIONS.find((item) => item.version === 24);
+
+    expect(migration?.description).toContain("Agentic Inbox");
+    expect(migration?.sql).toContain("CREATE TABLE IF NOT EXISTS thread_work_states");
+    expect(migration?.sql).toContain("CREATE TABLE IF NOT EXISTS agent_actions");
+    expect(migration?.sql).toContain("CREATE TABLE IF NOT EXISTS commitments");
+    expect(migration?.sql).toContain("CREATE TABLE IF NOT EXISTS waiting_items");
+    expect(migration?.sql).toContain("CREATE TABLE IF NOT EXISTS decisions");
+    expect(migration?.sql).toContain("CREATE TABLE IF NOT EXISTS briefing_snapshots");
+    expect(migration?.sql).toContain("FOREIGN KEY (account_id, thread_id) REFERENCES threads(account_id, id) ON DELETE CASCADE");
+    expect(migration?.sql).not.toContain("ALTER TABLE threads ADD COLUMN");
   });
 });

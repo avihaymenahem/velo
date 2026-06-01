@@ -12,6 +12,7 @@ import { navigateToThread, navigateToLabel } from "@/router/navigate";
 import { getThreadsForAccount, getThreadsForCategory, getThreadLabelIds, deleteThread as deleteThreadFromDb } from "@/services/db/threads";
 import { getCategoriesForThreads, getCategoryUnreadCounts } from "@/services/db/threadCategories";
 import { getActiveFollowUpThreadIds } from "@/services/db/followUpReminders";
+import { getThreadWorkStatesForThreads } from "@/services/db/threadWorkStates";
 import { getBundleRules, getHeldThreadIds, getBundleSummaries, type DbBundleRule } from "@/services/db/bundleRules";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { useLabelStore } from "@/stores/labelStore";
@@ -52,6 +53,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
   const setThreads = useThreadStore((s) => s.setThreads);
   const setLoading = useThreadStore((s) => s.setLoading);
   const removeThreads = useThreadStore((s) => s.removeThreads);
+  const updateThread = useThreadStore((s) => s.updateThread);
   const clearMultiSelect = useThreadStore((s) => s.clearMultiSelect);
   const selectAll = useThreadStore((s) => s.selectAll);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
@@ -392,6 +394,19 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
         // Follow-up indicators
         if (threadIds.length > 0) {
           promises.push(
+            getThreadWorkStatesForThreads(activeAccountId, threadIds).then((result) => {
+              if (cancelled) return;
+              for (const threadId of threadIds) {
+                updateThread(threadId, { workState: result.get(threadId)?.primary_state });
+              }
+            }).catch(() => {
+              if (cancelled) return;
+              for (const threadId of threadIds) {
+                updateThread(threadId, { workState: undefined });
+              }
+            }),
+          );
+          promises.push(
             getActiveFollowUpThreadIds(activeAccountId, threadIds).then((result) => {
               if (!cancelled) setFollowUpThreadIds(result);
             }).catch(() => {
@@ -441,7 +456,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
 
     loadMetadata();
     return () => { cancelled = true; };
-  }, [threadIdKey, activeLabel, activeCategory, activeAccountId]);
+  }, [threadIdKey, activeLabel, activeCategory, activeAccountId, updateThread]);
 
   // Auto-scroll selected thread into view (triggered by keyboard navigation)
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { getDb } from "./connection";
 
-const MIGRATIONS = [
+export const MIGRATIONS = [
   {
     version: 1,
     description: "Initial schema",
@@ -774,6 +774,166 @@ const MIGRATIONS = [
     version: 23,
     description: "Accept self-signed certificates for IMAP/SMTP",
     sql: `ALTER TABLE accounts ADD COLUMN accept_invalid_certs INTEGER DEFAULT 0;`,
+  },
+  {
+    version: 24,
+    description: "Add Agentic Inbox work states and reviewable agent actions",
+    sql: `
+      CREATE TABLE IF NOT EXISTS thread_work_states (
+        account_id TEXT NOT NULL,
+        thread_id TEXT NOT NULL,
+        primary_state TEXT NOT NULL DEFAULT 'unclassified',
+        priority TEXT NOT NULL DEFAULT 'normal',
+        risk_level TEXT NOT NULL DEFAULT 'low',
+        source TEXT NOT NULL DEFAULT 'manual',
+        confidence REAL,
+        due_at INTEGER,
+        waiting_since INTEGER,
+        last_reviewed_at INTEGER,
+        completed_at INTEGER,
+        archived_by_state_at INTEGER,
+        note TEXT,
+        created_at INTEGER DEFAULT (unixepoch()),
+        updated_at INTEGER DEFAULT (unixepoch()),
+        PRIMARY KEY (account_id, thread_id),
+        FOREIGN KEY (account_id, thread_id) REFERENCES threads(account_id, id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_thread_work_states_state
+        ON thread_work_states(account_id, primary_state, due_at, updated_at);
+      CREATE INDEX IF NOT EXISTS idx_thread_work_states_priority
+        ON thread_work_states(account_id, risk_level, priority, due_at);
+
+      CREATE TABLE IF NOT EXISTS agent_actions (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL,
+        thread_id TEXT,
+        message_id TEXT,
+        kind TEXT NOT NULL,
+        level TEXT NOT NULL,
+        status TEXT NOT NULL,
+        risk_level TEXT NOT NULL DEFAULT 'low',
+        title TEXT NOT NULL,
+        summary TEXT,
+        payload_json TEXT NOT NULL DEFAULT '{}',
+        source_refs_json TEXT NOT NULL DEFAULT '[]',
+        result_json TEXT,
+        error TEXT,
+        created_by TEXT NOT NULL DEFAULT 'agent',
+        reviewed_by TEXT,
+        created_at INTEGER DEFAULT (unixepoch()),
+        reviewed_at INTEGER,
+        executed_at INTEGER,
+        expires_at INTEGER,
+        FOREIGN KEY (account_id, thread_id) REFERENCES threads(account_id, id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_actions_review
+        ON agent_actions(account_id, status, risk_level, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_agent_actions_thread
+        ON agent_actions(account_id, thread_id, status);
+      CREATE INDEX IF NOT EXISTS idx_agent_actions_kind
+        ON agent_actions(account_id, kind, status);
+
+      CREATE TABLE IF NOT EXISTS commitments (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL,
+        thread_id TEXT NOT NULL,
+        source_message_id TEXT,
+        contact_id TEXT,
+        organization_key TEXT,
+        title TEXT NOT NULL,
+        description TEXT,
+        due_at INTEGER,
+        status TEXT NOT NULL DEFAULT 'proposed',
+        priority TEXT NOT NULL DEFAULT 'normal',
+        confidence REAL,
+        created_from_agent_action_id TEXT,
+        accepted_at INTEGER,
+        completed_at INTEGER,
+        dismissed_at INTEGER,
+        created_at INTEGER DEFAULT (unixepoch()),
+        updated_at INTEGER DEFAULT (unixepoch()),
+        FOREIGN KEY (account_id, thread_id) REFERENCES threads(account_id, id) ON DELETE CASCADE,
+        FOREIGN KEY (created_from_agent_action_id) REFERENCES agent_actions(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_commitments_status_due
+        ON commitments(account_id, status, due_at);
+      CREATE INDEX IF NOT EXISTS idx_commitments_thread
+        ON commitments(account_id, thread_id, status);
+
+      CREATE TABLE IF NOT EXISTS waiting_items (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL,
+        thread_id TEXT NOT NULL,
+        source_message_id TEXT,
+        waiting_on_contact_id TEXT,
+        waiting_on_email TEXT,
+        title TEXT NOT NULL,
+        description TEXT,
+        started_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        expected_by INTEGER,
+        status TEXT NOT NULL DEFAULT 'active',
+        confidence REAL,
+        last_followed_up_at INTEGER,
+        resolved_at INTEGER,
+        dismissed_at INTEGER,
+        created_from_agent_action_id TEXT,
+        created_at INTEGER DEFAULT (unixepoch()),
+        updated_at INTEGER DEFAULT (unixepoch()),
+        FOREIGN KEY (account_id, thread_id) REFERENCES threads(account_id, id) ON DELETE CASCADE,
+        FOREIGN KEY (created_from_agent_action_id) REFERENCES agent_actions(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_waiting_items_status_expected
+        ON waiting_items(account_id, status, expected_by, started_at);
+      CREATE INDEX IF NOT EXISTS idx_waiting_items_thread
+        ON waiting_items(account_id, thread_id, status);
+
+      CREATE TABLE IF NOT EXISTS decisions (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL,
+        thread_id TEXT NOT NULL,
+        source_message_id TEXT,
+        title TEXT NOT NULL,
+        description TEXT,
+        options_json TEXT NOT NULL DEFAULT '[]',
+        due_at INTEGER,
+        risk_level TEXT NOT NULL DEFAULT 'medium',
+        status TEXT NOT NULL DEFAULT 'open',
+        decision_note TEXT,
+        decided_at INTEGER,
+        dismissed_at INTEGER,
+        created_from_agent_action_id TEXT,
+        created_at INTEGER DEFAULT (unixepoch()),
+        updated_at INTEGER DEFAULT (unixepoch()),
+        FOREIGN KEY (account_id, thread_id) REFERENCES threads(account_id, id) ON DELETE CASCADE,
+        FOREIGN KEY (created_from_agent_action_id) REFERENCES agent_actions(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_decisions_status_due
+        ON decisions(account_id, status, due_at, risk_level);
+      CREATE INDEX IF NOT EXISTS idx_decisions_thread
+        ON decisions(account_id, thread_id, status);
+
+      CREATE TABLE IF NOT EXISTS briefing_snapshots (
+        account_id TEXT NOT NULL,
+        thread_id TEXT NOT NULL,
+        source_hash TEXT NOT NULL,
+        latest_ask TEXT,
+        why_it_matters TEXT,
+        relationship_context TEXT,
+        commitments_json TEXT NOT NULL DEFAULT '[]',
+        waiting_json TEXT NOT NULL DEFAULT '[]',
+        decisions_json TEXT NOT NULL DEFAULT '[]',
+        risks_json TEXT NOT NULL DEFAULT '[]',
+        suggested_actions_json TEXT NOT NULL DEFAULT '[]',
+        model TEXT,
+        generated_at INTEGER DEFAULT (unixepoch()),
+        stale_at INTEGER,
+        error TEXT,
+        PRIMARY KEY (account_id, thread_id),
+        FOREIGN KEY (account_id, thread_id) REFERENCES threads(account_id, id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_briefing_snapshots_stale
+        ON briefing_snapshots(account_id, stale_at, generated_at);
+    `,
   },
 ];
 
