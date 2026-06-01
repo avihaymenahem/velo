@@ -2,9 +2,9 @@
 
 ## 元数据
 
-- 版本：0.9
+- 版本：1.0
 - 状态：Ready_For_User_Review
-- 最后更新：2026-05-31
+- 最后更新：2026-06-01
 - 范围：maintenance foundation、上游策略、CI/release governance 基线。
 
 ## 摘要
@@ -204,11 +204,22 @@ Stage 1B 收口验证：
 ## Stage 2D Release Readiness Gate
 
 - PR #3 已合并，Kirje release identity 已进入 `main`。
+- PR #4 已合并，release readiness gate 已进入 `main`。
 - 当前 GitHub repo variables 为空，secrets 为空，release 列表为空。
 - `iiwish/homebrew-kirje` 当前不存在。
 - 新增 `npm run release:readiness`，把 release 前置条件变成可重复检查。
 - 当前 readiness check 预期失败；这是正确结果，说明 release 仍不可启用。
 - 新增 `docs/release-readiness.md`，记录 updater signing、GitHub secrets、Homebrew tap、Apple signing 和 release dry run 顺序。
+
+## Stage 3A Product Surface Audit
+
+- 结论：Kirje 应继续基于 Velo 增量演进，不应重写。
+- 主要风险：当前产品表面仍是普通邮箱阅读器，AI 能力分散为摘要、回复、搜索、任务提取等组件，没有统一的线程工作状态和 Agent Action 审核层。
+- 新增 `docs/product-surface-audit.md`，记录现有资产、核心缺口、保留/重构/砍掉项和第一批改造边界。
+- 新增 `docs/agentic-inbox-ia.md`，定义 Work Queues、Thread Work State、AgentAction、Commitment、Waiting、Decision、BriefingSnapshot、Thread Briefing 和 Agent Review Queue。
+- 任务图新增 Epic E3，并把 Stage 3 拆为 T021 到 T027。
+- 明确 CLI 与 i18n 后置：CLI 依赖稳定 Agentic object model，i18n 依赖稳定 IA 和术语体系。
+- 明确下一步不是 UI redesign，而是 T022 Agentic Object Model 与数据计划。
 
 ## 用户审核闸门
 

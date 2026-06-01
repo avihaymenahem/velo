@@ -4,7 +4,7 @@
 
 - 版本：0.1
 - 状态：Ready_For_User_Review
-- 最后更新：2026-05-31
+- 最后更新：2026-06-01
 - 审核闸门：需要用户明确批准后，任务才成为 confirmed execution units。
 
 ## Epic E0：维护基础
@@ -901,7 +901,7 @@ Evidence required:
 
 ### T020：Stage 2D Release Readiness Gate
 
-状态：Needs_Review
+状态：Accepted
 优先级：P0
 依赖：T019 accepted / PR #3 merged
 阻塞：正式 Kirje release、`KIRJE_RELEASES_ENABLED=true`
@@ -956,6 +956,337 @@ Packet path：
 
 Evidence required:
 - readiness command 输出摘要、GitHub variables/secrets/release 状态、残余 blockers。
+
+## Epic E3：Agentic Inbox 产品表面
+
+### T021：Stage 3A 产品表面审计与信息架构
+
+状态：Needs_Review
+优先级：P0
+依赖：T020 accepted、用户批准进入 Stage 3
+阻塞：T022、T023、Agentic Inbox UI 改造
+Story / Requirement: FR-007、FR-008、NFR-001、NFR-004
+可并行：否
+冲突：无。
+
+目标：
+审计当前 Velo/Kirje 产品表面，明确哪些现有资产应保留，哪些体验仍停留在普通邮箱，并定义 Agentic Inbox 的第一版信息架构。
+
+Allowed files:
+- `docs/product-surface-audit.md`
+- `docs/agentic-inbox-ia.md`
+- `.ai-platform/docs/tasks.md`
+- `.ai-platform/docs/release-report.md`
+- `.ai-platform/evidence/T021/*`
+
+测试目标：
+- 文档审计任务，无 source test。
+- Delivery artifact validator。
+- Diff whitespace check。
+
+Deliverables:
+- 中文产品表面审计。
+- 中文 Agentic Inbox 信息架构。
+- Stage 3 后续任务图。
+- T021 evidence。
+
+验收标准：
+- 明确现有三栏、快捷键、AI、任务、follow-up、联系人侧栏等资产如何复用。
+- 明确缺失的 `ThreadWorkState`、`AgentAction`、`Commitment`、`Waiting`、`Decision`、`BriefingSnapshot`。
+- 明确 CLI 和 i18n 后置，不进入当前核心路径。
+- 明确第一批改造不是视觉 redesign，而是对象模型和工作状态层。
+
+Definition of Done:
+- T021 evidence 写入 `.ai-platform/evidence/T021/`。
+- 文档可供用户审核。
+- 验证命令通过或阻塞项明确记录。
+
+验证命令：
+- `git diff --check`
+- `python3 /Users/iiwish/.codex/skills/ai-delivery-governor/scripts/validate_delivery_artifacts.py --root /Users/iiwish/self/kirje --task-id T021`
+
+TDD plan:
+- 不适用。该任务只做产品和信息架构审计，不改运行时代码。
+
+Packet path：
+- Stage 3A 文档审计任务不需要独立 packet；采用 Direct Execute，因为用户已明确批准继续。
+
+Evidence required:
+- 审计结论、文档路径、验证结果、后续任务建议。
+
+### T022：Stage 3B Agentic Object Model 与数据计划
+
+状态：Draft
+优先级：P0
+依赖：T021 accepted
+阻塞：T023、T024、T025、T026
+Story / Requirement: FR-007、FR-008、NFR-004
+可并行：否
+冲突：数据库 migrations、AI cache、thread service、email action audit path。
+
+目标：
+在实现 UI 前，定义 Agentic Inbox 核心对象模型、SQLite schema、TypeScript types、service API、风险等级和测试计划。
+
+Allowed files:
+- 待任务确认后限定。预计包含 `docs/agentic-object-model.md`、`.ai-platform/docs/*`、`.ai-platform/evidence/T022/*`。
+
+测试目标：
+- 文档计划任务，无 source test。
+- Artifact validator。
+
+Deliverables:
+- `ThreadWorkState`、`AgentAction`、`Commitment`、`Waiting`、`Decision`、`BriefingSnapshot` schema 计划。
+- lifecycle 和 risk model。
+- migration 顺序。
+- service API 草案。
+- test-first implementation plan。
+
+验收标准：
+- 明确哪些状态可由规则推导，哪些必须用户确认。
+- 明确 Agent action 的 suggested/prepared/approved/rejected/executed/failed 生命周期。
+- 明确高风险动作不能自动执行。
+- 明确 local-first、privacy-first、审计和撤销边界。
+
+验证命令：
+- 由实现任务确认。
+
+TDD plan:
+- 实现前先写 service/store/query regression tests；本任务只输出测试计划。
+
+Packet path：
+- 待 T022 confirmed 后生成。
+
+Evidence required:
+- 对象模型、schema plan、风险模型、后续 implementation task 切分。
+
+### T023：Stage 3C Thread Work State v0
+
+状态：Draft
+优先级：P0
+依赖：T022 accepted
+阻塞：T024、T025、T026
+Story / Requirement: FR-007、FR-008
+可并行：否
+冲突：SQLite migrations、thread DB service、thread store、EmailList、CommandPalette。
+
+目标：
+实现最小线程工作状态层，让线程可以被标记为 needs reply、waiting、committed、decision needed、can archive、done 等状态。
+
+Allowed files:
+- 待 T022 确认后限定。
+
+测试目标：
+- Migration tests。
+- DB service tests。
+- Store tests。
+- Command/UI tests。
+- TypeScript。
+- Full Vitest regression。
+
+Deliverables:
+- 工作状态 schema。
+- 工作状态 DB service。
+- 线程列表状态显示。
+- Command Palette 状态修改命令。
+- T023 evidence。
+
+验收标准：
+- 一个线程同一时间只有一个 primary work state。
+- 状态可本地持久化。
+- 状态修改不需要联网。
+- 状态不会破坏现有 label/category/search 行为。
+
+验证命令：
+- 由实现任务确认。
+
+TDD plan:
+- 先写 migration/service/store/query tests，再实现。
+
+Packet path：
+- 待 T023 confirmed 后生成。
+
+Evidence required:
+- 失败测试摘要、修复后验证结果、UI 状态截图或 DOM evidence、残余风险。
+
+### T024：Stage 3D Command Inbox 与 Work Queues Shell
+
+状态：Draft
+优先级：P0
+依赖：T023 accepted
+阻塞：T025、T026
+Story / Requirement: FR-007、NFR-001
+可并行：否
+冲突：Sidebar、EmailList query/filter、empty/loading/error states、keyboard navigation。
+
+目标：
+把左侧导航从邮箱文件夹优先改为 Work Queues 优先，并实现 Command Inbox / Needs Reply / Waiting / Commitments / Decisions / Agent Review / Smart Archive 的 UI shell。
+
+Allowed files:
+- 待 T024 confirmed 后限定。
+
+测试目标：
+- Sidebar render tests。
+- Queue filtering tests。
+- Keyboard/command tests。
+- TypeScript。
+- Vitest regression。
+
+Deliverables:
+- Work Queues sidebar。
+- 对应空状态、加载态、错误态。
+- 传统 Mailboxes 降级但保留。
+- T024 evidence。
+
+验收标准：
+- 第一屏优先显示工作队列。
+- 传统 Inbox 仍可访问。
+- 无巨大卡片、无营销式 AI 入口、无低密度 UI。
+
+验证命令：
+- 由实现任务确认。
+
+TDD plan:
+- 先写 sidebar/queue state tests，再改 UI。
+
+Packet path：
+- 待 T024 confirmed 后生成。
+
+Evidence required:
+- 测试结果、截图或 DOM evidence、交互状态清单。
+
+### T025：Stage 3E Thread Briefing v0
+
+状态：Draft
+优先级：P0
+依赖：T023 accepted
+阻塞：T026、Reply Copilot context controls
+Story / Requirement: FR-007、FR-008、NFR-004
+可并行：可与 T024 部分并行，但不应先于 T023 实现。
+冲突：ThreadView、ThreadSummary、AI cache、task extraction、contact sidebar。
+
+目标：
+把当前摘要卡片升级为 Thread Briefing v0，让用户在阅读原文前看到最新诉求、上下文、承诺、等待、风险和建议动作。
+
+Allowed files:
+- 待 T025 confirmed 后限定。
+
+测试目标：
+- Briefing service tests。
+- AI cache fallback tests。
+- ThreadView render tests。
+- Failure state tests。
+
+Deliverables:
+- Briefing read model。
+- ThreadView 顶部 briefing surface。
+- AI 失败不阻塞邮件阅读。
+- T025 evidence。
+
+验收标准：
+- Briefing 明确区分摘要和建议动作。
+- AI 输出不直接写入正式 Commitment/Waiting/Decision，除非用户确认。
+- Briefing 有 loading/error/empty states。
+
+验证命令：
+- 由实现任务确认。
+
+TDD plan:
+- 先写 briefing cache/fallback/render tests，再实现。
+
+Packet path：
+- 待 T025 confirmed 后生成。
+
+Evidence required:
+- 测试结果、失败态 evidence、残余风险。
+
+### T026：Stage 3F Agent Review Queue v0
+
+状态：Draft
+优先级：P0
+依赖：T022 accepted、T023 accepted
+阻塞：Agent Act、Rules / Playbooks
+Story / Requirement: FR-008、NFR-004
+可并行：否
+冲突：Agent action DB service、CommandPalette、EmailActions、offline queue。
+
+目标：
+实现统一 Agent Action 审核队列，集中管理 suggested/prepared/approved/rejected/executed/failed 生命周期。
+
+Allowed files:
+- 待 T026 confirmed 后限定。
+
+测试目标：
+- AgentAction DB service tests。
+- Review queue UI tests。
+- Approval/rejection lifecycle tests。
+- High-risk guard tests。
+
+Deliverables:
+- Agent Review Queue 页面或队列视图。
+- approve/edit/reject/snooze 操作。
+- 高风险动作不能批量执行。
+- T026 evidence。
+
+验收标准：
+- 所有可执行 Agent 动作都有审计记录。
+- 发送、删除、承诺、拒绝、财务/法律/敏感关系动作必须人工确认。
+- 低风险动作可以批量审核，但必须可撤销或可追踪。
+
+验证命令：
+- 由实现任务确认。
+
+TDD plan:
+- 先写 lifecycle/risk guard tests，再实现 UI 和执行路径。
+
+Packet path：
+- 待 T026 confirmed 后生成。
+
+Evidence required:
+- 测试结果、风险 guard evidence、残余风险。
+
+### T027：Reply Copilot Context Controls
+
+状态：Draft
+优先级：P1
+依赖：T025 accepted、T026 accepted
+阻塞：高信任回复生成
+Story / Requirement: FR-008
+可并行：是
+冲突：Composer、AiAssistPanel、SmartReplySuggestions、writing style profile。
+
+目标：
+把回复生成从“生成一封邮件”升级为可控草稿：明确目标、关系、语气、承诺、禁区和是否引用上下文。
+
+Allowed files:
+- 待 T027 confirmed 后限定。
+
+测试目标：
+- Prompt builder tests。
+- Composer render tests。
+- Draft lifecycle tests。
+
+Deliverables:
+- 回复目标控制。
+- 关系/语气控制。
+- 承诺和禁区控制。
+- 与 Agent Review Queue 的草稿审核连接。
+
+验收标准：
+- AI 不替用户做承诺。
+- 草稿生成必须显示可编辑结果。
+- 敏感关系或高风险邮件不能一键发送。
+
+验证命令：
+- 由实现任务确认。
+
+TDD plan:
+- 先写 prompt/context boundary tests，再改 composer。
+
+Packet path：
+- 待 T027 confirmed 后生成。
+
+Evidence required:
+- 测试结果、prompt boundary evidence、残余风险。
 
 ### T006：修复基线验证失败
 
