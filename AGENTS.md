@@ -177,14 +177,14 @@ Key tables (37 total): `accounts` (with `provider` "gmail_api"|"imap", IMAP/SMTP
 
 ## Key Gotchas
 
-- **Tauri SQL plugin config**: `preload` in tauri.conf.json must be an array `["sqlite:velo.db"]` — NOT an object/map
+- **Tauri SQL plugin config**: `preload` in tauri.conf.json must be an array `["sqlite:kirje.db"]` — NOT an object/map
 - **Tauri Emitter trait**: Must `use tauri::Emitter;` to call `.emit()` on windows
 - **Tauri capabilities**: Any new plugin needs explicit permissions added to `src-tauri/capabilities/default.json`. Windows allow `"main"`, `"splashscreen"`, and `"thread-*"` wildcard
 - **Tauri window config**: Custom titlebar — macOS uses `titleBarStyle: "Overlay"`, Windows/Linux removes decorations programmatically in Rust setup. 1200x800 default, 800x600 minimum. Splash screen: 400x300, no decorations, center, always on top
 - **Single instance**: `tauri-plugin-single-instance` must be first plugin registered. Forwards args for deep linking
 - **Minimize-to-tray**: Use `.on_window_event()` on the Builder, not `window.on_window_event()`
 - **Windows WebView2**: `Chrome_WidgetWin_0` error on close is benign — ignore it
-- **Windows AUMID**: Set explicitly in Rust for proper notification identity (`com.velomail.app`)
+- **Windows AUMID**: Set explicitly in Rust for proper notification identity (`app.kirje.desktop`)
 - **OAuth (Gmail)**: Localhost server tries ports 17248-17251. PKCE flow, no client secret. Client ID stored in SQLite settings table, configured by user in Settings
 - **IMAP message IDs**: Format is `imap-{accountId}-{folder}-{uid}` — not the RFC Message-ID header
 - **IMAP security mapping**: UI shows "SSL/TLS", "STARTTLS", "None" but config stores "ssl", "starttls", "none"

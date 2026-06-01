@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Velo",
+  "productName": "Kirje",
   "version": "0.4.21",
-  "identifier": "com.velomail.app",
+  "identifier": "app.kirje.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Velo",
+        "title": "Kirje",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -61,13 +61,13 @@
   "plugins": {
     "sql": {
       "preload": [
-        "sqlite:velo.db"
+        "sqlite:kirje.db"
       ]
     },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM0NjlFREYzMjVBRDYwRjMKUldUellLMGw4KzFwTkJ4RmJ0ejArWUNTZTEzT01SMnJveHc4K3ErNHVIdEVuYmZmYW94U295QzcK",
       "endpoints": [
-        "https://github.com/avihaymenahem/velo/releases/latest/download/latest.json"
+        "https://github.com/iiwish/kirje/releases/latest/download/latest.json"
       ]
     },
     "deep-link": {

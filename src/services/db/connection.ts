@@ -4,7 +4,7 @@ let db: Database | null = null;
 
 export async function getDb(): Promise<Database> {
   if (!db) {
-    db = await Database.load("sqlite:velo.db");
+    db = await Database.load("sqlite:kirje.db");
   }
   return db;
 }

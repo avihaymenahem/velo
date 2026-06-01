@@ -49,14 +49,14 @@ fn open_devtools(app: tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Set explicit AUMID on Windows so toast notifications show "Velo"
+    // Set explicit AUMID on Windows so toast notifications show "Kirje"
     // instead of "Windows PowerShell"
     #[cfg(windows)]
     {
         use windows::core::w;
         use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
         unsafe {
-            let _ = SetCurrentProcessExplicitAppUserModelID(w!("com.velomail.app"));
+            let _ = SetCurrentProcessExplicitAppUserModelID(w!("app.kirje.desktop"));
         }
     }
 
@@ -131,7 +131,7 @@ pub fn run() {
             #[cfg(not(target_os = "linux"))]
             {
                 // Build system tray menu
-                let show = MenuItem::with_id(app, "show", "Show Velo", true, None::<&str>)?;
+                let show = MenuItem::with_id(app, "show", "Show Kirje", true, None::<&str>)?;
                 let check_mail =
                     MenuItem::with_id(app, "check_mail", "Check for Mail", true, None::<&str>)?;
                 let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
@@ -144,7 +144,7 @@ pub fn run() {
 
                 TrayIconBuilder::with_id("main-tray")
                     .icon(icon)
-                    .tooltip("Velo")
+                    .tooltip("Kirje")
                     .menu(&menu)
                     .show_menu_on_left_click(false)
                     .on_menu_event(|app, event| match event.id.as_ref() {
@@ -183,7 +183,7 @@ pub fn run() {
                 let app_handle = app.handle().clone();
 
                 std::thread::spawn(move || {
-                    let mut tray = match TrayItem::new("Velo", IconSource::Resource("mail-read")) {
+                    let mut tray = match TrayItem::new("Kirje", IconSource::Resource("mail-read")) {
                         Ok(t) => t,
                         Err(e) => {
                             log::warn!("Failed to create system tray: {e}");
@@ -192,13 +192,13 @@ pub fn run() {
                     };
 
                     let app_handle_show = app_handle.clone();
-                    if let Err(e) = tray.add_menu_item("Show Velo", move || {
+                    if let Err(e) = tray.add_menu_item("Show Kirje", move || {
                         if let Some(window) = app_handle_show.get_webview_window("main") {
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
                     }) {
-                        log::warn!("Failed to add tray menu item 'Show Velo': {e}");
+                        log::warn!("Failed to add tray menu item 'Show Kirje': {e}");
                     }
 
                     let app_handle_check = app_handle.clone();

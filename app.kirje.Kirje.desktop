@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Kirje
+Comment=Agentic desktop email client
+Exec=kirje
+Icon=app.kirje.Kirje
+Type=Application
+Categories=Network;Email;
+StartupWMClass=Kirje
+StartupNotify=true

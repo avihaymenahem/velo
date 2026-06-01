@@ -6,7 +6,7 @@
 
 import { exists, readTextFile, writeTextFile, mkdir, BaseDirectory } from "@tauri-apps/plugin-fs";
 
-const KEY_FILE_NAME = "velo.key";
+const KEY_FILE_NAME = "kirje.key";
 const ALGORITHM = "AES-GCM";
 const KEY_LENGTH = 256;
 const IV_LENGTH = 12;

@@ -71,15 +71,15 @@ Produces native installers:
 
 ### Gmail (OAuth)
 
-Velo connects directly to Gmail via OAuth. You need your own Google Cloud credentials:
+Kirje connects directly to Gmail via OAuth. You need your own Google Cloud credentials:
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project (or use an existing one)
 3. Enable the **Gmail API** and **Google Calendar API**
 4. Create OAuth 2.0 credentials (Desktop application)
-5. In Velo's Settings, enter your Client ID
+5. In Kirje's Settings, enter your Client ID
 
-> Velo uses PKCE flow -- no client secret is required.
+> Kirje uses PKCE flow -- no client secret is required.
 
 ### IMAP/SMTP
 
@@ -87,7 +87,7 @@ For non-Gmail providers (Outlook, Yahoo, iCloud, Fastmail, etc.):
 
 1. Click the account switcher in the sidebar → **Add IMAP Account**
 2. Enter your email address and password (or app-password)
-3. Velo auto-discovers server settings for well-known providers
+3. Kirje auto-discovers server settings for well-known providers
 4. For other providers, enter IMAP/SMTP host, port, and security manually
 5. Test connection, then save
 

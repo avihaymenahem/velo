@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   build-flatpak:
+    if: vars.KIRJE_RELEASES_ENABLED == 'true'
     name: Build Flatpak
     runs-on: ubuntu-latest
     steps:
@@ -33,15 +34,16 @@ jobs:
 
       - name: Build Flatpak bundle
         run: |
-          flatpak-builder --user --force-clean --repo=repo build-dir com.velomail.app.yml
-          flatpak build-bundle repo velo.flatpak com.velomail.app
+          flatpak-builder --user --force-clean --repo=repo build-dir app.kirje.Kirje.yml
+          flatpak build-bundle repo kirje.flatpak app.kirje.Kirje
 
       - name: Upload Flatpak to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ inputs.tag_name }}" velo.flatpak --clobber
+        run: gh release upload "${{ inputs.tag_name }}" kirje.flatpak --clobber
 
   build-srpm:
+    if: vars.KIRJE_RELEASES_ENABLED == 'true'
     name: Build SRPM
     runs-on: ubuntu-latest
     container: fedora:latest
@@ -62,19 +64,19 @@ jobs:
             --exclude='.github' \
             --exclude='*.flatpak' \
             --exclude='*.tar.gz' \
-            --transform "s/^\./velo-${{ env.APP_VERSION }}/" \
-            -czf "/tmp/velo-${{ env.APP_VERSION }}.tar.gz" .
+            --transform "s/^\./kirje-${{ env.APP_VERSION }}/" \
+            -czf "/tmp/kirje-${{ env.APP_VERSION }}.tar.gz" .
 
       - name: Set up RPM build environment
         run: |
           rpmdev-setuptree
           # Ensure spec version matches the actual release version
-          sed -i "s/^%global app_version.*/%global app_version ${{ env.APP_VERSION }}/" velo.spec
-          cp velo.spec ~/rpmbuild/SPECS/
-          cp "/tmp/velo-${{ env.APP_VERSION }}.tar.gz" ~/rpmbuild/SOURCES/
+          sed -i "s/^%global app_version.*/%global app_version ${{ env.APP_VERSION }}/" kirje.spec
+          cp kirje.spec ~/rpmbuild/SPECS/
+          cp "/tmp/kirje-${{ env.APP_VERSION }}.tar.gz" ~/rpmbuild/SOURCES/
 
       - name: Build Source RPM
-        run: rpmbuild -bs ~/rpmbuild/SPECS/velo.spec
+        run: rpmbuild -bs ~/rpmbuild/SPECS/kirje.spec
 
       - name: Upload SRPM to release
         env:

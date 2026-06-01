@@ -11,6 +11,9 @@ permissions:
 
 jobs:
   release-please:
+    # Releases are frozen until Kirje signing keys, updater endpoint, and
+    # packaging identities are explicitly enabled in repository variables.
+    if: vars.KIRJE_RELEASES_ENABLED == 'true'
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
