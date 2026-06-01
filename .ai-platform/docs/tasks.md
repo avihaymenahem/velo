@@ -822,7 +822,7 @@ Evidence required:
 
 ### T019：Stage 2C Release Freeze 与 Kirje Identity 实现
 
-状态：Needs_Review
+状态：Accepted
 优先级：P0
 依赖：T018、用户确认 `app.kirje.desktop`、用户确认不迁移旧本地数据、用户确认 `iiwish/homebrew-kirje`
 阻塞：R005 updater signing、release dry run、正式 Kirje release
@@ -898,6 +898,64 @@ Packet path：
 
 Evidence required:
 - 失败测试摘要、验证结果、identity 扫描结果、残余 release blockers。
+
+### T020：Stage 2D Release Readiness Gate
+
+状态：Needs_Review
+优先级：P0
+依赖：T019 accepted / PR #3 merged
+阻塞：正式 Kirje release、`KIRJE_RELEASES_ENABLED=true`
+Story / Requirement: FR-004、NFR-005、NFR-006
+可并行：否
+冲突：release workflow、GitHub secrets、updater signing、Homebrew tap。
+
+目标：
+在生成和配置真实 signing/secrets 前，先建立机器可重复执行的 release readiness gate，防止靠人工记忆启用发布链路。
+
+Allowed files:
+- `package.json`
+- `scripts/release-readiness.mjs`
+- `docs/release-readiness.md`
+- `docs/release-automation-audit.md`
+- `docs/release-identity-migration.md`
+- `.ai-platform/docs/tasks.md`
+- `.ai-platform/docs/release-report.md`
+- `.ai-platform/evidence/T020/*`
+
+Deliverables:
+- `npm run release:readiness`
+- 中文 release readiness runbook。
+- 记录当前 GitHub variables、secrets、release、Homebrew tap 状态。
+
+验收标准：
+- Readiness script 检查 Kirje app identity、updater endpoint、updater public key 是否仍是继承值、required GitHub secrets、`KIRJE_RELEASES_ENABLED`、Homebrew tap。
+- 当前仓库未配置 release secrets 时，readiness command 必须失败并清楚列出 blockers。
+- 文档明确 release enable 顺序，且不得要求提交私钥。
+
+测试目标：
+- Release readiness negative gate。
+- Full Vitest regression。
+- Diff whitespace check。
+
+Definition of Done:
+- `release:readiness` 命令存在并输出清晰 blockers。
+- 中文 release readiness runbook 存在。
+- T020 evidence 写入 `.ai-platform/evidence/T020/`。
+
+验证命令：
+- `node scripts/release-readiness.mjs`
+- `npm run release:readiness`
+- `npm run test`
+- `git diff --check`
+
+TDD plan:
+- Release readiness 是运维 gate，不修改产品行为；以当前仓库缺少 secrets/variables 的预期失败作为负向验证。
+
+Packet path：
+- Stage 2D 采用 Direct Execute，因为任务是小范围 release gate 和文档，不启用 worker。
+
+Evidence required:
+- readiness command 输出摘要、GitHub variables/secrets/release 状态、残余 blockers。
 
 ### T006：修复基线验证失败
 

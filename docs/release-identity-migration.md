@@ -233,4 +233,12 @@ Stage 2C 不实现旧数据导入 fallback，这是明确产品/维护决策，�
 
 ## 最小下一步
 
-下一步应执行 R005：生成 Kirje updater signing keypair、配置 GitHub secrets，并用 draft release 或 dry run 验证 updater JSON。完成前不应设置 `KIRJE_RELEASES_ENABLED=true`。
+下一步应先接受 Stage 2D readiness gate，然后执行 R005：生成 Kirje updater signing keypair、配置 GitHub secrets，并用 draft release 或 dry run 验证 updater JSON。完成前不应设置 `KIRJE_RELEASES_ENABLED=true`。
+
+Readiness gate：
+
+```bash
+npm run release:readiness
+```
+
+当前失败是预期状态，表示 Kirje 尚未具备发布条件。

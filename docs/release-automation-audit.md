@@ -179,7 +179,8 @@ Stage 2C 可以接受 Kirje identity implementation；不要立刻启用 release
 
 下一步优先级：
 
-1. 审核并接受 Stage 2C identity PR。
-2. 单独执行 updater signing key 和 GitHub secrets 配置。
-3. 用 draft release 验证 assets 和 updater JSON。
-4. 验证后再考虑设置 `KIRJE_RELEASES_ENABLED=true`。
+1. 接受 Stage 2D release readiness gate。
+2. 生成 Kirje updater signing keypair，并只把 private key 写入 GitHub Secrets。
+3. 创建 `iiwish/homebrew-kirje` 和最小权限 token。
+4. 配置 Apple signing / notarization secrets。
+5. `npm run release:readiness` 通过后，再考虑设置 `KIRJE_RELEASES_ENABLED=true`。
