@@ -961,7 +961,7 @@ Evidence required:
 
 ### T021：Stage 3A 产品表面审计与信息架构
 
-状态：Needs_Review
+状态：Accepted
 优先级：P0
 依赖：T020 accepted、用户批准进入 Stage 3
 阻塞：T022、T023、Agentic Inbox UI 改造
@@ -1016,7 +1016,7 @@ Evidence required:
 
 ### T022：Stage 3B Agentic Object Model 与数据计划
 
-状态：Draft
+状态：Needs_Review
 优先级：P0
 依赖：T021 accepted
 阻塞：T023、T024、T025、T026
@@ -1028,7 +1028,10 @@ Story / Requirement: FR-007、FR-008、NFR-004
 在实现 UI 前，定义 Agentic Inbox 核心对象模型、SQLite schema、TypeScript types、service API、风险等级和测试计划。
 
 Allowed files:
-- 待任务确认后限定。预计包含 `docs/agentic-object-model.md`、`.ai-platform/docs/*`、`.ai-platform/evidence/T022/*`。
+- `docs/agentic-object-model.md`
+- `.ai-platform/docs/tasks.md`
+- `.ai-platform/docs/release-report.md`
+- `.ai-platform/evidence/T022/*`
 
 测试目标：
 - 文档计划任务，无 source test。
@@ -1047,14 +1050,20 @@ Deliverables:
 - 明确高风险动作不能自动执行。
 - 明确 local-first、privacy-first、审计和撤销边界。
 
+Definition of Done:
+- `docs/agentic-object-model.md` 存在并可供用户审核。
+- T022 evidence 写入 `.ai-platform/evidence/T022/`。
+- 验证命令通过或阻塞项明确记录。
+
 验证命令：
-- 由实现任务确认。
+- `git diff --check`
+- `python3 /Users/iiwish/.codex/skills/ai-delivery-governor/scripts/validate_delivery_artifacts.py --root /Users/iiwish/self/kirje --task-id T022`
 
 TDD plan:
 - 实现前先写 service/store/query regression tests；本任务只输出测试计划。
 
 Packet path：
-- 待 T022 confirmed 后生成。
+- Stage 3B 文档和数据计划任务不需要独立 packet；采用 Direct Execute，因为用户已明确批准继续。
 
 Evidence required:
 - 对象模型、schema plan、风险模型、后续 implementation task 切分。

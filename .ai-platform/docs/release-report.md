@@ -221,6 +221,16 @@ Stage 1B 收口验证：
 - 明确 CLI 与 i18n 后置：CLI 依赖稳定 Agentic object model，i18n 依赖稳定 IA 和术语体系。
 - 明确下一步不是 UI redesign，而是 T022 Agentic Object Model 与数据计划。
 
+## Stage 3B Agentic Object Model Plan
+
+- PR #5 已合并，Stage 3A 产品表面审计已进入 `main`。
+- 新增 `docs/agentic-object-model.md`，定义 Kirje Agentic Inbox 第一批对象模型和数据计划。
+- 结论：不要把工作状态直接塞进 `threads`，也不要用 `tasks` 承载所有承诺、等待、决策；应新增独立 Agentic tables，并引用 `(account_id, thread_id)`。
+- 计划新增 migration v24：`thread_work_states`、`agent_actions`、`commitments`、`waiting_items`、`decisions`、`briefing_snapshots`。
+- 明确 AgentAction lifecycle：`suggested`、`prepared`、`approved`、`rejected`、`executed`、`failed`、`expired`。
+- 明确风险边界：高风险动作不能自动执行，不能批量 approve，发送/删除/承诺/拒绝/财务/法律/招聘/投资必须人工确认。
+- 明确 T023 最小实现范围：先做本地可控 Thread Work State v0，不做 AI 自动分类。
+
 ## 用户审核闸门
 
 本报告已可供用户审核。继续进入发布身份迁移、P0 upstream PR 采纳或 i18n 前，需要用户明确接受对应任务计划。
