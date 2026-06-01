@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "tauri": "tauri",
     "dev:landing": "npm run dev --prefix landing",
-    "flatpak": "flatpak-builder --force-clean --user --install --install-deps-from=flathub build-dir app.kirje.Kirje.yml"
+    "flatpak": "flatpak-builder --force-clean --user --install --install-deps-from=flathub build-dir app.kirje.Kirje.yml",
+    "release:readiness": "node scripts/release-readiness.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
