@@ -101,4 +101,16 @@ describe("ThreadCard", () => {
     const button = container.querySelector("button")!;
     expect(button.className).toContain("bg-red-500/8");
   });
+
+  it("renders a compact work-state chip when a thread has a primary work state", () => {
+    render(
+      <ThreadCard
+        thread={makeThread({ workState: "waiting" })}
+        isSelected={false}
+        onClick={onClick}
+      />,
+    );
+
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+  });
 });

@@ -7,12 +7,35 @@ import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { formatRelativeDate } from "@/utils/date";
 import { Paperclip, Star, Check, Pin, BellRing, VolumeX } from "lucide-react";
 import type { DragData } from "@/components/dnd/DndProvider";
+import type { ThreadPrimaryState } from "@/services/agentic/types";
 
 const CATEGORY_COLORS: Record<string, string> = {
   Updates: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400",
   Promotions: "bg-green-500/15 text-green-600 dark:text-green-400",
   Social: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
   Newsletters: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
+};
+
+const WORK_STATE_LABELS: Partial<Record<ThreadPrimaryState, string>> = {
+  needs_reply: "Needs reply",
+  waiting: "Waiting",
+  committed: "Committed",
+  decision_needed: "Decision",
+  risk: "Risk",
+  opportunity: "Opportunity",
+  can_archive: "Can archive",
+  done: "Done",
+};
+
+const WORK_STATE_COLORS: Partial<Record<ThreadPrimaryState, string>> = {
+  needs_reply: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  waiting: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  committed: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  decision_needed: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
+  risk: "bg-red-500/15 text-red-600 dark:text-red-400",
+  opportunity: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400",
+  can_archive: "bg-slate-500/15 text-slate-600 dark:text-slate-400",
+  done: "bg-green-500/15 text-green-700 dark:text-green-400",
 };
 
 interface ThreadCardProps {
@@ -33,6 +56,8 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
   const activeLabel = useActiveLabel();
   const emailDensity = useUIStore((s) => s.emailDensity);
   const isSpam = thread.labelIds.includes("SPAM");
+  const workStateLabel = thread.workState ? WORK_STATE_LABELS[thread.workState] : undefined;
+  const workStateColor = thread.workState ? WORK_STATE_COLORS[thread.workState] : undefined;
 
   // Read selectedThreadIds lazily for drag — avoids subscribing all cards to the Set reference
   const dragData: DragData = useMemo(() => ({
@@ -138,6 +163,11 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
             {showCategoryBadge && category && category !== "Primary" && CATEGORY_COLORS[category] && (
               <span className={`shrink-0 text-[0.625rem] px-1.5 rounded-full leading-normal ${CATEGORY_COLORS[category]}`}>
                 {category}
+              </span>
+            )}
+            {workStateLabel && workStateColor && (
+              <span className={`shrink-0 text-[0.625rem] px-1.5 rounded-full leading-normal ${workStateColor}`}>
+                {workStateLabel}
               </span>
             )}
             {hasFollowUp && (

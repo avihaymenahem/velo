@@ -1016,7 +1016,7 @@ Evidence required:
 
 ### T022：Stage 3B Agentic Object Model 与数据计划
 
-状态：Needs_Review
+状态：Accepted
 优先级：P0
 依赖：T021 accepted
 阻塞：T023、T024、T025、T026
@@ -1070,7 +1070,7 @@ Evidence required:
 
 ### T023：Stage 3C Thread Work State v0
 
-状态：Draft
+状态：Needs_Review
 优先级：P0
 依赖：T022 accepted
 阻塞：T024、T025、T026
@@ -1082,7 +1082,22 @@ Story / Requirement: FR-007、FR-008
 实现最小线程工作状态层，让线程可以被标记为 needs reply、waiting、committed、decision needed、can archive、done 等状态。
 
 Allowed files:
-- 待 T022 确认后限定。
+- `src/services/agentic/types.ts`
+- `src/services/db/migrations.ts`
+- `src/services/db/migrations.test.ts`
+- `src/services/db/threadWorkStates.ts`
+- `src/services/db/threadWorkStates.test.ts`
+- `src/services/db/agentActions.ts`
+- `src/services/db/agentActions.test.ts`
+- `src/stores/threadStore.ts`
+- `src/components/layout/EmailList.tsx`
+- `src/components/email/ThreadCard.tsx`
+- `src/components/email/ThreadCard.test.tsx`
+- `src/components/search/CommandPalette.tsx`
+- `src/components/search/CommandPalette.test.tsx`
+- `.ai-platform/docs/tasks.md`
+- `.ai-platform/docs/release-report.md`
+- `.ai-platform/evidence/T023/*`
 
 测试目标：
 - Migration tests。
@@ -1105,14 +1120,26 @@ Deliverables:
 - 状态修改不需要联网。
 - 状态不会破坏现有 label/category/search 行为。
 
+Definition of Done:
+- migration v24 建立 Agentic Inbox 本地对象表。
+- Thread work state DB service 存在并通过测试。
+- Agent action 最小 create/list/reject DB service 存在并通过测试。
+- 线程列表显示 primary work state chip。
+- Command Palette 可手动设置 selected thread work state。
+- T023 evidence 写入 `.ai-platform/evidence/T023/`。
+
 验证命令：
-- 由实现任务确认。
+- `npx vitest run src/services/db/threadWorkStates.test.ts src/services/db/agentActions.test.ts src/services/db/migrations.test.ts src/components/email/ThreadCard.test.tsx src/components/search/CommandPalette.test.tsx`
+- `npx tsc --noEmit`
+- `npm run test`
+- `git diff --check`
+- `python3 /Users/iiwish/.codex/skills/ai-delivery-governor/scripts/validate_delivery_artifacts.py --root /Users/iiwish/self/kirje --task-id T023`
 
 TDD plan:
 - 先写 migration/service/store/query tests，再实现。
 
 Packet path：
-- 待 T023 confirmed 后生成。
+- Stage 3C 采用 Direct Execute，因为用户已明确批准继续，且 T023 是单一受控 implementation slice。
 
 Evidence required:
 - 失败测试摘要、修复后验证结果、UI 状态截图或 DOM evidence、残余风险。
