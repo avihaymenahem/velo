@@ -1,19 +1,19 @@
-# Agentic Inbox 信息架构
+# Follow-up Assistant 信息架构
 
 ## 元数据
 
 - 阶段：Stage 3A
-- 状态：Ready_For_User_Review
-- 日期：2026-06-01
-- 范围：Kirje 第一版 Agentic Inbox 的导航、对象、状态、Agent 边界与交互骨架
+- 状态：Revised_For_Follow-up_Positioning
+- 日期：2026-06-02
+- 范围：Kirje 第一版邮件跟进助手的导航、对象、状态、Agent 边界与交互骨架
 
 ## 1. 直接判断
 
-Kirje 的第一屏不应该回答“你有多少未读邮件”，而应该回答“哪些事需要你的判断或动作”。
+Kirje 的第一屏不应该回答“你有多少未读邮件”，而应该回答“今天有哪些回复、跟进和截止日期不能漏”。
 
-当前 Velo/Kirje 的三栏结构可以保留，但信息架构必须重排：Work Queues 置顶，传统 Mailboxes 降级，线程阅读面板升级为 Thread Briefing。
+当前 Velo/Kirje 的三栏结构可以保留，但信息架构必须重排：Follow-up 队列置顶，传统 Mailboxes 降级，线程阅读面板升级为 Thread Briefing。
 
-这不是视觉 redesign，而是对象模型和操作模型重排。
+这不是视觉 redesign，而是对象模型和操作模型重排。`Agentic` 可以保留为内部对象层命名，但不再作为第一屏用户定位。
 
 ## 2. 核心对象
 
@@ -40,6 +40,22 @@ Kirje 的第一屏不应该回答“你有多少未读邮件”，而应该回�
 - `has_sensitive_content`
 - `has_security_warning`
 - `is_vip`
+
+### Labels / Folders / Signals
+
+不要把 Kirje 的差异化建立在“再设计一套标签体系”上。
+
+三层边界：
+
+- Action State：Needs Reply、Waiting、Due Soon、Done，决定线程进入哪个 Follow-up 队列。
+- Context Label：Gmail label、IMAP folder、本地自定义 label、smart label、smart folder，描述主题或归档上下文。
+- Signal：系统从邮件、规则或 AI 中观察到的线索，例如 invoice、travel、deadline、attachment、newsletter、no-reply、security warning。
+
+设计约束：
+
+- Work State 不能伪装成 label。
+- Signal 默认不暴露为用户手工标签，除非用户把它转成规则或 smart folder。
+- 第一版不要做独立 `Kirje tags`。已有 label/folder/smart folder 足够承载上下文组织，产品精力应放在 Follow-up 队列、Thread Briefing 和可解释信号上。
 
 ### AgentAction
 
@@ -140,19 +156,23 @@ Agent 建议或准备的动作。它是信任系统的核心，不是日志附�
 
 左侧导航分为三组。
 
-### Work Queues
+### Follow-up
 
 必须置顶：
 
-- Command Inbox
+- Today
 - Needs Reply
 - Waiting
+- Due Soon
+
+这些是第一版产品本体。
+
+后续可加入但不进入 MVP 首屏：
+
 - Commitments
 - Decisions
 - Agent Review
 - Smart Archive
-
-这些是产品本体。
 
 ### Mailboxes
 
@@ -169,7 +189,7 @@ Agent 建议或准备的动作。它是信任系统的核心，不是日志附�
 
 这些是邮箱基础设施，不是主价值。
 
-### Knowledge / Rules
+### Tools / Rules
 
 后置：
 
@@ -198,7 +218,7 @@ Thread List 应该是高密度工作列表，不是邮件预览卡片。
 
 1. 高风险。
 2. 需要回复。
-3. 即将到期承诺。
+3. 即将到期事项。
 4. 等待时间过长。
 5. VIP / 高价值关系。
 6. 普通未读。
@@ -229,7 +249,7 @@ Briefing v0 必须回答：
 
 ## 6. Agent Review Queue
 
-Agent Review 是独立队列，不是通知中心。
+Agent Review 是后续独立队列，不是第一版 Follow-up MVP 的入口，也不是通知中心。
 
 列表字段：
 
@@ -250,17 +270,23 @@ Agent Review 是独立队列，不是通知中心。
 
 高风险动作必须逐条确认。低风险动作可以多选批量确认，例如建议归档 newsletter、标记无需回复、创建本地 waiting item。
 
-## 7. Command Inbox
+第一版只需要在数据层保留 `AgentAction` 生命周期，并在 UI 中避免让用户误以为 AI 会自动执行。
 
-Command Inbox 是默认工作视图，不是普通 Inbox。
+## 7. Today
+
+Today 是默认工作视图，不是普通 Inbox。
 
 它聚合：
 
 - Needs Reply。
-- Commitments due。
 - Waiting overdue。
-- Decisions due。
+- Due Soon。
 - High-risk threads。
+
+后续再聚合：
+
+- Commitments due。
+- Decisions due。
 - Agent actions needing review。
 
 目标：用户打开 Kirje 后，15 秒内知道今天最该处理什么。
@@ -318,9 +344,12 @@ Command Inbox 是默认工作视图，不是普通 Inbox。
 
 - `Mark as Needs Reply`
 - `Mark as Waiting`
+- `Set Due Soon`
+- `Mark as Done`
 - `Create Commitment`
 - `Create Decision`
-- `Open Agent Review`
+- `Open Today`
+- `Open Agent Review`（后续）
 - `Approve Agent Action`
 - `Reject Agent Action`
 - `Prepare Reply`
@@ -330,11 +359,11 @@ Command Inbox 是默认工作视图，不是普通 Inbox。
 
 - `g` then `r`：Needs Reply。
 - `g` then `w`：Waiting。
-- `g` then `m`：Commitments。
-- `g` then `e`：Decisions。
-- `g` then `x`：Agent Review。
+- `g` then `d`：Due Soon（需要先解决现有 Drafts 冲突）。
+- `g` then `t`：Today（需要先解决现有 Sent 冲突）。
+- `g` then `x`：Agent Review（后续）。
 
-具体按键要在实现前做冲突检查，不能破坏现有 Superhuman-style muscle memory。
+具体按键要在实现前做冲突检查，不能破坏现有键盘操作肌肉记忆。
 
 ## 10. 实现顺序
 
@@ -362,15 +391,16 @@ Command Inbox 是默认工作视图，不是普通 Inbox。
 - command palette 可修改 state。
 - 测试覆盖 store/service/query。
 
-### Stage 3D：Command Inbox / Work Queues Shell
+### Stage 3D：Follow-up Queues Shell
 
-实现左侧 Work Queues 和过滤逻辑。
+实现左侧 Follow-up 队列和过滤逻辑。
 
 要求：
 
-- Work Queues 在 sidebar 顶部。
+- Today / Needs Reply / Waiting / Due Soon 在 sidebar 顶部。
 - Mailboxes 降级。
-- Needs Reply / Waiting / Commitments / Decisions / Agent Review 有空状态、加载态、错误态。
+- Needs Reply / Waiting / Due Soon 有空状态、加载态、错误态。
+- Today 可以先是聚合壳，不需要完整智能排序。
 
 ### Stage 3E：Thread Briefing v0
 
@@ -403,5 +433,6 @@ Command Inbox 是默认工作视图，不是普通 Inbox。
 - 完整项目管理。
 - 大面积视觉重做。
 - Agent 人格化聊天入口。
+- Command Inbox、Agent Review、Smart Archive、Decisions 作为第一屏导航。
 
-结论：只要 Thread Work State 和 AgentAction 没有落地，其他功能都容易变成漂亮噪音。
+结论：Thread Work State 已经是基础骨架；下一步必须把它转化为 Today / Needs Reply / Waiting / Due Soon 的可信队列，否则其他 AI 功能仍然只是漂亮噪音。

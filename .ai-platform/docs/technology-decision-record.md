@@ -2,9 +2,9 @@
 
 ## 元数据
 
-- 版本：0.1
+- 版本：0.2
 - 状态：Ready_For_User_Review
-- 最后更新：2026-05-31
+- 最后更新：2026-06-02
 - 审核闸门：需要用户明确批准后，才能成为 confirmed maintenance plan。
 
 ## 决策摘要
@@ -46,7 +46,7 @@
 
 ### TDR-004：CLI 是未来操作层
 
-决策：maintenance foundation 不实现 CLI。CLI 记录为核心对象稳定后的未来 Agentic Inbox operation surface。
+决策：maintenance foundation 不实现 CLI。CLI 记录为 Follow-up Assistant 核心对象稳定后的未来 operation surface。
 
 理由：CLI 只有在线程工作状态、Agent Action、Commitment、Waiting 和 Draft workflow 稳定后才会强。
 
@@ -79,9 +79,21 @@
 - 产品层变更默认 adapt/reject，而不是 adopt。
 - 上游同步需要独立记录 adopt/adapt/reject/defer 决策。
 
+### TDR-007：产品定位收敛为邮件跟进助手
+
+决策：Kirje 的外部定位和近期产品主线从 Agentic Inbox 收敛为 local-first follow-up assistant for email。
+
+理由：Agentic Inbox 是内部对象和能力方向，但对用户不够具体，容易把 Kirje 拉回泛 AI 邮箱或 Superhuman 平替。邮件跟进助手直接对应用户愿意迁移的高价值问题：我该回什么、别人没回什么、什么快到期。
+
+影响：
+
+- 对外文案优先使用 Follow-up Assistant、Needs Reply、Waiting、Due Soon。
+- `Agentic`、`AgentAction`、`Commitment` 等术语保留为内部数据层和开发命名，不作为第一屏定位。
+- T024 范围应收敛为 Today / Needs Reply / Waiting / Due Soon shell，不再一次性实现 Command Inbox、Commitments、Decisions、Agent Review 和 Smart Archive。
+
 ## 宪章检查
 
-- 产品聚焦：满足。Stage 0 在功能工作前保护 Agentic Inbox 方向。
+- 产品聚焦：满足。Stage 0 在功能工作前保护邮件跟进助手方向。
 - 架构保留：满足。没有业务代码变更。
 - 隐私/安全：满足。安全相关 PR 被优先 review，但不会盲目合并。
 - AI 自主边界：满足。AI panel PR 在证明 product fit 前标记为风险。
@@ -124,5 +136,5 @@
 
 - Stage 1 应从 PR evaluation 开始，而不是功能实现。
 - Stage 2 应在 Stage 0 记录失败后修复质量基线。
-- i18n 和 Agentic Inbox 需要单独 spec 后才能实现。
+- i18n 和 Follow-up Assistant 需要单独 spec 后才能实现。
 - 上游同步必须按 `docs/upstream-sync-policy.md` 执行。

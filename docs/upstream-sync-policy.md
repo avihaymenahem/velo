@@ -2,10 +2,10 @@
 
 ## 元数据
 
-- 版本：0.1
+- 版本：0.2
 - 状态：Ready_For_User_Review
 - 来源：用户批准的维护策略讨论。
-- 最后更新：2026-05-31
+- 最后更新：2026-06-02
 - 审核闸门：用户批准后，作为 Kirje 后续跟随 Velo 的默认策略。
 
 ## 直接结论
@@ -43,7 +43,7 @@ Kirje 不应放弃跟随 Velo，但也不应做 Velo 的长期下游同步分支
 - 新 UI 风格。
 - 普通邮箱功能堆叠。
 - AI panel/sidebar 方向。
-- 与 Kirje inbox IA 或 Agentic Inbox 状态模型冲突的功能。
+- 与 Kirje Follow-up Assistant IA 或线程工作状态模型冲突的功能。
 - 没有降低处理成本的“智能”功能。
 
 ### 只借鉴，不直接合并
@@ -146,7 +146,7 @@ gh api 'repos/avihaymenahem/velo/pulls?state=open&per_page=100'
 - 不长期机械 merge upstream `main`。
 - 不批量合并 open PR。
 - 不批量合并 dependabot。
-- 不把 AI panel/sidebar PR 当作 Kirje Agent 方向。
+- 不把 AI panel/sidebar PR 当作 Kirje Agent 或 Follow-up 方向。
 - 不把 upstream UI 当成 Kirje UI 标准。
 - 不在没有 validation evidence 的情况下合入高风险路径。
 
