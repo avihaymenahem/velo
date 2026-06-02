@@ -242,6 +242,26 @@ Stage 1B 收口验证：
 - Command Palette 新增手动 work state 命令：Needs Reply、Waiting、Committed、Decision Needed、Can Archive、Done。
 - 本阶段没有实现 AI 自动分类、Agent Review Queue 页面、自动归档或发送动作。
 
+## Phase 0 Positioning Alignment
+
+- 用户确认 Kirje 定位收敛为“本地优先的邮件跟进助手”，优先解决“我该回什么、别人没回什么、什么快到期”。
+- 更新 README、产品合同、宪章、TDR、上游策略、i18n 术语、Stage 3 IA 和任务图。
+- 对外叙事从 `Agentic Inbox` / `desktop email client` 改为 `local-first follow-up assistant for email`。
+- `Agentic`、`AgentAction`、`Commitment` 等保留为内部对象层，不作为第一屏用户定位。
+- T024 下一步收敛为 Today / Needs Reply / Waiting / Due Soon shell，不再一次性实现 Command Inbox、Commitments、Decisions、Agent Review 和 Smart Archive。
+
+## Stage 3D Follow-up Queues Shell
+
+- T024 已实现并进入 Needs_Review。
+- 新增 `src/constants/followUpViews.ts`，统一 Today、Needs Reply、Waiting、Due Soon 的 view ids 和 work-state 映射。
+- Sidebar 顶部新增 Follow-up 分组，置顶 Today / Needs Reply / Waiting / Due Soon；传统 Mailboxes 保留在后。
+- `/mail/$label` 路由支持 follow-up views，不再把 `needs-reply` 误当自定义 label。
+- EmailList 支持 follow-up 查询路径：Needs Reply / Waiting 按 `thread_work_states.primary_state` 查询，Due Soon 按 work-state `due_at` 和 linked tasks 的 14 天窗口查询，Today 聚合 Needs Reply / Waiting / Due Soon。
+- 新增 follow-up 视图的英文和简体中文 mailbox/empty-state 文案。
+- 新增 Sidebar render regression，固定 Follow-up 分组置顶和 follow-up item 点击行为。
+- 验证通过：targeted Vitest、Sidebar render test、TypeScript、i18n/UI targeted tests、full `npm run test`、`git diff --check`。
+- 残余风险：裸 Vite 浏览器页面无法作为视觉烟测依据，因为应用依赖 Tauri SQL/window API；需要用 Tauri desktop runtime 做最终截图或人工 QA。
+
 ## 用户审核闸门
 
-本报告已可供用户审核。继续进入发布身份迁移、P0 upstream PR 采纳或 i18n 前，需要用户明确接受对应任务计划。
+本报告已可供用户审核。继续进入 T025 Thread Briefing v0、P0 upstream PR 采纳或 release/App Store 准备前，需要用户明确接受对应任务计划。

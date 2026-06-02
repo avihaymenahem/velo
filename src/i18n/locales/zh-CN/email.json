@@ -13,6 +13,10 @@
     "Newsletters": "简报"
   },
   "mailbox": {
+    "today": "今日事项",
+    "needs-reply": "需要回复",
+    "waiting": "等待对方",
+    "due-soon": "快到期",
     "inbox": "收件箱",
     "starred": "已加星标",
     "snoozed": "稍后提醒",
@@ -53,6 +57,14 @@
     "allLoaded": "已加载全部会话"
   },
   "empty": {
+    "todayClear": "暂无需要关注的事项",
+    "todayHint": "需要回复、等待对方和快到期事项会出现在这里",
+    "noNeedsReply": "暂无需要回复",
+    "needsReplyHint": "标记为需要回复的线程会出现在这里",
+    "noWaiting": "暂无等待对方",
+    "waitingHint": "标记为等待对方的线程会出现在这里",
+    "noDueSoon": "暂无快到期事项",
+    "dueSoonHint": "未来 14 天内到期的线程或关联任务会出现在这里",
     "noResults": "没有结果",
     "trySearch": "换个搜索词试试",
     "noFilteredEmails": "没有{{filter}}邮件",

@@ -66,6 +66,13 @@ export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = 
   { id: "labels", label: "Labels", icon: Tag },
 ];
 
+export const FOLLOW_UP_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
+  { id: "today", label: "Today", icon: Calendar },
+  { id: "needs-reply", label: "Needs Reply", icon: MailOpen },
+  { id: "waiting", label: "Waiting", icon: Clock },
+  { id: "due-soon", label: "Due Soon", icon: Bell },
+];
+
 const CATEGORY_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "Primary", label: "Primary", icon: Inbox },
   { id: "Updates", label: "Updates", icon: Bell },
@@ -363,6 +370,35 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-2">
+        {!collapsed && (
+          <div className="px-3 pt-1 pb-1 text-xs font-medium text-sidebar-text/60 uppercase tracking-wider">
+            {t("sections.followUp")}
+          </div>
+        )}
+        {FOLLOW_UP_NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const itemLabel = t(`nav.${item.id}`, { defaultValue: item.label });
+          return (
+            <DroppableNavItem
+              key={item.id}
+              id={item.id}
+              isActive={activeLabel === item.id}
+              collapsed={collapsed}
+              onClick={() => navigateToLabel(item.id)}
+              title={collapsed ? itemLabel : undefined}
+            >
+              {() => (
+                <>
+                  <Icon size={18} className="shrink-0" />
+                  {!collapsed && (
+                    <span className="flex-1 truncate">{itemLabel}</span>
+                  )}
+                </>
+              )}
+            </DroppableNavItem>
+          );
+        })}
+
         {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isInbox = item.id === "inbox";

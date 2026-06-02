@@ -1,6 +1,9 @@
 import {
+  getDueSoonThreads,
+  getTodayFollowUpThreads,
   getThreadWorkState,
   getThreadWorkStatesForThreads,
+  getThreadsForWorkStates,
   setThreadPrimaryState,
   upsertThreadWorkState,
 } from "./threadWorkStates";
@@ -74,5 +77,43 @@ describe("threadWorkStates DB service", () => {
     });
 
     expect(mockDb.execute).not.toHaveBeenCalled();
+  });
+
+  it("fetches threads by one or more primary work states", async () => {
+    mockDb.select.mockResolvedValue([{ id: "t1", account_id: "acc1" }]);
+
+    const result = await getThreadsForWorkStates("acc1", ["needs_reply", "waiting"], 25, 50);
+
+    expect(result).toEqual([{ id: "t1", account_id: "acc1" }]);
+    expect(mockDb.select).toHaveBeenCalledWith(
+      expect.stringContaining("tws.primary_state IN ($2,$3)"),
+      ["acc1", "needs_reply", "waiting", 25, 50],
+    );
+  });
+
+  it("fetches due-soon threads from work-state due dates and linked tasks", async () => {
+    mockDb.select.mockResolvedValue([{ id: "t2", account_id: "acc1" }]);
+
+    await getDueSoonThreads("acc1", 10, 0);
+
+    expect(mockDb.select).toHaveBeenCalledWith(
+      expect.stringContaining("due_sources"),
+      ["acc1", 10, 0],
+    );
+    expect(mockDb.select.mock.calls[0]?.[0]).toContain("tasks");
+    expect(mockDb.select.mock.calls[0]?.[0]).toContain("unixepoch() + 1209600");
+  });
+
+  it("fetches today follow-up threads across reply, waiting, and due signals", async () => {
+    mockDb.select.mockResolvedValue([{ id: "t3", account_id: "acc1" }]);
+
+    await getTodayFollowUpThreads("acc1", 10, 20);
+
+    expect(mockDb.select).toHaveBeenCalledWith(
+      expect.stringContaining("follow_up_sources"),
+      ["acc1", 10, 20],
+    );
+    expect(mockDb.select.mock.calls[0]?.[0]).toContain("primary_state IN ('needs_reply', 'waiting')");
+    expect(mockDb.select.mock.calls[0]?.[0]).toContain("tasks");
   });
 });
