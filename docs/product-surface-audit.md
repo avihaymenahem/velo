@@ -3,22 +3,21 @@
 ## 元数据
 
 - 阶段：Stage 3A
-- 状态：Ready_For_User_Review
-- 日期：2026-06-01
-- 范围：现有 Velo/Kirje 产品表面、对象模型缺口、Agentic Inbox 第一批改造边界
+- 状态：Revised_For_Follow-up_Positioning
+- 日期：2026-06-02
+- 范围：现有 Velo/Kirje 产品表面、对象模型缺口、Follow-up Assistant 第一批改造边界
 
 ## 1. 直接判断
 
 Kirje 值得继续基于 Velo 增量演进，不应该重写。
 
-最大风险不是技术栈，而是产品表面仍然像“功能很全的邮箱客户端”：左侧是邮箱文件夹，中间是邮件列表，右侧是邮件阅读器，AI 分散成摘要、回复、搜索、任务提取几个能力点。这个形态可以做出好邮箱，但做不出足够锋利的 Agentic Inbox。
+最大风险不是技术栈，而是产品表面仍然像“功能很全的邮箱客户端”：左侧是邮箱文件夹，中间是邮件列表，右侧是邮件阅读器，AI 分散成摘要、回复、搜索、任务提取几个能力点。这个形态可以做出好邮箱，但做不出足够锋利的邮件跟进助手。
 
-应该收敛到一个判断：第一版 Agentic Inbox 不追求更多 AI 功能，而是让每个线程拥有明确工作状态，并让 Agent 的建议进入可审核、可撤销、可追踪的操作队列。
+应该收敛到一个判断：第一版 Follow-up Assistant 不追求更多 AI 功能，而是让用户先看到并确认 Today、Needs Reply、Waiting 和 Due Soon。Agentic 对象层继续存在，但它服务跟进闭环，不是对外定位。
 
 暂时不要做：
 
 - CLI。
-- i18n 实现。
 - 大规模视觉 redesign。
 - 自动发送邮件。
 - 独立任务管理器。
@@ -36,10 +35,10 @@ Kirje 值得继续基于 Velo 增量演进，不应该重写。
 
 Kirje 目标产品必须进一步解决：
 
-- 判断：这封邮件到底是否需要我处理。
-- 承诺管理：我答应了什么，什么时候应该兑现。
-- 等待管理：谁欠我回复，等待多久了。
-- 关系维护：哪些重要关系正在冷却、紧张或出现机会。
+- 待回复：哪些线程需要我处理。
+- 待跟进：谁欠我回复，等待多久了。
+- 截止日期：哪些账单、申请、续费、合同、会议或材料快到期。
+- 信任：建议来自哪封邮件、哪句话、哪个规则或 AI 推断。
 - Agent 控制：哪些动作可以交给 Agent 准备，哪些必须我确认。
 
 核心体验不是“更智能地读邮件”，而是把线程升级为可执行工作对象。
@@ -54,7 +53,7 @@ Kirje 目标产品必须进一步解决：
 | SQLite local-first 数据层 | 保留 | Agent 记忆、动作审计、离线队列都需要本地可信状态。 |
 | Gmail API + IMAP/SMTP provider abstraction | 保留 | 多账户和开放协议是基础能力，不应重写。 |
 | 三栏布局 | 保留并重构信息层级 | 已接近目标工作台结构，但内容层级仍是邮箱阅读器。 |
-| 快捷键与 Command Palette | 保留并扩展 | 这是高端邮箱工作台的核心操作层。 |
+| 快捷键与 Command Palette | 保留并扩展 | 这是快速标记 Needs Reply / Waiting / Due / Done 的核心操作层。 |
 | `emailActions.ts` 离线操作队列 | 保留并收敛调用路径 | Agent Act 未来必须走可审计、可重试、可撤销路径。 |
 | `ai_cache` 与 AI provider manager | 保留 | 可作为 Agent observe/prepare 的缓存基础。 |
 | tasks、follow-up、contact sidebar | 保留为基础材料 | 可以演进成 Commitment、Waiting、Relationship Memory。 |
@@ -94,18 +93,16 @@ Kirje 目标产品必须进一步解决：
 
 摘要只是材料，简报才是工作入口。
 
-### 缺口 4：Sidebar 仍是邮箱导航，不是工作队列
+### 缺口 4：Sidebar 仍是邮箱导航，不是跟进队列
 
 当前左侧以 Inbox、Starred、Snoozed、Sent、Drafts、Trash、分类、标签为主。这些是邮箱对象，不是工作状态。
 
 第一屏应该优先出现：
 
+- Today。
 - Needs Reply。
 - Waiting。
-- Commitments。
-- Decisions。
-- Agent Review。
-- Smart Archive。
+- Due Soon。
 
 传统邮箱文件夹可以保留，但应降级。
 
@@ -119,19 +116,16 @@ Kirje 目标产品必须进一步解决：
 
 ## 5. 最强方案
 
-第一阶段只做一个产品结构变化：把“邮件线程列表”改造成“线程工作台”。
+第一阶段只做一个产品结构变化：把“邮件线程列表”改造成“邮件跟进雷达”。
 
 ### 页面结构
 
-左侧：Work Queues 优先，Mailboxes 次级。
+左侧：Follow-up 优先，Mailboxes 次级。
 
-- Command Inbox。
+- Today。
 - Needs Reply。
 - Waiting。
-- Commitments。
-- Decisions。
-- Agent Review。
-- Smart Archive。
+- Due Soon。
 - Mailboxes。
 - Labels。
 - Smart Folders。
@@ -161,7 +155,7 @@ Kirje 目标产品必须进一步解决：
 
 然后才是原邮件正文。
 
-独立页面：Agent Review Queue。
+后续独立页面：Agent Review Queue。
 
 - 所有 Agent 建议动作集中审核。
 - 支持 approve、edit、reject、snooze、convert to rule。
@@ -169,7 +163,7 @@ Kirje 目标产品必须进一步解决：
 
 ### 对象
 
-第一批对象只做必要集合：
+第一批对象只做必要集合，其中 `ThreadWorkState`、`AgentAction`、`Commitment`、`Waiting`、`Decision` 和 `BriefingSnapshot` 是内部对象层，不是对外定位：
 
 - `ThreadWorkState`
 - `AgentAction`
@@ -186,11 +180,12 @@ Kirje 目标产品必须进一步解决：
 
 - 标记为需要回复。
 - 标记为等待对方。
+- 设置或确认截止日期。
+- 将线程设为完成。
 - 从线程创建承诺。
 - 从线程创建决策。
 - 接受或拒绝 Agent 建议归档。
 - 接受、编辑或拒绝 Agent 准备的草稿。
-- 将线程设为完成。
 
 不要先做：
 
@@ -271,10 +266,10 @@ Agent 只能在用户授权后执行：
 
 快捷键友好：
 
-- Work queue 可用 `g` 序列跳转。
+- Follow-up queue 可用 `g` 序列跳转。
 - 线程状态可用单键或 command 操作。
-- Agent action 可快速 approve / edit / reject。
-- 多选批量操作必须支持 Smart Archive 和低风险建议。
+- Agent action 后续可快速 approve / edit / reject。
+- 多选批量操作后续再支持 Smart Archive 和低风险建议。
 
 状态清晰：
 
@@ -293,11 +288,11 @@ Agent 只能在用户授权后执行：
 ### 应该砍掉或后置
 
 - CLI：等对象模型和 Agent Action API 稳定后再做。否则 CLI 只是邮箱命令包装器，不会爆。
-- i18n：等 IA 和核心术语稳定后再做。现在翻译会制造 key churn。
 - AI 聊天侧边栏：可以保留 Ask Inbox，但不能成为主体验。
 - 全量 CRM：联系人记忆只服务邮件决策，不做 Salesforce。
 - 完整任务管理：任务只服务邮件承诺，不做 Linear 低配版。
 - 自动发送：第一版会伤信任。
+- Agent Review Queue、Smart Archive、Decisions 作为首屏导航：后置，避免 MVP 过宽。
 
 ### 技术债风险
 
@@ -308,14 +303,14 @@ Agent 只能在用户授权后执行：
 
 ## 9. 下一步
 
-下一步不是写 UI，而是做 Stage 3B：Agentic Object Model & Data Plan。
+Stage 3B/3C 已经完成对象模型和 Thread Work State v0。下一步不是继续扩 Agent，而是做 Stage 3D：Follow-up Queues Shell。
 
 最小可执行动作：
 
-1. 定义 `thread_work_states`、`agent_actions`、`commitments`、`waiting_items`、`decisions` 的 SQLite schema。
-2. 定义每个对象的 lifecycle 和 risk level。
-3. 明确哪些状态可以由规则推导，哪些必须人工确认。
-4. 给出 migration plan、service API、测试计划。
-5. 再进入 Thread Work State v0 实现。
+1. 在 Sidebar 顶部加入 Today、Needs Reply、Waiting、Due Soon。
+2. 复用 `thread_work_states` 过滤 Needs Reply 和 Waiting。
+3. Due Soon v0 可以先基于 `due_at` 和现有任务/提醒数据，不承诺自动理解所有邮件日期。
+4. 为每个队列提供空状态、加载态和错误态。
+5. 保留传统 Mailboxes，但降级到 Follow-up 队列之后。
 
-验收标准很简单：如果没有这些对象，任何 UI 改造都是漂亮噪音。
+验收标准很简单：用户打开 Kirje 后，15 秒内能理解“我该回什么、我在等谁、什么快到期”。

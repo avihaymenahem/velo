@@ -13,7 +13,12 @@ import { navigateToThread, navigateToLabel } from "@/router/navigate";
 import { getThreadsForAccount, getThreadsForCategory, getThreadLabelIds, deleteThread as deleteThreadFromDb } from "@/services/db/threads";
 import { getCategoriesForThreads, getCategoryUnreadCounts } from "@/services/db/threadCategories";
 import { getActiveFollowUpThreadIds } from "@/services/db/followUpReminders";
-import { getThreadWorkStatesForThreads } from "@/services/db/threadWorkStates";
+import {
+  getDueSoonThreads,
+  getThreadWorkStatesForThreads,
+  getThreadsForWorkStates,
+  getTodayFollowUpThreads,
+} from "@/services/db/threadWorkStates";
 import { getBundleRules, getHeldThreadIds, getBundleSummaries, type DbBundleRule } from "@/services/db/bundleRules";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { useLabelStore } from "@/stores/labelStore";
@@ -31,6 +36,11 @@ import {
   NoAccountIllustration,
   GenericEmptyIllustration,
 } from "../ui/illustrations";
+import {
+  FOLLOW_UP_WORK_STATE_MAP,
+  isFollowUpViewId,
+  type FollowUpViewId,
+} from "@/constants/followUpViews";
 
 const PAGE_SIZE = 50;
 
@@ -44,6 +54,13 @@ const LABEL_MAP: Record<string, string> = {
   spam: "SPAM",
   snoozed: "SNOOZED",
   all: "", // no filter
+};
+
+const FOLLOW_UP_LABEL_TITLES: Record<FollowUpViewId, string> = {
+  today: "Today",
+  "needs-reply": "Needs Reply",
+  waiting: "Waiting",
+  "due-soon": "Due Soon",
 };
 
 export function EmailList({ width, listRef }: { width?: number; listRef?: React.Ref<HTMLDivElement> }) {
@@ -70,6 +87,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
   const isSmartFolder = activeLabel.startsWith("smart-folder:");
   const smartFolderId = isSmartFolder ? activeLabel.replace("smart-folder:", "") : null;
   const activeSmartFolder = smartFolderId ? smartFolders.find((f) => f.id === smartFolderId) ?? null : null;
+  const activeFollowUpView = isFollowUpViewId(activeLabel) ? activeLabel : null;
 
   const inboxViewMode = useUIStore((s) => s.inboxViewMode);
   const routerCategory = useActiveCategory();
@@ -98,6 +116,8 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
   const multiSelectBarRef = useRef<HTMLDivElement>(null);
   const listTitle = isSmartFolder
     ? activeSmartFolder?.name ?? t("list.smartFolder")
+    : activeFollowUpView
+      ? t(`mailbox.${activeFollowUpView}`, { defaultValue: FOLLOW_UP_LABEL_TITLES[activeFollowUpView] })
     : activeLabel === "inbox" && inboxViewMode === "split" && activeCategory !== "All"
       ? t("list.inboxCategory", { category: t(`category.${activeCategory}`, { defaultValue: activeCategory }) })
       : LABEL_MAP[activeLabel] !== undefined
@@ -291,6 +311,24 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
         const mapped = await mapSmartFolderRows(rows);
         setThreads(mapped);
         setHasMore(false); // Smart folders load all at once
+      } else if (activeFollowUpView) {
+        let dbThreads;
+        if (activeFollowUpView === "today") {
+          dbThreads = await getTodayFollowUpThreads(activeAccountId, PAGE_SIZE, 0);
+        } else if (activeFollowUpView === "due-soon") {
+          dbThreads = await getDueSoonThreads(activeAccountId, PAGE_SIZE, 0);
+        } else {
+          dbThreads = await getThreadsForWorkStates(
+            activeAccountId,
+            FOLLOW_UP_WORK_STATE_MAP[activeFollowUpView] ?? [],
+            PAGE_SIZE,
+            0,
+          );
+        }
+
+        const mapped = await mapDbThreads(dbThreads);
+        setThreads(mapped);
+        setHasMore(dbThreads.length === PAGE_SIZE);
       } else {
         let dbThreads;
         // Server-side category filtering for inbox
@@ -315,7 +353,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     } finally {
       setLoading(false);
     }
-  }, [activeAccountId, activeLabel, activeCategory, isSmartFolder, activeSmartFolder, setThreads, setLoading, mapDbThreads, clearSearch]);
+  }, [activeAccountId, activeLabel, activeCategory, activeFollowUpView, isSmartFolder, activeSmartFolder, setThreads, setLoading, mapDbThreads, clearSearch]);
 
   const loadMore = useCallback(async () => {
     if (!activeAccountId || loadingMore || !hasMore) return;
@@ -324,7 +362,18 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     try {
       const offset = threads.length;
       let dbThreads;
-      if (activeLabel === "inbox" && activeCategory !== "All") {
+      if (activeFollowUpView === "today") {
+        dbThreads = await getTodayFollowUpThreads(activeAccountId, PAGE_SIZE, offset);
+      } else if (activeFollowUpView === "due-soon") {
+        dbThreads = await getDueSoonThreads(activeAccountId, PAGE_SIZE, offset);
+      } else if (activeFollowUpView) {
+        dbThreads = await getThreadsForWorkStates(
+          activeAccountId,
+          FOLLOW_UP_WORK_STATE_MAP[activeFollowUpView] ?? [],
+          PAGE_SIZE,
+          offset,
+        );
+      } else if (activeLabel === "inbox" && activeCategory !== "All") {
         dbThreads = await getThreadsForCategory(activeAccountId, activeCategory, PAGE_SIZE, offset);
       } else {
         const gmailLabelId = LABEL_MAP[activeLabel] ?? activeLabel;
@@ -346,7 +395,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
     } finally {
       setLoadingMore(false);
     }
-  }, [activeAccountId, activeLabel, activeCategory, threads, loadingMore, hasMore, setThreads, mapDbThreads]);
+  }, [activeAccountId, activeLabel, activeCategory, activeFollowUpView, threads, loadingMore, hasMore, setThreads, mapDbThreads]);
 
   useEffect(() => {
     loadThreads();
@@ -743,6 +792,14 @@ function EmptyStateForContext({
   }
 
   switch (activeLabel) {
+    case "today":
+      return <EmptyState illustration={InboxClearIllustration} title={t("empty.todayClear")} subtitle={t("empty.todayHint")} />;
+    case "needs-reply":
+      return <EmptyState illustration={GenericEmptyIllustration} title={t("empty.noNeedsReply")} subtitle={t("empty.needsReplyHint")} />;
+    case "waiting":
+      return <EmptyState illustration={GenericEmptyIllustration} title={t("empty.noWaiting")} subtitle={t("empty.waitingHint")} />;
+    case "due-soon":
+      return <EmptyState illustration={GenericEmptyIllustration} title={t("empty.noDueSoon")} subtitle={t("empty.dueSoonHint")} />;
     case "inbox":
       if (activeCategory !== "All") {
         const categoryMessages: Record<string, { title: string; subtitle: string }> = {

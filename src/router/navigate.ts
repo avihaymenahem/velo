@@ -1,8 +1,10 @@
 import { router } from "./index";
+import { FOLLOW_UP_VIEW_IDS } from "@/constants/followUpViews";
 
 /** Known system labels that map to /mail/$label */
 const SYSTEM_LABELS = new Set([
   "inbox", "starred", "snoozed", "sent", "drafts", "trash", "spam", "all",
+  ...FOLLOW_UP_VIEW_IDS,
 ]);
 
 /**

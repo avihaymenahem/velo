@@ -107,7 +107,7 @@ Kirje 仍然不能公开发布。Stage 2C 已经迁移主要应用/包/分发身
 - `@velo.local` synthetic IMAP message id domain。
 - 测试中描述历史行为的 Velo 字符串。
 
-建议保留到后续内部命名清理任务。用户看不见，Agentic Inbox 核心体验也不依赖它。
+建议保留到后续内部命名清理任务。用户看不见，Follow-up Assistant 核心体验也不依赖它。
 
 ## 本地数据迁移策略
 

@@ -13,6 +13,10 @@
     "Newsletters": "Newsletters"
   },
   "mailbox": {
+    "today": "Today",
+    "needs-reply": "Needs Reply",
+    "waiting": "Waiting",
+    "due-soon": "Due Soon",
     "inbox": "Inbox",
     "starred": "Starred",
     "snoozed": "Snoozed",
@@ -53,6 +57,14 @@
     "allLoaded": "All conversations loaded"
   },
   "empty": {
+    "todayClear": "Nothing needs attention",
+    "todayHint": "Replies, waiting threads, and due items will appear here",
+    "noNeedsReply": "No replies waiting on you",
+    "needsReplyHint": "Threads marked Needs Reply will appear here",
+    "noWaiting": "Not waiting on anyone",
+    "waitingHint": "Threads marked Waiting will appear here",
+    "noDueSoon": "Nothing due soon",
+    "dueSoonHint": "Threads with due dates or linked tasks due in the next 14 days will appear here",
     "noResults": "No results found",
     "trySearch": "Try a different search term",
     "noFilteredEmails": "No {{filter}} emails",

@@ -51,6 +51,15 @@ describe("navigate", () => {
       });
     });
 
+    it("should navigate to follow-up views via /mail/$label", () => {
+      navigateToLabel("needs-reply");
+      expect(mockNavigate).toHaveBeenCalledWith({
+        to: "/mail/$label",
+        params: { label: "needs-reply" },
+        search: {},
+      });
+    });
+
     it("should navigate to settings", () => {
       navigateToLabel("settings");
       expect(mockNavigate).toHaveBeenCalledWith({

@@ -3,16 +3,16 @@
 ## 元数据
 
 - 阶段：Stage 3B
-- 状态：Ready_For_User_Review
-- 日期：2026-06-01
-- 范围：Agentic Inbox 核心对象模型、SQLite schema 计划、service API、风险边界、测试计划
+- 状态：Revised_For_Follow-up_Positioning
+- 日期：2026-06-02
+- 范围：Follow-up Assistant 内部 Agentic 对象模型、SQLite schema 计划、service API、风险边界、测试计划
 - 非范围：不实现 migration，不改 UI，不接入 AI 自动写入，不改变邮件同步行为
 
 ## 1. 直接判断
 
 下一步必须先建对象模型，不应该先改 Sidebar 或 ThreadView。
 
-原因很简单：没有稳定的 `ThreadWorkState` 和 `AgentAction`，任何 Work Queue、Thread Briefing、Agent Review Queue 都只是 UI 假壳。用户看到的会是“看起来像 Agentic Inbox”，但底层仍是普通邮箱状态和 AI 小组件。
+原因很简单：没有稳定的 `ThreadWorkState` 和 `AgentAction`，任何 Follow-up Queue、Thread Briefing、Agent Review Queue 都只是 UI 假壳。用户看到的会是“看起来像智能邮箱”，但底层仍是普通邮箱状态和 AI 小组件。
 
 Stage 3B 的目标不是把模型设计到完美，而是给第一版实现一个足够小、足够硬的骨架：
 
@@ -28,7 +28,7 @@ Stage 3B 的目标不是把模型设计到完美，而是给第一版实现一�
 
 不要把 `needs_reply`、`waiting`、`decision_needed` 等字段直接塞进 `threads` 表。
 
-`threads` 是邮件同步基础表，应尽量保持接近 provider-neutral mail model。Agentic Inbox 是 Kirje 的工作状态层，应该独立建表，引用 `(account_id, thread_id)`。
+`threads` 是邮件同步基础表，应尽量保持接近 provider-neutral mail model。Follow-up Assistant 的工作状态层应该独立建表，引用 `(account_id, thread_id)`。
 
 ### 2.2 不复用 `tasks` 承载一切
 
@@ -81,7 +81,7 @@ AgentAction 是产品信任层。所有会改变用户状态、邮件状态或�
 
 预计新增 migration `version: 24`，描述建议为：
 
-`Add Agentic Inbox work states and reviewable agent actions`
+`Add Follow-up work states and reviewable agent actions`
 
 ### 4.1 `thread_work_states`
 
@@ -702,7 +702,7 @@ T023 不要一次实现所有对象。
 ```mermaid
 flowchart TD
   T022["T022 Object Model Plan"] --> T023["T023 Thread Work State v0"]
-  T023 --> T024["T024 Command Inbox / Work Queues Shell"]
+  T023 --> T024["T024 Follow-up Queues Shell"]
   T023 --> T025["T025 Thread Briefing v0"]
   T022 --> T026["T026 Agent Review Queue v0"]
   T023 --> T026
@@ -729,30 +729,30 @@ flowchart TD
 
 ## 14. 砍掉项
 
-Stage 3C 前不要做：
+Stage 3D 前不要做：
 
 - CLI。
-- i18n。
 - 自动发送。
 - Agent 人格化聊天。
 - CRM 页面。
 - 大规模任务系统重构。
 - AI 自动回填所有历史邮件状态。
 - 从 migration 里做批量智能分析。
+- Agent Review Queue、Smart Archive、Decisions 作为首屏导航。
 
 这些都不是现在的瓶颈。
 
 ## 15. 下一步
 
-如果接受本计划，下一步进入 T023：Thread Work State v0。
+T023 Thread Work State v0 已落地。下一步进入 T024：Follow-up Queues Shell。
 
 最小代码任务：
 
-1. 新增 migration v24。
-2. 新增 `src/services/db/threadWorkStates.ts` 和 tests。
-3. 新增 `src/services/db/agentActions.ts` 的基础 create/list/reject tests。
-4. 新增类型定义。
-5. 在 ThreadCard 或 EmailList 行显示 primary state chip。
-6. 在 Command Palette 添加手动设置状态命令。
+1. 在 Sidebar 顶部加入 Today、Needs Reply、Waiting、Due Soon。
+2. 基于 `thread_work_states` 过滤 Needs Reply 和 Waiting。
+3. Due Soon v0 只使用已有 `due_at`、任务或提醒数据，不承诺自动理解所有邮件日期。
+4. 为每个队列提供空状态、加载态、错误态。
+5. 保留传统 Mailboxes，但放在 Follow-up 队列之后。
+6. 不引入新的自动 AI 写入路径。
 
 这一步仍然不应该碰自动 AI 分类。先让用户拥有可控状态层，再让 Agent 进入建议层。

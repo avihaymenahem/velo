@@ -1,6 +1,10 @@
 {
   "compose": "写邮件",
   "nav": {
+    "today": "今日事项",
+    "needs-reply": "需要回复",
+    "waiting": "等待对方",
+    "due-soon": "快到期",
     "inbox": "收件箱",
     "starred": "已加星标",
     "snoozed": "稍后提醒",
@@ -23,6 +27,7 @@
     "Newsletters": "简报"
   },
   "sections": {
+    "followUp": "跟进",
     "smartFolders": "智能文件夹",
     "labels": "标签"
   },

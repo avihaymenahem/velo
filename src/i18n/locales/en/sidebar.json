@@ -1,6 +1,10 @@
 {
   "compose": "Compose",
   "nav": {
+    "today": "Today",
+    "needs-reply": "Needs Reply",
+    "waiting": "Waiting",
+    "due-soon": "Due Soon",
     "inbox": "Inbox",
     "starred": "Starred",
     "snoozed": "Snoozed",
@@ -23,6 +27,7 @@
     "Newsletters": "Newsletters"
   },
   "sections": {
+    "followUp": "Follow-up",
     "smartFolders": "Smart Folders",
     "labels": "Labels"
   },

@@ -957,20 +957,20 @@ Packet path：
 Evidence required:
 - readiness command 输出摘要、GitHub variables/secrets/release 状态、残余 blockers。
 
-## Epic E3：Agentic Inbox 产品表面
+## Epic E3：Follow-up Assistant 产品表面
 
 ### T021：Stage 3A 产品表面审计与信息架构
 
 状态：Accepted
 优先级：P0
 依赖：T020 accepted、用户批准进入 Stage 3
-阻塞：T022、T023、Agentic Inbox UI 改造
+阻塞：T022、T023、Follow-up Assistant UI 改造
 Story / Requirement: FR-007、FR-008、NFR-001、NFR-004
 可并行：否
 冲突：无。
 
 目标：
-审计当前 Velo/Kirje 产品表面，明确哪些现有资产应保留，哪些体验仍停留在普通邮箱，并定义 Agentic Inbox 的第一版信息架构。
+审计当前 Velo/Kirje 产品表面，明确哪些现有资产应保留，哪些体验仍停留在普通邮箱，并定义 Follow-up Assistant 的第一版信息架构。
 
 Allowed files:
 - `docs/product-surface-audit.md`
@@ -986,7 +986,7 @@ Allowed files:
 
 Deliverables:
 - 中文产品表面审计。
-- 中文 Agentic Inbox 信息架构。
+- 中文 Follow-up Assistant 信息架构。
 - Stage 3 后续任务图。
 - T021 evidence。
 
@@ -1025,7 +1025,7 @@ Story / Requirement: FR-007、FR-008、NFR-004
 冲突：数据库 migrations、AI cache、thread service、email action audit path。
 
 目标：
-在实现 UI 前，定义 Agentic Inbox 核心对象模型、SQLite schema、TypeScript types、service API、风险等级和测试计划。
+在实现 UI 前，定义 Follow-up Assistant 内部 Agentic 对象模型、SQLite schema、TypeScript types、service API、风险等级和测试计划。
 
 Allowed files:
 - `docs/agentic-object-model.md`
@@ -1121,7 +1121,7 @@ Deliverables:
 - 状态不会破坏现有 label/category/search 行为。
 
 Definition of Done:
-- migration v24 建立 Agentic Inbox 本地对象表。
+- migration v24 建立 Follow-up Assistant 内部对象表。
 - Thread work state DB service 存在并通过测试。
 - Agent action 最小 create/list/reject DB service 存在并通过测试。
 - 线程列表显示 primary work state chip。
@@ -1144,9 +1144,9 @@ Packet path：
 Evidence required:
 - 失败测试摘要、修复后验证结果、UI 状态截图或 DOM evidence、残余风险。
 
-### T024：Stage 3D Command Inbox 与 Work Queues Shell
+### T024：Stage 3D Follow-up Queues Shell
 
-状态：Draft
+状态：Needs_Review
 优先级：P0
 依赖：T023 accepted
 阻塞：T025、T026
@@ -1155,10 +1155,24 @@ Story / Requirement: FR-007、NFR-001
 冲突：Sidebar、EmailList query/filter、empty/loading/error states、keyboard navigation。
 
 目标：
-把左侧导航从邮箱文件夹优先改为 Work Queues 优先，并实现 Command Inbox / Needs Reply / Waiting / Commitments / Decisions / Agent Review / Smart Archive 的 UI shell。
+把左侧导航从邮箱文件夹优先改为 Follow-up 队列优先，并实现 Today / Needs Reply / Waiting / Due Soon 的 UI shell。
 
 Allowed files:
-- 待 T024 confirmed 后限定。
+- `src/constants/followUpViews.ts`
+- `src/router/navigate.ts`
+- `src/router/navigate.test.ts`
+- `src/services/db/threadWorkStates.ts`
+- `src/services/db/threadWorkStates.test.ts`
+- `src/components/layout/Sidebar.test.tsx`
+- `src/components/layout/Sidebar.tsx`
+- `src/components/layout/EmailList.tsx`
+- `src/i18n/locales/en/sidebar.json`
+- `src/i18n/locales/zh-CN/sidebar.json`
+- `src/i18n/locales/en/email.json`
+- `src/i18n/locales/zh-CN/email.json`
+- `.ai-platform/docs/tasks.md`
+- `.ai-platform/docs/release-report.md`
+- `.ai-platform/evidence/T024/*`
 
 测试目标：
 - Sidebar render tests。
@@ -1168,24 +1182,30 @@ Allowed files:
 - Vitest regression。
 
 Deliverables:
-- Work Queues sidebar。
+- Follow-up queues sidebar。
 - 对应空状态、加载态、错误态。
 - 传统 Mailboxes 降级但保留。
 - T024 evidence。
 
 验收标准：
-- 第一屏优先显示工作队列。
+- 第一屏优先显示 Today、Needs Reply、Waiting、Due Soon。
 - 传统 Inbox 仍可访问。
 - 无巨大卡片、无营销式 AI 入口、无低密度 UI。
+- 不实现 Command Inbox、Commitments、Decisions、Agent Review、Smart Archive 作为首屏导航。
 
 验证命令：
-- 由实现任务确认。
+- `npx vitest run src/router/navigate.test.ts src/services/db/threadWorkStates.test.ts`
+- `npx vitest run src/components/layout/Sidebar.test.tsx`
+- `npx tsc --noEmit`
+- `npx vitest run src/i18n/i18n.test.ts src/i18n/settings.test.ts src/components/email/ThreadCard.test.tsx src/components/search/CommandPalette.test.tsx src/router/navigate.test.ts src/services/db/threadWorkStates.test.ts`
+- `npm run test`
+- `git diff --check`
 
 TDD plan:
 - 先写 sidebar/queue state tests，再改 UI。
 
 Packet path：
-- 待 T024 confirmed 后生成。
+- Direct Execute；用户明确要求 review 后继续 T024，且 scope 已由 Phase 0 文档收敛。
 
 Evidence required:
 - 测试结果、截图或 DOM evidence、交互状态清单。
@@ -1383,7 +1403,7 @@ Evidence required:
 
 状态：Draft
 优先级：P2
-依赖：Agentic Inbox object model spec
+依赖：Follow-up Assistant internal object model spec
 阻塞：CLI implementation
 Story / Requirement: FR-006
 可并行：是
@@ -1402,4 +1422,4 @@ Packet path：
 - `.ai-platform/specs/cli-future/packets/T008.yaml`
 
 Evidence required: 
-- CLI non-goals、命令形态、对 Agentic Inbox object model 的依赖。
+- CLI non-goals、命令形态、对 Follow-up Assistant internal object model 的依赖。

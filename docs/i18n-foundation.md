@@ -11,9 +11,9 @@
 
 i18n 现在值得做，但只能做成基础设施和核心中文体验，不要做全仓翻译运动。
 
-原因很简单：用户本人现在需要中文界面，这会直接改善 daily use；同时 Kirje 已经完成发布身份、质量基线和 Thread Work State v0，核心产品语言开始稳定。继续拖 i18n 会让后续 Agentic Inbox 文案全部长在英文硬编码里，未来迁移成本更高。
+原因很简单：用户本人现在需要中文界面，这会直接改善 daily use；同时 Kirje 已经完成发布身份、质量基线和 Thread Work State v0，核心产品语言开始稳定。继续拖 i18n 会让后续 Follow-up Assistant 文案全部长在英文硬编码里，未来迁移成本更高。
 
-最大风险不是翻译错，而是把 2000 多处 UI 字符串一次性抽光，导致 diff 失控、测试噪音大、Agentic IA 还没稳定就产生大量 key churn。
+最大风险不是翻译错，而是把 2000 多处 UI 字符串一次性抽光，导致 diff 失控、测试噪音大、Follow-up IA 还没稳定就产生大量 key churn。
 
 收敛方案：
 
@@ -74,12 +74,12 @@ i18n 现在值得做，但只能做成基础设施和核心中文体验，不要
 i18n 在 Kirje 里不是“支持多语言”这个漂亮标签。它解决的是 owner 和未来中文高价值用户的处理负担：
 
 - 阅读：降低英文 UI 对邮件处理速度的干扰。
-- 判断：让 work state、风险、等待、承诺、Agent 建议这些状态词稳定可理解。
-- 回复：让 Composer、Reply Copilot 和 Agent Review 的控制项不会因为英文文案增加心理负担。
-- 跟进：让 Waiting、Follow-up、Commitment 这些对象在中文里有一致语义。
+- 判断：让 Needs Reply、Waiting、Due Soon、风险、承诺、Agent 建议这些状态词稳定可理解。
+- 回复：让 Composer、Reply Copilot 和后续 Agent Review 的控制项不会因为英文文案增加心理负担。
+- 跟进：让 Waiting、Follow-up、Due Soon、Commitment 这些对象在中文里有一致语义。
 - 承诺管理：避免同一对象在不同页面被翻成不同词，损害信任。
 
-i18n 的第一性价值是让 Agentic Inbox 的操作语言稳定，而不是追求翻译覆盖率好看。
+i18n 的第一性价值是让邮件跟进助手的操作语言稳定，而不是追求翻译覆盖率好看。
 
 ## 4. 架构选择
 
@@ -125,7 +125,7 @@ i18n 的第一性价值是让 Agentic Inbox 的操作语言稳定，而不是追
 | `composer` | 写信、回复、附件、发送、草稿 | 必做 |
 | `search` | 搜索框、命令菜单、Ask Inbox 入口 | 必做 |
 | `settings` | 设置页基础区域和语言设置 | 必做 |
-| `agentic` | Work State、Agent Review、Commitment、Waiting、Decision | 必做 |
+| `agentic` | Work State、Follow-up queues、Commitment、Waiting、Decision、Agent Review | 必做 |
 | `accounts` | 添加账户、Gmail/IMAP 配置 | 第二批 |
 | `calendar` | 日历页面 | 第二批 |
 | `tasks` | 任务页面 | 第二批 |
@@ -138,7 +138,7 @@ Key 命名规则：
 - 保持英文 key，中文只在 locale JSON 中出现。
 - 不把变量插值写进 key 名称。
 - 不翻译数据库 enum；由展示层映射。
-- Agentic 对象词汇进入 `agentic`，不要散落在 `common`。
+- Agentic / Follow-up 对象词汇进入 `agentic`，不要散落在 `common`。
 
 示例：
 
@@ -157,9 +157,13 @@ agentic.workState.decisionNeeded
 
 | English | 中文 | 备注 |
 | --- | --- | --- |
-| Agentic Inbox | Agentic Inbox | 产品概念保留英文，解释性文案可写“Agentic 收件箱”。 |
-| Command Inbox | 指挥台 | 不直译为“命令收件箱”。它是处理入口。 |
-| Work Queues | 工作队列 | 指 Needs Reply / Waiting 等队列。 |
+| Follow-up Assistant | 邮件跟进助手 | 对外产品定位。 |
+| Today | 今日事项 | 默认跟进入口。 |
+| Follow-up Queues | 跟进队列 | 指 Needs Reply / Waiting / Due Soon。 |
+| Due Soon | 快到期 | 指账单、续费、申请、合同、会议等即将到期事项。 |
+| Agentic Inbox | Agentic Inbox | 仅保留为内部/历史概念，不作为首屏用户文案。 |
+| Command Inbox | 指挥台 | 后续概念；不进入第一版首屏。 |
+| Work Queues | 工作队列 | 内部/泛称；对外优先用“跟进队列”。 |
 | Thread | 线程 | 保持技术/邮箱语境一致。 |
 | Message | 邮件 | 不用“消息”。 |
 | Needs Reply | 需要回复 | 状态 chip。 |
@@ -171,7 +175,7 @@ agentic.workState.decisionNeeded
 | Snooze | 稍后提醒 | 不用“贪睡”。 |
 | Schedule Send | 定时发送 | 标准邮箱词。 |
 | Smart Archive | 智能归档 | Agent 建议低风险归档。 |
-| Agent Review | Agent 审核 | 保留 Agent。 |
+| Agent Review | Agent 审核 | 后续审核队列，保留 Agent。 |
 | Agent Action | Agent 动作 | 审计对象。 |
 | Briefing | 简报 | Thread Briefing 译为“线程简报”。 |
 | Ask Inbox | 询问收件箱 | 功能名可后续优化。 |
@@ -235,7 +239,7 @@ agentic.workState.decisionNeeded
 - SearchBar。
 - Composer 核心动作。
 - Settings 基础区域。
-- Agentic work state chips 和 command labels。
+- Follow-up / work state chips 和 command labels。
 
 不做：
 
@@ -303,11 +307,11 @@ Act：
 - 翻译 release、CI、开发者日志。
 - 引入远程翻译平台。
 - 现在做多语言官网。
-- 把 Agentic Inbox 翻成一堆不同中文名。
+- 把 Follow-up Assistant、跟进队列、Agentic 内部对象翻成一堆不同中文名。
 
 主要风险：
 
-- Key churn：Agentic IA 还会变，过早翻译全部 Help 会反复改。
+- Key churn：Follow-up IA 还会变，过早翻译全部 Help 会反复改。
 - Layout risk：中文更短但某些状态文案会变宽，需要测试按钮和 chip。
 - Trust risk：危险动作翻译含糊会降低用户控制感。
 - Test risk：大范围 snapshot/render test 会变脆。

@@ -1,4 +1,5 @@
 import { getDb } from "./connection";
+import type { DbThread } from "./threads";
 import type {
   RiskLevel,
   ThreadPrimaryState,
@@ -50,6 +51,128 @@ export async function getThreadWorkStatesForThreads(
     [accountId, ...threadIds],
   );
   return new Map(rows.map((row) => [row.thread_id, row]));
+}
+
+export async function getThreadsForWorkStates(
+  accountId: string,
+  primaryStates: ThreadPrimaryState[],
+  limit = 50,
+  offset = 0,
+): Promise<DbThread[]> {
+  if (primaryStates.length === 0) return [];
+
+  const db = await getDb();
+  const placeholders = primaryStates.map((_, i) => `$${i + 2}`).join(",");
+  return db.select<DbThread[]>(
+    `SELECT t.*, m.from_name, m.from_address FROM thread_work_states tws
+     INNER JOIN threads t ON t.account_id = tws.account_id AND t.id = tws.thread_id
+     LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
+       AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
+     WHERE tws.account_id = $1
+       AND tws.primary_state IN (${placeholders})
+       AND tws.primary_state != 'done'
+     GROUP BY t.account_id, t.id
+     ORDER BY t.is_pinned DESC,
+       CASE tws.priority
+         WHEN 'urgent' THEN 0
+         WHEN 'high' THEN 1
+         WHEN 'normal' THEN 2
+         ELSE 3
+       END,
+       COALESCE(tws.due_at, 9223372036854775807) ASC,
+       t.last_message_at DESC
+     LIMIT $${primaryStates.length + 2} OFFSET $${primaryStates.length + 3}`,
+    [accountId, ...primaryStates, limit, offset],
+  );
+}
+
+export async function getDueSoonThreads(
+  accountId: string,
+  limit = 50,
+  offset = 0,
+): Promise<DbThread[]> {
+  const db = await getDb();
+  return db.select<DbThread[]>(
+    `WITH due_sources AS (
+       SELECT account_id, thread_id, due_at
+       FROM thread_work_states
+       WHERE account_id = $1
+         AND due_at IS NOT NULL
+         AND primary_state != 'done'
+         AND due_at <= unixepoch() + 1209600
+       UNION ALL
+       SELECT thread_account_id AS account_id, thread_id, due_date AS due_at
+       FROM tasks
+       WHERE thread_account_id = $1
+         AND thread_id IS NOT NULL
+         AND due_date IS NOT NULL
+         AND is_completed = 0
+         AND due_date <= unixepoch() + 1209600
+     ),
+     due_threads AS (
+       SELECT account_id, thread_id, MIN(due_at) AS due_at
+       FROM due_sources
+       GROUP BY account_id, thread_id
+     )
+     SELECT t.*, m.from_name, m.from_address FROM due_threads dt
+     INNER JOIN threads t ON t.account_id = dt.account_id AND t.id = dt.thread_id
+     LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
+       AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
+     GROUP BY t.account_id, t.id
+     ORDER BY t.is_pinned DESC, dt.due_at ASC, t.last_message_at DESC
+     LIMIT $2 OFFSET $3`,
+    [accountId, limit, offset],
+  );
+}
+
+export async function getTodayFollowUpThreads(
+  accountId: string,
+  limit = 50,
+  offset = 0,
+): Promise<DbThread[]> {
+  const db = await getDb();
+  return db.select<DbThread[]>(
+    `WITH follow_up_sources AS (
+       SELECT account_id, thread_id,
+         CASE primary_state
+           WHEN 'needs_reply' THEN 0
+           WHEN 'waiting' THEN 1
+           ELSE 2
+         END AS rank,
+         due_at
+       FROM thread_work_states
+       WHERE account_id = $1
+         AND primary_state IN ('needs_reply', 'waiting')
+       UNION ALL
+       SELECT account_id, thread_id, 2 AS rank, due_at
+       FROM thread_work_states
+       WHERE account_id = $1
+         AND due_at IS NOT NULL
+         AND primary_state != 'done'
+         AND due_at <= unixepoch() + 1209600
+       UNION ALL
+       SELECT thread_account_id AS account_id, thread_id, 2 AS rank, due_date AS due_at
+       FROM tasks
+       WHERE thread_account_id = $1
+         AND thread_id IS NOT NULL
+         AND due_date IS NOT NULL
+         AND is_completed = 0
+         AND due_date <= unixepoch() + 1209600
+     ),
+     today_threads AS (
+       SELECT account_id, thread_id, MIN(rank) AS rank, MIN(due_at) AS due_at
+       FROM follow_up_sources
+       GROUP BY account_id, thread_id
+     )
+     SELECT t.*, m.from_name, m.from_address FROM today_threads tt
+     INNER JOIN threads t ON t.account_id = tt.account_id AND t.id = tt.thread_id
+     LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
+       AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
+     GROUP BY t.account_id, t.id
+     ORDER BY t.is_pinned DESC, tt.rank ASC, COALESCE(tt.due_at, 9223372036854775807) ASC, t.last_message_at DESC
+     LIMIT $2 OFFSET $3`,
+    [accountId, limit, offset],
+  );
 }
 
 export async function upsertThreadWorkState(input: {

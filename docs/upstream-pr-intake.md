@@ -22,7 +22,7 @@
 - 对实现有用但产品形态错误的 PR，优先改造而不是直接合并。
 - 拒绝或暂缓增加 surface area 但不能降低邮件处理成本的 PR。
 - 依赖更新按安全或兼容性任务处理，不批量合并。
-- AI panel/sidebar 类 PR 默认视为产品风险，除非证明它服务 Agentic Inbox。
+- AI panel/sidebar 类 PR 默认视为产品风险，除非证明它服务 Needs Reply、Waiting、Due Soon 或可审核跟进流程。
 
 ## P0：优先 Review
 
@@ -57,13 +57,13 @@
 
 | PR | 标题 | 作者 | 初始动作 | 原因 |
 | --- | --- | --- | --- | --- |
-| #179 | feat(ai-services): add AI service foundation — urgency, proofread, meetings, digest, contacts, filter suggestions | egouilliard-leyton | 只 audit | 可能与 Agentic Inbox 重叠，但可能抽象方向错误。 |
+| #179 | feat(ai-services): add AI service foundation — urgency, proofread, meetings, digest, contacts, filter suggestions | egouilliard-leyton | 只 audit | 可能与 Follow-up Assistant 重叠，但可能抽象方向错误。 |
 | #180 | feat(ai-proofread): add proofread-before-send with ProofreadPanel | egouilliard-leyton | 只 audit | 能力有用，但应进入 Reply Copilot 设计，不是 panel 膨胀。 |
 | #181 | feat(ai-urgency): add urgency badge to ThreadCard and InboxDigestPanel | egouilliard-leyton | 只 audit | Urgency 相关，但必须映射 Thread Work State。 |
 | #182 | feat(ai-meetings): add meeting detection banner in ThreadView | egouilliard-leyton | 只 audit | Meeting detection 有用，但应转化为 decision/action。 |
 | #183 | feat(ai-relationship): add AI relationship summary in ContactSidebar | egouilliard-leyton | 只 audit | Relationship memory 是核心，但必须可审计、local-first。 |
 | #184 | feat(ai-settings): add 7 AI feature toggles to Settings AI tab | egouilliard-leyton | 只 audit | 如果 capability model 不清楚，settings 会变成复杂度垃圾桶。 |
-| #185 | feat(ai-agent): add Claude tool-use support and AI Agent Panel | egouilliard-leyton | 默认拒绝，除非改造 | Panel-first agent 大概率与 Kirje 的 embedded Agentic Inbox 方向冲突。 |
+| #185 | feat(ai-agent): add Claude tool-use support and AI Agent Panel | egouilliard-leyton | 默认拒绝，除非改造 | Panel-first agent 大概率与 Kirje 的嵌入式跟进流程方向冲突。 |
 
 ## P3：依赖、Release、Packaging 或 Installer 队列
 

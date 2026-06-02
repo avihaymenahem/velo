@@ -2,14 +2,14 @@
 
 ## 元数据
 
-- 版本：0.1
+- 版本：0.2
 - 状态：Ready_For_User_Review
-- 最后更新：2026-05-31
+- 最后更新：2026-06-02
 - 审核闸门：需要用户明确批准后，才能成为项目的阻塞性原则。
 
 ## 目的
 
-Kirje 是基于 Velo 演进的 Agentic Inbox。项目目标不是普通邮箱加 AI 按钮，而是把邮箱升级为一个 local-first 的工作台，用来处理消息、承诺、等待、决策、关系和 Agent 协助沟通。
+Kirje 是基于 Velo 演进的 local-first 邮件跟进助手。项目目标不是普通邮箱加 AI 按钮，而是帮助用户盯住多个邮箱里“我该回什么、别人没回什么、什么快到期”，并在本地、可审计、可控制的边界内逐步引入 Agent 协助。
 
 本宪章定义 Kirje 在维护、产品方向、工程质量和 AI 自主能力上的不可协商原则。
 
@@ -17,9 +17,9 @@ Kirje 是基于 Velo 演进的 Agentic Inbox。项目目标不是普通邮箱加
 
 ### 产品聚焦
 
-- Kirje 不是泛 AI 邮箱，而是 Agentic Inbox。
-- 核心问题是：什么需要处理，谁在等我，我承诺了什么，什么正在变坏，哪些事可以安全委托给 Agent。
-- 每个功能必须降低阅读、判断、回复、跟进、关系维护、信息检索或承诺管理成本。
+- Kirje 不是泛 AI 邮箱，也不是 Superhuman 平替；Kirje 是邮件跟进助手。
+- 核心问题是：我该回什么、谁还没回我、什么快到期、哪些线程已经完成。
+- 每个功能必须降低回复、跟进、截止日期、关系维护、信息检索或承诺管理成本。
 - 如果一个功能只是“看起来智能”，但不能明显减少处理成本，应拒绝。
 
 ### 架构
@@ -42,7 +42,7 @@ Kirje 是基于 Velo 演进的 Agentic Inbox。项目目标不是普通邮箱加
 - Agent 能力分为 Observe、Suggest、Prepare、Act。
 - Observe/Suggest/Prepare 可以逐步构建。
 - Act 涉及发送邮件、删除邮件、批量归档、创建承诺、修改规则、更新长期记忆、处理财务/法律/敏感关系内容时，必须获得用户明确授权。
-- AI 聊天不是产品本体。Agent 能力必须嵌入线程、收件箱、搜索、联系人、草稿、等待、承诺和审核队列等流程。
+- AI 聊天不是产品本体。Agent 能力必须嵌入线程、Follow-up 队列、搜索、联系人、草稿、等待、承诺和审核队列等流程。
 
 ### UX 与交互
 
@@ -63,10 +63,10 @@ Kirje 是基于 Velo 演进的 Agentic Inbox。项目目标不是普通邮箱加
 - Velo 是 Kirje 的 upstream patch source，不是 Kirje 的产品路线来源。
 - 可以跟踪上游 Velo `main`，但不得长期机械 merge upstream。
 - 上游安全修复、协议兼容、Tauri/Rust/依赖修复和平台兼容性修复应持续评估吸收。
-- 上游产品功能、AI 体验、信息架构和 UI 方向必须按 Kirje 的 Agentic Inbox 原则重新判断。
+- 上游产品功能、AI 体验、信息架构和 UI 方向必须按 Kirje 的邮件跟进助手原则重新判断。
 - PR 按产品契合度、安全影响、实现质量、测试证据和冲突风险评估。
 - 不批量合并 dependabot 更新。安全相关依赖更新优先。
-- AI panel/sidebar 类 PR 默认视为产品风险，除非证明它服务 Agentic Inbox，而不是扩张聊天侧栏。
+- AI panel/sidebar 类 PR 默认视为产品风险，除非证明它服务 Needs Reply、Waiting、Due Soon 或可审核跟进流程，而不是扩张聊天侧栏。
 - 默认优先 cherry-pick 或改造具体 commit/PR slice；只有当上游 `main` 的差异清楚、低风险且符合 Kirje 方向时，才考虑 merge。
 
 ### Git 与审核策略

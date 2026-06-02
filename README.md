@@ -5,12 +5,12 @@
 <h1 align="center">Kirje</h1>
 
 <p align="center">
-  <strong>Email at the speed of thought.</strong>
+  <strong>A local-first follow-up assistant for email.</strong>
 </p>
 
 <p align="center">
-  A blazing-fast, keyboard-first desktop email client built with Tauri, React, and Rust.<br />
-  Local-first. Privacy-focused. AI-powered.
+  Kirje helps you track what you need to reply to, who has not replied to you, and what is due soon across your inboxes.<br />
+  Your mail stays local. AI is optional and uses the provider you configure.
 </p>
 
 <p align="center">
@@ -32,17 +32,26 @@
 
 ## Why Kirje?
 
-Most email clients are slow, bloated, or send your data to someone else's server. Kirje is different:
+Most email clients optimize the inbox. Kirje optimizes the moment email becomes responsibility:
 
-- **Local-first** -- Your emails live in a local SQLite database. No middleman servers. Read your mail offline.
-- **Keyboard-driven** -- Superhuman-inspired shortcuts let you fly through your inbox without touching the mouse.
-- **AI-enhanced** -- Summarize threads, generate replies, and search your inbox in natural language -- with your choice of AI provider.
+- **Follow-up first** -- Threads can carry explicit work states such as Needs Reply, Waiting, Committed, Decision, Can Archive, and Done.
+- **Local-first** -- Your emails live in a local SQLite database. No Kirje cloud mailbox copy. Read your mail offline.
+- **BYOK AI** -- Summaries, drafts, search, and extraction run through the AI provider you configure.
+- **Full email client underneath** -- Gmail API and IMAP/SMTP support, search, labels, composer, calendar, tasks, attachments, and offline-aware actions.
 - **Native performance** -- Rust backend via Tauri v2. Small binary, low memory, instant startup.
 - **Private by default** -- Remote images blocked, HTML sanitized, emails rendered in sandboxed iframes. Mail is stored locally; optional AI calls go directly to the provider you configure.
 
 ---
 
 ## Features
+
+### Follow-up Assistant
+
+- Work states for email threads: Needs Reply, Waiting, Committed, Decision, Can Archive, Done
+- Command palette actions to manually mark thread state without network access
+- Follow-up reminders when you have not received a reply
+- Task extraction from emails, with due dates and priorities
+- Product roadmap focused on Today, Needs Reply, Waiting, and Due Soon queues
 
 ### Email
 
