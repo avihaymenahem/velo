@@ -34,7 +34,7 @@
   <circle cx="1000" cy="480" r="300" fill="url(#blob2)"/>
 
   <!-- Logo icon -->
-  <rect x="80" y="72" width="48" height="48" rx="12" fill="#202624"/>
+  <rect x="80" y="72" width="48" height="48" rx="12" fill="#1E274D"/>
   <rect x="94" y="87" width="5" height="27" rx="2" fill="#F8F9F6"/>
   <path d="M103 89C103 88 104 87 105 87H118C119 87 120 88 119 89L111 98C109 100 108 100 105 100H105C104 100 103 99 103 98V89Z" fill="#F8F9F6"/>
   <path d="M112 101L122 89C123 88 124 89 124 91V110C124 112 123 113 122 112L112 101Z" fill="#F8F9F6"/>
