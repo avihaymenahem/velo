@@ -252,7 +252,7 @@ Stage 1B 收口验证：
 
 ## Stage 3D Follow-up Queues Shell
 
-- T024 已实现并进入 Needs_Review。
+- T024 已通过 PR #33 合并进入 `main`。
 - 新增 `src/constants/followUpViews.ts`，统一 Today、Needs Reply、Waiting、Due Soon 的 view ids 和 work-state 映射。
 - Sidebar 顶部新增 Follow-up 分组，置顶 Today / Needs Reply / Waiting / Due Soon；传统 Mailboxes 保留在后。
 - `/mail/$label` 路由支持 follow-up views，不再把 `needs-reply` 误当自定义 label。
@@ -260,8 +260,21 @@ Stage 1B 收口验证：
 - 新增 follow-up 视图的英文和简体中文 mailbox/empty-state 文案。
 - 新增 Sidebar render regression，固定 Follow-up 分组置顶和 follow-up item 点击行为。
 - 验证通过：targeted Vitest、Sidebar render test、TypeScript、i18n/UI targeted tests、full `npm run test`、`git diff --check`。
-- 残余风险：裸 Vite 浏览器页面无法作为视觉烟测依据，因为应用依赖 Tauri SQL/window API；需要用 Tauri desktop runtime 做最终截图或人工 QA。
+- 合并后补充 runtime smoke：`npm run tauri -- dev` 可成功启动 Tauri desktop runtime；dev updater endpoint 返回非 2xx，不阻塞本阶段。
+- 残余风险：仍未捕获桌面截图 evidence；Tauri runtime 已启动成功，但最终视觉细节仍需人工 QA。
+
+## Stage 3E Thread Briefing v0
+
+- T025 已实现并进入 Needs_Review。
+- 新增 `THREAD_BRIEFING_PROMPT`，要求 AI 只输出 read-only JSON briefing，不创建承诺、任务、提醒、标签、work state 或决策。
+- 新增 `generateThreadBriefing` read model，缓存类型为 `briefing`，字段包括 summary、latestRequest、suggestedAction、riskOrDueSignal、source。
+- AI 返回非 JSON 时降级为 summary-only briefing；缓存优先，避免重复调用 provider。
+- 现有 `ThreadSummary` UI 升级为 Thread Briefing surface，明确区分 Summary、Latest request、Suggested next step、Risk or due signal 和 Source。
+- AI 失败时显示非阻塞失败状态：原始邮件仍可继续阅读。
+- 新增英文和简体中文 briefing 文案，并更新中文 i18n 残留测试。
+- 本阶段没有把 AI 输出写入正式 Commitment、Waiting、Decision、task、label 或 thread work state。
+- 验证通过：briefing service tests、ThreadSummary render/failure tests、i18n targeted tests、TypeScript。
 
 ## 用户审核闸门
 
-本报告已可供用户审核。继续进入 T025 Thread Briefing v0、P0 upstream PR 采纳或 release/App Store 准备前，需要用户明确接受对应任务计划。
+本报告已可供用户审核。继续进入 T026 Agent Review Queue v0、P0 upstream PR 采纳或 release/App Store 准备前，需要用户明确接受对应任务计划。

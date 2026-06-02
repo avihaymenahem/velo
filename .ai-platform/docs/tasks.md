@@ -1146,7 +1146,7 @@ Evidence required:
 
 ### T024：Stage 3D Follow-up Queues Shell
 
-状态：Needs_Review
+状态：Accepted
 优先级：P0
 依赖：T023 accepted
 阻塞：T025、T026
@@ -1212,7 +1212,7 @@ Evidence required:
 
 ### T025：Stage 3E Thread Briefing v0
 
-状态：Draft
+状态：Needs_Review
 优先级：P0
 依赖：T023 accepted
 阻塞：T026、Reply Copilot context controls
@@ -1224,7 +1224,17 @@ Story / Requirement: FR-007、FR-008、NFR-004
 把当前摘要卡片升级为 Thread Briefing v0，让用户在阅读原文前看到最新诉求、上下文、承诺、等待、风险和建议动作。
 
 Allowed files:
-- 待 T025 confirmed 后限定。
+- `src/services/ai/prompts.ts`
+- `src/services/ai/aiService.ts`
+- `src/services/ai/aiService.test.ts`
+- `src/components/email/ThreadSummary.tsx`
+- `src/components/email/ThreadSummary.test.tsx`
+- `src/components/i18nResidual.test.tsx`
+- `src/i18n/locales/en/email.json`
+- `src/i18n/locales/zh-CN/email.json`
+- `.ai-platform/docs/tasks.md`
+- `.ai-platform/docs/release-report.md`
+- `.ai-platform/evidence/T025/*`
 
 测试目标：
 - Briefing service tests。
@@ -1244,7 +1254,10 @@ Deliverables:
 - Briefing 有 loading/error/empty states。
 
 验证命令：
-- 由实现任务确认。
+- `npx vitest run src/services/ai/aiService.test.ts`
+- `npx vitest run src/components/email/ThreadSummary.test.tsx src/services/ai/aiService.test.ts src/components/i18nResidual.test.tsx`
+- `npx vitest run src/i18n/i18n.test.ts src/i18n/settings.test.ts src/components/email/ThreadSummary.test.tsx src/components/i18nResidual.test.tsx src/services/ai/aiService.test.ts`
+- `npx tsc --noEmit`
 
 TDD plan:
 - 先写 briefing cache/fallback/render tests，再实现。

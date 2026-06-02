@@ -98,7 +98,7 @@ describe("residual i18n coverage", () => {
     expect(screen.getByText("你已离线，变更会在重新连接后同步")).toBeInTheDocument();
   });
 
-  it("localizes thread AI summary and smart reply chrome", async () => {
+  it("localizes thread briefing and smart reply chrome", async () => {
     const messages = [
       makeMessage({ id: "m1" }),
       makeMessage({ id: "m2", gmail_id: "gmail-2" }),
@@ -111,9 +111,9 @@ describe("residual i18n coverage", () => {
       </>,
     );
 
-    expect(await screen.findByText("AI 摘要")).toBeInTheDocument();
+    expect(await screen.findByText("线程简报")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByTitle("刷新摘要")).toBeInTheDocument();
+      expect(screen.getByTitle("刷新简报")).toBeInTheDocument();
     });
     expect(await screen.findByText("快捷回复")).toBeInTheDocument();
     expect(screen.getByTitle("刷新建议")).toBeInTheDocument();

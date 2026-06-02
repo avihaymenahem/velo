@@ -14,7 +14,9 @@ vi.mock("@/services/db/aiCache", () => ({
   setAiCache: vi.fn(),
 }));
 
-import { classifyThreadsBySmartLabels } from "./aiService";
+import { getAiCache, setAiCache } from "@/services/db/aiCache";
+import { classifyThreadsBySmartLabels, generateThreadBriefing } from "./aiService";
+import type { DbMessage } from "@/services/db/messages";
 
 describe("classifyThreadsBySmartLabels", () => {
   beforeEach(() => {
@@ -105,5 +107,98 @@ describe("classifyThreadsBySmartLabels", () => {
     expect(callArgs.userContent).toContain("Job applications");
     expect(callArgs.userContent).toContain("t1");
     expect(callArgs.userContent).toContain("recruiter@company.com");
+  });
+});
+
+describe("generateThreadBriefing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getAiCache).mockResolvedValue(null);
+  });
+
+  const messages: DbMessage[] = [
+    {
+      id: "m1",
+      account_id: "acc1",
+      gmail_id: "gmail-1",
+      thread_id: "thread-1",
+      subject: "Contract review",
+      from_address: "client@example.com",
+      from_name: "Client",
+      to_addresses: "me@example.com",
+      cc_addresses: null,
+      bcc_addresses: null,
+      date: 1_700_000_000,
+      snippet: "Please review by Friday",
+      body_text: "Please review the contract by Friday.",
+      body_html: null,
+      is_read: 0,
+      is_starred: 0,
+      is_important: 0,
+      has_attachments: 1,
+      labels: null,
+      auth_results: null,
+      message_id_header: null,
+      references_header: null,
+      in_reply_to_header: null,
+      imap_uid: null,
+      imap_folder: null,
+      body_cached: 1,
+    },
+  ];
+
+  it("generates and caches a structured read-only briefing", async () => {
+    mockComplete.mockResolvedValueOnce(JSON.stringify({
+      summary: "Client sent a contract for review.",
+      latestRequest: "Review the contract by Friday.",
+      suggestedAction: "Open the attachment and reply with feedback.",
+      riskOrDueSignal: "Friday deadline.",
+      source: "Client, latest message",
+    }));
+
+    const result = await generateThreadBriefing("thread-1", "acc1", messages);
+
+    expect(result).toEqual({
+      summary: "Client sent a contract for review.",
+      latestRequest: "Review the contract by Friday.",
+      suggestedAction: "Open the attachment and reply with feedback.",
+      riskOrDueSignal: "Friday deadline.",
+      source: "Client, latest message",
+    });
+    expect(setAiCache).toHaveBeenCalledWith(
+      "acc1",
+      "thread-1",
+      "briefing",
+      JSON.stringify(result),
+    );
+  });
+
+  it("uses cached briefing JSON before calling AI", async () => {
+    vi.mocked(getAiCache).mockResolvedValueOnce(JSON.stringify({
+      summary: "Cached summary",
+      latestRequest: null,
+      suggestedAction: null,
+      riskOrDueSignal: null,
+      source: "cache",
+    }));
+
+    const result = await generateThreadBriefing("thread-1", "acc1", messages);
+
+    expect(result.summary).toBe("Cached summary");
+    expect(mockComplete).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a summary-only briefing when AI returns non-JSON text", async () => {
+    mockComplete.mockResolvedValueOnce("The client needs a contract review by Friday.");
+
+    const result = await generateThreadBriefing("thread-1", "acc1", messages);
+
+    expect(result).toEqual({
+      summary: "The client needs a contract review by Friday.",
+      latestRequest: null,
+      suggestedAction: null,
+      riskOrDueSignal: null,
+      source: null,
+    });
   });
 });
