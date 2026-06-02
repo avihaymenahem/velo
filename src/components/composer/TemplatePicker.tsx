@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { FileText, ChevronDown } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
+import { interpolateVariables } from "@/utils/templateVariables";
 import type { Editor } from "@tiptap/react";
 
 interface TemplatePickerProps {
@@ -10,8 +12,11 @@ interface TemplatePickerProps {
 }
 
 export function TemplatePicker({ editor }: TemplatePickerProps) {
+  const { t, i18n } = useTranslation("composer");
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
-  const { mode, subject, setSubject } = useComposerStore();
+  const { mode, subject, setSubject, to, fromEmail } = useComposerStore();
+  const accounts = useAccountStore((s) => s.accounts);
+  const templateLocale = i18n.resolvedLanguage ?? i18n.language;
   const [templates, setTemplates] = useState<DbTemplate[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -35,6 +40,8 @@ export function TemplatePicker({ editor }: TemplatePickerProps) {
 
   const handleSelect = useCallback((tmpl: DbTemplate) => {
     if (!editor) return;
+    const account = accounts.find((a) => a.email === fromEmail)
+      ?? accounts.find((a) => a.id === activeAccountId);
 
     // If new message and subject is empty, use template subject
     if (mode === "new" && !subject && tmpl.subject) {
@@ -42,9 +49,16 @@ export function TemplatePicker({ editor }: TemplatePickerProps) {
     }
 
     // Insert template body at cursor
-    editor.commands.insertContent(tmpl.body_html);
+    interpolateVariables(tmpl.body_html, {
+      recipientEmail: to[0],
+      senderEmail: account?.email,
+      senderName: account?.displayName ?? undefined,
+      subject: subject || tmpl.subject || undefined,
+    }, templateLocale).then((resolved) => {
+      editor.commands.insertContent(resolved);
+    });
     setIsOpen(false);
-  }, [editor, mode, subject, setSubject]);
+  }, [accounts, activeAccountId, editor, fromEmail, mode, subject, setSubject, templateLocale, to]);
 
   if (templates.length === 0) return null;
 
@@ -55,7 +69,7 @@ export function TemplatePicker({ editor }: TemplatePickerProps) {
         className="flex items-center gap-1 text-xs text-text-tertiary hover:text-text-secondary transition-colors"
       >
         <FileText size={12} />
-        Templates
+        {t("templates.label")}
         <ChevronDown size={10} />
       </button>
 

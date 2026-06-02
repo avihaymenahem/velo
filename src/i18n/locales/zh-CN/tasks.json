@@ -1,0 +1,68 @@
+{
+  "title": "任务",
+  "searchPlaceholder": "搜索任务...",
+  "quickAddDefaultPlaceholder": "添加任务...",
+  "quickAddPlaceholder": "向此线程添加任务...",
+  "empty": {
+    "title": "暂无任务",
+    "thread": "此线程暂无关联任务",
+    "search": "换个搜索词试试",
+    "hint": "在上方添加任务，或在任意邮件线程按 t"
+  },
+  "due": {
+    "overdueDays": "逾期 {{count}} 天",
+    "today": "今天",
+    "tomorrow": "明天",
+    "days": "{{count}} 天"
+  },
+  "status": {
+    "active": "进行中",
+    "all": "全部",
+    "completed": "已完成"
+  },
+  "priority": {
+    "all": "全部优先级",
+    "urgent": "紧急",
+    "high": "高",
+    "medium": "中",
+    "low": "低",
+    "none": "无"
+  },
+  "grouping": {
+    "none": "不分组",
+    "priority": "按优先级分组",
+    "dueDate": "按截止日期分组",
+    "tag": "按标签分组",
+    "noDueDate": "无截止日期",
+    "overdue": "已逾期",
+    "today": "今天",
+    "tomorrow": "明天",
+    "thisWeek": "本周",
+    "later": "稍后",
+    "untagged": "未标记"
+  },
+  "actions": {
+    "openPage": "打开任务页"
+  },
+  "aiExtract": {
+    "title": "从邮件创建任务",
+    "extracting": "正在从邮件中提取任务...",
+    "fallbackTitle": "跟进：{{subject}}",
+    "fallbackSubject": "邮件任务",
+    "fields": {
+      "title": "标题",
+      "description": "描述",
+      "priority": "优先级",
+      "dueDate": "截止日期"
+    },
+    "actions": {
+      "cancel": "取消",
+      "create": "创建任务",
+      "creating": "正在创建..."
+    },
+    "error": {
+      "extract": "任务提取失败",
+      "create": "任务创建失败"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import i18n from "@/i18n";
 import { CommandPalette } from "./CommandPalette";
 import { setThreadPrimaryState } from "@/services/db/threadWorkStates";
 import { useThreadStore } from "@/stores/threadStore";
@@ -56,8 +57,9 @@ vi.mock("@/router/navigate", () => ({
 }));
 
 describe("CommandPalette agentic commands", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    await i18n.changeLanguage("en");
   });
 
   it("can manually set the selected thread work state", async () => {
@@ -72,5 +74,20 @@ describe("CommandPalette agentic commands", () => {
       "thread1",
       { workState: "waiting" },
     );
+  });
+
+  it("renders Agentic commands in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+
+    expect(await screen.findByText("工作状态")).toBeInTheDocument();
+    expect(screen.queryByText("Agentic Inbox")).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByText("标记为等待对方"));
+
+    await waitFor(() => {
+      expect(setThreadPrimaryState).toHaveBeenCalledWith("acc1", "thread1", "waiting");
+    });
   });
 });

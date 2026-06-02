@@ -1,0 +1,76 @@
+{
+  "title": "Calendar",
+  "titlePlural": "Calendars",
+  "primary": "Primary",
+  "allDay": "All day",
+  "fallbackName": "Calendar",
+  "more": "+{{count}} more",
+  "days": {
+    "short": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    }
+  },
+  "time": {
+    "am": "am",
+    "pm": "pm",
+    "hourLabel": "{{hour}}{{period}}"
+  },
+  "connectAccount": "Connect an account to use Calendar",
+  "loading": "Loading calendar...",
+  "reauth": {
+    "title": "Calendar requires re-authorization",
+    "description": "Your account was connected before calendar permissions were added. Re-authorize to grant calendar access; your emails and data will not be affected.",
+    "waiting": "Waiting for authorization...",
+    "action": "Re-authorize",
+    "error": "Re-authorization failed"
+  },
+  "toolbar": {
+    "toggleList": "Toggle calendar list",
+    "today": "Today",
+    "create": "Create",
+    "views": {
+      "day": "day",
+      "week": "week",
+      "month": "month"
+    }
+  },
+  "empty": {
+    "notConfigured": "Calendar is not configured for this account.",
+    "imapCalDav": "For IMAP accounts, configure CalDAV in Settings."
+  },
+  "error": {
+    "access": "Calendar access error",
+    "accessAfterReauth": "Calendar access is still denied after re-authorization. Make sure the Google Calendar API is enabled in your Google Cloud Console project. Visit console.cloud.google.com → APIs & Services → Enable the \"Google Calendar API\"."
+  },
+  "event": {
+    "create": "Create Event",
+    "edit": "Edit Event",
+    "fallback": "Event",
+    "noTitle": "(No title)",
+    "title": "Title",
+    "titlePlaceholder": "Event title",
+    "calendar": "Calendar",
+    "start": "Start",
+    "end": "End",
+    "location": "Location",
+    "locationPlaceholder": "Add location",
+    "description": "Description",
+    "descriptionPlaceholder": "Add description",
+    "cancel": "Cancel",
+    "submit": "Create",
+    "save": "Save",
+    "saving": "Saving...",
+    "attendees": "Attendees",
+    "delete": "Delete",
+    "editAction": "Edit",
+    "deleteConfirm": "Delete this event?",
+    "deleting": "Deleting...",
+    "confirmDelete": "Yes, delete"
+  }
+}

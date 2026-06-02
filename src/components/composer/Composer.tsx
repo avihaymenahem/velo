@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CSSTransition } from "react-transition-group";
+import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -33,6 +34,8 @@ import { interpolateVariables } from "@/utils/templateVariables";
 import { sanitizeHtml } from "@/utils/sanitize";
 
 export function Composer() {
+  const { t, i18n } = useTranslation("composer");
+  const templateLocale = i18n.resolvedLanguage ?? i18n.language;
   // Individual selectors — only re-render when each specific value changes
   const isOpen = useComposerStore((s) => s.isOpen);
   const mode = useComposerStore((s) => s.mode);
@@ -77,7 +80,7 @@ export function Composer() {
         link: { openOnClick: false },
       }),
       Placeholder.configure({
-        placeholder: "Write your message...",
+        placeholder: t("placeholder"),
       }),
       Image.configure({
         inline: true,
@@ -109,7 +112,7 @@ export function Composer() {
               senderEmail: account?.email,
               senderName: account?.displayName ?? undefined,
               subject: state.subject || undefined,
-            }).then((resolved) => {
+            }, templateLocale).then((resolved) => {
               ed.chain()
                 .deleteRange({ from: deleteFrom, to: from })
                 .insertContent(resolved)
@@ -398,7 +401,7 @@ export function Composer() {
 
       new WebviewWindow(windowLabel, {
         url: `index.html?${params.toString()}`,
-        title: state.subject || "New Message",
+            title: state.subject || t("mode.new"),
         width: 700,
         height: 650,
         center: true,
@@ -415,17 +418,17 @@ export function Composer() {
 
   const modeLabel =
     mode === "reply"
-      ? "Reply"
+      ? t("mode.reply")
       : mode === "replyAll"
-        ? "Reply All"
+        ? t("mode.replyAll")
         : mode === "forward"
-          ? "Forward"
-          : "New Message";
+          ? t("mode.forward")
+          : t("mode.new");
 
   const savedLabel = isSaving
-    ? "Saving..."
+    ? t("status.saving")
     : lastSavedAt
-      ? "Draft saved"
+      ? t("status.saved")
       : null;
 
   return (
@@ -449,7 +452,7 @@ export function Composer() {
       >
         {isDragging && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-accent/10 rounded-lg pointer-events-none">
-            <span className="text-sm font-medium text-accent">Drop files to attach</span>
+            <span className="text-sm font-medium text-accent">{t("dropFiles")}</span>
           </div>
         )}
 
@@ -462,14 +465,14 @@ export function Composer() {
             <button
               onClick={() => setViewMode(isFullpage ? "modal" : "fullpage")}
               className="text-text-tertiary hover:text-text-primary p-1 rounded transition-colors"
-              title={isFullpage ? "Collapse" : "Expand"}
+              title={isFullpage ? t("actions.collapse") : t("actions.expand")}
             >
               {isFullpage ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
             <button
               onClick={handlePopOutComposer}
               className="text-text-tertiary hover:text-text-primary p-1 rounded transition-colors"
-              title="Open in new window"
+              title={t("actions.popOut")}
             >
               <ExternalLink size={14} />
             </button>
@@ -489,18 +492,18 @@ export function Composer() {
             selectedEmail={fromEmail ?? activeAccount?.email ?? ""}
             onChange={(alias) => setFromEmail(alias.email)}
           />
-          <AddressInput label="To" addresses={to} onChange={setTo} />
+          <AddressInput label={t("fields.to")} addresses={to} onChange={setTo} />
           {showCcBcc ? (
             <>
-              <AddressInput label="Cc" addresses={cc} onChange={setCc} />
-              <AddressInput label="Bcc" addresses={bcc} onChange={setBcc} />
+              <AddressInput label={t("fields.cc")} addresses={cc} onChange={setCc} />
+              <AddressInput label={t("fields.bcc")} addresses={bcc} onChange={setBcc} />
             </>
           ) : (
             <button
               onClick={() => setShowCcBcc(true)}
               className="text-xs text-accent hover:text-accent-hover ml-10"
             >
-              Cc / Bcc
+              {t("fields.ccBcc")}
             </button>
           )}
         </div>
@@ -509,13 +512,13 @@ export function Composer() {
         <div className="px-3 py-1.5 border-b border-border-secondary">
           <div className="flex items-center gap-2">
             <span className="text-xs text-text-tertiary w-8 shrink-0">
-              Sub
+              {t("fields.subjectShort")}
             </span>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Subject"
+              placeholder={t("fields.subject")}
               className="flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-tertiary"
             />
           </div>
@@ -556,7 +559,7 @@ export function Composer() {
         <div className="flex items-center justify-between px-4 py-2.5 border-t border-border-primary bg-bg-secondary rounded-b-lg">
           <div className="flex items-center gap-3">
             <div className="text-xs text-text-tertiary">
-              {fromEmail ?? activeAccount?.email ?? "No account"}
+              {fromEmail ?? activeAccount?.email ?? t("status.noAccount")}
             </div>
             {savedLabel && (
               <span className={`text-xs text-text-tertiary italic transition-opacity duration-200 ${isSaving ? "animate-pulse" : ""}`}>
@@ -571,7 +574,7 @@ export function Composer() {
               variant="secondary"
               onClick={handleDiscard}
             >
-              Discard
+              {t("actions.discard")}
             </Button>
             <div className="flex items-center">
               <button
@@ -579,13 +582,13 @@ export function Composer() {
                 disabled={to.length === 0}
                 className="px-4 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-l-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Send
+                {t("actions.send")}
               </button>
               <button
                 onClick={() => setShowSchedule(true)}
                 disabled={to.length === 0}
                 className="px-2 py-1.5 text-white bg-accent hover:bg-accent-hover border-l border-white/20 rounded-r-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Schedule send"
+                title={t("actions.scheduleSend")}
               >
                 <Clock size={12} />
               </button>

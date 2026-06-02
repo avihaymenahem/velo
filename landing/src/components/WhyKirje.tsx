@@ -12,13 +12,13 @@ const DIFFERENTIATORS = [
     icon: Brain,
     title: 'AI on your terms',
     description:
-      'Claude, GPT, or Gemini — pick your provider, use your own API key. Summaries, smart replies, and auto-categorization. Your data never leaves your machine.',
+      'Claude, GPT, or Gemini — pick your provider and use your own API key. Summaries, smart replies, and auto-categorization with local-first controls.',
   },
   {
     icon: ShieldCheck,
     title: 'Local-first privacy',
     description:
-      'Everything stored in a local SQLite database. No cloud, no tracking, no analytics. Built-in phishing detection and AES-256 encryption.',
+      'Mail data is stored in a local SQLite database. No tracking, no analytics. Built-in phishing detection and AES-256 encryption.',
   },
 ]
 
@@ -31,7 +31,7 @@ const cardVariants = {
   }),
 }
 
-export function WhyVelo() {
+export function WhyKirje() {
   return (
     <section id="features" className="relative py-24 md:py-32 px-6 dot-grid">
       {/* Subtle top/bottom fade to blend the dot grid */}

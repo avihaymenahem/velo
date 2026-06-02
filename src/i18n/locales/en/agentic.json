@@ -1,0 +1,23 @@
+{
+  "categories": {
+    "agenticInbox": "Agentic Inbox"
+  },
+  "workState": {
+    "needs_reply": "Needs reply",
+    "waiting": "Waiting",
+    "committed": "Committed",
+    "decision_needed": "Decision",
+    "risk": "Risk",
+    "opportunity": "Opportunity",
+    "can_archive": "Can archive",
+    "done": "Done"
+  },
+  "commands": {
+    "needs_reply": "Mark as Needs Reply",
+    "waiting": "Mark as Waiting",
+    "committed": "Mark as Committed",
+    "decision_needed": "Mark as Decision Needed",
+    "can_archive": "Mark as Can Archive",
+    "done": "Mark as Done"
+  }
+}

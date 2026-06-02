@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import { CSSTransition } from "react-transition-group";
+import { useTranslation } from "react-i18next";
 import { useLabelStore } from "@/stores/labelStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useThreadStore } from "@/stores/threadStore";
@@ -29,7 +30,8 @@ interface MoveToFolderDialogProps {
 
 interface Destination {
   id: string;
-  label: string;
+  labelKey?: string;
+  label?: string;
   icon: typeof Inbox;
   type: "system" | "label";
   /** For IMAP: the folder path to move to */
@@ -37,10 +39,10 @@ interface Destination {
 }
 
 const SYSTEM_DESTINATIONS: Destination[] = [
-  { id: "INBOX", label: "Inbox", icon: Inbox, type: "system" },
-  { id: "__archive__", label: "Archive", icon: Archive, type: "system" },
-  { id: "TRASH", label: "Trash", icon: Trash2, type: "system" },
-  { id: "SPAM", label: "Spam", icon: Ban, type: "system" },
+  { id: "INBOX", labelKey: "mailbox.inbox", icon: Inbox, type: "system" },
+  { id: "__archive__", labelKey: "moveDialog.destinations.archive", icon: Archive, type: "system" },
+  { id: "TRASH", labelKey: "mailbox.trash", icon: Trash2, type: "system" },
+  { id: "SPAM", labelKey: "mailbox.spam", icon: Ban, type: "system" },
 ];
 
 export function MoveToFolderDialog({
@@ -48,6 +50,7 @@ export function MoveToFolderDialog({
   threadIds,
   onClose,
 }: MoveToFolderDialogProps) {
+  const { t } = useTranslation("email");
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -78,8 +81,11 @@ export function MoveToFolderDialog({
   const filtered = useMemo(() => {
     if (!query.trim()) return destinations;
     const q = query.toLowerCase();
-    return destinations.filter((d) => d.label.toLowerCase().includes(q));
-  }, [destinations, query]);
+    return destinations.filter((d) => {
+      const label = d.labelKey ? t(d.labelKey) : (d.label ?? "");
+      return label.toLowerCase().includes(q);
+    });
+  }, [destinations, query, t]);
 
   const handleSelect = useCallback(
     async (dest: Destination) => {
@@ -200,7 +206,7 @@ export function MoveToFolderDialog({
                 setQuery(e.target.value);
                 setSelectedIdx(0);
               }}
-              placeholder="Move to..."
+              placeholder={t("moveDialog.placeholder")}
               className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-tertiary outline-none"
               autoFocus
             />
@@ -214,12 +220,13 @@ export function MoveToFolderDialog({
           >
             {filtered.length === 0 && (
               <div className="px-3 py-4 text-center text-xs text-text-tertiary">
-                No matching folders or labels
+                {t("moveDialog.noMatches")}
               </div>
             )}
             {filtered.map((dest, idx) => {
               const Icon = dest.type === "system" ? dest.icon : Folder;
               const isSelected = idx === selectedIdx;
+              const label = dest.labelKey ? t(dest.labelKey) : (dest.label ?? "");
               return (
                 <button
                   key={dest.id}
@@ -241,10 +248,10 @@ export function MoveToFolderDialog({
                         : "text-accent"
                     }
                   />
-                  <span className="truncate">{dest.label}</span>
+                  <span className="truncate">{label}</span>
                   {dest.type === "system" && (
                     <span className="ml-auto text-[10px] text-text-tertiary uppercase tracking-wider">
-                      System
+                      {t("moveDialog.system")}
                     </span>
                   )}
                 </button>
@@ -258,19 +265,19 @@ export function MoveToFolderDialog({
               <kbd className="px-1 py-0.5 rounded bg-bg-tertiary text-text-tertiary">
                 ↑↓
               </kbd>{" "}
-              navigate
+              {t("moveDialog.hints.navigate")}
             </span>
             <span>
               <kbd className="px-1 py-0.5 rounded bg-bg-tertiary text-text-tertiary">
                 ↵
               </kbd>{" "}
-              select
+              {t("moveDialog.hints.select")}
             </span>
             <span>
               <kbd className="px-1 py-0.5 rounded bg-bg-tertiary text-text-tertiary">
                 esc
               </kbd>{" "}
-              close
+              {t("moveDialog.hints.close")}
             </span>
           </div>
         </div>

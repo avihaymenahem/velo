@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Outlet } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { Sidebar } from "./components/layout/Sidebar";
 import { AddAccount } from "./components/accounts/AddAccount";
 import { Composer } from "./components/composer/Composer";
@@ -70,11 +71,14 @@ import { MoveToFolderDialog } from "./components/email/MoveToFolderDialog";
 import { OfflineBanner } from "./components/ui/OfflineBanner";
 import { UpdateToast } from "./components/ui/UpdateToast";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
+import { AppLoadingScreen } from "./components/layout/AppLoadingScreen";
 import { formatSyncError } from "./utils/networkErrors";
+import { buildSyncStatusView, type SyncStatusView } from "./utils/syncStatusMessage";
 import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
 import { router } from "./router";
 import { getSelectedThreadId } from "./router/navigate";
+import { initializeLanguageFromSettings } from "./i18n/settings";
 
 /**
  * Sync bridge: subscribes to router state changes and writes the selected
@@ -95,6 +99,7 @@ function useRouterSyncBridge() {
 import { useThreadStore } from "./stores/threadStore";
 
 export default function App() {
+  const { t } = useTranslation("common");
   const theme = useUIStore((s) => s.theme);
   const fontScale = useUIStore((s) => s.fontScale);
   const colorTheme = useUIStore((s) => s.colorTheme);
@@ -102,12 +107,19 @@ export default function App() {
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [initialized, setInitialized] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatusView | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [showAskInbox, setShowAskInbox] = useState(false);
   const [moveToFolderState, setMoveToFolderState] = useState<{ open: boolean; threadIds: string[] }>({ open: false, threadIds: [] });
   const deepLinkCleanupRef = useRef<(() => void) | undefined>(undefined);
+  const syncErrorMessages = useMemo(() => ({
+    auth: t("syncErrors.auth"),
+    timeout: t("syncErrors.timeout"),
+    secureConnection: t("syncErrors.secureConnection"),
+    connectionRefused: t("syncErrors.connectionRefused"),
+    serverNotFound: t("syncErrors.serverNotFound"),
+  }), [t]);
 
   // Sync bridge: router state → Zustand stores (temporary)
   useRouterSyncBridge();
@@ -189,6 +201,7 @@ export default function App() {
     async function init() {
       try {
         await runMigrations();
+        await initializeLanguageFromSettings();
 
         const ui = useUIStore.getState();
 
@@ -384,22 +397,10 @@ export default function App() {
   const backfillDoneRef = useRef(false);
   useEffect(() => {
     const unsub = onSyncStatus((accountId, status, progress, error) => {
-      if (status === "syncing") {
-        if (progress) {
-          if (progress.phase === "messages") {
-            setSyncStatus(
-              `Syncing: ${progress.current}/${progress.total} messages`,
-            );
-          } else if (progress.phase === "labels") {
-            setSyncStatus("Syncing labels...");
-          } else if (progress.phase === "threads") {
-            setSyncStatus(`Building threads... (${progress.current}/${progress.total})`);
-          }
-        } else {
-          setSyncStatus("Syncing...");
-        }
-      } else if (status === "done") {
-        setSyncStatus("Sync complete");
+      const formattedError = error ? formatSyncError(error, syncErrorMessages) : undefined;
+      setSyncStatus(buildSyncStatusView(t, status, progress, formattedError));
+
+      if (status === "done") {
         setTimeout(() => setSyncStatus(null), 2_000);
         window.dispatchEvent(new Event("velo-sync-done"));
         updateBadgeCount();
@@ -412,7 +413,6 @@ export default function App() {
             .catch((err) => console.error("Backfill error:", err));
         }
       } else if (status === "error") {
-        setSyncStatus(error ? `Sync failed: ${formatSyncError(error)}` : "Sync failed");
         // Still dispatch sync-done so the UI refreshes with any partially stored data
         window.dispatchEvent(new Event("velo-sync-done"));
         // Auto-clear the error after 8 seconds
@@ -420,7 +420,7 @@ export default function App() {
       }
     });
     return unsub;
-  }, []);
+  }, [syncErrorMessages, t]);
 
   // Sync theme class to <html> element
   useEffect(() => {
@@ -526,17 +526,7 @@ export default function App() {
   }, []);
 
   if (!initialized) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-bg-primary">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative w-10 h-10">
-            <div className="absolute inset-0 rounded-full border-2 border-accent/20" />
-            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-accent animate-spin" />
-          </div>
-          <span className="text-xs text-text-tertiary animate-pulse">Loading your inbox...</span>
-        </div>
-      </div>
-    );
+    return <AppLoadingScreen />;
   }
 
   return (
@@ -567,10 +557,10 @@ export default function App() {
       {syncStatus && (
         <div
           className={`fixed bottom-0 left-0 right-0 glass-panel text-white text-xs px-4 py-1.5 text-center z-40 animate-[slideUp_200ms_ease-out,fadeIn_200ms_ease-out] ${
-            syncStatus.startsWith("Sync failed") ? "bg-danger/90" : "bg-accent/90"
+            syncStatus.isError ? "bg-danger/90" : "bg-accent/90"
           }`}
         >
-          {syncStatus}
+          {syncStatus.text}
         </div>
       )}
 

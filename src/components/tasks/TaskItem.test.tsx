@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TaskItem } from "./TaskItem";
 import type { DbTask } from "@/services/db/tasks";
+import i18n from "@/i18n";
 
 function makeTask(overrides: Partial<DbTask> = {}): DbTask {
   return {
@@ -26,6 +27,10 @@ function makeTask(overrides: Partial<DbTask> = {}): DbTask {
 }
 
 describe("TaskItem", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
   it("renders task title", () => {
     render(
       <TaskItem
@@ -81,5 +86,17 @@ describe("TaskItem", () => {
       />,
     );
     expect(screen.getByText("Tomorrow")).toBeInTheDocument();
+  });
+
+  it("shows localized due date badge in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+    const tomorrow = Math.floor(Date.now() / 1000) + 86400;
+    render(
+      <TaskItem
+        task={makeTask({ due_date: tomorrow })}
+        onToggleComplete={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("明天")).toBeInTheDocument();
   });
 });

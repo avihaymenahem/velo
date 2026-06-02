@@ -1,0 +1,385 @@
+{
+  "common": {
+    "unknown": "未知",
+    "noSubject": "（无主题）",
+    "thread": "线程",
+    "email": "邮件"
+  },
+  "category": {
+    "Primary": "主要",
+    "Updates": "更新",
+    "Promotions": "推广",
+    "Social": "社交",
+    "Newsletters": "简报"
+  },
+  "mailbox": {
+    "inbox": "收件箱",
+    "starred": "已加星标",
+    "snoozed": "稍后提醒",
+    "sent": "已发送",
+    "drafts": "草稿",
+    "trash": "废纸篓",
+    "spam": "垃圾邮件",
+    "all": "全部邮件"
+  },
+  "threadCard": {
+    "aria": "{{unread}}{{sender}} 的邮件：{{subject}}",
+    "unread": "未读",
+    "followUp": "已设置跟进提醒",
+    "muted": "已静音",
+    "pinned": "已置顶",
+    "hasAttachments": "有附件",
+    "starred": "已加星标"
+  },
+  "list": {
+    "smartFolder": "智能文件夹",
+    "inboxCategory": "收件箱 - {{category}}",
+    "conversationCount_one": "{{count}} 个会话",
+    "conversationCount_other": "{{count}} 个会话",
+    "filters": {
+      "all": "全部",
+      "unread": "未读",
+      "read": "已读"
+    },
+    "selected": "已选择 {{count}} 个",
+    "selectAll": "全选",
+    "archiveSelected": "归档所选",
+    "deleteSelected": "删除所选",
+    "notSpam": "不是垃圾邮件",
+    "reportSpam": "标记为垃圾邮件",
+    "clearSelection": "清除选择",
+    "otherEmails": "其他邮件",
+    "loadingMore": "正在加载...",
+    "allLoaded": "已加载全部会话"
+  },
+  "empty": {
+    "noResults": "没有结果",
+    "trySearch": "换个搜索词试试",
+    "noFilteredEmails": "没有{{filter}}邮件",
+    "tryFilter": "换个筛选条件试试",
+    "noAccount": "未连接账户",
+    "addAccount": "添加 Gmail 账户开始使用",
+    "primaryClear": "主要收件箱已清空",
+    "noImportant": "没有重要会话",
+    "noUpdates": "没有更新",
+    "updatesHint": "通知和交易邮件会出现在这里",
+    "noPromotions": "没有推广邮件",
+    "promotionsHint": "营销和推广邮件会出现在这里",
+    "noSocial": "没有社交邮件",
+    "socialHint": "社交网络通知会出现在这里",
+    "noNewsletters": "没有简报",
+    "newslettersHint": "Newsletter 和订阅会出现在这里",
+    "caughtUp": "已处理完",
+    "noNew": "没有新会话",
+    "noStarred": "没有星标会话",
+    "starHint": "给邮件加星标后会出现在这里",
+    "noSnoozed": "没有稍后提醒邮件",
+    "snoozedHint": "稍后提醒的邮件会出现在这里",
+    "noSent": "没有已发送邮件",
+    "noDrafts": "没有草稿",
+    "trashEmpty": "废纸篓为空",
+    "noSpam": "没有垃圾邮件",
+    "lookingGood": "状态正常",
+    "noEmails": "还没有邮件",
+    "noMatching": "没有匹配邮件",
+    "adjustSmartFolder": "调整智能文件夹搜索条件试试",
+    "nothingHere": "这里为空",
+    "noLabelConversations": "此标签下没有会话",
+    "readingPaneTitle": "Kirje",
+    "readingPaneSubtitle": "选择一封邮件阅读"
+  },
+  "actionBar": {
+    "noReply": "此发件人不接收回复",
+    "reply": "回复 (r)",
+    "replyAll": "全部回复 (a)",
+    "forward": "转发 (f)",
+    "archive": "归档 (e)",
+    "delete": "删除 (#)",
+    "markUnread": "标记为未读",
+    "markRead": "标记为已读",
+    "unstar": "取消星标 (s)",
+    "star": "加星标 (s)",
+    "snooze": "稍后提醒 (h)",
+    "notSpam": "不是垃圾邮件 (!)",
+    "reportSpam": "标记为垃圾邮件 (!)",
+    "move": "移动到文件夹 (v)",
+    "unpin": "取消置顶 (p)",
+    "pin": "置顶 (p)",
+    "unmute": "取消静音 (m)",
+    "mute": "静音 (m)",
+    "cancelFollowUp": "取消跟进提醒",
+    "followUp": "未回复时提醒我",
+    "unsubscribing": "正在退订...",
+    "unsubscribed": "已退订",
+    "unsubscribe": "退订 (u)",
+    "print": "打印",
+    "export": "导出为 .eml",
+    "popOut": "在新窗口打开",
+    "hideTaskPanel": "隐藏任务面板",
+    "showTaskPanel": "显示任务面板",
+    "hideContactSidebar": "隐藏联系人侧栏",
+    "showContactSidebar": "显示联系人侧栏"
+  },
+  "threadView": {
+    "messageCount_one": "{{count}} 封邮件在此线程中",
+    "messageCount_other": "{{count}} 封邮件在此线程中",
+    "print": {
+      "from": "发件人：",
+      "to": "收件人：",
+      "date": "日期："
+    },
+    "export": {
+      "defaultFileName": "邮件",
+      "fileType": "邮件"
+    }
+  },
+  "renderer": {
+    "title": "邮件正文",
+    "remoteImagesHidden": "已隐藏远程图片以保护你的隐私。",
+    "loadImages": "加载图片",
+    "alwaysLoadSender": "始终加载此发件人的图片"
+  },
+  "quote": {
+    "unknownSender": "未知",
+    "replyHeader": "{{date}}，{{from}} 写道：",
+    "forwardHeader": "---------- 转发邮件 ---------",
+    "from": "发件人：{{from}}",
+    "date": "日期：{{date}}",
+    "subject": "主题：{{subject}}",
+    "to": "收件人：{{to}}"
+  },
+  "contextMenu": {
+    "syncFolder": "同步此文件夹",
+    "editLabel": "编辑标签",
+    "deleteLabel": "删除标签",
+    "reply": "回复",
+    "replyAll": "全部回复",
+    "forward": "转发",
+    "archive": "归档",
+    "delete": "删除",
+    "deletePermanently": "永久删除",
+    "markUnread": "标记为未读",
+    "markRead": "标记为已读",
+    "unstar": "取消星标",
+    "star": "加星标",
+    "snooze": "稍后提醒...",
+    "unpin": "取消置顶",
+    "pin": "置顶",
+    "unmute": "取消静音",
+    "mute": "静音",
+    "notSpam": "不是垃圾邮件",
+    "reportSpam": "标记为垃圾邮件",
+    "applyLabel": "应用标签",
+    "moveToFolder": "移动到文件夹",
+    "moveToCategory": "移动到分类",
+    "quickSteps": "快捷步骤",
+    "openNewWindow": "在新窗口打开",
+    "copyMessageText": "复制邮件正文",
+    "viewSource": "查看源码"
+  },
+  "authWarning": {
+    "title": "认证失败",
+    "senderFallback": "此发件人",
+    "description": "来自 {{sender}} 的邮件未通过邮件认证检查（SPF/DKIM/DMARC）。请谨慎处理其中的链接或附件。",
+    "dismiss": "关闭警告"
+  },
+  "authBadge": {
+    "labels": {
+      "pass": "邮件认证通过",
+      "warning": "邮件认证警告",
+      "fail": "邮件认证失败",
+      "unknown": "邮件认证未知"
+    },
+    "detailLine": "{{protocol}}：{{result}}{{detail}}",
+    "results": {
+      "pass": "通过",
+      "fail": "失败",
+      "warning": "警告",
+      "unknown": "未知",
+      "neutral": "中性",
+      "softfail": "软失败",
+      "temperror": "临时错误",
+      "permerror": "永久错误",
+      "none": "无结果"
+    }
+  },
+  "snooze": {
+    "title": "稍后提醒到...",
+    "action": "稍后提醒",
+    "presets": {
+      "laterToday": "稍后",
+      "tomorrow": "明天",
+      "thisWeekend": "本周末",
+      "nextWeek": "下周"
+    }
+  },
+  "followUpDialog": {
+    "title": "未回复时提醒我...",
+    "action": "设置提醒",
+    "presets": {
+      "oneDay": "1 天后",
+      "twoDays": "2 天后",
+      "threeDays": "3 天后",
+      "oneWeek": "1 周后"
+    }
+  },
+  "inlineReply": {
+    "placeholder": "写下回复...",
+    "noReply": "此发件人不接收回复",
+    "mode": {
+      "reply": "回复",
+      "replyAll": "全部回复",
+      "forward": "转发"
+    },
+    "to": "收件人：{{recipients}}",
+    "cancel": "取消",
+    "generatingDraft": "正在生成草稿...",
+    "expand": "展开",
+    "expandTitle": "展开到完整写信窗口",
+    "regenerate": "重新生成",
+    "regenerateTitle": "重新生成 AI 草稿",
+    "clear": "清空",
+    "clearTitle": "清空 AI 草稿"
+  },
+  "message": {
+    "to": "收件人：{{addresses}}",
+    "loading": "正在加载...",
+    "unsubscribe": {
+      "loading": "正在退订...",
+      "done": "已退订",
+      "failed": "退订失败，点击重试",
+      "idle": "退订"
+    }
+  },
+  "ai": {
+    "summary": {
+      "title": "AI 摘要",
+      "refresh": "刷新摘要",
+      "generating": "正在生成摘要..."
+    },
+    "smartReplies": {
+      "title": "快捷回复",
+      "refresh": "刷新建议",
+      "generating": "正在生成建议..."
+    }
+  },
+  "offline": {
+    "banner": "你已离线，变更会在重新连接后同步"
+  },
+  "contact": {
+    "actions": {
+      "close": "关闭联系人侧栏",
+      "saveName": "保存姓名",
+      "sendEmail": "发送邮件",
+      "copied": "已复制",
+      "copyEmail": "复制邮箱",
+      "removeVip": "移除 VIP",
+      "markVip": "标记为 VIP",
+      "added": "已添加",
+      "addToContacts": "添加到联系人",
+      "editName": "编辑姓名"
+    },
+    "stats": {
+      "emailCount_one": "{{count}} 封邮件",
+      "emailCount_other": "{{count}} 封邮件",
+      "firstEmail": "第一封邮件：{{date}}",
+      "lastEmail": "最近邮件：{{date}}"
+    },
+    "notes": {
+      "title": "备注",
+      "placeholder": "添加备注..."
+    },
+    "sharedFiles": {
+      "title": "共享文件"
+    },
+    "sameDomain": {
+      "title": "同域联系人 @{{domain}}"
+    },
+    "recentConversations": {
+      "title": "最近会话"
+    }
+  },
+  "linkConfirm": {
+    "highRisk": "高风险链接",
+    "suspicious": "可疑链接",
+    "fullUrl": "完整 URL",
+    "linkText": "链接文本",
+    "issuesDetected": "检测到的问题（{{count}}）",
+    "points": "({{score}} 分)",
+    "goBack": "返回",
+    "openAnyway": "仍然打开",
+    "rules": {
+      "ip-address": {
+        "name": "原始 IP 地址 URL",
+        "detail": "URL 指向原始 IP 地址：{{hostname}}"
+      },
+      "homograph": {
+        "name": "同形异义 / Punycode 域名",
+        "detail": "域名使用 Punycode（国际化字符）：{{hostname}}"
+      },
+      "suspicious-tld": {
+        "name": "可疑顶级域名",
+        "detailHigh": "高风险顶级域名：{{tld}}",
+        "detailMedium": "中风险顶级域名：{{tld}}",
+        "detailLow": "低风险顶级域名：{{tld}}"
+      },
+      "display-mismatch": {
+        "name": "显示文本与实际 URL 不一致",
+        "detail": "链接文本显示 \"{{displayDomain}}\"，但实际指向 \"{{hrefDomain}}\""
+      },
+      "excessive-subdomains": {
+        "name": "子域名过多",
+        "detail": "主机名包含 {{count}} 个点：{{hostname}}"
+      },
+      "url-shortener": {
+        "name": "短链接",
+        "detail": "链接使用短链接服务：{{hostname}}"
+      },
+      "suspicious-keywords": {
+        "name": "可疑路径关键词",
+        "detail": "路径包含可疑关键词：{{keywords}}"
+      },
+      "dangerous-protocol": {
+        "name": "危险 URI 协议",
+        "detail": "使用危险协议：{{protocol}}"
+      },
+      "url-obfuscation": {
+        "name": "URL 混淆",
+        "detailCredentialSpoofing": "URL 包含用于凭据欺骗的 @ 符号",
+        "detailPercentEncoded": "主机名包含百分号编码字符"
+      },
+      "brand-impersonation": {
+        "name": "品牌仿冒",
+        "detail": "\"{{brand}}\" 出现在 URL 中，但实际域名是 {{domain}}"
+      }
+    }
+  },
+  "phishingBanner": {
+    "highRiskTitle": "检测到高风险链接",
+    "suspiciousTitle": "检测到可疑链接",
+    "description_one": "此邮件中发现 1 个可疑链接。点击任何链接前请谨慎。",
+    "description_other": "此邮件中发现 {{count}} 个可疑链接。点击任何链接前请谨慎。",
+    "trustSender": "信任此发件人"
+  },
+  "moveDialog": {
+    "placeholder": "移动到...",
+    "noMatches": "没有匹配的文件夹或标签",
+    "system": "系统",
+    "destinations": {
+      "archive": "归档"
+    },
+    "hints": {
+      "navigate": "导航",
+      "select": "选择",
+      "close": "关闭"
+    }
+  },
+  "rawSource": {
+    "title": "邮件源码",
+    "copyTitle": "复制到剪贴板",
+    "copy": "复制",
+    "copied": "已复制",
+    "loading": "正在加载邮件源码...",
+    "error": "邮件源码加载失败：{{error}}"
+  }
+}

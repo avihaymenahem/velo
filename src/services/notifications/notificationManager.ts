@@ -10,6 +10,13 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useComposerStore } from "../../stores/composerStore";
 import { navigateToLabel } from "../../router/navigate";
 import { normalizeEmail } from "@/utils/emailUtils";
+import {
+  formatFollowUpNotificationTitle,
+  formatNewEmailBatchBody,
+  formatNoSubjectNotificationBody,
+  formatNotificationActionTitle,
+  formatSnoozeReturnNotificationTitle,
+} from "./notificationCopy";
 
 let initialized = false;
 let notificationsEnabled = true;
@@ -65,8 +72,8 @@ export async function initNotifications(): Promise<void> {
       {
         id: "email",
         actions: [
-          { id: "reply", title: "Reply" },
-          { id: "archive", title: "Archive" },
+          { id: "reply", title: formatNotificationActionTitle("reply") },
+          { id: "archive", title: formatNotificationActionTitle("archive") },
         ],
       },
     ]);
@@ -131,13 +138,13 @@ export function queueNewEmailNotification(
     if (pendingCount === 1) {
       sendNotification({
         title: from,
-        body: subject || "(No subject)",
+        body: subject || formatNoSubjectNotificationBody(),
         actionTypeId: "email",
       });
     } else if (pendingCount > 1) {
       sendNotification({
         title: "Kirje",
-        body: `${pendingCount} new emails`,
+        body: formatNewEmailBatchBody(pendingCount),
         actionTypeId: "email",
       });
     }
@@ -176,8 +183,8 @@ export function notifyFollowUpDue(
   lastNotificationContext = ctx;
   if (threadId) recentContexts.set(threadId, ctx);
   sendNotification({
-    title: "Follow up needed",
-    body: subject || "(No subject)",
+    title: formatFollowUpNotificationTitle(),
+    body: subject || formatNoSubjectNotificationBody(),
     actionTypeId: "email",
   });
 }
@@ -188,8 +195,8 @@ export function notifyFollowUpDue(
 export function notifySnoozeReturn(subject: string): void {
   if (!notificationsEnabled) return;
   sendNotification({
-    title: "Snoozed email returned",
-    body: subject || "(No subject)",
+    title: formatSnoozeReturnNotificationTitle(),
+    body: subject || formatNoSubjectNotificationBody(),
     actionTypeId: "default",
   });
 }

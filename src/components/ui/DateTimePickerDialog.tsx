@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 
@@ -30,8 +31,10 @@ export function DateTimePickerDialog({
   submitLabel,
   zIndex,
 }: DateTimePickerDialogProps) {
+  const { t, i18n } = useTranslation("common");
   const [customDate, setCustomDate] = useState("");
   const [customTime, setCustomTime] = useState("09:00");
+  const locale = i18n.resolvedLanguage ?? i18n.language;
 
   const handlePresetClick = (timestamp: number) => {
     onSelect(timestamp);
@@ -56,7 +59,7 @@ export function DateTimePickerDialog({
             <span className="text-xs text-text-tertiary">
               {preset.detail ??
                 new Date(preset.timestamp * 1000).toLocaleDateString(
-                  undefined,
+                  locale,
                   { weekday: "short", month: "short", day: "numeric" },
                 )}
             </span>
@@ -66,7 +69,7 @@ export function DateTimePickerDialog({
 
       <div className="border-t border-border-secondary px-4 py-3 space-y-2">
         <div className="text-xs text-text-tertiary font-medium">
-          Custom date & time
+          {t("dateTime.customDateTime")}
         </div>
         <div className="flex gap-2">
           <input

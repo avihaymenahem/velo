@@ -2670,6 +2670,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "kirje"
+version = "0.4.21"
+dependencies = [
+ "async-imap",
+ "base64 0.22.1",
+ "futures",
+ "lettre",
+ "log",
+ "mail-parser",
+ "native-tls",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "socket2 0.5.10",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-http",
+ "tauri-plugin-log",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tauri-plugin-os",
+ "tauri-plugin-process",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-sql",
+ "tauri-plugin-updater",
+ "tokio",
+ "tokio-native-tls",
+ "tray-item",
+ "utf7-imap",
+ "windows 0.58.0",
+]
+
+[[package]]
 name = "ksni"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6783,44 +6821,6 @@ name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
-
-[[package]]
-name = "kirje"
-version = "0.4.21"
-dependencies = [
- "async-imap",
- "base64 0.22.1",
- "futures",
- "lettre",
- "log",
- "mail-parser",
- "native-tls",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "socket2 0.5.10",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-deep-link",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-http",
- "tauri-plugin-log",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tauri-plugin-os",
- "tauri-plugin-process",
- "tauri-plugin-single-instance",
- "tauri-plugin-sql",
- "tauri-plugin-updater",
- "tokio",
- "tokio-native-tls",
- "tray-item",
- "utf7-imap",
- "windows 0.58.0",
-]
 
 [[package]]
 name = "version-compare"

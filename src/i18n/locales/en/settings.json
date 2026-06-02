@@ -1,0 +1,576 @@
+{
+  "title": "Settings",
+  "backToInbox": "Back to Inbox",
+  "tabs": {
+    "general": "General",
+    "notifications": "Notifications",
+    "composing": "Composing",
+    "mailRules": "Mail Rules",
+    "people": "People",
+    "accounts": "Accounts",
+    "shortcuts": "Shortcuts",
+    "ai": "AI",
+    "about": "About"
+  },
+  "language": {
+    "label": "Language",
+    "options": {
+      "system": "System",
+      "en": "English",
+      "zh-CN": "Simplified Chinese"
+    }
+  },
+  "sections": {
+    "appearance": "Appearance",
+    "startup": "Startup",
+    "privacySecurity": "Privacy & Security"
+  },
+  "appearance": {
+    "theme": "Theme",
+    "themeOptions": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "readingPane": "Reading pane",
+    "readingPaneOptions": {
+      "right": "Right",
+      "bottom": "Bottom",
+      "hidden": "Off"
+    },
+    "emailDensity": "Email density",
+    "densityOptions": {
+      "compact": "Compact",
+      "default": "Default",
+      "spacious": "Spacious"
+    },
+    "fontSize": "Font size",
+    "fontOptions": {
+      "small": "Small",
+      "default": "Default",
+      "large": "Large",
+      "xlarge": "Extra Large"
+    },
+    "accentColor": "Accent color",
+    "accentColors": {
+      "indigo": "Indigo",
+      "rose": "Rose",
+      "emerald": "Emerald",
+      "amber": "Amber",
+      "sky": "Sky",
+      "violet": "Violet",
+      "orange": "Orange",
+      "slate": "Slate"
+    },
+    "inboxViewMode": "Inbox view mode",
+    "inboxViewOptions": {
+      "unified": "Unified",
+      "split": "Split (Categories)"
+    },
+    "reduceMotion": "Reduce motion",
+    "reduceMotionDescription": "Disable animated background effects (fixes flickering on some GPUs)"
+  },
+  "startup": {
+    "launchAtLogin": "Launch at login",
+    "launchAtLoginDescription": "Start Kirje automatically when you log in (minimized to tray)"
+  },
+  "privacy": {
+    "blockRemoteImages": "Block remote images",
+    "blockRemoteImagesDescription": "Hides tracking pixels and remote images until you choose to load them",
+    "phishingDetection": "Phishing link detection",
+    "phishingDetectionDescription": "Scan message links for phishing indicators and show warnings",
+    "detectionSensitivity": "Detection sensitivity",
+    "sensitivityOptions": {
+      "low": "Low (fewer warnings)",
+      "default": "Default",
+      "high": "High (more warnings)"
+    }
+  },
+  "storage": {
+    "title": "Storage",
+    "attachmentCache": "Attachment cache",
+    "used": "{{size}} MB used",
+    "calculating": "Calculating...",
+    "clearing": "Clearing...",
+    "clearCache": "Clear Cache",
+    "maxCacheSize": "Max cache size"
+  },
+  "sidebar": {
+    "title": "Sidebar",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "alwaysVisible": "Inbox is always visible",
+    "hide": "Hide",
+    "show": "Show",
+    "resetDefaults": "Reset to defaults"
+  },
+  "caldav": {
+    "title": "Calendar (CalDAV)",
+    "connected": "Connected",
+    "description": "Connect a CalDAV calendar server to enable calendar features for this IMAP account.",
+    "serverUrl": "CalDAV Server URL",
+    "username": "Username",
+    "password": "Password / App Password",
+    "passwordPlaceholder": "App-specific password",
+    "testing": "Testing...",
+    "connectionSucceeded": "Connected",
+    "connectionFailed": "Connection failed",
+    "testConnection": "Test Connection",
+    "remove": "Remove"
+  },
+  "developer": {
+    "appInfo": "App Info",
+    "appVersion": "App version",
+    "tauriVersion": "Tauri version",
+    "webviewVersion": "WebView version",
+    "unknown": "Unknown",
+    "platform": "Platform",
+    "updates": "Updates",
+    "softwareUpdates": "Software updates",
+    "available": "v{{version}} available",
+    "upToDate": "Up to date",
+    "updating": "Updating...",
+    "updateRestart": "Update & Restart",
+    "checking": "Checking...",
+    "checkUpdates": "Check for Updates",
+    "developerTools": "Developer Tools",
+    "openDevtools": "Open DevTools",
+    "openDevtoolsDescription": "Open the WebView developer tools inspector"
+  },
+  "about": {
+    "version": "Version {{version}}",
+    "loading": "Loading...",
+    "description": "A fast, open-source desktop email client built with privacy in mind. Your emails stay on your machine — no cloud, no tracking.",
+    "links": "Links",
+    "website": "Website",
+    "githubRepository": "GitHub Repository",
+    "contact": "Contact",
+    "license": "License",
+    "licenseName": "Apache License 2.0",
+    "licenseDescription": "Licensed under the Apache License, Version 2.0. You may obtain a copy of the License at",
+    "copyright": "Copyright 2026 Kirje contributors. You may use, distribute, and modify this software under the terms of the Apache 2.0 license. This software is distributed on an \"AS IS\" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "enable": "Enable notifications",
+    "smart": "Smart notifications",
+    "smartDescription": "Only notify for selected categories and VIP senders",
+    "categoryFilters": "Category Filters",
+    "notifyForCategories": "Notify for categories",
+    "vipSenders": "VIP Senders",
+    "vipDescription": "These senders always trigger notifications regardless of category",
+    "add": "Add"
+  },
+  "composing": {
+    "sending": "Sending",
+    "undoSendDelay": "Undo send delay",
+    "seconds": "{{count}} seconds",
+    "sendAndArchive": "Send and archive",
+    "sendAndArchiveDescription": "Automatically archive threads after sending a reply",
+    "behavior": "Behavior",
+    "defaultReplyAction": "Default reply action",
+    "reply": "Reply",
+    "replyAll": "Reply All",
+    "markAsRead": "Mark as read",
+    "instantly": "Instantly",
+    "afterSeconds": "After {{count}} seconds",
+    "manually": "Manually",
+    "signatures": "Signatures",
+    "templates": "Templates"
+  },
+  "mailRules": {
+    "labels": "Labels",
+    "labelsDescription": "Create, rename, recolor, delete, or reorder your Gmail labels.",
+    "filters": "Filters",
+    "filtersDescription": "Filters automatically apply actions to new incoming emails during sync.",
+    "smartLabels": "Smart Labels",
+    "smartLabelsDescription": "Describe what emails should get a label using plain English. AI automatically labels matching emails during sync.",
+    "smartFolders": "Smart Folders",
+    "smartFoldersDescription": "Smart folders are saved searches that automatically show matching emails. Use search operators like",
+    "quickSteps": "Quick Steps",
+    "quickStepsDescription": "Quick steps let you chain multiple actions together into a single click. Apply them from the right-click menu on any thread."
+  },
+  "people": {
+    "contacts": "Contacts",
+    "contactsDescription": "Contacts are automatically added when you send or receive emails. Edit display names or remove contacts below.",
+    "subscriptions": "Subscriptions",
+    "subscriptionsDescription": "View all detected newsletter and promotional senders. Unsubscribe using RFC 8058 one-click POST, mailto, or browser fallback."
+  },
+  "accounts": {
+    "mailAccounts": "Mail Accounts",
+    "noMailAccounts": "No mail accounts connected",
+    "calendarAccounts": "Calendar Accounts",
+    "googleApi": "Google API",
+    "oauthClientId": "Client ID",
+    "oauthClientIdPlaceholder": "Google OAuth Client ID",
+    "oauthClientSecret": "Client Secret",
+    "oauthClientSecretPlaceholder": "Google OAuth Client Secret",
+    "waiting": "Waiting...",
+    "done": "Done!",
+    "failed": "Failed",
+    "reauthorize": "Re-authorize",
+    "resyncing": "Resyncing...",
+    "resync": "Resync",
+    "remove": "Remove",
+    "saved": "Saved!"
+  },
+  "sync": {
+    "title": "Sync",
+    "checkNewMail": "Check for new mail",
+    "syncing": "Syncing...",
+    "syncNow": "Sync now",
+    "fullResync": "Full resync",
+    "fullResyncDescription": "Re-download all emails from scratch",
+    "period": "Sync Period",
+    "emailsFrom": "Sync emails from",
+    "lastDays": "Last {{count}} days",
+    "lastYear": "Last 1 year",
+    "periodDescription": "Changes apply on the next full resync."
+  },
+  "sendAs": {
+    "title": "Send-As Aliases",
+    "description": "These aliases are synced from your Gmail settings. You can select which alias to use as the default sender.",
+    "empty": "No aliases found. Aliases are fetched from Gmail on startup.",
+    "primary": "Primary",
+    "default": "Default",
+    "setDefault": "Set as default"
+  },
+  "offline": {
+    "title": "Sync & Offline",
+    "pendingOperations": "Pending operations",
+    "pendingDescription": "Changes waiting to sync to the server",
+    "failedOperations": "Failed operations",
+    "failedDescription": "Changes that could not be synced after multiple retries",
+    "retry": "Retry",
+    "clear": "Clear"
+  },
+  "shortcuts": {
+    "global": {
+      "title": "Global Shortcut",
+      "quickCompose": "Quick compose",
+      "quickComposeDescription": "Open compose window from any app",
+      "change": "Change"
+    },
+    "recording": {
+      "pressKeys": "Press keys...",
+      "pressKey": "Press key..."
+    },
+    "instructions": "Click a shortcut to rebind it. Press any key or key combination to set.",
+    "resetAll": "Reset all",
+    "resetTo": "Reset to {{shortcut}}",
+    "categories": {
+      "navigation": "Navigation",
+      "actions": "Actions",
+      "app": "App"
+    },
+    "items": {
+      "nav_next": "Next thread",
+      "nav_prev": "Previous thread",
+      "nav_open": "Open thread",
+      "nav_msgNext": "Next message in thread",
+      "nav_msgPrev": "Previous message in thread",
+      "nav_goInbox": "Go to Inbox",
+      "nav_goStarred": "Go to Starred",
+      "nav_goSent": "Go to Sent",
+      "nav_goDrafts": "Go to Drafts",
+      "nav_goPrimary": "Go to Primary",
+      "nav_goUpdates": "Go to Updates",
+      "nav_goPromotions": "Go to Promotions",
+      "nav_goSocial": "Go to Social",
+      "nav_goNewsletters": "Go to Newsletters",
+      "nav_goTasks": "Go to Tasks",
+      "nav_goAttachments": "Go to Attachments",
+      "nav_escape": "Close / Go back",
+      "action_compose": "Compose new email",
+      "action_reply": "Reply",
+      "action_replyAll": "Reply All",
+      "action_forward": "Forward",
+      "action_archive": "Archive",
+      "action_delete": "Delete",
+      "action_spam": "Report Spam / Not Spam",
+      "action_star": "Star / Unstar",
+      "action_pin": "Pin / Unpin",
+      "action_unsubscribe": "Unsubscribe",
+      "action_mute": "Mute / Unmute",
+      "action_createTaskFromEmail": "Create task from email (AI)",
+      "action_moveToFolder": "Move to folder/label",
+      "action_selectAll": "Select all",
+      "action_selectFromHere": "Select all from here",
+      "app_commandPalette": "Command palette",
+      "app_toggleSidebar": "Toggle sidebar",
+      "app_send": "Send email",
+      "app_askInbox": "Ask AI about your inbox",
+      "app_help": "Show keyboard shortcuts",
+      "app_syncFolder": "Sync current folder"
+    }
+  },
+  "aiSettings": {
+    "provider": {
+      "title": "Provider",
+      "description": "Choose which AI provider to use for summarization, compose assistance, and smart categorization.",
+      "aiProvider": "AI Provider",
+      "usesModel": "Uses {{model}}.",
+      "localDescription": "Connect to a local Ollama or LMStudio server. No API key required.",
+      "copilotDescription": "Uses {{model}}. Requires a GitHub PAT with models:read permission.",
+      "options": {
+        "claude": "Claude (Anthropic)",
+        "openai": "OpenAI",
+        "gemini": "Gemini (Google)",
+        "ollama": "Local AI (Ollama / LMStudio)",
+        "copilot": "GitHub Copilot"
+      }
+    },
+    "localServer": {
+      "title": "Local Server",
+      "serverUrl": "Server URL",
+      "modelName": "Model Name"
+    },
+    "apiKey": {
+      "title": "API Key",
+      "model": "Model",
+      "saveKey": "Save Key",
+      "labels": {
+        "claude": "Anthropic API Key",
+        "openai": "OpenAI API Key",
+        "gemini": "Google AI API Key",
+        "copilot": "GitHub Personal Access Token"
+      }
+    },
+    "common": {
+      "saved": "Saved!",
+      "testing": "Testing...",
+      "testConnection": "Test Connection",
+      "connected": "Connected!",
+      "connectionFailed": "Connection failed",
+      "analyzing": "Analyzing..."
+    },
+    "features": {
+      "title": "Features",
+      "enable": "Enable AI features",
+      "enableDescription": "Master toggle for all AI functionality",
+      "autoCategorize": "Auto-categorize inbox",
+      "autoCategorizeDescription": "Use AI to refine rule-based categorization",
+      "autoSummarize": "Auto-summarize threads",
+      "autoSummarizeDescription": "Show AI summaries on multi-message threads"
+    },
+    "autoDraft": {
+      "title": "Auto-Draft Replies",
+      "enable": "Auto-draft replies",
+      "enableDescription": "Pre-populate the reply editor with an AI-generated draft",
+      "writingStyle": "Learn writing style",
+      "writingStyleDescription": "Analyze your sent emails to match your tone and voice",
+      "profile": "Writing style profile",
+      "profileDescription": "Reanalyze your writing style from recent sent emails",
+      "reanalyze": "Reanalyze"
+    },
+    "categories": {
+      "title": "Categories",
+      "description": "Incoming emails are automatically sorted using rule-based heuristics (Gmail labels, sender domain, headers). When AI is enabled, it refines results for better accuracy.",
+      "autoArchiveDescription": "Enable auto-archive to skip the inbox for specific categories.",
+      "autoArchive": "Auto-archive {{category}}",
+      "skipInbox": "Skip inbox for {{category}} emails"
+    },
+    "bundles": {
+      "title": "Bundling & Delivery Schedules",
+      "description": "Collapse categories into a single row in the inbox. Optionally set a delivery schedule to batch emails.",
+      "bundle": "Bundle",
+      "schedule": "Schedule",
+      "at": "at",
+      "days": {
+        "sun": "Sun",
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat"
+      }
+    }
+  },
+  "editors": {
+    "common": {
+      "save": "Save",
+      "saving": "Saving...",
+      "update": "Update",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "labels": {
+      "empty": "No user labels",
+      "add": "+ Add label",
+      "namePlaceholder": "Label name",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "noColor": "No color",
+      "saveError": "Failed to save label",
+      "deleteError": "Failed to delete label"
+    },
+    "signatures": {
+      "add": "+ Add signature",
+      "default": "Default",
+      "namePlaceholder": "Signature name",
+      "htmlSource": "HTML source",
+      "editHtml": "Edit HTML source",
+      "visualEditor": "Switch to visual editor",
+      "setDefault": "Set as default",
+      "placeholder": "Write your signature..."
+    },
+    "criteria": {
+      "fromPlaceholder": "From contains...",
+      "toPlaceholder": "To contains...",
+      "subjectPlaceholder": "Subject contains...",
+      "bodyPlaceholder": "Body contains...",
+      "hasAttachment": "Has attachment",
+      "noCriteria": "No criteria",
+      "invalidCriteria": "Invalid criteria",
+      "summary": {
+        "from": "from: {{value}}",
+        "to": "to: {{value}}",
+        "subject": "subject: {{value}}",
+        "body": "body: {{value}}",
+        "hasAttachment": "has attachment"
+      }
+    },
+    "filters": {
+      "add": "+ Add filter",
+      "namePlaceholder": "Filter name",
+      "matchCriteria": "Match criteria",
+      "actions": "Actions",
+      "applyLabel": "Apply label",
+      "none": "None",
+      "archive": "Archive",
+      "star": "Star",
+      "markRead": "Mark as read",
+      "trash": "Trash",
+      "disabled": "Disabled",
+      "enable": "Enable",
+      "disable": "Disable"
+    },
+    "smartLabels": {
+      "add": "+ Add smart label",
+      "applyExisting": "Apply to existing emails",
+      "applyingExisting": "Applying to existing emails...",
+      "backfillApplied": "Applied {{count}} label{{plural}} to existing emails.",
+      "backfillFailed": "Backfill failed. Check your AI provider settings.",
+      "disabled": "Disabled",
+      "enable": "Enable",
+      "disable": "Disable",
+      "label": "Label",
+      "selectLabel": "Select a label...",
+      "noLabels": "No user labels found. Create a label first.",
+      "aiDescription": "AI Description",
+      "aiDescriptionPlaceholder": "e.g., Job applications and career opportunities",
+      "optionalCriteria": "Optional filter criteria"
+    },
+    "templates": {
+      "add": "+ Add template",
+      "namePlaceholder": "Template name",
+      "subjectPlaceholder": "Subject (optional)",
+      "shortcutPlaceholder": "Shortcut (optional, e.g. /thanks)",
+      "insertVariable": "Insert variable",
+      "placeholder": "Write your template...",
+      "variables": {
+        "first_name": "Recipient's first name",
+        "last_name": "Recipient's last name",
+        "email": "Recipient's email address",
+        "my_name": "Your display name",
+        "my_email": "Your email address",
+        "subject": "Thread subject",
+        "date": "Today's date",
+        "day": "Day of week"
+      }
+    },
+    "smartFolders": {
+      "add": "+ Add smart folder",
+      "default": "Default",
+      "namePlaceholder": "Folder name",
+      "queryPlaceholder": "Search query (e.g. is:unread from:boss)",
+      "iconName": "Icon name",
+      "iconPlaceholder": "Search",
+      "iconHint": "Search, MailOpen, Paperclip, Star, FolderSearch, Inbox, Clock, Tag",
+      "color": "Color (optional)"
+    },
+    "quickSteps": {
+      "add": "+ Add quick step",
+      "disabled": "Disabled",
+      "enable": "Enable",
+      "disable": "Disable",
+      "invalidActions": "Invalid actions",
+      "namePlaceholder": "Quick step name",
+      "descriptionPlaceholder": "Description (optional)",
+      "shortcut": "Shortcut (optional)",
+      "shortcutPlaceholder": "e.g. Ctrl+Shift+1",
+      "icon": "Icon (optional)",
+      "iconPlaceholder": "e.g. Archive, Star",
+      "actionChain": "Action chain",
+      "selectLabel": "Select label...",
+      "selectCategory": "Select category...",
+      "selectDuration": "Select duration...",
+      "removeAction": "Remove action",
+      "addAction": "Add action",
+      "continueOnError": "Continue on error (run remaining actions even if one fails)",
+      "presets": {
+        "replyArchive": "Reply & Archive",
+        "markReadArchive": "Mark Read & Archive",
+        "starPin": "Star & Pin"
+      },
+      "actions": {
+        "archive": "Archive",
+        "trash": "Trash",
+        "markRead": "Mark as Read",
+        "markUnread": "Mark as Unread",
+        "star": "Star",
+        "unstar": "Remove Star",
+        "pin": "Pin",
+        "unpin": "Unpin",
+        "applyLabel": "Apply Label",
+        "removeLabel": "Remove Label",
+        "moveToCategory": "Move to Category",
+        "reply": "Reply",
+        "replyAll": "Reply All",
+        "forward": "Forward",
+        "snooze": "Snooze",
+        "spam": "Report Spam",
+        "notSpam": "Not Spam"
+      },
+      "durations": {
+        "oneHour": "1 hour",
+        "fourHours": "4 hours",
+        "tomorrow": "Tomorrow",
+        "twoDays": "2 days",
+        "oneWeek": "1 week"
+      },
+      "categories": {
+        "Primary": "Primary",
+        "Updates": "Updates",
+        "Promotions": "Promotions",
+        "Social": "Social",
+        "Newsletters": "Newsletters"
+      }
+    },
+    "contacts": {
+      "searchPlaceholder": "Search contacts...",
+      "noMatches": "No matching contacts",
+      "empty": "No contacts yet",
+      "displayNamePlaceholder": "Display name",
+      "editName": "Edit name",
+      "deleteContact": "Delete contact",
+      "total": "{{count}} contact{{plural}} total",
+      "frequency": "{{count}}x"
+    },
+    "subscriptions": {
+      "noActiveAccount": "No active account selected.",
+      "loading": "Loading subscriptions...",
+      "searchPlaceholder": "Search senders...",
+      "unsubscribeSelected": "Unsubscribe ({{count}})",
+      "detected": "{{count}} sender{{plural}} detected with unsubscribe headers.",
+      "unsubscribed": "Unsubscribed",
+      "oneClick": "One-click",
+      "emailCount": "{{count}} email{{plural}}",
+      "unsubscribe": "Unsubscribe",
+      "noMatches": "No matching senders found.",
+      "empty": "No subscriptions detected yet. Subscriptions appear as emails are synced."
+    }
+  }
+}

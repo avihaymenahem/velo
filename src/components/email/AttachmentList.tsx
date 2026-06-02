@@ -6,6 +6,7 @@ import { getEmailProvider } from "@/services/email/providerFactory";
 import { Modal } from "@/components/ui/Modal";
 import { Download, Eye } from "lucide-react";
 import { formatFileSize, isImage, isPdf, isText, canPreview, getFileIcon } from "@/utils/fileTypeHelpers";
+import { useTranslation } from "react-i18next";
 
 /** Dedup attachments by filename+size (content-based) */
 function dedup(attachments: DbAttachment[]): DbAttachment[] {
@@ -26,6 +27,7 @@ interface AttachmentListProps {
 }
 
 export function AttachmentList({ accountId, messageId, attachments, referencedCids }: AttachmentListProps) {
+  const { t } = useTranslation("attachments");
   const [preview, setPreview] = useState<DbAttachment | null>(null);
 
   // Filter out CID images rendered in the email body and true inline parts, then dedup
@@ -43,7 +45,7 @@ export function AttachmentList({ accountId, messageId, attachments, referencedCi
     <>
       <div className="mt-3 pt-3 border-t border-border-secondary">
         <div className="text-xs text-text-tertiary mb-2">
-          {fileAttachments.length} attachment{fileAttachments.length !== 1 ? "s" : ""}
+          {t("messageList.count", { count: fileAttachments.length })}
         </div>
         <div className="flex flex-wrap gap-2">
           {fileAttachments.map((att) => (
@@ -54,7 +56,7 @@ export function AttachmentList({ accountId, messageId, attachments, referencedCi
             >
               <span className="text-text-tertiary">{getFileIcon(att.mime_type)}</span>
               <span className="text-text-secondary truncate max-w-[200px]">
-                {att.filename ?? "Unnamed"}
+                {att.filename ?? t("actions.unnamed")}
               </span>
               {att.size != null && (
                 <span className="text-text-tertiary whitespace-nowrap">
@@ -89,6 +91,7 @@ export function AttachmentPreview({
   messageId: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("attachments");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -127,7 +130,7 @@ export function AttachmentPreview({
       setBlobUrl(URL.createObjectURL(blob));
     } catch (err) {
       console.error("Failed to load preview:", err);
-      setError("Failed to load preview");
+      setError(t("preview.error"));
     } finally {
       setLoading(false);
     }
@@ -146,8 +149,8 @@ export function AttachmentPreview({
     setSaving(true);
     try {
       const filePath = await save({
-        defaultPath: attachment.filename ?? "attachment",
-        filters: [{ name: "All Files", extensions: ["*"] }],
+        defaultPath: attachment.filename ?? t("actions.unnamed"),
+        filters: [{ name: t("dialog.allFiles"), extensions: ["*"] }],
       });
 
       if (!filePath) {
@@ -174,7 +177,7 @@ export function AttachmentPreview({
       <div className="flex items-center gap-2 min-w-0">
         <span>{getFileIcon(attachment.mime_type)}</span>
         <span className="text-sm font-medium text-text-primary truncate">
-          {attachment.filename ?? "Unnamed"}
+          {attachment.filename ?? t("actions.unnamed")}
         </span>
         {attachment.size != null && (
           <span className="text-xs text-text-tertiary whitespace-nowrap">
@@ -189,7 +192,7 @@ export function AttachmentPreview({
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
         >
           <Download size={13} />
-          {saving ? "Saving..." : "Download"}
+          {saving ? t("preview.saving") : t("actions.download")}
         </button>
         <button
           onClick={handleClose}
@@ -205,7 +208,7 @@ export function AttachmentPreview({
     <Modal
       isOpen={true}
       onClose={handleClose}
-      title={attachment.filename ?? "Attachment"}
+      title={attachment.filename ?? t("title")}
       width="w-[800px]"
       panelClassName="max-w-[90vw] max-h-[85vh] flex flex-col"
       renderHeader={header}
@@ -213,7 +216,7 @@ export function AttachmentPreview({
       {/* Allow native right-click in preview (save image, copy, etc.) */}
       <div className="flex-1 overflow-auto min-h-[200px] flex items-center justify-center p-4" data-native-context-menu>
         {loading && (
-          <p className="text-sm text-text-tertiary">Loading preview...</p>
+          <p className="text-sm text-text-tertiary">{t("preview.loading")}</p>
         )}
         {error && (
           <p className="text-sm text-text-tertiary">{error}</p>
@@ -221,14 +224,14 @@ export function AttachmentPreview({
         {!loading && !error && blobUrl && isImage(attachment.mime_type) && (
           <img
             src={blobUrl}
-            alt={attachment.filename ?? "Attachment"}
+            alt={attachment.filename ?? t("title")}
             className="max-w-full max-h-[70vh] object-contain rounded"
           />
         )}
         {!loading && !error && blobUrl && isPdf(attachment.mime_type, attachment.filename) && (
           <iframe
             src={blobUrl}
-            title={attachment.filename ?? "PDF preview"}
+            title={attachment.filename ?? t("preview.pdfTitle")}
             className="w-full h-[70vh] border-0 rounded"
           />
         )}
@@ -238,8 +241,8 @@ export function AttachmentPreview({
         {!isPreviewable && !loading && (
           <div className="flex flex-col items-center gap-3 text-text-tertiary">
             <Eye size={40} strokeWidth={1} />
-            <p className="text-sm">Preview not available for this file type</p>
-            <p className="text-xs">{attachment.mime_type ?? "Unknown type"}</p>
+            <p className="text-sm">{t("preview.notAvailable")}</p>
+            <p className="text-xs">{attachment.mime_type ?? t("preview.unknownType")}</p>
           </div>
         )}
       </div>
@@ -248,15 +251,16 @@ export function AttachmentPreview({
 }
 
 function TextPreview({ url }: { url: string }) {
+  const { t } = useTranslation("attachments");
   const [text, setText] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(url).then((r) => r.text()).then(setText).catch(() => setText("Failed to load text"));
-  }, [url]);
+    fetch(url).then((r) => r.text()).then(setText).catch(() => setText(t("preview.textError")));
+  }, [url, t]);
 
   return (
     <pre className="text-xs text-text-secondary whitespace-pre-wrap font-mono w-full max-h-[70vh] overflow-auto bg-bg-tertiary rounded p-4">
-      {text ?? "Loading..."}
+      {text ?? t("preview.textLoading")}
     </pre>
   );
 }

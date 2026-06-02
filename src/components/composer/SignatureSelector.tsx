@@ -5,8 +5,10 @@ import {
   getSignaturesForAccount,
   type DbSignature,
 } from "@/services/db/signatures";
+import { useTranslation } from "react-i18next";
 
 export function SignatureSelector() {
+  const { t } = useTranslation("composer");
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const isOpen = useComposerStore((s) => s.isOpen);
   const signatureId = useComposerStore((s) => s.signatureId);
@@ -44,7 +46,7 @@ export function SignatureSelector() {
       onChange={(e) => handleChange(e.target.value)}
       className="text-[0.625rem] bg-bg-tertiary text-text-secondary border border-border-primary rounded px-1.5 py-0.5"
     >
-      <option value="">No signature</option>
+      <option value="">{t("signature.none")}</option>
       {signatures.map((sig) => (
         <option key={sig.id} value={sig.id}>
           {sig.name}

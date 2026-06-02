@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SmartLabelEditor } from "./SmartLabelEditor";
 import { useAccountStore } from "@/stores/accountStore";
+import i18n from "@/i18n";
 
 vi.mock("@/services/db/labels", () => ({
   getLabelsForAccount: vi.fn(() =>
@@ -32,7 +33,8 @@ vi.mock("@/services/smartLabels/backfillService", () => ({
 }));
 
 describe("SmartLabelEditor", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     vi.clearAllMocks();
     useAccountStore.setState({
       accounts: [{ id: "acc1", email: "test@test.com", displayName: "Test", avatarUrl: null, isActive: true }],
@@ -58,6 +60,28 @@ describe("SmartLabelEditor", () => {
     expect(screen.getByText("AI Description")).toBeInTheDocument();
     expect(screen.getByText("Save")).toBeInTheDocument();
     expect(screen.getByText("Cancel")).toBeInTheDocument();
+  });
+
+  it("renders smart label editor chrome in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+
+    render(<SmartLabelEditor />);
+    await waitFor(() => screen.getByText("+ 添加智能标签"));
+
+    fireEvent.click(screen.getByText("+ 添加智能标签"));
+
+    expect(screen.getByText("标签")).toBeInTheDocument();
+    expect(screen.getByText("AI 描述")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("例如：求职申请和职业机会")).toBeInTheDocument();
+    expect(screen.getByText("可选过滤条件")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("可选过滤条件"));
+
+    expect(screen.getByPlaceholderText("发件人包含...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("主题包含...")).toBeInTheDocument();
+    expect(screen.getByText("包含附件")).toBeInTheDocument();
+    expect(screen.getByText("保存")).toBeDisabled();
+    expect(screen.getByText("取消")).toBeInTheDocument();
   });
 
   it("hides form when Cancel is clicked", async () => {

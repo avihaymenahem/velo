@@ -1,0 +1,54 @@
+{
+  "compose": "写邮件",
+  "nav": {
+    "inbox": "收件箱",
+    "starred": "已加星标",
+    "snoozed": "稍后提醒",
+    "sent": "已发送",
+    "drafts": "草稿",
+    "trash": "废纸篓",
+    "spam": "垃圾邮件",
+    "all": "全部邮件",
+    "tasks": "任务",
+    "calendar": "日历",
+    "attachments": "附件",
+    "smart-folders": "智能文件夹",
+    "labels": "标签"
+  },
+  "categories": {
+    "Primary": "主要",
+    "Updates": "更新",
+    "Promotions": "推广",
+    "Social": "社交",
+    "Newsletters": "简报"
+  },
+  "sections": {
+    "smartFolders": "智能文件夹",
+    "labels": "标签"
+  },
+  "tooltips": {
+    "editLabel": "编辑标签",
+    "addSmartFolder": "添加智能文件夹",
+    "addLabel": "添加标签",
+    "settings": "设置",
+    "help": "帮助",
+    "expandSidebar": "展开侧边栏",
+    "collapseSidebar": "收起侧边栏",
+    "switchUnified": "切换到统一收件箱",
+    "switchSplit": "切换到分类收件箱"
+  },
+  "labels": {
+    "showLess": "收起",
+    "more": "还有 {{count}} 个"
+  },
+  "smartFolderDialog": {
+    "title": "新建智能文件夹",
+    "name": "名称",
+    "namePlaceholder": "例如：老板的未读邮件",
+    "query": "搜索条件",
+    "queryPlaceholder": "例如：is:unread from:boss"
+  },
+  "pending": "{{count}} 个待同步{{label}}",
+  "pendingChange": "变更",
+  "pendingChanges": "变更"
+}

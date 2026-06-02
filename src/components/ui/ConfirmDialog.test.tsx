@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
+import i18n from "@/i18n";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 describe("ConfirmDialog", () => {
@@ -10,7 +11,8 @@ describe("ConfirmDialog", () => {
     message: "This action cannot be undone.",
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     vi.clearAllMocks();
   });
 
@@ -35,6 +37,17 @@ describe("ConfirmDialog", () => {
     render(<ConfirmDialog {...baseProps} />);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("localizes default labels in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+
+    render(<ConfirmDialog {...baseProps} />);
+
+    expect(screen.getByRole("button", { name: "取消" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "确认" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
   });
 
   it("calls onClose when Escape key is pressed", () => {

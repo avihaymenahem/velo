@@ -1,0 +1,57 @@
+{
+  "searchBar": {
+    "placeholder": "Search... (from: to: has:attachment)",
+    "saveSmartFolder": "Save as Smart Folder",
+    "name": "Name",
+    "save": "Save"
+  },
+  "shortcutsHelp": {
+    "title": "Keyboard Shortcuts"
+  },
+  "commandPalette": {
+    "placeholder": "Type a command...",
+    "empty": "No commands found",
+    "categories": {
+      "navigation": "Navigation",
+      "actions": "Actions",
+      "tasks": "Tasks",
+      "ai": "AI",
+      "settings": "Settings",
+      "templates": "Templates"
+    },
+    "commands": {
+      "goInbox": "Go to Inbox",
+      "goStarred": "Go to Starred",
+      "goSent": "Go to Sent",
+      "goDrafts": "Go to Drafts",
+      "goSnoozed": "Go to Snoozed",
+      "goTrash": "Go to Trash",
+      "goAll": "Go to All Mail",
+      "compose": "Compose New Email",
+      "closeThread": "Close Thread",
+      "notSpam": "Not Spam",
+      "reportSpam": "Report Spam",
+      "createTask": "Create Task",
+      "createTaskFromEmail": "Create Task from Email (AI)",
+      "viewTasks": "View Tasks",
+      "toggleTaskPanel": "Toggle Task Panel",
+      "askAi": "Ask AI about your inbox",
+      "toggleSidebar": "Toggle Sidebar",
+      "lightTheme": "Switch to Light Theme",
+      "darkTheme": "Switch to Dark Theme",
+      "systemTheme": "Use System Theme",
+      "insertTemplate": "Insert: {{name}}"
+    }
+  },
+  "askInbox": {
+    "title": "Ask My Inbox",
+    "placeholder": "Ask a question about your emails...",
+    "searching": "Searching your inbox...",
+    "sources": "Sources ({{count}})",
+    "unknown": "Unknown",
+    "noSubject": "(no subject)",
+    "askAnother": "Ask another question",
+    "empty": "Ask anything about your emails — meetings, conversations, attachments, and more.",
+    "error": "Sorry, something went wrong. Please check your AI configuration and try again."
+  }
+}

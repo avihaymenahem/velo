@@ -1,6 +1,8 @@
 import { ShieldAlert, ExternalLink } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import type { LinkAnalysis } from "@/utils/phishingDetector";
+import { useTranslation } from "react-i18next";
+import { getPhishingRuleDisplay } from "@/utils/phishingRuleDisplay";
 
 interface LinkConfirmDialogProps {
   linkAnalysis: LinkAnalysis;
@@ -9,6 +11,7 @@ interface LinkConfirmDialogProps {
 }
 
 export function LinkConfirmDialog({ linkAnalysis, onCancel, onConfirm }: LinkConfirmDialogProps) {
+  const { t } = useTranslation("email");
   const isHigh = linkAnalysis.riskLevel === "high";
   const borderColor = isHigh ? "border-danger/40" : "border-warning/40";
   const headerBg = isHigh ? "bg-danger/10" : "bg-warning/10";
@@ -18,7 +21,7 @@ export function LinkConfirmDialog({ linkAnalysis, onCancel, onConfirm }: LinkCon
     <div className={`px-4 py-3 ${headerBg} flex items-center gap-2.5 rounded-t-lg`}>
       <ShieldAlert size={18} className={headerText} />
       <h2 className={`text-sm font-semibold ${headerText}`}>
-        {isHigh ? "High Risk Link" : "Suspicious Link"}
+        {isHigh ? t("linkConfirm.highRisk") : t("linkConfirm.suspicious")}
       </h2>
     </div>
   );
@@ -37,7 +40,7 @@ export function LinkConfirmDialog({ linkAnalysis, onCancel, onConfirm }: LinkCon
       <div className="px-4 py-3 space-y-3">
         {/* URL display */}
         <div>
-          <label className="text-xs text-text-tertiary block mb-1">Full URL</label>
+          <label className="text-xs text-text-tertiary block mb-1">{t("linkConfirm.fullUrl")}</label>
           <div className="flex items-start gap-2 p-2 bg-bg-tertiary rounded-md">
             <ExternalLink size={14} className="text-text-tertiary shrink-0 mt-0.5" />
             <span className="text-xs text-text-primary break-all font-mono leading-relaxed">
@@ -49,7 +52,7 @@ export function LinkConfirmDialog({ linkAnalysis, onCancel, onConfirm }: LinkCon
         {/* Display text if different */}
         {linkAnalysis.displayText && (
           <div>
-            <label className="text-xs text-text-tertiary block mb-1">Link text</label>
+            <label className="text-xs text-text-tertiary block mb-1">{t("linkConfirm.linkText")}</label>
             <p className="text-xs text-text-secondary px-2">
               {linkAnalysis.displayText}
             </p>
@@ -60,34 +63,37 @@ export function LinkConfirmDialog({ linkAnalysis, onCancel, onConfirm }: LinkCon
         {linkAnalysis.triggeredRules.length > 0 && (
           <div>
             <label className="text-xs text-text-tertiary block mb-1.5">
-              Issues detected ({linkAnalysis.triggeredRules.length})
+              {t("linkConfirm.issuesDetected", { count: linkAnalysis.triggeredRules.length })}
             </label>
             <ul className="space-y-1.5">
-              {linkAnalysis.triggeredRules.map((rule) => (
-                <li
-                  key={rule.ruleId}
-                  className="flex items-start gap-2 text-xs px-2"
-                >
-                  <span
-                    className={`shrink-0 mt-0.5 w-1.5 h-1.5 rounded-full ${
-                      rule.score >= 50
-                        ? "bg-danger"
-                        : rule.score >= 30
-                          ? "bg-warning"
-                          : "bg-yellow-400"
-                    }`}
-                  />
-                  <div>
-                    <span className="font-medium text-text-primary">
-                      {rule.name}
-                    </span>
-                    <span className="text-text-tertiary ml-1">
-                      ({rule.score}pts)
-                    </span>
-                    <p className="text-text-tertiary mt-0.5">{rule.detail}</p>
-                  </div>
-                </li>
-              ))}
+              {linkAnalysis.triggeredRules.map((rule) => {
+                const display = getPhishingRuleDisplay(rule, t);
+                return (
+                  <li
+                    key={rule.ruleId}
+                    className="flex items-start gap-2 text-xs px-2"
+                  >
+                    <span
+                      className={`shrink-0 mt-0.5 w-1.5 h-1.5 rounded-full ${
+                        rule.score >= 50
+                          ? "bg-danger"
+                          : rule.score >= 30
+                            ? "bg-warning"
+                            : "bg-yellow-400"
+                      }`}
+                    />
+                    <div>
+                      <span className="font-medium text-text-primary">
+                        {display.name}
+                      </span>
+                      <span className="text-text-tertiary ml-1">
+                        {t("linkConfirm.points", { score: rule.score })}
+                      </span>
+                      <p className="text-text-tertiary mt-0.5">{display.detail}</p>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
@@ -99,13 +105,13 @@ export function LinkConfirmDialog({ linkAnalysis, onCancel, onConfirm }: LinkCon
           onClick={onCancel}
           className="px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-md hover:bg-accent-hover transition-colors"
         >
-          Go Back
+          {t("linkConfirm.goBack")}
         </button>
         <button
           onClick={onConfirm}
           className="px-3 py-1.5 text-xs text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors"
         >
-          Open Anyway
+          {t("linkConfirm.openAnyway")}
         </button>
       </div>
     </Modal>

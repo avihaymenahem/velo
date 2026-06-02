@@ -33,7 +33,7 @@ export function OpenSource() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.05 }}
         >
-          Every line of code is public, licensed under Apache 2.0. No telemetry, no data collection, no cloud dependency. Your email stays on your machine.
+          Every line of code is public, licensed under Apache 2.0. No telemetry, no data collection, and local-first storage. AI calls go directly to the provider you configure.
         </motion.p>
 
         <motion.div
@@ -60,7 +60,7 @@ export function OpenSource() {
           transition={{ duration: 0.5, delay: 0.15 }}
         >
           <a
-            href="https://github.com/avihaymenahem/velo"
+            href="https://github.com/iiwish/kirje"
             target="_blank"
             rel="noopener noreferrer"
             className="btn-secondary"

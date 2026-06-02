@@ -1,16 +1,27 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams } from "@tanstack/react-router";
 import { ArrowLeft, Search } from "lucide-react";
 import { navigateToLabel } from "@/router/navigate";
-import { HELP_CATEGORIES, getAllCards, getCategoryById } from "@/constants/helpContent";
+import {
+  HELP_CATEGORIES,
+  getAllCardsFromCategories,
+  getCategoryByIdFromCategories,
+  localizeHelpCategories,
+} from "@/constants/helpContent";
 import { HelpSidebar } from "./HelpSidebar";
 import { HelpSearchBar } from "./HelpSearchBar";
 import { HelpCardGrid } from "./HelpCardGrid";
 
 export function HelpPage() {
+  const { t } = useTranslation("help");
+  const categories = useMemo(
+    () => localizeHelpCategories(HELP_CATEGORIES, (key, defaultValue) => t(key, { defaultValue })),
+    [t],
+  );
   const { topic } = useParams({ strict: false }) as { topic?: string };
   const activeTopic =
-    topic && HELP_CATEGORIES.some((c) => c.id === topic) ? topic : "getting-started";
+    topic && categories.some((c) => c.id === topic) ? topic : "getting-started";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
@@ -24,7 +35,7 @@ export function HelpPage() {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return null;
 
-    const allCards = getAllCards();
+    const allCards = getAllCardsFromCategories(categories);
     return allCards.filter((card) => {
       if (card.title.toLowerCase().includes(q)) return true;
       if (card.summary.toLowerCase().includes(q)) return true;
@@ -32,7 +43,7 @@ export function HelpPage() {
       if (card.tips?.some((tip) => tip.text.toLowerCase().includes(q))) return true;
       return false;
     });
-  }, [searchQuery]);
+  }, [categories, searchQuery]);
 
   // Group search results by category
   const groupedResults = useMemo(() => {
@@ -47,7 +58,7 @@ export function HelpPage() {
     return groups;
   }, [searchResults]);
 
-  const activeCategory = getCategoryById(activeTopic);
+  const activeCategory = getCategoryByIdFromCategories(categories, activeTopic);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-bg-primary/50">
@@ -56,16 +67,16 @@ export function HelpPage() {
         <button
           onClick={() => navigateToLabel("inbox")}
           className="p-1.5 -ml-1 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
-          title="Back to Inbox"
+          title={t("backToInbox")}
         >
           <ArrowLeft size={18} />
         </button>
-        <h1 className="text-base font-semibold text-text-primary">Help</h1>
+        <h1 className="text-base font-semibold text-text-primary">{t("title")}</h1>
       </div>
 
       {/* Body: sidebar nav + content */}
       <div className="flex flex-1 min-h-0">
-        <HelpSidebar activeTopic={activeTopic} />
+        <HelpSidebar activeTopic={activeTopic} categories={categories} />
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
@@ -77,7 +88,7 @@ export function HelpPage() {
               Object.keys(groupedResults).length > 0 ? (
                 <div className="space-y-6">
                   {Object.entries(groupedResults).map(([categoryId, cards]) => {
-                    const cat = getCategoryById(categoryId);
+                    const cat = getCategoryByIdFromCategories(categories, categoryId);
                     return (
                       <div key={categoryId}>
                         <h2 className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">
@@ -96,7 +107,7 @@ export function HelpPage() {
                 // Empty search state
                 <div className="flex flex-col items-center justify-center py-16 text-text-tertiary">
                   <Search size={32} className="mb-3 opacity-40" />
-                  <p className="text-sm">No results for &ldquo;{searchQuery}&rdquo;</p>
+                  <p className="text-sm">{t("noResults", { query: searchQuery })}</p>
                 </div>
               )
             ) : (

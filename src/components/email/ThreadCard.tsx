@@ -1,4 +1,5 @@
 import { memo, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useDraggable } from "@dnd-kit/core";
 import type { Thread } from "@/stores/threadStore";
 import { useThreadStore } from "@/stores/threadStore";
@@ -14,17 +15,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   Promotions: "bg-green-500/15 text-green-600 dark:text-green-400",
   Social: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
   Newsletters: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
-};
-
-const WORK_STATE_LABELS: Partial<Record<ThreadPrimaryState, string>> = {
-  needs_reply: "Needs reply",
-  waiting: "Waiting",
-  committed: "Committed",
-  decision_needed: "Decision",
-  risk: "Risk",
-  opportunity: "Opportunity",
-  can_archive: "Can archive",
-  done: "Done",
 };
 
 const WORK_STATE_COLORS: Partial<Record<ThreadPrimaryState, string>> = {
@@ -49,6 +39,7 @@ interface ThreadCardProps {
 }
 
 export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick, onContextMenu, category, showCategoryBadge, hasFollowUp }: ThreadCardProps) {
+  const { t, i18n } = useTranslation(["email", "agentic"]);
   const isMultiSelected = useThreadStore((s) => s.selectedThreadIds.has(thread.id));
   const hasMultiSelect = useThreadStore((s) => s.selectedThreadIds.size > 0);
   const toggleThreadSelection = useThreadStore((s) => s.toggleThreadSelection);
@@ -56,8 +47,10 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
   const activeLabel = useActiveLabel();
   const emailDensity = useUIStore((s) => s.emailDensity);
   const isSpam = thread.labelIds.includes("SPAM");
-  const workStateLabel = thread.workState ? WORK_STATE_LABELS[thread.workState] : undefined;
+  const workStateLabel = thread.workState ? t(`workState.${thread.workState}`, { ns: "agentic" }) : undefined;
   const workStateColor = thread.workState ? WORK_STATE_COLORS[thread.workState] : undefined;
+  const sender = thread.fromName ?? thread.fromAddress ?? t("common.unknown");
+  const subject = thread.subject ?? t("common.noSubject");
 
   // Read selectedThreadIds lazily for drag — avoids subscribing all cards to the Set reference
   const dragData: DragData = useMemo(() => ({
@@ -102,7 +95,11 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
       {...listeners}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
-      aria-label={`${thread.isRead ? "" : "Unread "}email from ${thread.fromName ?? thread.fromAddress ?? "Unknown"}: ${thread.subject ?? "(No subject)"}`}
+      aria-label={t("threadCard.aria", {
+        unread: thread.isRead ? "" : t("threadCard.unread"),
+        sender,
+        subject,
+      })}
       aria-selected={isSelected}
       className={`w-full text-left border-b border-border-secondary group hover-lift press-scale ${
         emailDensity === "compact" ? "px-3 py-1.5" : emailDensity === "spacious" ? "px-4 py-4" : "px-4 py-3"
@@ -139,10 +136,10 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
                   : "font-semibold text-text-primary"
               }`}
             >
-              {thread.fromName ?? thread.fromAddress ?? "Unknown"}
+              {sender}
             </span>
             <span className="text-xs text-text-tertiary whitespace-nowrap shrink-0">
-              {formatRelativeDate(thread.lastMessageAt)}
+              {formatRelativeDate(thread.lastMessageAt, i18n.resolvedLanguage ?? i18n.language)}
             </span>
           </div>
 
@@ -152,7 +149,7 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
               thread.isRead ? "text-text-secondary" : "text-text-primary"
             }`}
           >
-            {thread.subject ?? "(No subject)"}
+            {subject}
           </div>
 
           {/* Snippet + indicators */}
@@ -162,7 +159,7 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
             </span>
             {showCategoryBadge && category && category !== "Primary" && CATEGORY_COLORS[category] && (
               <span className={`shrink-0 text-[0.625rem] px-1.5 rounded-full leading-normal ${CATEGORY_COLORS[category]}`}>
-                {category}
+                {t(`category.${category}`, { defaultValue: category })}
               </span>
             )}
             {workStateLabel && workStateColor && (
@@ -171,27 +168,27 @@ export const ThreadCard = memo(function ThreadCard({ thread, isSelected, onClick
               </span>
             )}
             {hasFollowUp && (
-              <span className="shrink-0 text-accent" title="Follow-up reminder set">
+              <span className="shrink-0 text-accent" title={t("threadCard.followUp")}>
                 <BellRing size={12} />
               </span>
             )}
             {thread.isMuted && (
-              <span className="shrink-0 text-warning" title="Muted">
+              <span className="shrink-0 text-warning" title={t("threadCard.muted")}>
                 <VolumeX size={12} />
               </span>
             )}
             {thread.isPinned && (
-              <span className="shrink-0 text-accent" title="Pinned">
+              <span className="shrink-0 text-accent" title={t("threadCard.pinned")}>
                 <Pin size={12} className="fill-current" />
               </span>
             )}
             {thread.hasAttachments && (
-              <span className="shrink-0 text-text-tertiary" title="Has attachments">
+              <span className="shrink-0 text-text-tertiary" title={t("threadCard.hasAttachments")}>
                 <Paperclip size={12} />
               </span>
             )}
             {thread.isStarred && (
-              <span className="shrink-0 text-warning star-animate" title="Starred">
+              <span className="shrink-0 text-warning star-animate" title={t("threadCard.starred")}>
                 <Star size={12} className="fill-current" />
               </span>
             )}

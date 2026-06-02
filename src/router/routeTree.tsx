@@ -4,6 +4,7 @@ import {
   createRoute,
   redirect,
 } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import App from "@/App";
 import { MailLayout } from "@/components/layout/MailLayout";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -22,6 +23,18 @@ type MailSearch = {
   q?: string;
   category?: (typeof VALID_CATEGORIES)[number];
 };
+
+type RouteLoadingLabel = "settings" | "calendar" | "help" | "attachments" | "tasks";
+
+export function RouteLoadingFallback({ label }: { label: RouteLoadingLabel }) {
+  const { t } = useTranslation("common");
+
+  return (
+    <div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">
+      {t(`routeLoading.${label}`)}
+    </div>
+  );
+}
 
 function validateMailSearch(search: Record<string, unknown>): MailSearch {
   const result: MailSearch = {};
@@ -61,7 +74,7 @@ function MailPage() {
 function SettingsTabPage() {
   return (
     <ErrorBoundary name="SettingsPage">
-      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading settings...</div>}>
+      <Suspense fallback={<RouteLoadingFallback label="settings" />}>
         <SettingsPage />
       </Suspense>
     </ErrorBoundary>
@@ -71,7 +84,7 @@ function SettingsTabPage() {
 function CalendarPageWrapper() {
   return (
     <ErrorBoundary name="CalendarPage">
-      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading calendar...</div>}>
+      <Suspense fallback={<RouteLoadingFallback label="calendar" />}>
         <CalendarPage />
       </Suspense>
     </ErrorBoundary>
@@ -81,7 +94,7 @@ function CalendarPageWrapper() {
 function HelpPageWrapper() {
   return (
     <ErrorBoundary name="HelpPage">
-      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading help...</div>}>
+      <Suspense fallback={<RouteLoadingFallback label="help" />}>
         <HelpPage />
       </Suspense>
     </ErrorBoundary>
@@ -150,7 +163,7 @@ export const settingsTabRoute = createRoute({
 function AttachmentLibraryWrapper() {
   return (
     <ErrorBoundary name="AttachmentLibrary">
-      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading attachments...</div>}>
+      <Suspense fallback={<RouteLoadingFallback label="attachments" />}>
         <AttachmentLibrary />
       </Suspense>
     </ErrorBoundary>
@@ -167,7 +180,7 @@ export const attachmentsRoute = createRoute({
 function TasksPageWrapper() {
   return (
     <ErrorBoundary name="TasksPage">
-      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading tasks...</div>}>
+      <Suspense fallback={<RouteLoadingFallback label="tasks" />}>
         <TasksPage />
       </Suspense>
     </ErrorBoundary>

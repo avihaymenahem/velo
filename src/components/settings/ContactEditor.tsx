@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, Pencil, Trash2, Check, X } from "lucide-react";
 import {
   getAllContacts,
@@ -8,6 +9,7 @@ import {
 } from "@/services/db/contacts";
 
 export function ContactEditor() {
+  const { t } = useTranslation("settings");
   const [contacts, setContacts] = useState<DbContact[]>([]);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -61,14 +63,14 @@ export function ContactEditor() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search contacts..."
+          placeholder={t("editors.contacts.searchPlaceholder")}
           className="w-full pl-8 pr-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
         />
       </div>
 
       {filtered.length === 0 ? (
         <p className="text-sm text-text-tertiary py-2">
-          {search ? "No matching contacts" : "No contacts yet"}
+          {search ? t("editors.contacts.noMatches") : t("editors.contacts.empty")}
         </p>
       ) : (
         <div className="space-y-1 max-h-[300px] overflow-y-auto">
@@ -89,7 +91,7 @@ export function ContactEditor() {
                     }}
                     className="flex-1 min-w-0 px-2 py-0.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
                     autoFocus
-                    placeholder="Display name"
+                    placeholder={t("editors.contacts.displayNamePlaceholder")}
                   />
                   <button
                     onClick={handleSaveEdit}
@@ -118,19 +120,19 @@ export function ContactEditor() {
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-text-tertiary mr-2">
-                      {contact.frequency}x
+                      {t("editors.contacts.frequency", { count: contact.frequency })}
                     </span>
                     <button
                       onClick={() => handleEdit(contact)}
                       className="p-1 text-text-tertiary hover:text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Edit name"
+                      title={t("editors.contacts.editName")}
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       onClick={() => handleDelete(contact.id)}
                       className="p-1 text-text-tertiary hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Delete contact"
+                      title={t("editors.contacts.deleteContact")}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -143,7 +145,10 @@ export function ContactEditor() {
       )}
 
       <p className="text-xs text-text-tertiary">
-        {contacts.length} contact{contacts.length !== 1 ? "s" : ""} total
+        {t("editors.contacts.total", {
+          count: contacts.length,
+          plural: contacts.length !== 1 ? "s" : "",
+        })}
       </p>
     </div>
   );

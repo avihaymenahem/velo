@@ -1,7 +1,7 @@
 /**
  * Format a unix timestamp (milliseconds) into a relative date string.
  */
-export function formatRelativeDate(timestamp: number): string {
+export function formatRelativeDate(timestamp: number, locale?: string): string {
   const date = new Date(timestamp);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -9,7 +9,7 @@ export function formatRelativeDate(timestamp: number): string {
 
   // Today: show time
   if (isSameDay(date, now)) {
-    return date.toLocaleTimeString(undefined, {
+    return date.toLocaleTimeString(locale, {
       hour: "numeric",
       minute: "2-digit",
     });
@@ -19,24 +19,24 @@ export function formatRelativeDate(timestamp: number): string {
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   if (isSameDay(date, yesterday)) {
-    return "Yesterday";
+    return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-1, "day");
   }
 
   // Within last 7 days: show day name
   if (diffDays < 7) {
-    return date.toLocaleDateString(undefined, { weekday: "short" });
+    return date.toLocaleDateString(locale, { weekday: "short" });
   }
 
   // Same year: show month + day
   if (date.getFullYear() === now.getFullYear()) {
-    return date.toLocaleDateString(undefined, {
+    return date.toLocaleDateString(locale, {
       month: "short",
       day: "numeric",
     });
   }
 
   // Older: show full date
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",

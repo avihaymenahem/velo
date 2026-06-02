@@ -1,0 +1,78 @@
+{
+  "actions": {
+    "cancel": "取消",
+    "confirm": "确认",
+    "save": "保存"
+  },
+  "windowControls": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "还原",
+    "close": "关闭"
+  },
+  "appLoading": {
+    "inbox": "正在加载收件箱...",
+    "thread": "正在加载线程...",
+    "composer": "正在加载写信窗口..."
+  },
+  "syncStatus": {
+    "syncing": "正在同步...",
+    "messages": "正在同步：{{current}}/{{total}} 封邮件",
+    "labels": "正在同步标签...",
+    "threads": "正在构建线程...（{{current}}/{{total}}）",
+    "complete": "同步完成",
+    "failed": "同步失败",
+    "failedWithReason": "同步失败：{{error}}"
+  },
+  "syncErrors": {
+    "auth": "认证失败，请检查密码",
+    "timeout": "连接超时，请检查网络或服务器设置",
+    "secureConnection": "安全连接失败，请检查安全设置",
+    "connectionRefused": "无法连接邮件服务器，请检查地址和端口",
+    "serverNotFound": "未找到服务器，请检查主机名"
+  },
+  "windowErrors": {
+    "thread": {
+      "missingParameters": "缺少线程或账户参数",
+      "notFound": "未找到线程",
+      "loadFailed": "无法加载线程"
+    },
+    "composer": {
+      "loadFailed": "无法加载写信窗口"
+    }
+  },
+  "routeLoading": {
+    "settings": "正在加载设置...",
+    "calendar": "正在加载日历...",
+    "help": "正在加载帮助...",
+    "attachments": "正在加载附件...",
+    "tasks": "正在加载任务..."
+  },
+  "dateTime": {
+    "customDateTime": "自定义日期和时间"
+  },
+  "errorBoundary": {
+    "title": "出了点问题",
+    "unexpected": "发生了意外错误",
+    "retry": "重试"
+  },
+  "updateToast": {
+    "available": "Kirje v{{version}} 有可用更新",
+    "later": "稍后",
+    "updateNow": "立即更新",
+    "updating": "正在更新..."
+  },
+  "notifications": {
+    "actions": {
+      "reply": "回复",
+      "archive": "归档"
+    },
+    "noSubject": "（无主题）",
+    "newEmails": "{{count}} 封新邮件",
+    "followUpNeeded": "需要跟进",
+    "snoozedEmailReturned": "稍后提醒的邮件已返回"
+  },
+  "tray": {
+    "unreadTooltip": "Kirje - {{count}} 封未读"
+  }
+}

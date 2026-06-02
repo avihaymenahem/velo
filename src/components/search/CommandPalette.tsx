@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { CSSTransition } from "react-transition-group";
+import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { useThreadStore } from "@/stores/threadStore";
@@ -16,6 +17,7 @@ interface Command {
   label: string;
   shortcut?: string;
   category: string;
+  keywords?: string[];
   action: () => void;
 }
 
@@ -24,16 +26,17 @@ interface CommandPaletteProps {
   onClose: () => void;
 }
 
-const WORK_STATE_COMMANDS: { state: ThreadPrimaryState; label: string }[] = [
-  { state: "needs_reply", label: "Mark as Needs Reply" },
-  { state: "waiting", label: "Mark as Waiting" },
-  { state: "committed", label: "Mark as Committed" },
-  { state: "decision_needed", label: "Mark as Decision Needed" },
-  { state: "can_archive", label: "Mark as Can Archive" },
-  { state: "done", label: "Mark as Done" },
+const WORK_STATE_COMMANDS: { state: ThreadPrimaryState; englishLabel: string }[] = [
+  { state: "needs_reply", englishLabel: "Mark as Needs Reply" },
+  { state: "waiting", englishLabel: "Mark as Waiting" },
+  { state: "committed", englishLabel: "Mark as Committed" },
+  { state: "decision_needed", englishLabel: "Mark as Decision Needed" },
+  { state: "can_archive", englishLabel: "Mark as Can Archive" },
+  { state: "done", englishLabel: "Mark as Done" },
 ];
 
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
+  const { t } = useTranslation(["search", "agentic"]);
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,18 +68,18 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 
   const commands: Command[] = useMemo(() => [
     // Navigation
-    { id: "go-inbox", label: "Go to Inbox", shortcut: "g i", category: "Navigation", action: () => { navigateToLabel("inbox"); onClose(); } },
-    { id: "go-starred", label: "Go to Starred", shortcut: "g s", category: "Navigation", action: () => { navigateToLabel("starred"); onClose(); } },
-    { id: "go-sent", label: "Go to Sent", shortcut: "g t", category: "Navigation", action: () => { navigateToLabel("sent"); onClose(); } },
-    { id: "go-drafts", label: "Go to Drafts", shortcut: "g d", category: "Navigation", action: () => { navigateToLabel("drafts"); onClose(); } },
-    { id: "go-snoozed", label: "Go to Snoozed", category: "Navigation", action: () => { navigateToLabel("snoozed"); onClose(); } },
-    { id: "go-trash", label: "Go to Trash", category: "Navigation", action: () => { navigateToLabel("trash"); onClose(); } },
-    { id: "go-all", label: "Go to All Mail", category: "Navigation", action: () => { navigateToLabel("all"); onClose(); } },
+    { id: "go-inbox", label: t("commandPalette.commands.goInbox"), shortcut: "g i", category: t("commandPalette.categories.navigation"), keywords: ["Go to Inbox"], action: () => { navigateToLabel("inbox"); onClose(); } },
+    { id: "go-starred", label: t("commandPalette.commands.goStarred"), shortcut: "g s", category: t("commandPalette.categories.navigation"), keywords: ["Go to Starred"], action: () => { navigateToLabel("starred"); onClose(); } },
+    { id: "go-sent", label: t("commandPalette.commands.goSent"), shortcut: "g t", category: t("commandPalette.categories.navigation"), keywords: ["Go to Sent"], action: () => { navigateToLabel("sent"); onClose(); } },
+    { id: "go-drafts", label: t("commandPalette.commands.goDrafts"), shortcut: "g d", category: t("commandPalette.categories.navigation"), keywords: ["Go to Drafts"], action: () => { navigateToLabel("drafts"); onClose(); } },
+    { id: "go-snoozed", label: t("commandPalette.commands.goSnoozed"), category: t("commandPalette.categories.navigation"), keywords: ["Go to Snoozed"], action: () => { navigateToLabel("snoozed"); onClose(); } },
+    { id: "go-trash", label: t("commandPalette.commands.goTrash"), category: t("commandPalette.categories.navigation"), keywords: ["Go to Trash"], action: () => { navigateToLabel("trash"); onClose(); } },
+    { id: "go-all", label: t("commandPalette.commands.goAll"), category: t("commandPalette.categories.navigation"), keywords: ["Go to All Mail"], action: () => { navigateToLabel("all"); onClose(); } },
 
     // Actions
-    { id: "compose", label: "Compose New Email", shortcut: "c", category: "Actions", action: () => { openComposer(); onClose(); } },
-    { id: "deselect", label: "Close Thread", shortcut: "Esc", category: "Actions", action: () => { navigateBack(); onClose(); } },
-    { id: "spam", label: activeLabel === "spam" ? "Not Spam" : "Report Spam", shortcut: "!", category: "Actions", action: async () => {
+    { id: "compose", label: t("commandPalette.commands.compose"), shortcut: "c", category: t("commandPalette.categories.actions"), keywords: ["Compose New Email"], action: () => { openComposer(); onClose(); } },
+    { id: "deselect", label: t("commandPalette.commands.closeThread"), shortcut: "Esc", category: t("commandPalette.categories.actions"), keywords: ["Close Thread"], action: () => { navigateBack(); onClose(); } },
+    { id: "spam", label: activeLabel === "spam" ? t("commandPalette.commands.notSpam") : t("commandPalette.commands.reportSpam"), shortcut: "!", category: t("commandPalette.categories.actions"), keywords: ["Not Spam", "Report Spam"], action: async () => {
       onClose();
       const selectedId = getSelectedThreadId();
       const accountId = useAccountStore.getState().activeAccountId;
@@ -95,42 +98,44 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     } },
 
     // Tasks
-    { id: "task-create", label: "Create Task", category: "Tasks", action: () => {
+    { id: "task-create", label: t("commandPalette.commands.createTask"), category: t("commandPalette.categories.tasks"), keywords: ["Create Task"], action: () => {
       onClose();
       useUIStore.getState().setTaskSidebarVisible(true);
     } },
-    { id: "task-extract", label: "Create Task from Email (AI)", shortcut: "t", category: "Tasks", action: () => {
+    { id: "task-extract", label: t("commandPalette.commands.createTaskFromEmail"), shortcut: "t", category: t("commandPalette.categories.tasks"), keywords: ["Create Task from Email (AI)"], action: () => {
       onClose();
       const threadId = getSelectedThreadId();
       if (threadId) {
         window.dispatchEvent(new CustomEvent("velo-extract-task", { detail: { threadId } }));
       }
     } },
-    { id: "task-view", label: "View Tasks", shortcut: "g k", category: "Tasks", action: () => { navigateToLabel("tasks"); onClose(); } },
-    { id: "task-toggle-panel", label: "Toggle Task Panel", category: "Tasks", action: () => { useUIStore.getState().toggleTaskSidebar(); onClose(); } },
+    { id: "task-view", label: t("commandPalette.commands.viewTasks"), shortcut: "g k", category: t("commandPalette.categories.tasks"), keywords: ["View Tasks"], action: () => { navigateToLabel("tasks"); onClose(); } },
+    { id: "task-toggle-panel", label: t("commandPalette.commands.toggleTaskPanel"), category: t("commandPalette.categories.tasks"), keywords: ["Toggle Task Panel"], action: () => { useUIStore.getState().toggleTaskSidebar(); onClose(); } },
 
     // AI
-    { id: "ask-ai", label: "Ask AI about your inbox", category: "AI", action: () => { onClose(); window.dispatchEvent(new Event("velo-toggle-ask-inbox")); } },
+    { id: "ask-ai", label: t("commandPalette.commands.askAi"), category: t("commandPalette.categories.ai"), keywords: ["Ask AI about your inbox"], action: () => { onClose(); window.dispatchEvent(new Event("velo-toggle-ask-inbox")); } },
 
     // Agentic Inbox
     ...WORK_STATE_COMMANDS.map((cmd) => ({
       id: `work-state-${cmd.state}`,
-      label: cmd.label,
-      category: "Agentic Inbox",
+      label: t(`commands.${cmd.state}`, { ns: "agentic" }),
+      category: t("categories.agenticInbox", { ns: "agentic" }),
+      keywords: [cmd.englishLabel],
       action: () => { void markSelectedThreadState(cmd.state); },
     })),
 
     // Settings
-    { id: "toggle-sidebar", label: "Toggle Sidebar", shortcut: "Ctrl+Shift+E", category: "Settings", action: () => { toggleSidebar(); onClose(); } },
-    { id: "theme-light", label: "Switch to Light Theme", category: "Settings", action: () => { setTheme("light"); onClose(); } },
-    { id: "theme-dark", label: "Switch to Dark Theme", category: "Settings", action: () => { setTheme("dark"); onClose(); } },
-    { id: "theme-system", label: "Use System Theme", category: "Settings", action: () => { setTheme("system"); onClose(); } },
+    { id: "toggle-sidebar", label: t("commandPalette.commands.toggleSidebar"), shortcut: "Ctrl+Shift+E", category: t("commandPalette.categories.settings"), keywords: ["Toggle Sidebar"], action: () => { toggleSidebar(); onClose(); } },
+    { id: "theme-light", label: t("commandPalette.commands.lightTheme"), category: t("commandPalette.categories.settings"), keywords: ["Switch to Light Theme"], action: () => { setTheme("light"); onClose(); } },
+    { id: "theme-dark", label: t("commandPalette.commands.darkTheme"), category: t("commandPalette.categories.settings"), keywords: ["Switch to Dark Theme"], action: () => { setTheme("dark"); onClose(); } },
+    { id: "theme-system", label: t("commandPalette.commands.systemTheme"), category: t("commandPalette.categories.settings"), keywords: ["Use System Theme"], action: () => { setTheme("system"); onClose(); } },
 
     // Templates
     ...templates.map((tmpl) => ({
       id: `template-${tmpl.id}`,
-      label: `Insert: ${tmpl.name}`,
-      category: "Templates",
+      label: t("commandPalette.commands.insertTemplate", { name: tmpl.name }),
+      category: t("commandPalette.categories.templates"),
+      keywords: [`Insert: ${tmpl.name}`],
       action: () => {
         openComposer({
           mode: "new" as const,
@@ -141,13 +146,14 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         onClose();
       },
     })),
-  ], [onClose, openComposer, activeLabel, toggleSidebar, setTheme, templates, markSelectedThreadState]);
+  ], [onClose, openComposer, activeLabel, t, toggleSidebar, setTheme, templates, markSelectedThreadState]);
 
   const filtered = query
     ? commands.filter(
         (c) =>
           c.label.toLowerCase().includes(query.toLowerCase()) ||
-          c.category.toLowerCase().includes(query.toLowerCase()),
+          c.category.toLowerCase().includes(query.toLowerCase()) ||
+          c.keywords?.some((keyword) => keyword.toLowerCase().includes(query.toLowerCase())),
       )
     : commands;
 
@@ -193,7 +199,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
               setSelectedIdx(0);
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Type a command..."
+            placeholder={t("commandPalette.placeholder")}
             className="w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-tertiary"
           />
         </div>
@@ -202,7 +208,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         <div className="max-h-80 overflow-y-auto py-1">
           {filtered.length === 0 ? (
             <div className="px-4 py-6 text-center text-sm text-text-tertiary">
-              No commands found
+              {t("commandPalette.empty")}
             </div>
           ) : (
             categories.map((cat) => (

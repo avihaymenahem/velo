@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { MapPin, Clock, User, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -17,6 +18,7 @@ interface EventDetailModalProps {
 }
 
 export function EventDetailModal({ event, calendars, accountId, onClose, onUpdated }: EventDetailModalProps) {
+  const { t, i18n } = useTranslation("calendar");
   const [editing, setEditing] = useState(false);
   const [summary, setSummary] = useState(event.summary ?? "");
   const [description, setDescription] = useState(event.description ?? "");
@@ -73,7 +75,7 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
   }, [accountId, calendar, event, onUpdated]);
 
   const formatTime = (ts: number) => {
-    return new Date(ts * 1000).toLocaleString(undefined, {
+    return new Date(ts * 1000).toLocaleString(i18n.language, {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -86,10 +88,10 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
 
   if (editing) {
     return (
-      <Modal isOpen={true} onClose={onClose} title="Edit Event" width="w-full max-w-md">
+      <Modal isOpen={true} onClose={onClose} title={t("event.edit")} width="w-full max-w-md">
         <div className="p-4 space-y-3">
           <TextField
-            label="Title"
+            label={t("event.title")}
             type="text"
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
@@ -98,13 +100,13 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
 
           <div className="grid grid-cols-2 gap-3">
             <TextField
-              label="Start"
+              label={t("event.start")}
               type="datetime-local"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
             />
             <TextField
-              label="End"
+              label={t("event.end")}
               type="datetime-local"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
@@ -112,19 +114,19 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
           </div>
 
           <TextField
-            label="Location"
+            label={t("event.location")}
             type="text"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            placeholder="Add location"
+            placeholder={t("event.locationPlaceholder")}
           />
 
           <div>
-            <label className="text-xs text-text-secondary block mb-1">Description</label>
+            <label className="text-xs text-text-secondary block mb-1">{t("event.description")}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add description"
+              placeholder={t("event.descriptionPlaceholder")}
               rows={3}
               className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent resize-none"
             />
@@ -132,10 +134,10 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" size="md" onClick={() => setEditing(false)}>
-              Cancel
+              {t("event.cancel")}
             </Button>
             <Button variant="primary" size="md" onClick={handleSave} disabled={saving || !summary.trim()}>
-              {saving ? "Saving..." : "Save"}
+              {saving ? t("event.saving") : t("event.save")}
             </Button>
           </div>
         </div>
@@ -144,7 +146,7 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={event.summary ?? "Event"} width="w-full max-w-md">
+    <Modal isOpen={true} onClose={onClose} title={event.summary ?? t("event.fallback")} width="w-full max-w-md">
       <div className="p-4 space-y-3">
         {calendar && (
           <div className="flex items-center gap-2 text-xs text-text-tertiary">
@@ -179,7 +181,7 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
 
         {attendees.length > 0 && (
           <div className="border-t border-border-primary pt-3">
-            <div className="text-xs text-text-tertiary mb-1.5">Attendees</div>
+            <div className="text-xs text-text-tertiary mb-1.5">{t("event.attendees")}</div>
             <div className="space-y-1">
               {attendees.map((a, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm text-text-secondary">
@@ -194,12 +196,12 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
         <div className="flex justify-between pt-2 border-t border-border-primary">
           {confirmDelete ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-danger">Delete this event?</span>
+              <span className="text-xs text-danger">{t("event.deleteConfirm")}</span>
               <Button variant="danger" size="xs" onClick={handleDelete} disabled={deleting}>
-                {deleting ? "Deleting..." : "Yes, delete"}
+                {deleting ? t("event.deleting") : t("event.confirmDelete")}
               </Button>
               <Button variant="secondary" size="xs" onClick={() => setConfirmDelete(false)}>
-                Cancel
+                {t("event.cancel")}
               </Button>
             </div>
           ) : (
@@ -209,7 +211,7 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
               icon={<Trash2 size={14} />}
               onClick={() => setConfirmDelete(true)}
             >
-              Delete
+              {t("event.delete")}
             </Button>
           )}
           <Button
@@ -218,7 +220,7 @@ export function EventDetailModal({ event, calendars, accountId, onClose, onUpdat
             icon={<Pencil size={14} />}
             onClick={() => setEditing(true)}
           >
-            Edit
+            {t("event.editAction")}
           </Button>
         </div>
       </div>

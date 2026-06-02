@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { LabelEditor } from "./LabelEditor";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLabelStore } from "@/stores/labelStore";
+import i18n from "@/i18n";
 
 // Mock the label store actions
 const mockCreateLabel = vi.fn();
@@ -24,7 +25,8 @@ function setStoreWithLabels(labels: { id: string; accountId: string; name: strin
 }
 
 describe("LabelEditor", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     vi.clearAllMocks();
     useAccountStore.setState({
       accounts: [{ id: "acc1", email: "test@test.com", displayName: "Test", avatarUrl: null, isActive: true }],
@@ -37,6 +39,22 @@ describe("LabelEditor", () => {
     render(<LabelEditor />);
     expect(screen.getByText("No user labels")).toBeInTheDocument();
     expect(screen.getByText("+ Add label")).toBeInTheDocument();
+  });
+
+  it("renders label management chrome in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+
+    render(<LabelEditor />);
+
+    expect(screen.getByText("无用户标签")).toBeInTheDocument();
+    expect(screen.getByText("+ 添加标签")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("+ 添加标签"));
+
+    expect(screen.getByPlaceholderText("标签名称")).toBeInTheDocument();
+    expect(screen.getByText("保存")).toBeDisabled();
+    expect(screen.getByText("取消")).toBeInTheDocument();
+    expect(screen.getByTitle("无颜色")).toBeInTheDocument();
   });
 
   it("renders labels list", () => {

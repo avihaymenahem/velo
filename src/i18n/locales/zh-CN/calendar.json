@@ -1,0 +1,76 @@
+{
+  "title": "日历",
+  "titlePlural": "日历",
+  "primary": "主日历",
+  "allDay": "全天",
+  "fallbackName": "日历",
+  "more": "还有 {{count}} 个",
+  "days": {
+    "short": {
+      "sun": "日",
+      "mon": "一",
+      "tue": "二",
+      "wed": "三",
+      "thu": "四",
+      "fri": "五",
+      "sat": "六"
+    }
+  },
+  "time": {
+    "am": "上午",
+    "pm": "下午",
+    "hourLabel": "{{period}}{{hour}}点"
+  },
+  "connectAccount": "连接账户后使用日历",
+  "loading": "正在加载日历...",
+  "reauth": {
+    "title": "日历需要重新授权",
+    "description": "此账户连接时尚未包含日历权限。重新授权后即可访问日历；你的邮件和数据不会受到影响。",
+    "waiting": "正在等待授权...",
+    "action": "重新授权",
+    "error": "重新授权失败"
+  },
+  "toolbar": {
+    "toggleList": "切换日历列表",
+    "today": "今天",
+    "create": "创建",
+    "views": {
+      "day": "日",
+      "week": "周",
+      "month": "月"
+    }
+  },
+  "empty": {
+    "notConfigured": "此账户尚未配置日历。",
+    "imapCalDav": "IMAP 账户可在设置中配置 CalDAV。"
+  },
+  "error": {
+    "access": "日历访问错误",
+    "accessAfterReauth": "重新授权后仍无法访问日历。请确认你的 Google Cloud 项目已启用 Google Calendar API。打开 console.cloud.google.com → API 和服务 → 启用 API 和服务，然后启用 “Google Calendar API”。"
+  },
+  "event": {
+    "create": "创建日程",
+    "edit": "编辑日程",
+    "fallback": "日程",
+    "noTitle": "（无标题）",
+    "title": "标题",
+    "titlePlaceholder": "日程标题",
+    "calendar": "日历",
+    "start": "开始",
+    "end": "结束",
+    "location": "地点",
+    "locationPlaceholder": "添加地点",
+    "description": "描述",
+    "descriptionPlaceholder": "添加描述",
+    "cancel": "取消",
+    "submit": "创建",
+    "save": "保存",
+    "saving": "正在保存...",
+    "attendees": "参与者",
+    "delete": "删除",
+    "editAction": "编辑",
+    "deleteConfirm": "删除此日程？",
+    "deleting": "正在删除...",
+    "confirmDelete": "确认删除"
+  }
+}

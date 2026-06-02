@@ -1,0 +1,23 @@
+{
+  "categories": {
+    "agenticInbox": "工作状态"
+  },
+  "workState": {
+    "needs_reply": "需要回复",
+    "waiting": "等待对方",
+    "committed": "承诺事项",
+    "decision_needed": "待决策",
+    "risk": "风险",
+    "opportunity": "机会",
+    "can_archive": "可归档",
+    "done": "已完成"
+  },
+  "commands": {
+    "needs_reply": "标记为需要回复",
+    "waiting": "标记为等待对方",
+    "committed": "标记为承诺事项",
+    "decision_needed": "标记为待决策",
+    "can_archive": "标记为可归档",
+    "done": "标记为已完成"
+  }
+}

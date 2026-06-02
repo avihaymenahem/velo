@@ -1,0 +1,57 @@
+{
+  "searchBar": {
+    "placeholder": "搜索... (from: to: has:attachment)",
+    "saveSmartFolder": "保存为智能文件夹",
+    "name": "名称",
+    "save": "保存"
+  },
+  "shortcutsHelp": {
+    "title": "键盘快捷键"
+  },
+  "commandPalette": {
+    "placeholder": "输入命令...",
+    "empty": "没有匹配命令",
+    "categories": {
+      "navigation": "导航",
+      "actions": "操作",
+      "tasks": "任务",
+      "ai": "AI",
+      "settings": "设置",
+      "templates": "模板"
+    },
+    "commands": {
+      "goInbox": "前往收件箱",
+      "goStarred": "前往星标",
+      "goSent": "前往已发送",
+      "goDrafts": "前往草稿",
+      "goSnoozed": "前往稍后提醒",
+      "goTrash": "前往废纸篓",
+      "goAll": "前往全部邮件",
+      "compose": "写新邮件",
+      "closeThread": "关闭线程",
+      "notSpam": "不是垃圾邮件",
+      "reportSpam": "标记为垃圾邮件",
+      "createTask": "创建任务",
+      "createTaskFromEmail": "从邮件创建任务 (AI)",
+      "viewTasks": "查看任务",
+      "toggleTaskPanel": "切换任务面板",
+      "askAi": "询问 AI 收件箱问题",
+      "toggleSidebar": "切换侧边栏",
+      "lightTheme": "切换到浅色主题",
+      "darkTheme": "切换到深色主题",
+      "systemTheme": "跟随系统主题",
+      "insertTemplate": "插入：{{name}}"
+    }
+  },
+  "askInbox": {
+    "title": "Ask Inbox",
+    "placeholder": "询问你的邮件...",
+    "searching": "正在搜索你的收件箱...",
+    "sources": "来源（{{count}}）",
+    "unknown": "未知",
+    "noSubject": "（无主题）",
+    "askAnother": "再问一个问题",
+    "empty": "可以询问邮件中的会议、对话、附件等内容。",
+    "error": "出了点问题。请检查 AI 配置后再试。"
+  }
+}

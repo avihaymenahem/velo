@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Trash2, Pencil, Plus, GripVertical, ChevronDown } from "lucide-react";
 import { useAccountStore } from "@/stores/accountStore";
 import { getLabelsForAccount, type DbLabel } from "@/services/db/labels";
@@ -14,27 +15,38 @@ import {
   type QuickStepAction,
   type QuickStepActionType,
 } from "@/services/quickSteps/types";
+import { getQuickStepDisplayName } from "@/services/quickSteps/display";
 import { ALL_CATEGORIES } from "@/services/db/threadCategories";
 import { seedDefaultQuickSteps } from "@/services/quickSteps/defaults";
 
-function describeActions(actionsJson: string): string {
+function describeActions(
+  actionsJson: string,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
   try {
     const actions = JSON.parse(actionsJson) as QuickStepAction[];
     return actions
       .map((a) => {
         const meta = ACTION_TYPE_METADATA.find((m) => m.type === a.type);
-        let label = meta?.label ?? a.type;
+        let label = t(`editors.quickSteps.actions.${a.type}`, {
+          defaultValue: meta?.label ?? a.type,
+        });
         if (a.params?.labelId) label += ` (${a.params.labelId})`;
-        if (a.params?.category) label += ` (${a.params.category})`;
+        if (a.params?.category) {
+          label += ` (${t(`editors.quickSteps.categories.${a.params.category}`, {
+            defaultValue: a.params.category,
+          })})`;
+        }
         return label;
       })
       .join(" -> ");
   } catch {
-    return "Invalid actions";
+    return t("editors.quickSteps.invalidActions");
   }
 }
 
 export function QuickStepEditor() {
+  const { t } = useTranslation("settings");
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const [quickSteps, setQuickSteps] = useState<DbQuickStep[]>([]);
   const [labels, setLabels] = useState<DbLabel[]>([]);
@@ -172,7 +184,7 @@ export function QuickStepEditor() {
             <GripVertical size={12} className="text-text-tertiary shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-text-primary flex items-center gap-2">
-                {qs.name}
+                {getQuickStepDisplayName(qs, t)}
                 {qs.shortcut && (
                   <kbd className="text-[0.625rem] bg-bg-tertiary text-text-tertiary px-1.5 py-0.5 rounded border border-border-primary font-mono">
                     {qs.shortcut}
@@ -180,12 +192,12 @@ export function QuickStepEditor() {
                 )}
                 {qs.is_enabled !== 1 && (
                   <span className="text-[0.625rem] bg-bg-tertiary text-text-tertiary px-1.5 py-0.5 rounded">
-                    Disabled
+                    {t("editors.quickSteps.disabled")}
                   </span>
                 )}
               </div>
               <div className="text-xs text-text-tertiary truncate">
-                {describeActions(qs.actions_json)}
+                {describeActions(qs.actions_json, t)}
               </div>
             </div>
           </div>
@@ -195,7 +207,7 @@ export function QuickStepEditor() {
               className={`w-8 h-4 rounded-full transition-colors relative ${
                 qs.is_enabled === 1 ? "bg-accent" : "bg-bg-tertiary"
               }`}
-              title={qs.is_enabled === 1 ? "Disable" : "Enable"}
+              title={qs.is_enabled === 1 ? t("editors.quickSteps.disable") : t("editors.quickSteps.enable")}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform shadow ${
@@ -206,12 +218,14 @@ export function QuickStepEditor() {
             <button
               onClick={() => handleEdit(qs)}
               className="p-1 text-text-tertiary hover:text-text-primary"
+              title={t("editors.common.edit")}
             >
               <Pencil size={13} />
             </button>
             <button
               onClick={() => handleDelete(qs.id)}
               className="p-1 text-text-tertiary hover:text-danger"
+              title={t("editors.common.delete")}
             >
               <Trash2 size={13} />
             </button>
@@ -225,42 +239,48 @@ export function QuickStepEditor() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Quick step name"
+            placeholder={t("editors.quickSteps.namePlaceholder")}
             className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary outline-none focus:border-accent"
           />
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description (optional)"
+            placeholder={t("editors.quickSteps.descriptionPlaceholder")}
             className="w-full px-3 py-1 bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary outline-none focus:border-accent"
           />
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-xs text-text-secondary block mb-1">Shortcut (optional)</label>
+              <label className="text-xs text-text-secondary block mb-1">
+                {t("editors.quickSteps.shortcut")}
+              </label>
               <input
                 type="text"
                 value={shortcut}
                 onChange={(e) => setShortcut(e.target.value)}
-                placeholder="e.g. Ctrl+Shift+1"
+                placeholder={t("editors.quickSteps.shortcutPlaceholder")}
                 className="w-full px-3 py-1 bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary outline-none focus:border-accent font-mono"
               />
             </div>
             <div className="flex-1">
-              <label className="text-xs text-text-secondary block mb-1">Icon (optional)</label>
+              <label className="text-xs text-text-secondary block mb-1">
+                {t("editors.quickSteps.icon")}
+              </label>
               <input
                 type="text"
                 value={icon}
                 onChange={(e) => setIcon(e.target.value)}
-                placeholder="e.g. Archive, Star"
+                placeholder={t("editors.quickSteps.iconPlaceholder")}
                 className="w-full px-3 py-1 bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary outline-none focus:border-accent"
               />
             </div>
           </div>
 
           <div>
-            <div className="text-xs font-medium text-text-secondary mb-1.5">Action chain</div>
+            <div className="text-xs font-medium text-text-secondary mb-1.5">
+              {t("editors.quickSteps.actionChain")}
+            </div>
             <div className="space-y-2">
               {actions.map((action, index) => {
                 const needsLabelParam = action.type === "applyLabel" || action.type === "removeLabel";
@@ -281,7 +301,7 @@ export function QuickStepEditor() {
                         >
                           {ACTION_TYPE_METADATA.map((m) => (
                             <option key={m.type} value={m.type}>
-                              {m.label}
+                              {t(`editors.quickSteps.actions.${m.type}`, { defaultValue: m.label })}
                             </option>
                           ))}
                         </select>
@@ -293,7 +313,7 @@ export function QuickStepEditor() {
                           onChange={(e) => updateActionParams(index, { labelId: e.target.value })}
                           className="w-full bg-bg-tertiary text-text-primary text-xs px-2 py-1 rounded border border-border-primary"
                         >
-                          <option value="">Select label...</option>
+                          <option value="">{t("editors.quickSteps.selectLabel")}</option>
                           {labels.map((l) => (
                             <option key={l.id} value={l.id}>{l.name}</option>
                           ))}
@@ -305,9 +325,11 @@ export function QuickStepEditor() {
                           onChange={(e) => updateActionParams(index, { category: e.target.value })}
                           className="w-full bg-bg-tertiary text-text-primary text-xs px-2 py-1 rounded border border-border-primary"
                         >
-                          <option value="">Select category...</option>
+                          <option value="">{t("editors.quickSteps.selectCategory")}</option>
                           {ALL_CATEGORIES.map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
+                            <option key={cat} value={cat}>
+                              {t(`editors.quickSteps.categories.${cat}`, { defaultValue: cat })}
+                            </option>
                           ))}
                         </select>
                       )}
@@ -317,19 +339,19 @@ export function QuickStepEditor() {
                           onChange={(e) => updateActionParams(index, { snoozeDuration: Number(e.target.value) })}
                           className="w-full bg-bg-tertiary text-text-primary text-xs px-2 py-1 rounded border border-border-primary"
                         >
-                          <option value="">Select duration...</option>
-                          <option value={3600000}>1 hour</option>
-                          <option value={14400000}>4 hours</option>
-                          <option value={86400000}>Tomorrow</option>
-                          <option value={172800000}>2 days</option>
-                          <option value={604800000}>1 week</option>
+                          <option value="">{t("editors.quickSteps.selectDuration")}</option>
+                          <option value={3600000}>{t("editors.quickSteps.durations.oneHour")}</option>
+                          <option value={14400000}>{t("editors.quickSteps.durations.fourHours")}</option>
+                          <option value={86400000}>{t("editors.quickSteps.durations.tomorrow")}</option>
+                          <option value={172800000}>{t("editors.quickSteps.durations.twoDays")}</option>
+                          <option value={604800000}>{t("editors.quickSteps.durations.oneWeek")}</option>
                         </select>
                       )}
                     </div>
                     <button
                       onClick={() => removeAction(index)}
                       className="p-1 text-text-tertiary hover:text-danger mt-0.5"
-                      title="Remove action"
+                      title={t("editors.quickSteps.removeAction")}
                     >
                       <Trash2 size={12} />
                     </button>
@@ -342,7 +364,7 @@ export function QuickStepEditor() {
               className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover mt-2"
             >
               <Plus size={12} />
-              Add action
+              {t("editors.quickSteps.addAction")}
             </button>
           </div>
 
@@ -353,7 +375,7 @@ export function QuickStepEditor() {
               onChange={(e) => setContinueOnError(e.target.checked)}
               className="rounded"
             />
-            Continue on error (run remaining actions even if one fails)
+            {t("editors.quickSteps.continueOnError")}
           </label>
 
           <div className="flex items-center gap-2">
@@ -362,13 +384,13 @@ export function QuickStepEditor() {
               disabled={!name.trim() || actions.length === 0}
               className="px-3 py-1.5 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-md transition-colors disabled:opacity-50"
             >
-              {editingId ? "Update" : "Save"}
+              {editingId ? t("editors.common.update") : t("editors.common.save")}
             </button>
             <button
               onClick={resetForm}
               className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary rounded-md transition-colors"
             >
-              Cancel
+              {t("editors.common.cancel")}
             </button>
           </div>
         </div>
@@ -377,7 +399,7 @@ export function QuickStepEditor() {
           onClick={() => setShowForm(true)}
           className="text-xs text-accent hover:text-accent-hover"
         >
-          + Add quick step
+          {t("editors.quickSteps.add")}
         </button>
       )}
     </div>

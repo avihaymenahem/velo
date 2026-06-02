@@ -1,6 +1,7 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { EmailRenderer } from "./EmailRenderer";
 import type { DbAttachment } from "@/services/db/attachments";
+import i18n from "@/i18n";
 
 // Mock dependencies
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -54,8 +55,9 @@ function makeAttachment(overrides: Partial<DbAttachment> = {}): DbAttachment {
 }
 
 describe("EmailRenderer", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    await i18n.changeLanguage("en");
   });
 
   it("renders plain text when no html provided", () => {
@@ -189,5 +191,27 @@ describe("EmailRenderer", () => {
     );
 
     expect(mockFetchAttachment).not.toHaveBeenCalled();
+  });
+
+  it("localizes the email body frame and blocked image privacy controls", async () => {
+    await i18n.changeLanguage("zh-CN");
+
+    render(
+      <EmailRenderer
+        html='<p>Hello</p><img src="https://example.com/pixel.png" />'
+        text={null}
+        blockImages
+        senderAddress="sender@example.com"
+        accountId="acc-1"
+      />,
+    );
+
+    expect(screen.getByTitle("邮件正文")).toBeInTheDocument();
+    expect(screen.getByText("已隐藏远程图片以保护你的隐私。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "加载图片" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "始终加载此发件人的图片" })).toBeInTheDocument();
+    expect(screen.queryByTitle("Email content")).not.toBeInTheDocument();
+    expect(screen.queryByText("Images hidden to protect your privacy.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load images" })).not.toBeInTheDocument();
   });
 });

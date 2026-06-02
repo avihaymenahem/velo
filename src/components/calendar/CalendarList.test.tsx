@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { vi } from "vitest";
 import { CalendarList } from "./CalendarList";
 import type { DbCalendar } from "@/services/db/calendars";
+import i18n from "@/i18n";
 
 function makeCalendar(overrides: Partial<DbCalendar> = {}): DbCalendar {
   return {
@@ -22,6 +23,10 @@ function makeCalendar(overrides: Partial<DbCalendar> = {}): DbCalendar {
 }
 
 describe("CalendarList", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
   it("renders all calendar names", () => {
     const calendars = [
       makeCalendar({ id: "cal-1", display_name: "Work" }),
@@ -127,5 +132,19 @@ describe("CalendarList", () => {
     );
 
     expect(screen.getByText("Calendar")).toBeInTheDocument();
+  });
+
+  it("renders calendar chrome in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+    const calendars = [
+      makeCalendar({ id: "cal-1", display_name: null, is_primary: 1 }),
+    ];
+
+    render(
+      <CalendarList calendars={calendars} onVisibilityChange={vi.fn()} />,
+    );
+
+    expect(screen.getAllByText("日历")).toHaveLength(2);
+    expect(screen.getByText("主日历")).toBeInTheDocument();
   });
 });

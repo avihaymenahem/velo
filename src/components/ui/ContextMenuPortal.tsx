@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { useThreadStore } from "@/stores/threadStore";
@@ -15,6 +16,7 @@ import { snoozeThread } from "@/services/snooze/snoozeManager";
 import { getEnabledQuickStepsForAccount, type DbQuickStep } from "@/services/db/quickSteps";
 import { executeQuickStep } from "@/services/quickSteps/executor";
 import type { QuickStep, QuickStepAction } from "@/services/quickSteps/types";
+import { getQuickStepDisplayName } from "@/services/quickSteps/display";
 import { SnoozeDialog } from "../email/SnoozeDialog";
 import {
   Reply,
@@ -42,19 +44,7 @@ import {
 import { triggerSync } from "@/services/gmail/syncManager";
 import { useUIStore } from "@/stores/uiStore";
 import { setThreadCategory, ALL_CATEGORIES } from "@/services/db/threadCategories";
-
-function buildQuote(msg: { from_name: string | null; from_address: string | null; date: string | number; body_html: string | null; body_text: string | null }): string {
-  const date = new Date(msg.date).toLocaleString();
-  const from = msg.from_name
-    ? `${msg.from_name} &lt;${msg.from_address}&gt;`
-    : (msg.from_address ?? "Unknown");
-  return `<br><br><div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666">On ${date}, ${from} wrote:<br>${msg.body_html ?? msg.body_text ?? ""}</div>`;
-}
-
-function buildForwardQuote(msg: { from_name: string | null; from_address: string | null; date: string | number; subject: string | null; to_addresses: string | null; body_html: string | null; body_text: string | null }): string {
-  const date = new Date(msg.date).toLocaleString();
-  return `<br><br>---------- Forwarded message ---------<br>From: ${msg.from_name ?? ""} &lt;${msg.from_address ?? ""}&gt;<br>Date: ${date}<br>Subject: ${msg.subject ?? ""}<br>To: ${msg.to_addresses ?? ""}<br><br>${msg.body_html ?? msg.body_text ?? ""}`;
-}
+import { buildForwardQuote, buildReplyQuote } from "@/utils/messageQuotes";
 
 export function ContextMenuPortal() {
   const menuType = useContextMenuStore((s) => s.menuType);
@@ -125,6 +115,7 @@ function SidebarLabelMenu({
   data: Record<string, unknown>;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["email", "settings"]);
   const onEdit = data["onEdit"] as (() => void) | undefined;
   const onDelete = data["onDelete"] as (() => void) | undefined;
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
@@ -139,20 +130,20 @@ function SidebarLabelMenu({
   const items: ContextMenuItem[] = [
     {
       id: "sync-folder",
-      label: "Sync this folder",
+      label: t("contextMenu.syncFolder"),
       icon: RefreshCw,
       action: handleSync,
     },
     { id: "sep-sync", label: "", separator: true },
     {
       id: "edit-label",
-      label: "Edit label",
+      label: t("contextMenu.editLabel"),
       icon: Pencil,
       action: () => onEdit?.(),
     },
     {
       id: "delete-label",
-      label: "Delete label",
+      label: t("contextMenu.deleteLabel"),
       icon: Trash2,
       danger: true,
       action: () => onDelete?.(),
@@ -171,6 +162,7 @@ function SidebarNavMenu({
   data: Record<string, unknown>;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("email");
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const navId = data["navId"] as string;
 
@@ -183,7 +175,7 @@ function SidebarNavMenu({
   const items: ContextMenuItem[] = [
     {
       id: "sync-folder",
-      label: "Sync this folder",
+      label: t("contextMenu.syncFolder"),
       icon: RefreshCw,
       action: handleSync,
     },
@@ -203,6 +195,7 @@ function ThreadMenu({
   onClose: () => void;
   onSnooze: (target: { threadIds: string[]; accountId: string }) => void;
 }) {
+  const { t } = useTranslation("email");
   const threadId = data["threadId"] as string;
   const threads = useThreadStore((s) => s.threads);
   const selectedThreadIds = useThreadStore((s) => s.selectedThreadIds);
@@ -250,7 +243,7 @@ function ThreadMenu({
       mode: "reply",
       to: replyTo ? [replyTo] : [],
       subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
+      bodyHtml: buildReplyQuote(lastMessage),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
@@ -275,7 +268,7 @@ function ThreadMenu({
       to: Array.from(allRecipients),
       cc: ccList,
       subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
+      bodyHtml: buildReplyQuote(lastMessage),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
@@ -387,7 +380,7 @@ function ThreadMenu({
       }
       const win = new WebviewWindow(windowLabel, {
         url,
-        title: thread.subject ?? "Thread",
+        title: thread.subject ?? t("common.thread"),
         width: 800,
         height: 700,
         center: true,
@@ -435,7 +428,7 @@ function ThreadMenu({
   const items: ContextMenuItem[] = [
     {
       id: "reply",
-      label: "Reply",
+      label: t("contextMenu.reply"),
       icon: Reply,
       shortcut: "r",
       disabled: isMulti,
@@ -443,7 +436,7 @@ function ThreadMenu({
     },
     {
       id: "reply-all",
-      label: "Reply All",
+      label: t("contextMenu.replyAll"),
       icon: ReplyAll,
       shortcut: "a",
       disabled: isMulti,
@@ -451,7 +444,7 @@ function ThreadMenu({
     },
     {
       id: "forward",
-      label: "Forward",
+      label: t("contextMenu.forward"),
       icon: Forward,
       shortcut: "f",
       disabled: isMulti,
@@ -460,14 +453,14 @@ function ThreadMenu({
     { id: "sep-1", label: "", separator: true },
     {
       id: "archive",
-      label: "Archive",
+      label: t("contextMenu.archive"),
       icon: Archive,
       shortcut: "e",
       action: handleArchive,
     },
     {
       id: "delete",
-      label: isTrashView ? "Delete Permanently" : "Delete",
+      label: isTrashView ? t("contextMenu.deletePermanently") : t("contextMenu.delete"),
       icon: Trash2,
       shortcut: "#",
       danger: isTrashView,
@@ -475,13 +468,13 @@ function ThreadMenu({
     },
     {
       id: "toggle-read",
-      label: isRead ? "Mark as Unread" : "Mark as Read",
+      label: isRead ? t("contextMenu.markUnread") : t("contextMenu.markRead"),
       icon: isRead ? Mail : MailOpen,
       action: handleToggleRead,
     },
     {
       id: "toggle-star",
-      label: isStarred ? "Unstar" : "Star",
+      label: isStarred ? t("contextMenu.unstar") : t("contextMenu.star"),
       icon: Star,
       shortcut: "s",
       action: handleToggleStar,
@@ -489,28 +482,28 @@ function ThreadMenu({
     { id: "sep-2", label: "", separator: true },
     {
       id: "snooze",
-      label: "Snooze...",
+      label: t("contextMenu.snooze"),
       icon: Clock,
       shortcut: "h",
       action: handleSnooze,
     },
     {
       id: "toggle-pin",
-      label: isPinned ? "Unpin" : "Pin",
+      label: isPinned ? t("contextMenu.unpin") : t("contextMenu.pin"),
       icon: Pin,
       shortcut: "p",
       action: handleTogglePin,
     },
     {
       id: "toggle-mute",
-      label: isMuted ? "Unmute" : "Mute",
+      label: isMuted ? t("contextMenu.unmute") : t("contextMenu.mute"),
       icon: VolumeX,
       shortcut: "m",
       action: handleToggleMute,
     },
     {
       id: "spam",
-      label: isSpamView ? "Not Spam" : "Report Spam",
+      label: isSpamView ? t("contextMenu.notSpam") : t("contextMenu.reportSpam"),
       icon: Ban,
       shortcut: "!",
       action: handleSpam,
@@ -519,14 +512,14 @@ function ThreadMenu({
     ...(labelItems.length > 0
       ? [{
           id: "apply-label",
-          label: "Apply Label",
+          label: t("contextMenu.applyLabel"),
           icon: Tag,
           children: labelItems,
         }]
       : []),
     {
       id: "move-to-folder",
-      label: "Move to Folder",
+      label: t("contextMenu.moveToFolder"),
       icon: FolderInput,
       shortcut: "v",
       action: () => {
@@ -535,11 +528,11 @@ function ThreadMenu({
     },
     {
       id: "move-to-category",
-      label: "Move to Category",
+      label: t("contextMenu.moveToCategory"),
       icon: Layers,
       children: ALL_CATEGORIES.map((cat) => ({
         id: `cat-${cat}`,
-        label: cat,
+        label: t(`category.${cat}`),
         action: async () => {
           for (const id of targetIds) {
             await setThreadCategory(activeAccountId, id, cat, true);
@@ -553,7 +546,7 @@ function ThreadMenu({
           { id: "sep-4", label: "", separator: true },
           {
             id: "quick-steps",
-            label: "Quick Steps",
+            label: t("contextMenu.quickSteps"),
             icon: Zap,
             children: quickSteps.map((qs) => {
               let parsedActions: QuickStepAction[] = [];
@@ -562,7 +555,9 @@ function ThreadMenu({
               } catch { /* ignore */ }
               return {
                 id: `qs-${qs.id}`,
-                label: qs.name,
+                label: getQuickStepDisplayName(qs, (key, options) =>
+                  t(key, { ...options, ns: "settings" }),
+                ),
                 action: async () => {
                   const step: QuickStep = {
                     id: qs.id,
@@ -586,7 +581,7 @@ function ThreadMenu({
       : []),
     {
       id: "pop-out",
-      label: "Open in New Window",
+      label: t("contextMenu.openNewWindow"),
       icon: ExternalLink,
       disabled: isMulti,
       action: handlePopOut,
@@ -605,6 +600,7 @@ function MessageMenu({
   data: Record<string, unknown>;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("email");
   const openComposer = useComposerStore((s) => s.openComposer);
 
   const messageId = data["messageId"] as string;
@@ -628,7 +624,7 @@ function MessageMenu({
       mode: "reply",
       to: replyAddr ? [replyAddr] : [],
       subject: `Re: ${subject ?? ""}`,
-      bodyHtml: buildQuote(msg),
+      bodyHtml: buildReplyQuote(msg),
       threadId,
       inReplyToMessageId: messageId,
     });
@@ -650,7 +646,7 @@ function MessageMenu({
       to: Array.from(allRecipients),
       cc: ccList,
       subject: `Re: ${subject ?? ""}`,
-      bodyHtml: buildQuote(msg),
+      bodyHtml: buildReplyQuote(msg),
       threadId,
       inReplyToMessageId: messageId,
     });
@@ -679,21 +675,21 @@ function MessageMenu({
   const items: ContextMenuItem[] = [
     {
       id: "reply",
-      label: "Reply",
+      label: t("contextMenu.reply"),
       icon: Reply,
       shortcut: "r",
       action: handleReply,
     },
     {
       id: "reply-all",
-      label: "Reply All",
+      label: t("contextMenu.replyAll"),
       icon: ReplyAll,
       shortcut: "a",
       action: handleReplyAll,
     },
     {
       id: "forward",
-      label: "Forward",
+      label: t("contextMenu.forward"),
       icon: Forward,
       shortcut: "f",
       action: handleForward,
@@ -701,7 +697,7 @@ function MessageMenu({
     { id: "sep-1", label: "", separator: true },
     {
       id: "copy-text",
-      label: "Copy Message Text",
+      label: t("contextMenu.copyMessageText"),
       icon: Copy,
       action: handleCopy,
     },
@@ -710,7 +706,7 @@ function MessageMenu({
           { id: "sep-2", label: "", separator: true },
           {
             id: "view-source",
-            label: "View Source",
+            label: t("contextMenu.viewSource"),
             icon: Code,
             action: () => {
               window.dispatchEvent(

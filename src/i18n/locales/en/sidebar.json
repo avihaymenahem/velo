@@ -1,0 +1,54 @@
+{
+  "compose": "Compose",
+  "nav": {
+    "inbox": "Inbox",
+    "starred": "Starred",
+    "snoozed": "Snoozed",
+    "sent": "Sent",
+    "drafts": "Drafts",
+    "trash": "Trash",
+    "spam": "Spam",
+    "all": "All Mail",
+    "tasks": "Tasks",
+    "calendar": "Calendar",
+    "attachments": "Attachments",
+    "smart-folders": "Smart Folders",
+    "labels": "Labels"
+  },
+  "categories": {
+    "Primary": "Primary",
+    "Updates": "Updates",
+    "Promotions": "Promotions",
+    "Social": "Social",
+    "Newsletters": "Newsletters"
+  },
+  "sections": {
+    "smartFolders": "Smart Folders",
+    "labels": "Labels"
+  },
+  "tooltips": {
+    "editLabel": "Edit label",
+    "addSmartFolder": "Add smart folder",
+    "addLabel": "Add label",
+    "settings": "Settings",
+    "help": "Help",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "switchUnified": "Switch to unified inbox",
+    "switchSplit": "Switch to split inbox"
+  },
+  "labels": {
+    "showLess": "Show less",
+    "more": "{{count}} more"
+  },
+  "smartFolderDialog": {
+    "title": "New Smart Folder",
+    "name": "Name",
+    "namePlaceholder": "e.g. Unread from boss",
+    "query": "Search query",
+    "queryPlaceholder": "e.g. is:unread from:boss"
+  },
+  "pending": "{{count}} pending {{label}}",
+  "pendingChange": "change",
+  "pendingChanges": "changes"
+}

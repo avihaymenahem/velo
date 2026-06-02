@@ -1,0 +1,385 @@
+{
+  "common": {
+    "unknown": "Unknown",
+    "noSubject": "(No subject)",
+    "thread": "Thread",
+    "email": "email"
+  },
+  "category": {
+    "Primary": "Primary",
+    "Updates": "Updates",
+    "Promotions": "Promotions",
+    "Social": "Social",
+    "Newsletters": "Newsletters"
+  },
+  "mailbox": {
+    "inbox": "Inbox",
+    "starred": "Starred",
+    "snoozed": "Snoozed",
+    "sent": "Sent",
+    "drafts": "Drafts",
+    "trash": "Trash",
+    "spam": "Spam",
+    "all": "All Mail"
+  },
+  "threadCard": {
+    "aria": "{{unread}}email from {{sender}}: {{subject}}",
+    "unread": "Unread ",
+    "followUp": "Follow-up reminder set",
+    "muted": "Muted",
+    "pinned": "Pinned",
+    "hasAttachments": "Has attachments",
+    "starred": "Starred"
+  },
+  "list": {
+    "smartFolder": "Smart Folder",
+    "inboxCategory": "Inbox — {{category}}",
+    "conversationCount_one": "{{count}} conversation",
+    "conversationCount_other": "{{count}} conversations",
+    "filters": {
+      "all": "All",
+      "unread": "Unread",
+      "read": "Read"
+    },
+    "selected": "{{count}} selected",
+    "selectAll": "Select all",
+    "archiveSelected": "Archive selected",
+    "deleteSelected": "Delete selected",
+    "notSpam": "Not spam",
+    "reportSpam": "Report spam",
+    "clearSelection": "Clear selection",
+    "otherEmails": "Other emails",
+    "loadingMore": "Loading more...",
+    "allLoaded": "All conversations loaded"
+  },
+  "empty": {
+    "noResults": "No results found",
+    "trySearch": "Try a different search term",
+    "noFilteredEmails": "No {{filter}} emails",
+    "tryFilter": "Try changing the filter",
+    "noAccount": "No account connected",
+    "addAccount": "Add a Gmail account to get started",
+    "primaryClear": "Primary is clear",
+    "noImportant": "No important conversations",
+    "noUpdates": "No updates",
+    "updatesHint": "Notifications and transactional emails appear here",
+    "noPromotions": "No promotions",
+    "promotionsHint": "Marketing and promotional emails appear here",
+    "noSocial": "No social emails",
+    "socialHint": "Social network notifications appear here",
+    "noNewsletters": "No newsletters",
+    "newslettersHint": "Newsletters and subscriptions appear here",
+    "caughtUp": "You're all caught up",
+    "noNew": "No new conversations",
+    "noStarred": "No starred conversations",
+    "starHint": "Star emails to find them here",
+    "noSnoozed": "No snoozed emails",
+    "snoozedHint": "Snoozed emails will appear here",
+    "noSent": "No sent messages",
+    "noDrafts": "No drafts",
+    "trashEmpty": "Trash is empty",
+    "noSpam": "No spam",
+    "lookingGood": "Looking good!",
+    "noEmails": "No emails yet",
+    "noMatching": "No matching emails",
+    "adjustSmartFolder": "Try adjusting the smart folder query",
+    "nothingHere": "Nothing here",
+    "noLabelConversations": "No conversations with this label",
+    "readingPaneTitle": "Kirje",
+    "readingPaneSubtitle": "Select an email to read"
+  },
+  "actionBar": {
+    "noReply": "This sender does not accept replies",
+    "reply": "Reply (r)",
+    "replyAll": "Reply All (a)",
+    "forward": "Forward (f)",
+    "archive": "Archive (e)",
+    "delete": "Delete (#)",
+    "markUnread": "Mark unread",
+    "markRead": "Mark read",
+    "unstar": "Unstar (s)",
+    "star": "Star (s)",
+    "snooze": "Snooze (h)",
+    "notSpam": "Not Spam (!)",
+    "reportSpam": "Report Spam (!)",
+    "move": "Move to folder (v)",
+    "unpin": "Unpin (p)",
+    "pin": "Pin (p)",
+    "unmute": "Unmute (m)",
+    "mute": "Mute (m)",
+    "cancelFollowUp": "Cancel follow-up reminder",
+    "followUp": "Remind me if no reply",
+    "unsubscribing": "Unsubscribing...",
+    "unsubscribed": "Unsubscribed",
+    "unsubscribe": "Unsubscribe (u)",
+    "print": "Print",
+    "export": "Export as .eml",
+    "popOut": "Open in new window",
+    "hideTaskPanel": "Hide task panel",
+    "showTaskPanel": "Show task panel",
+    "hideContactSidebar": "Hide contact sidebar",
+    "showContactSidebar": "Show contact sidebar"
+  },
+  "threadView": {
+    "messageCount_one": "{{count}} message in this thread",
+    "messageCount_other": "{{count}} messages in this thread",
+    "print": {
+      "from": "From:",
+      "to": "To:",
+      "date": "Date:"
+    },
+    "export": {
+      "defaultFileName": "email",
+      "fileType": "Email"
+    }
+  },
+  "renderer": {
+    "title": "Email content",
+    "remoteImagesHidden": "Images hidden to protect your privacy.",
+    "loadImages": "Load images",
+    "alwaysLoadSender": "Always load from sender"
+  },
+  "quote": {
+    "unknownSender": "Unknown",
+    "replyHeader": "On {{date}}, {{from}} wrote:",
+    "forwardHeader": "---------- Forwarded message ---------",
+    "from": "From: {{from}}",
+    "date": "Date: {{date}}",
+    "subject": "Subject: {{subject}}",
+    "to": "To: {{to}}"
+  },
+  "contextMenu": {
+    "syncFolder": "Sync this folder",
+    "editLabel": "Edit label",
+    "deleteLabel": "Delete label",
+    "reply": "Reply",
+    "replyAll": "Reply All",
+    "forward": "Forward",
+    "archive": "Archive",
+    "delete": "Delete",
+    "deletePermanently": "Delete Permanently",
+    "markUnread": "Mark as Unread",
+    "markRead": "Mark as Read",
+    "unstar": "Unstar",
+    "star": "Star",
+    "snooze": "Snooze...",
+    "unpin": "Unpin",
+    "pin": "Pin",
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "notSpam": "Not Spam",
+    "reportSpam": "Report Spam",
+    "applyLabel": "Apply Label",
+    "moveToFolder": "Move to Folder",
+    "moveToCategory": "Move to Category",
+    "quickSteps": "Quick Steps",
+    "openNewWindow": "Open in New Window",
+    "copyMessageText": "Copy Message Text",
+    "viewSource": "View Source"
+  },
+  "authWarning": {
+    "title": "Authentication failed",
+    "senderFallback": "this sender",
+    "description": "This message from {{sender}} failed email authentication checks (SPF/DKIM/DMARC). Be cautious with any links or attachments.",
+    "dismiss": "Dismiss warning"
+  },
+  "authBadge": {
+    "labels": {
+      "pass": "Authentication passed",
+      "warning": "Authentication warning",
+      "fail": "Authentication failed",
+      "unknown": "Authentication unknown"
+    },
+    "detailLine": "{{protocol}}: {{result}}{{detail}}",
+    "results": {
+      "pass": "pass",
+      "fail": "fail",
+      "warning": "warning",
+      "unknown": "unknown",
+      "neutral": "neutral",
+      "softfail": "softfail",
+      "temperror": "temporary error",
+      "permerror": "permanent error",
+      "none": "none"
+    }
+  },
+  "snooze": {
+    "title": "Snooze until...",
+    "action": "Snooze",
+    "presets": {
+      "laterToday": "Later Today",
+      "tomorrow": "Tomorrow",
+      "thisWeekend": "This Weekend",
+      "nextWeek": "Next Week"
+    }
+  },
+  "followUpDialog": {
+    "title": "Remind me if no reply...",
+    "action": "Set reminder",
+    "presets": {
+      "oneDay": "In 1 day",
+      "twoDays": "In 2 days",
+      "threeDays": "In 3 days",
+      "oneWeek": "In 1 week"
+    }
+  },
+  "inlineReply": {
+    "placeholder": "Write your reply...",
+    "noReply": "This sender does not accept replies",
+    "mode": {
+      "reply": "Reply",
+      "replyAll": "Reply All",
+      "forward": "Forward"
+    },
+    "to": "to {{recipients}}",
+    "cancel": "Cancel",
+    "generatingDraft": "Generating draft...",
+    "expand": "Expand",
+    "expandTitle": "Expand to full composer",
+    "regenerate": "Regenerate",
+    "regenerateTitle": "Regenerate AI draft",
+    "clear": "Clear",
+    "clearTitle": "Clear AI draft"
+  },
+  "message": {
+    "to": "To: {{addresses}}",
+    "loading": "Loading...",
+    "unsubscribe": {
+      "loading": "Unsubscribing...",
+      "done": "Unsubscribed",
+      "failed": "Unsubscribe failed — click to retry",
+      "idle": "Unsubscribe"
+    }
+  },
+  "ai": {
+    "summary": {
+      "title": "AI Summary",
+      "refresh": "Refresh summary",
+      "generating": "Generating summary..."
+    },
+    "smartReplies": {
+      "title": "Quick Replies",
+      "refresh": "Refresh suggestions",
+      "generating": "Generating suggestions..."
+    }
+  },
+  "offline": {
+    "banner": "You're offline — changes will sync when you reconnect"
+  },
+  "contact": {
+    "actions": {
+      "close": "Close contact sidebar",
+      "saveName": "Save name",
+      "sendEmail": "Send email",
+      "copied": "Copied!",
+      "copyEmail": "Copy email",
+      "removeVip": "Remove VIP",
+      "markVip": "Mark as VIP",
+      "added": "Added!",
+      "addToContacts": "Add to Contacts",
+      "editName": "Edit name"
+    },
+    "stats": {
+      "emailCount_one": "{{count}} email",
+      "emailCount_other": "{{count}} emails",
+      "firstEmail": "First email: {{date}}",
+      "lastEmail": "Last email: {{date}}"
+    },
+    "notes": {
+      "title": "Notes",
+      "placeholder": "Add a note..."
+    },
+    "sharedFiles": {
+      "title": "Shared Files"
+    },
+    "sameDomain": {
+      "title": "Others at @{{domain}}"
+    },
+    "recentConversations": {
+      "title": "Recent Conversations"
+    }
+  },
+  "linkConfirm": {
+    "highRisk": "High Risk Link",
+    "suspicious": "Suspicious Link",
+    "fullUrl": "Full URL",
+    "linkText": "Link text",
+    "issuesDetected": "Issues detected ({{count}})",
+    "points": "({{score}}pts)",
+    "goBack": "Go Back",
+    "openAnyway": "Open Anyway",
+    "rules": {
+      "ip-address": {
+        "name": "IP Address URL",
+        "detail": "URL points to raw IP address: {{hostname}}"
+      },
+      "homograph": {
+        "name": "Homograph/Punycode Domain",
+        "detail": "Domain uses Punycode (internationalized characters): {{hostname}}"
+      },
+      "suspicious-tld": {
+        "name": "Suspicious TLD",
+        "detailHigh": "High-risk top-level domain: {{tld}}",
+        "detailMedium": "Medium-risk top-level domain: {{tld}}",
+        "detailLow": "Low-risk top-level domain: {{tld}}"
+      },
+      "display-mismatch": {
+        "name": "Display vs URL Mismatch",
+        "detail": "Link text shows \"{{displayDomain}}\" but points to \"{{hrefDomain}}\""
+      },
+      "excessive-subdomains": {
+        "name": "Excessive Subdomains",
+        "detail": "Hostname has {{count}} dots: {{hostname}}"
+      },
+      "url-shortener": {
+        "name": "URL Shortener",
+        "detail": "Link uses URL shortener: {{hostname}}"
+      },
+      "suspicious-keywords": {
+        "name": "Suspicious Path Keywords",
+        "detail": "Path contains suspicious keywords: {{keywords}}"
+      },
+      "dangerous-protocol": {
+        "name": "Dangerous URI Scheme",
+        "detail": "Uses dangerous protocol: {{protocol}}"
+      },
+      "url-obfuscation": {
+        "name": "URL Obfuscation",
+        "detailCredentialSpoofing": "URL contains @ sign used for credential spoofing",
+        "detailPercentEncoded": "Hostname contains percent-encoded characters"
+      },
+      "brand-impersonation": {
+        "name": "Brand Impersonation",
+        "detail": "\"{{brand}}\" appears in URL but domain is {{domain}}"
+      }
+    }
+  },
+  "phishingBanner": {
+    "highRiskTitle": "High risk links detected",
+    "suspiciousTitle": "Suspicious links detected",
+    "description_one": "1 suspicious link found in this message. Be cautious before clicking any links.",
+    "description_other": "{{count}} suspicious links found in this message. Be cautious before clicking any links.",
+    "trustSender": "Trust this sender"
+  },
+  "moveDialog": {
+    "placeholder": "Move to...",
+    "noMatches": "No matching folders or labels",
+    "system": "System",
+    "destinations": {
+      "archive": "Archive"
+    },
+    "hints": {
+      "navigate": "navigate",
+      "select": "select",
+      "close": "close"
+    }
+  },
+  "rawSource": {
+    "title": "Message Source",
+    "copyTitle": "Copy to clipboard",
+    "copy": "Copy",
+    "copied": "Copied",
+    "loading": "Loading message source...",
+    "error": "Failed to load message source: {{error}}"
+  }
+}

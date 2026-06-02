@@ -1,0 +1,68 @@
+{
+  "title": "Tasks",
+  "searchPlaceholder": "Search tasks...",
+  "quickAddDefaultPlaceholder": "Add a task...",
+  "quickAddPlaceholder": "Add task to this thread...",
+  "empty": {
+    "title": "No tasks",
+    "thread": "No tasks linked to this thread",
+    "search": "Try a different search term",
+    "hint": "Add a task above or press 't' on any email thread"
+  },
+  "due": {
+    "overdueDays": "{{count}}d overdue",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "days": "{{count}}d"
+  },
+  "status": {
+    "active": "Active",
+    "all": "All",
+    "completed": "Completed"
+  },
+  "priority": {
+    "all": "All priorities",
+    "urgent": "Urgent",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "none": "None"
+  },
+  "grouping": {
+    "none": "No grouping",
+    "priority": "Group by priority",
+    "dueDate": "Group by due date",
+    "tag": "Group by tag",
+    "noDueDate": "No due date",
+    "overdue": "Overdue",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "thisWeek": "This week",
+    "later": "Later",
+    "untagged": "Untagged"
+  },
+  "actions": {
+    "openPage": "Open tasks page"
+  },
+  "aiExtract": {
+    "title": "Create Task from Email",
+    "extracting": "Extracting task from email...",
+    "fallbackTitle": "Follow up on: {{subject}}",
+    "fallbackSubject": "Email task",
+    "fields": {
+      "title": "Title",
+      "description": "Description",
+      "priority": "Priority",
+      "dueDate": "Due date"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "create": "Create Task",
+      "creating": "Creating..."
+    },
+    "error": {
+      "extract": "Failed to extract task",
+      "create": "Failed to create task"
+    }
+  }
+}

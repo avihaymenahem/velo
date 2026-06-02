@@ -38,7 +38,7 @@ Most email clients are slow, bloated, or send your data to someone else's server
 - **Keyboard-driven** -- Superhuman-inspired shortcuts let you fly through your inbox without touching the mouse.
 - **AI-enhanced** -- Summarize threads, generate replies, and search your inbox in natural language -- with your choice of AI provider.
 - **Native performance** -- Rust backend via Tauri v2. Small binary, low memory, instant startup.
-- **Private by default** -- Remote images blocked, HTML sanitized, emails rendered in sandboxed iframes. Your data stays on your machine.
+- **Private by default** -- Remote images blocked, HTML sanitized, emails rendered in sandboxed iframes. Mail is stored locally; optional AI calls go directly to the provider you configure.
 
 ---
 

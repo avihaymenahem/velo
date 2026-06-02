@@ -153,6 +153,22 @@ describe("formatSyncError", () => {
     );
   });
 
+  it("uses custom user-facing messages", () => {
+    const messages = {
+      auth: "认证失败，请检查密码",
+      timeout: "连接超时，请检查网络或服务器设置",
+      secureConnection: "安全连接失败，请检查安全设置",
+      connectionRefused: "无法连接邮件服务器，请检查地址和端口",
+      serverNotFound: "未找到服务器，请检查主机名",
+    };
+
+    expect(formatSyncError("authentication failed", messages)).toBe("认证失败，请检查密码");
+    expect(formatSyncError("TCP connect timed out", messages)).toBe("连接超时，请检查网络或服务器设置");
+    expect(formatSyncError("TLS handshake failed", messages)).toBe("安全连接失败，请检查安全设置");
+    expect(formatSyncError("connect ECONNREFUSED 127.0.0.1:993", messages)).toBe("无法连接邮件服务器，请检查地址和端口");
+    expect(formatSyncError("DNS resolution failed", messages)).toBe("未找到服务器，请检查主机名");
+  });
+
   it("truncates long errors at 100 chars", () => {
     const longError = "A".repeat(150);
     const result = formatSyncError(longError);

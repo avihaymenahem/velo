@@ -1,0 +1,576 @@
+{
+  "title": "设置",
+  "backToInbox": "返回收件箱",
+  "tabs": {
+    "general": "通用",
+    "notifications": "通知",
+    "composing": "写信",
+    "mailRules": "邮件规则",
+    "people": "联系人",
+    "accounts": "账户",
+    "shortcuts": "快捷键",
+    "ai": "AI",
+    "about": "关于"
+  },
+  "language": {
+    "label": "语言",
+    "options": {
+      "system": "跟随系统",
+      "en": "English",
+      "zh-CN": "简体中文"
+    }
+  },
+  "sections": {
+    "appearance": "外观",
+    "startup": "启动",
+    "privacySecurity": "隐私与安全"
+  },
+  "appearance": {
+    "theme": "主题",
+    "themeOptions": {
+      "system": "跟随系统",
+      "light": "浅色",
+      "dark": "深色"
+    },
+    "readingPane": "阅读面板",
+    "readingPaneOptions": {
+      "right": "右侧",
+      "bottom": "底部",
+      "hidden": "关闭"
+    },
+    "emailDensity": "邮件密度",
+    "densityOptions": {
+      "compact": "紧凑",
+      "default": "默认",
+      "spacious": "宽松"
+    },
+    "fontSize": "字体大小",
+    "fontOptions": {
+      "small": "小",
+      "default": "默认",
+      "large": "大",
+      "xlarge": "超大"
+    },
+    "accentColor": "强调色",
+    "accentColors": {
+      "indigo": "靛蓝",
+      "rose": "玫瑰",
+      "emerald": "翠绿",
+      "amber": "琥珀",
+      "sky": "天蓝",
+      "violet": "紫罗兰",
+      "orange": "橙色",
+      "slate": "石板灰"
+    },
+    "inboxViewMode": "收件箱视图",
+    "inboxViewOptions": {
+      "unified": "统一",
+      "split": "分类"
+    },
+    "reduceMotion": "减少动效",
+    "reduceMotionDescription": "关闭动态背景效果，可减少部分设备上的闪烁"
+  },
+  "startup": {
+    "launchAtLogin": "登录时启动",
+    "launchAtLoginDescription": "登录系统后自动启动 Kirje，并最小化到托盘"
+  },
+  "privacy": {
+    "blockRemoteImages": "阻止远程图片",
+    "blockRemoteImagesDescription": "隐藏追踪像素和远程图片，直到你选择加载",
+    "phishingDetection": "钓鱼链接检测",
+    "phishingDetectionDescription": "扫描邮件链接的钓鱼风险并显示警告",
+    "detectionSensitivity": "检测敏感度",
+    "sensitivityOptions": {
+      "low": "低（更少警告）",
+      "default": "默认",
+      "high": "高（更多警告）"
+    }
+  },
+  "storage": {
+    "title": "存储",
+    "attachmentCache": "附件缓存",
+    "used": "已使用 {{size}} MB",
+    "calculating": "正在计算...",
+    "clearing": "正在清理...",
+    "clearCache": "清理缓存",
+    "maxCacheSize": "最大缓存大小"
+  },
+  "sidebar": {
+    "title": "侧边栏",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "alwaysVisible": "收件箱始终可见",
+    "hide": "隐藏",
+    "show": "显示",
+    "resetDefaults": "恢复默认"
+  },
+  "caldav": {
+    "title": "日历（CalDAV）",
+    "connected": "已连接",
+    "description": "连接 CalDAV 日历服务器，为此 IMAP 账户启用日历功能。",
+    "serverUrl": "CalDAV 服务器 URL",
+    "username": "用户名",
+    "password": "密码 / 应用专用密码",
+    "passwordPlaceholder": "应用专用密码",
+    "testing": "正在测试...",
+    "connectionSucceeded": "连接成功",
+    "connectionFailed": "连接失败",
+    "testConnection": "测试连接",
+    "remove": "移除"
+  },
+  "developer": {
+    "appInfo": "应用信息",
+    "appVersion": "应用版本",
+    "tauriVersion": "Tauri 版本",
+    "webviewVersion": "WebView 版本",
+    "unknown": "未知",
+    "platform": "平台",
+    "updates": "软件更新",
+    "softwareUpdates": "软件更新",
+    "available": "v{{version}} 可用",
+    "upToDate": "已是最新版本",
+    "updating": "正在更新...",
+    "updateRestart": "更新并重启",
+    "checking": "正在检查...",
+    "checkUpdates": "检查更新",
+    "developerTools": "开发者工具",
+    "openDevtools": "打开 DevTools",
+    "openDevtoolsDescription": "打开 WebView 开发者工具检查器"
+  },
+  "about": {
+    "version": "版本 {{version}}",
+    "loading": "正在加载...",
+    "description": "一个快速、开源、重视隐私的桌面邮箱客户端。你的邮件保留在本机，不上云，不追踪。",
+    "links": "链接",
+    "website": "网站",
+    "githubRepository": "GitHub 仓库",
+    "contact": "联系方式",
+    "license": "许可证",
+    "licenseName": "Apache License 2.0",
+    "licenseDescription": "本软件基于 Apache License 2.0 授权。你可以在以下地址获取许可证副本：",
+    "copyright": "Copyright 2026 Kirje contributors. You may use, distribute, and modify this software under the terms of the Apache 2.0 license. This software is distributed on an \"AS IS\" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND."
+  },
+  "notifications": {
+    "title": "通知",
+    "enable": "启用通知",
+    "smart": "智能通知",
+    "smartDescription": "只通知所选分类和 VIP 发件人",
+    "categoryFilters": "分类过滤",
+    "notifyForCategories": "通知这些分类",
+    "vipSenders": "VIP 发件人",
+    "vipDescription": "这些发件人始终触发通知，不受分类限制",
+    "add": "添加"
+  },
+  "composing": {
+    "sending": "发送",
+    "undoSendDelay": "撤销发送延迟",
+    "seconds": "{{count}} 秒",
+    "sendAndArchive": "发送并归档",
+    "sendAndArchiveDescription": "回复后自动归档线程",
+    "behavior": "行为",
+    "defaultReplyAction": "默认回复动作",
+    "reply": "回复",
+    "replyAll": "全部回复",
+    "markAsRead": "标记为已读",
+    "instantly": "立即",
+    "afterSeconds": "{{count}} 秒后",
+    "manually": "手动",
+    "signatures": "签名",
+    "templates": "模板"
+  },
+  "mailRules": {
+    "labels": "标签",
+    "labelsDescription": "创建、重命名、换色、删除或重新排序 Gmail 标签。",
+    "filters": "过滤器",
+    "filtersDescription": "过滤器会在同步期间自动对新收到的邮件应用动作。",
+    "smartLabels": "智能标签",
+    "smartLabelsDescription": "用自然语言描述哪些邮件应被打上标签。AI 会在同步期间自动标记匹配邮件。",
+    "smartFolders": "智能文件夹",
+    "smartFoldersDescription": "智能文件夹是保存的搜索，会自动显示匹配邮件。可使用这些搜索操作符：",
+    "quickSteps": "快捷步骤",
+    "quickStepsDescription": "快捷步骤可以把多个动作串成一次点击。你可以在任意线程的右键菜单中使用它们。"
+  },
+  "people": {
+    "contacts": "联系人",
+    "contactsDescription": "联系人会在你收发邮件时自动添加。可在下方编辑显示名称或移除联系人。",
+    "subscriptions": "订阅",
+    "subscriptionsDescription": "检测含有退订链接的营销邮件，并从一个地方管理订阅。"
+  },
+  "accounts": {
+    "mailAccounts": "邮箱账户",
+    "noMailAccounts": "未连接邮箱账户",
+    "calendarAccounts": "日历账户",
+    "googleApi": "Google API",
+    "oauthClientId": "客户端 ID",
+    "oauthClientIdPlaceholder": "Google OAuth 客户端 ID",
+    "oauthClientSecret": "客户端密钥",
+    "oauthClientSecretPlaceholder": "Google OAuth 客户端密钥",
+    "waiting": "等待中...",
+    "done": "已完成！",
+    "failed": "失败",
+    "reauthorize": "重新授权",
+    "resyncing": "正在重新同步...",
+    "resync": "重新同步",
+    "remove": "移除",
+    "saved": "已保存！"
+  },
+  "sync": {
+    "title": "同步",
+    "checkNewMail": "检查新邮件",
+    "syncing": "正在同步...",
+    "syncNow": "立即同步",
+    "fullResync": "完整重新同步",
+    "fullResyncDescription": "从头重新下载所有邮件",
+    "period": "同步范围",
+    "emailsFrom": "同步邮件范围",
+    "lastDays": "最近 {{count}} 天",
+    "lastYear": "最近 1 年",
+    "periodDescription": "更改会在下一次完整重新同步时生效。"
+  },
+  "sendAs": {
+    "title": "发件别名",
+    "description": "这些别名会从 Gmail 设置同步。你可以选择默认发件人。",
+    "empty": "未找到别名。别名会在启动时从 Gmail 获取。",
+    "primary": "主地址",
+    "default": "默认",
+    "setDefault": "设为默认"
+  },
+  "offline": {
+    "title": "同步与离线",
+    "pendingOperations": "待同步操作",
+    "pendingDescription": "等待同步到服务器的变更",
+    "failedOperations": "失败操作",
+    "failedDescription": "多次重试后仍无法同步的变更",
+    "retry": "重试",
+    "clear": "清除"
+  },
+  "shortcuts": {
+    "global": {
+      "title": "全局快捷键",
+      "quickCompose": "快速写信",
+      "quickComposeDescription": "从任意应用打开写信窗口",
+      "change": "更改"
+    },
+    "recording": {
+      "pressKeys": "按下按键...",
+      "pressKey": "按下按键..."
+    },
+    "instructions": "点击快捷键可重新绑定。按任意键或组合键完成设置。",
+    "resetAll": "全部重置",
+    "resetTo": "重置为 {{shortcut}}",
+    "categories": {
+      "navigation": "导航",
+      "actions": "动作",
+      "app": "应用"
+    },
+    "items": {
+      "nav_next": "下一封线程",
+      "nav_prev": "上一封线程",
+      "nav_open": "打开线程",
+      "nav_msgNext": "线程中的下一封邮件",
+      "nav_msgPrev": "线程中的上一封邮件",
+      "nav_goInbox": "前往收件箱",
+      "nav_goStarred": "前往已加星标",
+      "nav_goSent": "前往已发送",
+      "nav_goDrafts": "前往草稿",
+      "nav_goPrimary": "前往主要",
+      "nav_goUpdates": "前往更新",
+      "nav_goPromotions": "前往推广",
+      "nav_goSocial": "前往社交",
+      "nav_goNewsletters": "前往简报",
+      "nav_goTasks": "前往任务",
+      "nav_goAttachments": "前往附件",
+      "nav_escape": "关闭 / 返回",
+      "action_compose": "写新邮件",
+      "action_reply": "回复",
+      "action_replyAll": "回复全部",
+      "action_forward": "转发",
+      "action_archive": "归档",
+      "action_delete": "删除",
+      "action_spam": "举报垃圾邮件 / 不是垃圾邮件",
+      "action_star": "标星 / 取消标星",
+      "action_pin": "置顶 / 取消置顶",
+      "action_unsubscribe": "退订",
+      "action_mute": "静音 / 取消静音",
+      "action_createTaskFromEmail": "从邮件创建任务（AI）",
+      "action_moveToFolder": "移动到文件夹/标签",
+      "action_selectAll": "全选",
+      "action_selectFromHere": "从当前位置全选",
+      "app_commandPalette": "命令菜单",
+      "app_toggleSidebar": "切换侧边栏",
+      "app_send": "发送邮件",
+      "app_askInbox": "向 AI 询问收件箱",
+      "app_help": "显示键盘快捷键",
+      "app_syncFolder": "同步当前文件夹"
+    }
+  },
+  "aiSettings": {
+    "provider": {
+      "title": "提供商",
+      "description": "选择用于总结、写信辅助和智能分类的 AI 服务商。",
+      "aiProvider": "AI 服务商",
+      "usesModel": "当前使用 {{model}}。",
+      "localDescription": "连接本地 Ollama 或 LMStudio 服务。不需要 API 密钥。",
+      "copilotDescription": "当前使用 {{model}}。需要拥有 models:read 权限的 GitHub PAT。",
+      "options": {
+        "claude": "Claude（Anthropic）",
+        "openai": "OpenAI",
+        "gemini": "Gemini（Google）",
+        "ollama": "本地 AI（Ollama / LMStudio）",
+        "copilot": "GitHub Copilot"
+      }
+    },
+    "localServer": {
+      "title": "本地服务",
+      "serverUrl": "服务 URL",
+      "modelName": "模型名称"
+    },
+    "apiKey": {
+      "title": "API 密钥",
+      "model": "模型",
+      "saveKey": "保存密钥",
+      "labels": {
+        "claude": "Anthropic API 密钥",
+        "openai": "OpenAI API 密钥",
+        "gemini": "Google AI API 密钥",
+        "copilot": "GitHub 个人访问令牌"
+      }
+    },
+    "common": {
+      "saved": "已保存！",
+      "testing": "正在测试...",
+      "testConnection": "测试连接",
+      "connected": "已连接！",
+      "connectionFailed": "连接失败",
+      "analyzing": "正在分析..."
+    },
+    "features": {
+      "title": "功能",
+      "enable": "启用 AI 功能",
+      "enableDescription": "所有 AI 功能的总开关",
+      "autoCategorize": "收件箱自动分类",
+      "autoCategorizeDescription": "使用 AI 优化基于规则的分类结果",
+      "autoSummarize": "自动总结线程",
+      "autoSummarizeDescription": "在多封邮件线程中显示 AI 摘要"
+    },
+    "autoDraft": {
+      "title": "自动草拟回复",
+      "enable": "自动草拟回复",
+      "enableDescription": "用 AI 生成的草稿预填回复编辑器",
+      "writingStyle": "学习写作风格",
+      "writingStyleDescription": "分析已发送邮件，以匹配你的语气和表达方式",
+      "profile": "写作风格画像",
+      "profileDescription": "根据最近已发送邮件重新分析你的写作风格",
+      "reanalyze": "重新分析"
+    },
+    "categories": {
+      "title": "分类",
+      "description": "收到的邮件会先通过规则启发式分类（Gmail 标签、发件人域名、邮件头）。启用 AI 后，会进一步优化结果以提高准确率。",
+      "autoArchiveDescription": "启用自动归档后，指定分类会跳过收件箱。",
+      "autoArchive": "自动归档{{category}}",
+      "skipInbox": "让{{category}}类邮件跳过收件箱"
+    },
+    "bundles": {
+      "title": "捆绑与投递计划",
+      "description": "把分类折叠成收件箱中的单行。也可以设置投递计划来批量接收邮件。",
+      "bundle": "捆绑",
+      "schedule": "定时",
+      "at": "时间",
+      "days": {
+        "sun": "日",
+        "mon": "一",
+        "tue": "二",
+        "wed": "三",
+        "thu": "四",
+        "fri": "五",
+        "sat": "六"
+      }
+    }
+  },
+  "editors": {
+    "common": {
+      "save": "保存",
+      "saving": "正在保存...",
+      "update": "更新",
+      "cancel": "取消",
+      "edit": "编辑",
+      "delete": "删除"
+    },
+    "labels": {
+      "empty": "无用户标签",
+      "add": "+ 添加标签",
+      "namePlaceholder": "标签名称",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "noColor": "无颜色",
+      "saveError": "保存标签失败",
+      "deleteError": "删除标签失败"
+    },
+    "signatures": {
+      "add": "+ 添加签名",
+      "default": "默认",
+      "namePlaceholder": "签名名称",
+      "htmlSource": "HTML 源码",
+      "editHtml": "编辑 HTML 源码",
+      "visualEditor": "切换到可视编辑器",
+      "setDefault": "设为默认",
+      "placeholder": "编写你的签名..."
+    },
+    "criteria": {
+      "fromPlaceholder": "发件人包含...",
+      "toPlaceholder": "收件人包含...",
+      "subjectPlaceholder": "主题包含...",
+      "bodyPlaceholder": "正文包含...",
+      "hasAttachment": "包含附件",
+      "noCriteria": "无条件",
+      "invalidCriteria": "条件无效",
+      "summary": {
+        "from": "发件人：{{value}}",
+        "to": "收件人：{{value}}",
+        "subject": "主题：{{value}}",
+        "body": "正文：{{value}}",
+        "hasAttachment": "包含附件"
+      }
+    },
+    "filters": {
+      "add": "+ 添加过滤器",
+      "namePlaceholder": "过滤器名称",
+      "matchCriteria": "匹配条件",
+      "actions": "动作",
+      "applyLabel": "应用标签",
+      "none": "无",
+      "archive": "归档",
+      "star": "标星",
+      "markRead": "标记为已读",
+      "trash": "移到废纸篓",
+      "disabled": "已停用",
+      "enable": "启用",
+      "disable": "停用"
+    },
+    "smartLabels": {
+      "add": "+ 添加智能标签",
+      "applyExisting": "应用到已有邮件",
+      "applyingExisting": "正在应用到已有邮件...",
+      "backfillApplied": "已为已有邮件应用 {{count}} 个标签。",
+      "backfillFailed": "回填失败。请检查 AI 服务商设置。",
+      "disabled": "已停用",
+      "enable": "启用",
+      "disable": "停用",
+      "label": "标签",
+      "selectLabel": "选择标签...",
+      "noLabels": "没有用户标签。请先创建一个标签。",
+      "aiDescription": "AI 描述",
+      "aiDescriptionPlaceholder": "例如：求职申请和职业机会",
+      "optionalCriteria": "可选过滤条件"
+    },
+    "templates": {
+      "add": "+ 添加模板",
+      "namePlaceholder": "模板名称",
+      "subjectPlaceholder": "主题（可选）",
+      "shortcutPlaceholder": "快捷短语（可选，例如 /thanks）",
+      "insertVariable": "插入变量",
+      "placeholder": "编写你的模板...",
+      "variables": {
+        "first_name": "收件人的名字",
+        "last_name": "收件人的姓氏",
+        "email": "收件人的邮箱地址",
+        "my_name": "你的显示名称",
+        "my_email": "你的邮箱地址",
+        "subject": "邮件线程主题",
+        "date": "今天的日期",
+        "day": "星期几"
+      }
+    },
+    "smartFolders": {
+      "add": "+ 添加智能文件夹",
+      "default": "默认",
+      "namePlaceholder": "文件夹名称",
+      "queryPlaceholder": "搜索查询（例如 is:unread from:boss）",
+      "iconName": "图标名称",
+      "iconPlaceholder": "例如 Search",
+      "iconHint": "可用图标：Search、MailOpen、Paperclip、Star、FolderSearch、Inbox、Clock、Tag",
+      "color": "颜色（可选）"
+    },
+    "quickSteps": {
+      "add": "+ 添加快捷步骤",
+      "disabled": "已停用",
+      "enable": "启用",
+      "disable": "停用",
+      "invalidActions": "动作无效",
+      "namePlaceholder": "快捷步骤名称",
+      "descriptionPlaceholder": "描述（可选）",
+      "shortcut": "快捷键（可选）",
+      "shortcutPlaceholder": "例如 Ctrl+Shift+1",
+      "icon": "图标（可选）",
+      "iconPlaceholder": "例如 Archive、Star",
+      "actionChain": "动作链",
+      "selectLabel": "选择标签...",
+      "selectCategory": "选择分类...",
+      "selectDuration": "选择时长...",
+      "removeAction": "移除动作",
+      "addAction": "添加动作",
+      "continueOnError": "遇到错误继续执行（即使某个动作失败也继续运行后续动作）",
+      "presets": {
+        "replyArchive": "回复并归档",
+        "markReadArchive": "标记已读并归档",
+        "starPin": "标星并置顶"
+      },
+      "actions": {
+        "archive": "归档",
+        "trash": "移到废纸篓",
+        "markRead": "标记为已读",
+        "markUnread": "标记为未读",
+        "star": "标星",
+        "unstar": "取消标星",
+        "pin": "置顶",
+        "unpin": "取消置顶",
+        "applyLabel": "应用标签",
+        "removeLabel": "移除标签",
+        "moveToCategory": "移动到分类",
+        "reply": "回复",
+        "replyAll": "回复全部",
+        "forward": "转发",
+        "snooze": "稍后提醒",
+        "spam": "举报垃圾邮件",
+        "notSpam": "不是垃圾邮件"
+      },
+      "durations": {
+        "oneHour": "1 小时",
+        "fourHours": "4 小时",
+        "tomorrow": "明天",
+        "twoDays": "2 天",
+        "oneWeek": "1 周"
+      },
+      "categories": {
+        "Primary": "主要",
+        "Updates": "更新",
+        "Promotions": "推广",
+        "Social": "社交",
+        "Newsletters": "简报"
+      }
+    },
+    "contacts": {
+      "searchPlaceholder": "搜索联系人...",
+      "noMatches": "没有匹配的联系人",
+      "empty": "还没有联系人",
+      "displayNamePlaceholder": "显示名称",
+      "editName": "编辑名称",
+      "deleteContact": "删除联系人",
+      "total": "共 {{count}} 个联系人",
+      "frequency": "{{count}} 次"
+    },
+    "subscriptions": {
+      "noActiveAccount": "未选择活动账户。",
+      "loading": "正在加载订阅...",
+      "searchPlaceholder": "搜索发件人...",
+      "unsubscribeSelected": "退订（{{count}}）",
+      "detected": "检测到 {{count}} 个带退订头的发件人。",
+      "unsubscribed": "已退订",
+      "oneClick": "一键退订",
+      "emailCount": "{{count}} 封邮件",
+      "unsubscribe": "退订",
+      "noMatches": "没有匹配的发件人。",
+      "empty": "还没有检测到订阅。同步邮件后，带退订信息的发件人会显示在这里。"
+    }
+  }
+}

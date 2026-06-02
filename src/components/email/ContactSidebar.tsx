@@ -13,6 +13,7 @@ import { isVipSender, addVipSender, removeVipSender } from "@/services/db/notifi
 import { fetchAndCacheGravatarUrl } from "@/services/contacts/gravatar";
 import { useThreadStore } from "@/stores/threadStore";
 import { useComposerStore } from "@/stores/composerStore";
+import { useTranslation } from "react-i18next";
 import { getThreadById, getThreadLabelIds } from "@/services/db/threads";
 import { navigateToThread } from "@/router/navigate";
 import { formatRelativeDate } from "@/utils/date";
@@ -27,6 +28,7 @@ interface ContactSidebarProps {
 }
 
 export function ContactSidebar({ email, name, accountId, onClose }: ContactSidebarProps) {
+  const { t, i18n } = useTranslation("email");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [stats, setStats] = useState<ContactStats | null>(null);
   const [recentThreads, setRecentThreads] = useState<{ thread_id: string; subject: string | null; last_message_at: number | null }[]>([]);
@@ -188,6 +190,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
   const displayName = contact?.display_name ?? name ?? email.split("@")[0];
   const initial = (displayName?.[0] ?? "?").toUpperCase();
   const domain = email.includes("@") ? email.split("@")[1] : null;
+  const dateLocale = i18n.resolvedLanguage ?? i18n.language;
 
   return (
     <div className="w-72 h-full border-l border-border-primary bg-bg-secondary overflow-y-auto shrink-0">
@@ -196,7 +199,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
         <div className="flex justify-end -mt-1 -mr-1 mb-1">
           <button
             onClick={onClose}
-            title="Close contact sidebar"
+            title={t("contact.actions.close")}
             className="p-1 text-text-tertiary hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
           >
             <X size={14} />
@@ -233,7 +236,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
               />
               <button
                 onClick={handleSaveEditName}
-                title="Save name"
+                title={t("contact.actions.saveName")}
                 className="p-0.5 text-success hover:text-success/80 transition-colors"
               >
                 <Check size={14} />
@@ -255,21 +258,21 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
         <div className="flex items-center justify-center gap-3 mb-4">
           <button
             onClick={handleCompose}
-            title="Send email"
+            title={t("contact.actions.sendEmail")}
             className="p-2 text-text-secondary hover:text-accent hover:bg-bg-hover rounded-lg transition-colors"
           >
             <Send size={16} />
           </button>
           <button
             onClick={handleCopyEmail}
-            title={copyFeedback ? "Copied!" : "Copy email"}
+            title={copyFeedback ? t("contact.actions.copied") : t("contact.actions.copyEmail")}
             className="p-2 text-text-secondary hover:text-accent hover:bg-bg-hover rounded-lg transition-colors"
           >
             {copyFeedback ? <Check size={16} className="text-success" /> : <Copy size={16} />}
           </button>
           <button
             onClick={handleToggleVip}
-            title={isVip ? "Remove VIP" : "Mark as VIP"}
+            title={isVip ? t("contact.actions.removeVip") : t("contact.actions.markVip")}
             className={`p-2 rounded-lg transition-colors ${
               isVip
                 ? "text-warning hover:text-warning/80 hover:bg-bg-hover"
@@ -289,12 +292,12 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
             {addedFeedback ? (
               <>
                 <Check size={12} className="text-success" />
-                <span className="text-success">Added!</span>
+                <span className="text-success">{t("contact.actions.added")}</span>
               </>
             ) : (
               <>
                 <UserPlus size={12} />
-                <span>Add to Contacts</span>
+                <span>{t("contact.actions.addToContacts")}</span>
               </>
             )}
           </button>
@@ -304,7 +307,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
             className="w-full flex items-center justify-center gap-1.5 px-3 py-1 text-xs text-text-tertiary hover:text-text-secondary transition-colors mb-4"
           >
             <PenLine size={11} />
-            <span>Edit name</span>
+            <span>{t("contact.actions.editName")}</span>
           </button>
         ) : null}
 
@@ -313,18 +316,18 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
           <div className="space-y-2 mb-4">
             <div className="flex items-center gap-2 text-xs text-text-secondary">
               <Mail size={12} className="text-text-tertiary shrink-0" />
-              <span>{stats.emailCount} emails</span>
+              <span>{t("contact.stats.emailCount", { count: stats.emailCount })}</span>
             </div>
             {stats.firstEmail && (
               <div className="flex items-center gap-2 text-xs text-text-secondary">
                 <Clock size={12} className="text-text-tertiary shrink-0" />
-                <span>First email: {formatRelativeDate(stats.firstEmail)}</span>
+                <span>{t("contact.stats.firstEmail", { date: formatRelativeDate(stats.firstEmail, dateLocale) })}</span>
               </div>
             )}
             {stats.lastEmail && (
               <div className="flex items-center gap-2 text-xs text-text-secondary">
                 <Clock size={12} className="text-text-tertiary shrink-0" />
-                <span>Last email: {formatRelativeDate(stats.lastEmail)}</span>
+                <span>{t("contact.stats.lastEmail", { date: formatRelativeDate(stats.lastEmail, dateLocale) })}</span>
               </div>
             )}
           </div>
@@ -338,14 +341,14 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
               className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2 hover:text-text-secondary transition-colors"
             >
               {notesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-              Notes
+              {t("contact.notes.title")}
             </button>
             {notesExpanded && (
               <textarea
                 value={notes}
                 onChange={(e) => handleNotesChange(e.target.value)}
                 onBlur={handleNotesBlur}
-                placeholder="Add a note..."
+                placeholder={t("contact.notes.placeholder")}
                 rows={3}
                 className="w-full text-xs bg-bg-primary border border-border-primary rounded-md px-2 py-1.5 text-text-secondary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent resize-y"
               />
@@ -358,7 +361,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
           <div className="mb-4">
             <h4 className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2">
               <Paperclip size={11} />
-              Shared Files
+              {t("contact.sharedFiles.title")}
             </h4>
             <div className="space-y-1">
               {attachments.map((att, i) => (
@@ -372,7 +375,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
                     <div className="text-text-tertiary text-[0.625rem]">
                       {att.size != null && formatFileSize(att.size)}
                       {att.size != null && " \u00B7 "}
-                      {formatRelativeDate(att.date)}
+                      {formatRelativeDate(att.date, dateLocale)}
                     </div>
                   </div>
                 </div>
@@ -386,7 +389,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
           <div className="mb-4">
             <h4 className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2">
               <Building2 size={11} />
-              Others at @{domain}
+              {t("contact.sameDomain.title", { domain })}
             </h4>
             <div className="space-y-1">
               {sameDomainContacts.map((c) => (
@@ -417,7 +420,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
         {recentThreads.length > 0 && (
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-2">
-              Recent Conversations
+              {t("contact.recentConversations.title")}
             </h4>
             <div className="space-y-1">
               {recentThreads.map((thread) => (
@@ -427,11 +430,11 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
                   className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-bg-hover transition-colors group"
                 >
                   <div className="text-text-secondary group-hover:text-text-primary truncate">
-                    {thread.subject ?? "(No subject)"}
+                    {thread.subject ?? t("common.noSubject")}
                   </div>
                   {thread.last_message_at && (
                     <div className="text-text-tertiary text-[0.625rem] mt-0.5">
-                      {formatRelativeDate(thread.last_message_at)}
+                      {formatRelativeDate(thread.last_message_at, dateLocale)}
                     </div>
                   )}
                 </button>

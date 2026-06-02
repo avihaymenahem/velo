@@ -1,7 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { interpolateVariablesSync, TEMPLATE_VARIABLES } from "./templateVariables";
 
 describe("templateVariables", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe("TEMPLATE_VARIABLES", () => {
     it("should have 8 variables defined", () => {
       expect(TEMPLATE_VARIABLES).toHaveLength(8);
@@ -59,6 +63,18 @@ describe("templateVariables", () => {
       // Just verify they were replaced (not empty)
       expect(result).not.toContain("{{day}}");
       expect(result).not.toContain("{{date}}");
+    });
+
+    it("formats date and day variables with the requested locale", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-06-02T12:00:00Z"));
+
+      const html = "今天是 {{day}}，{{date}}";
+      const result = interpolateVariablesSync(html, {}, "zh-CN");
+
+      expect(result).toBe("今天是 星期二，2026年6月2日");
+      expect(result).not.toContain("Tuesday");
+      expect(result).not.toContain("June");
     });
 
     it("should handle missing context gracefully with empty strings", () => {

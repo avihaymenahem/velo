@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
 import { navigateToLabel, navigateToSettings } from "@/router/navigate";
 import { useAccountStore } from "@/stores/accountStore";
@@ -60,22 +61,31 @@ import type { SidebarNavItem } from "@/stores/uiStore";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import appIcon from "@/assets/icon.png";
+import {
+  getLanguagePreference,
+  saveLanguagePreference,
+} from "@/i18n/settings";
+import type { LanguagePreference } from "@/i18n/language";
 
 type SettingsTab = "general" | "notifications" | "composing" | "mail-rules" | "people" | "accounts" | "shortcuts" | "ai" | "about";
+type AiProvider = "claude" | "openai" | "gemini" | "ollama" | "copilot";
 
-const tabs: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
-  { id: "general", label: "General", icon: Settings },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "composing", label: "Composing", icon: PenLine },
-  { id: "mail-rules", label: "Mail Rules", icon: Filter },
-  { id: "people", label: "People", icon: Users },
-  { id: "accounts", label: "Accounts", icon: UserCircle },
-  { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
-  { id: "ai", label: "AI", icon: Sparkles },
-  { id: "about", label: "About", icon: Info },
+const AI_PROVIDER_OPTIONS: AiProvider[] = ["claude", "openai", "gemini", "ollama", "copilot"];
+
+const tabs: { id: SettingsTab; labelKey: string; icon: LucideIcon }[] = [
+  { id: "general", labelKey: "tabs.general", icon: Settings },
+  { id: "notifications", labelKey: "tabs.notifications", icon: Bell },
+  { id: "composing", labelKey: "tabs.composing", icon: PenLine },
+  { id: "mail-rules", labelKey: "tabs.mailRules", icon: Filter },
+  { id: "people", labelKey: "tabs.people", icon: Users },
+  { id: "accounts", labelKey: "tabs.accounts", icon: UserCircle },
+  { id: "shortcuts", labelKey: "tabs.shortcuts", icon: Keyboard },
+  { id: "ai", labelKey: "tabs.ai", icon: Sparkles },
+  { id: "about", labelKey: "tabs.about", icon: Info },
 ];
 
 export function SettingsPage() {
+  const { t } = useTranslation(["settings", "sidebar"]);
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
   const readingPanePosition = useUIStore((s) => s.readingPanePosition);
@@ -112,7 +122,7 @@ export function SettingsPage() {
   const [phishingDetectionEnabled, setPhishingDetectionEnabled] = useState(true);
   const [phishingSensitivity, setPhishingSensitivity] = useState<"low" | "default" | "high">("default");
   const [autostartEnabled, setAutostartEnabled] = useState(false);
-  const [aiProvider, setAiProvider] = useState<"claude" | "openai" | "gemini" | "ollama" | "copilot">("claude");
+  const [aiProvider, setAiProvider] = useState<AiProvider>("claude");
   const [claudeApiKey, setClaudeApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
@@ -143,11 +153,14 @@ export function SettingsPage() {
   const [notifyCategories, setNotifyCategories] = useState<Set<string>>(() => new Set(["Primary"]));
   const [vipSenders, setVipSenders] = useState<{ email_address: string; display_name: string | null }[]>([]);
   const [newVipEmail, setNewVipEmail] = useState("");
+  const [languagePreference, setLanguagePreference] = useState<LanguagePreference>("system");
 
   // Load settings from DB
   useEffect(() => {
     async function load() {
       const notif = await getSetting("notifications_enabled");
+      const language = await getLanguagePreference();
+      setLanguagePreference(language);
       setNotificationsEnabled(notif !== "false");
       const delay = await getSetting("undo_send_delay_seconds");
       setUndoSendDelay(delay ?? "5");
@@ -249,6 +262,11 @@ export function SettingsPage() {
     setNotificationsEnabled(newVal);
     await setSetting("notifications_enabled", newVal ? "true" : "false");
   }, [notificationsEnabled]);
+
+  const handleLanguagePreferenceChange = useCallback(async (value: LanguagePreference) => {
+    setLanguagePreference(value);
+    await saveLanguagePreference(value);
+  }, []);
 
   const handleUndoDelayChange = useCallback(async (value: string) => {
     setUndoSendDelay(value);
@@ -362,11 +380,11 @@ export function SettingsPage() {
         <button
           onClick={() => navigateToLabel("inbox")}
           className="p-1.5 -ml-1 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
-          title="Back to Inbox"
+          title={t("backToInbox")}
         >
           <ArrowLeft size={18} />
         </button>
-        <h1 className="text-base font-semibold text-text-primary">Settings</h1>
+        <h1 className="text-base font-semibold text-text-primary">{t("title")}</h1>
       </div>
 
       {/* Body: sidebar nav + content */}
@@ -387,7 +405,7 @@ export function SettingsPage() {
                 }`}
               >
                 <Icon size={15} className="shrink-0" />
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             );
           })}
@@ -400,7 +418,7 @@ export function SettingsPage() {
             {activeTabDef && (
               <div className="mb-6">
                 <h2 className="text-lg font-semibold text-text-primary">
-                  {activeTabDef.label}
+                  {t(activeTabDef.labelKey)}
                 </h2>
               </div>
             )}
@@ -408,8 +426,12 @@ export function SettingsPage() {
             <div className="space-y-8">
               {activeTab === "general" && (
                 <>
-                  <Section title="Appearance">
-                    <SettingRow label="Theme">
+                  <Section title={t("sections.appearance")}>
+                    <LanguageSettingRow
+                      value={languagePreference}
+                      onChange={handleLanguagePreferenceChange}
+                    />
+                    <SettingRow label={t("appearance.theme")}>
                       <select
                         value={theme}
                         onChange={(e) => {
@@ -419,12 +441,12 @@ export function SettingsPage() {
                         }}
                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                       >
-                        <option value="system">System</option>
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
+                        <option value="system">{t("appearance.themeOptions.system")}</option>
+                        <option value="light">{t("appearance.themeOptions.light")}</option>
+                        <option value="dark">{t("appearance.themeOptions.dark")}</option>
                       </select>
                     </SettingRow>
-                    <SettingRow label="Reading pane">
+                    <SettingRow label={t("appearance.readingPane")}>
                       <select
                         value={readingPanePosition}
                         onChange={(e) => {
@@ -432,12 +454,12 @@ export function SettingsPage() {
                         }}
                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                       >
-                        <option value="right">Right</option>
-                        <option value="bottom">Bottom</option>
-                        <option value="hidden">Off</option>
+                        <option value="right">{t("appearance.readingPaneOptions.right")}</option>
+                        <option value="bottom">{t("appearance.readingPaneOptions.bottom")}</option>
+                        <option value="hidden">{t("appearance.readingPaneOptions.hidden")}</option>
                       </select>
                     </SettingRow>
-                    <SettingRow label="Email density">
+                    <SettingRow label={t("appearance.emailDensity")}>
                       <select
                         value={emailDensity}
                         onChange={(e) => {
@@ -445,12 +467,12 @@ export function SettingsPage() {
                         }}
                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                       >
-                        <option value="compact">Compact</option>
-                        <option value="default">Default</option>
-                        <option value="spacious">Spacious</option>
+                        <option value="compact">{t("appearance.densityOptions.compact")}</option>
+                        <option value="default">{t("appearance.densityOptions.default")}</option>
+                        <option value="spacious">{t("appearance.densityOptions.spacious")}</option>
                       </select>
                     </SettingRow>
-                    <SettingRow label="Font size">
+                    <SettingRow label={t("appearance.fontSize")}>
                       <select
                         value={fontScale}
                         onChange={(e) => {
@@ -458,30 +480,30 @@ export function SettingsPage() {
                         }}
                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                       >
-                        <option value="small">Small</option>
-                        <option value="default">Default</option>
-                        <option value="large">Large</option>
-                        <option value="xlarge">Extra Large</option>
+                        <option value="small">{t("appearance.fontOptions.small")}</option>
+                        <option value="default">{t("appearance.fontOptions.default")}</option>
+                        <option value="large">{t("appearance.fontOptions.large")}</option>
+                        <option value="xlarge">{t("appearance.fontOptions.xlarge")}</option>
                       </select>
                     </SettingRow>
-                    <SettingRow label="Accent color">
+                    <SettingRow label={t("appearance.accentColor")}>
                       <div className="flex items-center gap-2">
-                        {COLOR_THEMES.map((t) => {
-                          const isSelected = colorTheme === t.id;
+                        {COLOR_THEMES.map((theme) => {
+                          const isSelected = colorTheme === theme.id;
                           return (
                             <button
-                              key={t.id}
-                              onClick={() => setColorTheme(t.id)}
-                              title={t.name}
+                              key={theme.id}
+                              onClick={() => setColorTheme(theme.id)}
+                              title={t(`appearance.accentColors.${theme.id}`, { defaultValue: theme.name })}
                               className={`relative w-7 h-7 rounded-full transition-all ${
                                 isSelected
                                   ? "ring-2 ring-offset-2 ring-offset-bg-primary scale-110"
                                   : "hover:scale-105"
                               }`}
                               style={{
-                                backgroundColor: t.swatch,
+                                backgroundColor: theme.swatch,
                                 boxShadow: isSelected
-                                  ? `0 0 0 2px var(--color-bg-primary), 0 0 0 4px ${t.swatch}`
+                                  ? `0 0 0 2px var(--color-bg-primary), 0 0 0 4px ${theme.swatch}`
                                   : undefined,
                               }}
                             >
@@ -493,7 +515,7 @@ export function SettingsPage() {
                         })}
                       </div>
                     </SettingRow>
-                    <SettingRow label="Inbox view mode">
+                    <SettingRow label={t("appearance.inboxViewMode")}>
                       <select
                         value={inboxViewMode}
                         onChange={(e) => {
@@ -501,13 +523,13 @@ export function SettingsPage() {
                         }}
                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                       >
-                        <option value="unified">Unified</option>
-                        <option value="split">Split (Categories)</option>
+                        <option value="unified">{t("appearance.inboxViewOptions.unified")}</option>
+                        <option value="split">{t("appearance.inboxViewOptions.split")}</option>
                       </select>
                     </SettingRow>
                     <ToggleRow
-                      label="Reduce motion"
-                      description="Disable animated background effects (fixes flickering on some GPUs)"
+                      label={t("appearance.reduceMotion")}
+                      description={t("appearance.reduceMotionDescription")}
                       checked={reduceMotion}
                       onToggle={() => setReduceMotion(!reduceMotion)}
                     />
@@ -515,19 +537,19 @@ export function SettingsPage() {
 
                   <SidebarNavEditor />
 
-                  <Section title="Startup">
+                  <Section title={t("sections.startup")}>
                     <ToggleRow
-                      label="Launch at login"
-                      description="Start Kirje automatically when you log in (minimized to tray)"
+                      label={t("startup.launchAtLogin")}
+                      description={t("startup.launchAtLoginDescription")}
                       checked={autostartEnabled}
                       onToggle={handleAutostartToggle}
                     />
                   </Section>
 
-                  <Section title="Privacy & Security">
+                  <Section title={t("sections.privacySecurity")}>
                     <ToggleRow
-                      label="Block remote images"
-                      description="Hides tracking pixels and remote images until you choose to load them"
+                      label={t("privacy.blockRemoteImages")}
+                      description={t("privacy.blockRemoteImagesDescription")}
                       checked={blockRemoteImages}
                       onToggle={async () => {
                         const newVal = !blockRemoteImages;
@@ -536,8 +558,8 @@ export function SettingsPage() {
                       }}
                     />
                     <ToggleRow
-                      label="Phishing link detection"
-                      description="Scan message links for phishing indicators and show warnings"
+                      label={t("privacy.phishingDetection")}
+                      description={t("privacy.phishingDetectionDescription")}
                       checked={phishingDetectionEnabled}
                       onToggle={async () => {
                         const newVal = !phishingDetectionEnabled;
@@ -546,7 +568,7 @@ export function SettingsPage() {
                       }}
                     />
                     {phishingDetectionEnabled && (
-                      <SettingRow label="Detection sensitivity">
+                      <SettingRow label={t("privacy.detectionSensitivity")}>
                         <select
                           value={phishingSensitivity}
                           onChange={async (e) => {
@@ -556,20 +578,22 @@ export function SettingsPage() {
                           }}
                           className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                         >
-                          <option value="low">Low (fewer warnings)</option>
-                          <option value="default">Default</option>
-                          <option value="high">High (more warnings)</option>
+                          <option value="low">{t("privacy.sensitivityOptions.low")}</option>
+                          <option value="default">{t("privacy.sensitivityOptions.default")}</option>
+                          <option value="high">{t("privacy.sensitivityOptions.high")}</option>
                         </select>
                       </SettingRow>
                     )}
                   </Section>
 
-                  <Section title="Storage">
+                  <Section title={t("storage.title")}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-sm text-text-secondary">Attachment cache</span>
+                        <span className="text-sm text-text-secondary">{t("storage.attachmentCache")}</span>
                         <p className="text-xs text-text-tertiary mt-0.5">
-                          {cacheSizeMb !== null ? `${cacheSizeMb} MB used` : "Calculating..."}
+                          {cacheSizeMb !== null
+                            ? t("storage.used", { size: cacheSizeMb })
+                            : t("storage.calculating")}
                         </p>
                       </div>
                       <Button
@@ -589,10 +613,10 @@ export function SettingsPage() {
                         disabled={clearingCache}
                         className="bg-bg-tertiary text-text-primary border border-border-primary"
                       >
-                        {clearingCache ? "Clearing..." : "Clear Cache"}
+                        {clearingCache ? t("storage.clearing") : t("storage.clearCache")}
                       </Button>
                     </div>
-                    <SettingRow label="Max cache size">
+                    <SettingRow label={t("storage.maxCacheSize")}>
                       <select
                         value={cacheMaxMb}
                         onChange={async (e) => {
@@ -615,15 +639,15 @@ export function SettingsPage() {
 
               {activeTab === "notifications" && (
                 <>
-                  <Section title="Notifications">
+                  <Section title={t("notifications.title")}>
                     <ToggleRow
-                      label="Enable notifications"
+                      label={t("notifications.enable")}
                       checked={notificationsEnabled}
                       onToggle={handleNotificationsToggle}
                     />
                     <ToggleRow
-                      label="Smart notifications"
-                      description="Only notify for selected categories and VIP senders"
+                      label={t("notifications.smart")}
+                      description={t("notifications.smartDescription")}
                       checked={smartNotifications}
                       onToggle={async () => {
                         const newVal = !smartNotifications;
@@ -635,9 +659,9 @@ export function SettingsPage() {
 
                   {smartNotifications && (
                     <>
-                      <Section title="Category Filters">
+                      <Section title={t("notifications.categoryFilters")}>
                         <div>
-                          <span className="text-sm text-text-secondary">Notify for categories</span>
+                          <span className="text-sm text-text-secondary">{t("notifications.notifyForCategories")}</span>
                           <div className="flex flex-wrap gap-2 mt-2">
                             {(["Primary", "Updates", "Promotions", "Social", "Newsletters"] as const).map((cat) => (
                               <button
@@ -655,16 +679,16 @@ export function SettingsPage() {
                                     : "bg-bg-tertiary text-text-tertiary border-border-primary hover:text-text-primary"
                                 }`}
                               >
-                                {cat}
+                                {t(`sidebar:categories.${cat}`, { defaultValue: cat })}
                               </button>
                             ))}
                           </div>
                         </div>
                       </Section>
 
-                      <Section title="VIP Senders">
+                      <Section title={t("notifications.vipSenders")}>
                         <p className="text-xs text-text-tertiary mb-2">
-                          These senders always trigger notifications regardless of category
+                          {t("notifications.vipDescription")}
                         </p>
                         <div className="space-y-1.5">
                           {vipSenders.map((vip) => (
@@ -682,7 +706,7 @@ export function SettingsPage() {
                                 }}
                                 className="text-xs text-danger hover:text-danger/80 ml-2 shrink-0"
                               >
-                                Remove
+                                {t("editors.common.delete")}
                               </button>
                             </div>
                           ))}
@@ -717,7 +741,7 @@ export function SettingsPage() {
                             }}
                             disabled={!newVipEmail.trim()}
                           >
-                            Add
+                            {t("notifications.add")}
                           </Button>
                         </div>
                       </Section>
@@ -728,28 +752,28 @@ export function SettingsPage() {
 
               {activeTab === "composing" && (
                 <>
-                  <Section title="Sending">
-                    <SettingRow label="Undo send delay">
+                  <Section title={t("composing.sending")}>
+                    <SettingRow label={t("composing.undoSendDelay")}>
                       <select
                         value={undoSendDelay}
                         onChange={(e) => handleUndoDelayChange(e.target.value)}
                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                       >
-                        <option value="5">5 seconds</option>
-                        <option value="10">10 seconds</option>
-                        <option value="30">30 seconds</option>
+                        <option value="5">{t("composing.seconds", { count: 5 })}</option>
+                        <option value="10">{t("composing.seconds", { count: 10 })}</option>
+                        <option value="30">{t("composing.seconds", { count: 30 })}</option>
                       </select>
                     </SettingRow>
                     <ToggleRow
-                      label="Send and archive"
-                      description="Automatically archive threads after sending a reply"
+                      label={t("composing.sendAndArchive")}
+                      description={t("composing.sendAndArchiveDescription")}
                       checked={sendAndArchive}
                       onToggle={() => setSendAndArchive(!sendAndArchive)}
                     />
                   </Section>
 
-                  <Section title="Behavior">
-                    <SettingRow label="Default reply action">
+                  <Section title={t("composing.behavior")}>
+                    <SettingRow label={t("composing.defaultReplyAction")}>
                       <select
                         value={defaultReplyMode}
                         onChange={(e) => {
@@ -757,11 +781,11 @@ export function SettingsPage() {
                         }}
                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                       >
-                        <option value="reply">Reply</option>
-                        <option value="replyAll">Reply All</option>
+                        <option value="reply">{t("composing.reply")}</option>
+                        <option value="replyAll">{t("composing.replyAll")}</option>
                       </select>
                     </SettingRow>
-                    <SettingRow label="Mark as read">
+                    <SettingRow label={t("composing.markAsRead")}>
                       <select
                         value={markAsReadBehavior}
                         onChange={(e) => {
@@ -769,18 +793,18 @@ export function SettingsPage() {
                         }}
                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                       >
-                        <option value="instant">Instantly</option>
-                        <option value="2s">After 2 seconds</option>
-                        <option value="manual">Manually</option>
+                        <option value="instant">{t("composing.instantly")}</option>
+                        <option value="2s">{t("composing.afterSeconds", { count: 2 })}</option>
+                        <option value="manual">{t("composing.manually")}</option>
                       </select>
                     </SettingRow>
                   </Section>
 
-                  <Section title="Signatures">
+                  <Section title={t("composing.signatures")}>
                     <SignatureEditor />
                   </Section>
 
-                  <Section title="Templates">
+                  <Section title={t("composing.templates")}>
                     <TemplateEditor />
                   </Section>
                 </>
@@ -788,38 +812,37 @@ export function SettingsPage() {
 
               {activeTab === "mail-rules" && (
                 <>
-                  <Section title="Labels">
+                  <Section title={t("mailRules.labels")}>
                     <p className="text-xs text-text-tertiary mb-3">
-                      Create, rename, recolor, delete, or reorder your Gmail labels.
+                      {t("mailRules.labelsDescription")}
                     </p>
                     <LabelEditor />
                   </Section>
 
-                  <Section title="Filters">
+                  <Section title={t("mailRules.filters")}>
                     <p className="text-xs text-text-tertiary mb-3">
-                      Filters automatically apply actions to new incoming emails during sync.
+                      {t("mailRules.filtersDescription")}
                     </p>
                     <FilterEditor />
                   </Section>
 
-                  <Section title="Smart Labels">
+                  <Section title={t("mailRules.smartLabels")}>
                     <p className="text-xs text-text-tertiary mb-3">
-                      Describe what emails should get a label using plain English. AI automatically labels matching emails during sync.
+                      {t("mailRules.smartLabelsDescription")}
                     </p>
                     <SmartLabelEditor />
                   </Section>
 
-                  <Section title="Smart Folders">
+                  <Section title={t("mailRules.smartFolders")}>
                     <p className="text-xs text-text-tertiary mb-3">
-                      Smart folders are saved searches that automatically show matching emails. Use search operators like <code className="bg-bg-tertiary px-1 rounded">is:unread</code>, <code className="bg-bg-tertiary px-1 rounded">from:</code>, <code className="bg-bg-tertiary px-1 rounded">has:attachment</code>, <code className="bg-bg-tertiary px-1 rounded">after:</code>.
+                      {t("mailRules.smartFoldersDescription")} <code className="bg-bg-tertiary px-1 rounded">is:unread</code>, <code className="bg-bg-tertiary px-1 rounded">from:</code>, <code className="bg-bg-tertiary px-1 rounded">has:attachment</code>, <code className="bg-bg-tertiary px-1 rounded">after:</code>.
                     </p>
                     <SmartFolderEditor />
                   </Section>
 
-                  <Section title="Quick Steps">
+                  <Section title={t("mailRules.quickSteps")}>
                     <p className="text-xs text-text-tertiary mb-3">
-                      Quick steps let you chain multiple actions together into a single click.
-                      Apply them from the right-click menu on any thread.
+                      {t("mailRules.quickStepsDescription")}
                     </p>
                     <QuickStepEditor />
                   </Section>
@@ -828,16 +851,16 @@ export function SettingsPage() {
 
               {activeTab === "people" && (
                 <>
-                  <Section title="Contacts">
+                  <Section title={t("people.contacts")}>
                     <p className="text-xs text-text-tertiary mb-3">
-                      Contacts are automatically added when you send or receive emails. Edit display names or remove contacts below.
+                      {t("people.contactsDescription")}
                     </p>
                     <ContactEditor />
                   </Section>
 
-                  <Section title="Subscriptions">
+                  <Section title={t("people.subscriptions")}>
                     <p className="text-xs text-text-tertiary mb-3">
-                      View all detected newsletter and promotional senders. Unsubscribe using RFC 8058 one-click POST, mailto, or browser fallback.
+                      {t("people.subscriptionsDescription")}
                     </p>
                     <SubscriptionManager />
                   </Section>
@@ -846,10 +869,10 @@ export function SettingsPage() {
 
               {activeTab === "accounts" && (
                 <>
-                  <Section title="Mail Accounts">
+                  <Section title={t("accounts.mailAccounts")}>
                     {accounts.filter((a) => a.provider !== "caldav").length === 0 ? (
                       <p className="text-sm text-text-tertiary">
-                        No mail accounts connected
+                        {t("accounts.noMailAccounts")}
                       </p>
                     ) : (
                       <div className="space-y-2">
@@ -877,26 +900,26 @@ export function SettingsPage() {
                                   disabled={reauthStatus[account.id] === "authorizing"}
                                   className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
                                 >
-                                  {reauthStatus[account.id] === "authorizing" && "Waiting..."}
-                                  {reauthStatus[account.id] === "done" && "Done!"}
-                                  {reauthStatus[account.id] === "error" && "Failed"}
-                                  {(!reauthStatus[account.id] || reauthStatus[account.id] === "idle") && "Re-authorize"}
+                                  {reauthStatus[account.id] === "authorizing" && t("accounts.waiting")}
+                                  {reauthStatus[account.id] === "done" && t("accounts.done")}
+                                  {reauthStatus[account.id] === "error" && t("accounts.failed")}
+                                  {(!reauthStatus[account.id] || reauthStatus[account.id] === "idle") && t("accounts.reauthorize")}
                                 </button>
                                 <button
                                   onClick={() => handleResyncAccount(account.id)}
                                   disabled={resyncStatus[account.id] === "syncing"}
                                   className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
                                 >
-                                  {resyncStatus[account.id] === "syncing" && "Resyncing..."}
-                                  {resyncStatus[account.id] === "done" && "Done!"}
-                                  {resyncStatus[account.id] === "error" && "Failed"}
-                                  {(!resyncStatus[account.id] || resyncStatus[account.id] === "idle") && "Resync"}
+                                  {resyncStatus[account.id] === "syncing" && t("accounts.resyncing")}
+                                  {resyncStatus[account.id] === "done" && t("accounts.done")}
+                                  {resyncStatus[account.id] === "error" && t("accounts.failed")}
+                                  {(!resyncStatus[account.id] || resyncStatus[account.id] === "idle") && t("accounts.resync")}
                                 </button>
                                 <button
                                   onClick={() => handleRemoveAccount(account.id)}
                                   className="text-xs text-danger hover:text-danger/80 transition-colors"
                                 >
-                                  Remove
+                                  {t("accounts.remove")}
                                 </button>
                               </div>
                             </div>
@@ -907,7 +930,7 @@ export function SettingsPage() {
                   </Section>
 
                   {accounts.some((a) => a.provider === "caldav") && (
-                    <Section title="Calendar Accounts">
+                    <Section title={t("accounts.calendarAccounts")}>
                       <div className="space-y-2">
                         {accounts.filter((a) => a.provider === "caldav").map((account) => (
                           <div
@@ -929,7 +952,7 @@ export function SettingsPage() {
                               onClick={() => handleRemoveAccount(account.id)}
                               className="text-xs text-danger hover:text-danger/80 transition-colors"
                             >
-                              Remove
+                              {t("accounts.remove")}
                             </button>
                           </div>
                         ))}
@@ -941,23 +964,23 @@ export function SettingsPage() {
 
                   <ImapCalDavSection />
 
-                  <Section title="Google API">
+                  <Section title={t("accounts.googleApi")}>
                     <div className="space-y-3">
                       <TextField
-                        label="Client ID"
+                        label={t("accounts.oauthClientId")}
                         size="md"
                         type="text"
                         value={clientId}
                         onChange={(e) => setClientId(e.target.value)}
-                        placeholder="Google OAuth Client ID"
+                        placeholder={t("accounts.oauthClientIdPlaceholder")}
                       />
                       <TextField
-                        label="Client Secret"
+                        label={t("accounts.oauthClientSecret")}
                         size="md"
                         type="password"
                         value={clientSecret}
                         onChange={(e) => setClientSecret(e.target.value)}
-                        placeholder="Google OAuth Client Secret"
+                        placeholder={t("accounts.oauthClientSecretPlaceholder")}
                       />
                       <Button
                         variant="primary"
@@ -965,15 +988,15 @@ export function SettingsPage() {
                         onClick={handleSaveApiSettings}
                         disabled={!clientId.trim()}
                       >
-                        {apiSettingsSaved ? "Saved!" : "Save"}
+                        {apiSettingsSaved ? t("accounts.saved") : t("editors.common.save")}
                       </Button>
                     </div>
                   </Section>
 
-                  <Section title="Sync">
+                  <Section title={t("sync.title")}>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-text-secondary">
-                        Check for new mail
+                        {t("sync.checkNewMail")}
                       </span>
                       <Button
                         variant="primary"
@@ -982,16 +1005,16 @@ export function SettingsPage() {
                         onClick={handleManualSync}
                         disabled={isSyncing || accounts.length === 0}
                       >
-                        {isSyncing ? "Syncing..." : "Sync now"}
+                        {isSyncing ? t("sync.syncing") : t("sync.syncNow")}
                       </Button>
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="text-sm text-text-secondary">
-                          Full resync
+                          {t("sync.fullResync")}
                         </span>
                         <p className="text-xs text-text-tertiary mt-0.5">
-                          Re-download all emails from scratch
+                          {t("sync.fullResyncDescription")}
                         </p>
                       </div>
                       <Button
@@ -1002,13 +1025,13 @@ export function SettingsPage() {
                         disabled={isSyncing || accounts.length === 0}
                         className="bg-bg-tertiary text-text-primary border border-border-primary"
                       >
-                        {isSyncing ? "Syncing..." : "Full resync"}
+                        {isSyncing ? t("sync.syncing") : t("sync.fullResync")}
                       </Button>
                     </div>
                   </Section>
 
-                  <Section title="Sync Period">
-                    <SettingRow label="Sync emails from">
+                  <Section title={t("sync.period")}>
+                    <SettingRow label={t("sync.emailsFrom")}>
                       <select
                         value={syncPeriodDays}
                         onChange={async (e) => {
@@ -1018,14 +1041,14 @@ export function SettingsPage() {
                         }}
                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                       >
-                        <option value="30">Last 30 days</option>
-                        <option value="90">Last 90 days</option>
-                        <option value="180">Last 180 days</option>
-                        <option value="365">Last 1 year</option>
+                        <option value="30">{t("sync.lastDays", { count: 30 })}</option>
+                        <option value="90">{t("sync.lastDays", { count: 90 })}</option>
+                        <option value="180">{t("sync.lastDays", { count: 180 })}</option>
+                        <option value="365">{t("sync.lastYear")}</option>
                       </select>
                     </SettingRow>
                     <p className="text-xs text-text-tertiary">
-                      Changes apply on the next full resync.
+                      {t("sync.periodDescription")}
                     </p>
                   </Section>
 
@@ -1039,15 +1062,15 @@ export function SettingsPage() {
 
               {activeTab === "ai" && (
                 <>
-                  <Section title="Provider">
+                  <Section title={t("aiSettings.provider.title")}>
                     <p className="text-xs text-text-tertiary mb-3">
-                      Choose which AI provider to use for summarization, compose assistance, and smart categorization.
+                      {t("aiSettings.provider.description")}
                     </p>
-                    <SettingRow label="AI Provider">
+                    <SettingRow label={t("aiSettings.provider.aiProvider")}>
                       <select
                         value={aiProvider}
                         onChange={async (e) => {
-                          const val = e.target.value as "claude" | "openai" | "gemini" | "ollama" | "copilot";
+                          const val = e.target.value as AiProvider;
                           setAiProvider(val);
                           setAiTestResult(null);
                           await setSetting("ai_provider", val);
@@ -1056,34 +1079,34 @@ export function SettingsPage() {
                         }}
                         className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
                       >
-                        <option value="claude">Claude (Anthropic)</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="gemini">Gemini (Google)</option>
-                        <option value="ollama">Local AI (Ollama / LMStudio)</option>
-                        <option value="copilot">GitHub Copilot</option>
+                        {AI_PROVIDER_OPTIONS.map((provider) => (
+                          <option key={provider} value={provider}>
+                            {t(`aiSettings.provider.options.${provider}`)}
+                          </option>
+                        ))}
                       </select>
                     </SettingRow>
                     <p className="text-xs text-text-tertiary">
-                      {aiProvider === "claude" && `Uses ${PROVIDER_MODELS.claude.find((m) => m.id === claudeModel)?.label ?? claudeModel}.`}
-                      {aiProvider === "openai" && `Uses ${PROVIDER_MODELS.openai.find((m) => m.id === openaiModel)?.label ?? openaiModel}.`}
-                      {aiProvider === "gemini" && `Uses ${PROVIDER_MODELS.gemini.find((m) => m.id === geminiModel)?.label ?? geminiModel}.`}
-                      {aiProvider === "ollama" && "Connect to a local Ollama or LMStudio server. No API key required."}
-                      {aiProvider === "copilot" && `Uses ${PROVIDER_MODELS.copilot.find((m) => m.id === copilotModel)?.label ?? copilotModel}. Requires a GitHub PAT with models:read permission.`}
+                      {aiProvider === "claude" && t("aiSettings.provider.usesModel", { model: PROVIDER_MODELS.claude.find((m) => m.id === claudeModel)?.label ?? claudeModel })}
+                      {aiProvider === "openai" && t("aiSettings.provider.usesModel", { model: PROVIDER_MODELS.openai.find((m) => m.id === openaiModel)?.label ?? openaiModel })}
+                      {aiProvider === "gemini" && t("aiSettings.provider.usesModel", { model: PROVIDER_MODELS.gemini.find((m) => m.id === geminiModel)?.label ?? geminiModel })}
+                      {aiProvider === "ollama" && t("aiSettings.provider.localDescription")}
+                      {aiProvider === "copilot" && t("aiSettings.provider.copilotDescription", { model: PROVIDER_MODELS.copilot.find((m) => m.id === copilotModel)?.label ?? copilotModel })}
                     </p>
                   </Section>
 
                   {aiProvider === "ollama" ? (
-                    <Section title="Local Server">
+                    <Section title={t("aiSettings.localServer.title")}>
                       <div className="space-y-3">
                         <TextField
-                          label="Server URL"
+                          label={t("aiSettings.localServer.serverUrl")}
                           size="md"
                           value={ollamaServerUrl}
                           onChange={(e) => setOllamaServerUrl(e.target.value)}
                           placeholder="http://localhost:11434"
                         />
                         <TextField
-                          label="Model Name"
+                          label={t("aiSettings.localServer.modelName")}
                           size="md"
                           value={ollamaModel}
                           onChange={(e) => setOllamaModel(e.target.value)}
@@ -1103,7 +1126,7 @@ export function SettingsPage() {
                             }}
                             disabled={!ollamaServerUrl.trim() || !ollamaModel.trim()}
                           >
-                            {aiKeySaved ? "Saved!" : "Save"}
+                            {aiKeySaved ? t("aiSettings.common.saved") : t("editors.common.save")}
                           </Button>
                           <Button
                             variant="secondary"
@@ -1124,26 +1147,26 @@ export function SettingsPage() {
                             disabled={!ollamaServerUrl.trim() || !ollamaModel.trim() || aiTesting}
                             className="bg-bg-tertiary text-text-primary border border-border-primary"
                           >
-                            {aiTesting ? "Testing..." : "Test Connection"}
+                            {aiTesting ? t("aiSettings.common.testing") : t("aiSettings.common.testConnection")}
                           </Button>
                           {aiTestResult === "success" && (
-                            <span className="text-xs text-success">Connected!</span>
+                            <span className="text-xs text-success">{t("aiSettings.common.connected")}</span>
                           )}
                           {aiTestResult === "fail" && (
-                            <span className="text-xs text-danger">Connection failed</span>
+                            <span className="text-xs text-danger">{t("aiSettings.common.connectionFailed")}</span>
                           )}
                         </div>
                       </div>
                     </Section>
                   ) : (
-                    <Section title="API Key">
+                    <Section title={t("aiSettings.apiKey.title")}>
                       <div className="space-y-3">
                         <TextField
                           label={
-                            aiProvider === "claude" ? "Anthropic API Key"
-                            : aiProvider === "openai" ? "OpenAI API Key"
-                            : aiProvider === "copilot" ? "GitHub Personal Access Token"
-                            : "Google AI API Key"
+                            aiProvider === "claude" ? t("aiSettings.apiKey.labels.claude")
+                            : aiProvider === "openai" ? t("aiSettings.apiKey.labels.openai")
+                            : aiProvider === "copilot" ? t("aiSettings.apiKey.labels.copilot")
+                            : t("aiSettings.apiKey.labels.gemini")
                           }
                           size="md"
                           type="password"
@@ -1166,7 +1189,7 @@ export function SettingsPage() {
                             : "AI..."
                           }
                         />
-                        <SettingRow label="Model">
+                        <SettingRow label={t("aiSettings.apiKey.model")}>
                           <select
                             value={
                               aiProvider === "claude" ? claudeModel
@@ -1228,7 +1251,7 @@ export function SettingsPage() {
                               : geminiApiKey.trim())
                             }
                           >
-                            {aiKeySaved ? "Saved!" : "Save Key"}
+                            {aiKeySaved ? t("aiSettings.common.saved") : t("aiSettings.apiKey.saveKey")}
                           </Button>
                           <Button
                             variant="secondary"
@@ -1254,23 +1277,23 @@ export function SettingsPage() {
                             }
                             className="bg-bg-tertiary text-text-primary border border-border-primary"
                           >
-                            {aiTesting ? "Testing..." : "Test Connection"}
+                            {aiTesting ? t("aiSettings.common.testing") : t("aiSettings.common.testConnection")}
                           </Button>
                           {aiTestResult === "success" && (
-                            <span className="text-xs text-success">Connected!</span>
+                            <span className="text-xs text-success">{t("aiSettings.common.connected")}</span>
                           )}
                           {aiTestResult === "fail" && (
-                            <span className="text-xs text-danger">Connection failed</span>
+                            <span className="text-xs text-danger">{t("aiSettings.common.connectionFailed")}</span>
                           )}
                         </div>
                       </div>
                     </Section>
                   )}
 
-                  <Section title="Features">
+                  <Section title={t("aiSettings.features.title")}>
                     <ToggleRow
-                      label="Enable AI features"
-                      description="Master toggle for all AI functionality"
+                      label={t("aiSettings.features.enable")}
+                      description={t("aiSettings.features.enableDescription")}
                       checked={aiEnabled}
                       onToggle={async () => {
                         const newVal = !aiEnabled;
@@ -1279,8 +1302,8 @@ export function SettingsPage() {
                       }}
                     />
                     <ToggleRow
-                      label="Auto-categorize inbox"
-                      description="Use AI to refine rule-based categorization"
+                      label={t("aiSettings.features.autoCategorize")}
+                      description={t("aiSettings.features.autoCategorizeDescription")}
                       checked={aiAutoCategorize}
                       onToggle={async () => {
                         const newVal = !aiAutoCategorize;
@@ -1289,8 +1312,8 @@ export function SettingsPage() {
                       }}
                     />
                     <ToggleRow
-                      label="Auto-summarize threads"
-                      description="Show AI summaries on multi-message threads"
+                      label={t("aiSettings.features.autoSummarize")}
+                      description={t("aiSettings.features.autoSummarizeDescription")}
                       checked={aiAutoSummarize}
                       onToggle={async () => {
                         const newVal = !aiAutoSummarize;
@@ -1300,10 +1323,10 @@ export function SettingsPage() {
                     />
                   </Section>
 
-                  <Section title="Auto-Draft Replies">
+                  <Section title={t("aiSettings.autoDraft.title")}>
                     <ToggleRow
-                      label="Auto-draft replies"
-                      description="Pre-populate the reply editor with an AI-generated draft"
+                      label={t("aiSettings.autoDraft.enable")}
+                      description={t("aiSettings.autoDraft.enableDescription")}
                       checked={aiAutoDraftEnabled}
                       onToggle={async () => {
                         const newVal = !aiAutoDraftEnabled;
@@ -1312,8 +1335,8 @@ export function SettingsPage() {
                       }}
                     />
                     <ToggleRow
-                      label="Learn writing style"
-                      description="Analyze your sent emails to match your tone and voice"
+                      label={t("aiSettings.autoDraft.writingStyle")}
+                      description={t("aiSettings.autoDraft.writingStyleDescription")}
                       checked={aiWritingStyleEnabled}
                       onToggle={async () => {
                         const newVal = !aiWritingStyleEnabled;
@@ -1324,9 +1347,9 @@ export function SettingsPage() {
                     {aiWritingStyleEnabled && (
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="text-sm text-text-secondary">Writing style profile</span>
+                          <span className="text-sm text-text-secondary">{t("aiSettings.autoDraft.profile")}</span>
                           <p className="text-xs text-text-tertiary mt-0.5">
-                            Reanalyze your writing style from recent sent emails
+                            {t("aiSettings.autoDraft.profileDescription")}
                           </p>
                         </div>
                         <Button
@@ -1352,39 +1375,42 @@ export function SettingsPage() {
                           disabled={styleAnalyzing}
                           className="bg-bg-tertiary text-text-primary border border-border-primary"
                         >
-                          {styleAnalyzing ? "Analyzing..." : styleAnalyzeDone ? "Done!" : "Reanalyze"}
+                          {styleAnalyzing ? t("aiSettings.common.analyzing") : styleAnalyzeDone ? t("accounts.done") : t("aiSettings.autoDraft.reanalyze")}
                         </Button>
                       </div>
                     )}
                   </Section>
 
-                  <Section title="Categories">
+                  <Section title={t("aiSettings.categories.title")}>
                     <p className="text-xs text-text-tertiary mb-1">
-                      Incoming emails are automatically sorted using rule-based heuristics (Gmail labels, sender domain, headers). When AI is enabled, it refines results for better accuracy.
+                      {t("aiSettings.categories.description")}
                     </p>
                     <p className="text-xs text-text-tertiary mb-3">
-                      Enable auto-archive to skip the inbox for specific categories.
+                      {t("aiSettings.categories.autoArchiveDescription")}
                     </p>
-                    {(["Updates", "Promotions", "Social", "Newsletters"] as const).map((cat) => (
-                      <ToggleRow
-                        key={cat}
-                        label={`Auto-archive ${cat}`}
-                        description={`Skip inbox for ${cat.toLowerCase()} emails`}
-                        checked={autoArchiveCategories.has(cat)}
-                        onToggle={async () => {
-                          const next = new Set(autoArchiveCategories);
-                          if (next.has(cat)) next.delete(cat);
-                          else next.add(cat);
-                          setAutoArchiveCategories(next);
-                          await setSetting("auto_archive_categories", [...next].join(","));
-                        }}
-                      />
-                    ))}
+                    {(["Updates", "Promotions", "Social", "Newsletters"] as const).map((cat) => {
+                      const categoryLabel = t(`sidebar:categories.${cat}`);
+                      return (
+                        <ToggleRow
+                          key={cat}
+                          label={t("aiSettings.categories.autoArchive", { category: categoryLabel })}
+                          description={t("aiSettings.categories.skipInbox", { category: categoryLabel })}
+                          checked={autoArchiveCategories.has(cat)}
+                          onToggle={async () => {
+                            const next = new Set(autoArchiveCategories);
+                            if (next.has(cat)) next.delete(cat);
+                            else next.add(cat);
+                            setAutoArchiveCategories(next);
+                            await setSetting("auto_archive_categories", [...next].join(","));
+                          }}
+                        />
+                      );
+                    })}
                   </Section>
 
-                  <Section title="Bundling & Delivery Schedules">
+                  <Section title={t("aiSettings.bundles.title")}>
                     <p className="text-xs text-text-tertiary mb-3">
-                      Collapse categories into a single row in the inbox. Optionally set a delivery schedule to batch emails.
+                      {t("aiSettings.bundles.description")}
                     </p>
                     <BundleSettings />
                   </Section>
@@ -1406,6 +1432,7 @@ export function SettingsPage() {
 }
 
 function SendAsAliasesSection() {
+  const { t } = useTranslation("settings");
   const accounts = useAccountStore((s) => s.accounts);
   const [aliases, setAliases] = useState<SendAsAlias[]>([]);
 
@@ -1434,13 +1461,13 @@ function SendAsAliasesSection() {
   };
 
   return (
-    <Section title="Send-As Aliases">
+    <Section title={t("sendAs.title")}>
       <p className="text-xs text-text-tertiary mb-3">
-        These aliases are synced from your Gmail settings. You can select which alias to use as the default sender.
+        {t("sendAs.description")}
       </p>
       {aliases.length === 0 ? (
         <p className="text-sm text-text-tertiary">
-          No aliases found. Aliases are fetched from Gmail on startup.
+          {t("sendAs.empty")}
         </p>
       ) : (
         <div className="space-y-2">
@@ -1458,12 +1485,12 @@ function SendAsAliasesSection() {
                   <div className="flex items-center gap-2 mt-0.5">
                     {alias.isPrimary && (
                       <span className="text-[0.625rem] bg-accent/15 text-accent px-1.5 py-0.5 rounded-full">
-                        Primary
+                        {t("sendAs.primary")}
                       </span>
                     )}
                     {alias.isDefault && (
                       <span className="text-[0.625rem] bg-success/15 text-success px-1.5 py-0.5 rounded-full">
-                        Default
+                        {t("sendAs.default")}
                       </span>
                     )}
                     {alias.verificationStatus !== "accepted" && (
@@ -1479,7 +1506,7 @@ function SendAsAliasesSection() {
                   onClick={() => handleSetDefault(alias)}
                   className="text-xs text-accent hover:text-accent-hover transition-colors shrink-0 ml-3"
                 >
-                  Set as default
+                  {t("sendAs.setDefault")}
                 </button>
               )}
             </div>
@@ -1491,6 +1518,7 @@ function SendAsAliasesSection() {
 }
 
 function SyncOfflineSection() {
+  const { t } = useTranslation("settings");
   const [pendingCount, setPendingCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -1528,13 +1556,13 @@ function SyncOfflineSection() {
   };
 
   return (
-    <Section title="Sync & Offline">
+    <Section title={t("offline.title")}>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-sm text-text-secondary">Pending operations</span>
+            <span className="text-sm text-text-secondary">{t("offline.pendingOperations")}</span>
             <p className="text-xs text-text-tertiary mt-0.5">
-              Changes waiting to sync to the server
+              {t("offline.pendingDescription")}
             </p>
           </div>
           <span className="text-sm font-mono text-text-primary">{pendingCount}</span>
@@ -1542,9 +1570,9 @@ function SyncOfflineSection() {
 
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-sm text-text-secondary">Failed operations</span>
+            <span className="text-sm text-text-secondary">{t("offline.failedOperations")}</span>
             <p className="text-xs text-text-tertiary mt-0.5">
-              Changes that could not be synced after multiple retries
+              {t("offline.failedDescription")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1556,14 +1584,14 @@ function SyncOfflineSection() {
                   disabled={loading}
                   className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
                 >
-                  Retry
+                  {t("offline.retry")}
                 </button>
                 <button
                   onClick={handleClearFailed}
                   disabled={loading}
                   className="text-xs text-danger hover:opacity-80 transition-colors disabled:opacity-50"
                 >
-                  Clear
+                  {t("offline.clear")}
                 </button>
               </>
             )}
@@ -1574,7 +1602,18 @@ function SyncOfflineSection() {
   );
 }
 
+export function getWebviewVersionLabel(
+  userAgent: string,
+  t: (key: string) => string,
+): string {
+  const edgMatch = /Edg\/(\S+)/.exec(userAgent);
+  const chromeMatch = /Chrome\/(\S+)/.exec(userAgent);
+  const webkitMatch = /AppleWebKit\/(\S+)/.exec(userAgent);
+  return edgMatch?.[1] ?? chromeMatch?.[1] ?? webkitMatch?.[1] ?? t("developer.unknown");
+}
+
 function DeveloperTab() {
+  const { t } = useTranslation("settings");
   const [appVersion, setAppVersion] = useState("");
   const [tauriVersion, setTauriVersion] = useState("");
   const [webviewVersion, setWebviewVersion] = useState("");
@@ -1586,16 +1625,17 @@ function DeveloperTab() {
 
   useEffect(() => {
     async function load() {
-      const { getVersion, getTauriVersion } = await import("@tauri-apps/api/app");
-      setAppVersion(await getVersion());
-      setTauriVersion(await getTauriVersion());
+      try {
+        const { getVersion, getTauriVersion } = await import("@tauri-apps/api/app");
+        setAppVersion(await getVersion());
+        setTauriVersion(await getTauriVersion());
+      } catch (err) {
+        console.error("Failed to load app metadata:", err);
+      }
 
       // Extract WebView version from user agent
       const ua = navigator.userAgent;
-      const edgMatch = /Edg\/(\S+)/.exec(ua);
-      const chromeMatch = /Chrome\/(\S+)/.exec(ua);
-      const webkitMatch = /AppleWebKit\/(\S+)/.exec(ua);
-      setWebviewVersion(edgMatch?.[1] ?? chromeMatch?.[1] ?? webkitMatch?.[1] ?? "Unknown");
+      setWebviewVersion(getWebviewVersionLabel(ua, t));
 
       // Detect platform via Tauri OS plugin (reliable native arch detection)
       const { platform, arch } = await import("@tauri-apps/plugin-os");
@@ -1653,24 +1693,24 @@ function DeveloperTab() {
 
   return (
     <>
-      <Section title="App Info">
-        <InfoRow label="App version" value={appVersion || "..."} />
-        <InfoRow label="Tauri version" value={tauriVersion || "..."} />
-        <InfoRow label="WebView version" value={webviewVersion || "..."} />
-        <InfoRow label="Platform" value={platformLabel} />
+      <Section title={t("developer.appInfo")}>
+        <InfoRow label={t("developer.appVersion")} value={appVersion || "..."} />
+        <InfoRow label={t("developer.tauriVersion")} value={tauriVersion || "..."} />
+        <InfoRow label={t("developer.webviewVersion")} value={webviewVersion || "..."} />
+        <InfoRow label={t("developer.platform")} value={platformLabel} />
       </Section>
 
-      <Section title="Updates">
+      <Section title={t("developer.updates")}>
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-sm text-text-secondary">Software updates</span>
+            <span className="text-sm text-text-secondary">{t("developer.softwareUpdates")}</span>
             {updateVersion && (
               <p className="text-xs text-accent mt-0.5">
-                v{updateVersion} available
+                {t("developer.available", { version: updateVersion })}
               </p>
             )}
             {updateCheckDone && !updateVersion && (
-              <p className="text-xs text-success mt-0.5">Up to date</p>
+              <p className="text-xs text-success mt-0.5">{t("developer.upToDate")}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -1682,7 +1722,7 @@ function DeveloperTab() {
                 onClick={handleInstallUpdate}
                 disabled={installingUpdate}
               >
-                {installingUpdate ? "Updating..." : "Update & Restart"}
+                {installingUpdate ? t("developer.updating") : t("developer.updateRestart")}
               </Button>
             ) : (
               <Button
@@ -1693,19 +1733,19 @@ function DeveloperTab() {
                 disabled={checkingForUpdate}
                 className="bg-bg-tertiary text-text-primary border border-border-primary"
               >
-                {checkingForUpdate ? "Checking..." : "Check for Updates"}
+                {checkingForUpdate ? t("developer.checking") : t("developer.checkUpdates")}
               </Button>
             )}
           </div>
         </div>
       </Section>
 
-      <Section title="Developer Tools">
+      <Section title={t("developer.developerTools")}>
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-sm text-text-secondary">Open DevTools</span>
+            <span className="text-sm text-text-secondary">{t("developer.openDevtools")}</span>
             <p className="text-xs text-text-tertiary mt-0.5">
-              Open the WebView developer tools inspector
+              {t("developer.openDevtoolsDescription")}
             </p>
           </div>
           <Button
@@ -1717,7 +1757,7 @@ function DeveloperTab() {
             }}
             className="bg-bg-tertiary text-text-primary border border-border-primary"
           >
-            Open DevTools
+            {t("developer.openDevtools")}
           </Button>
         </div>
       </Section>
@@ -1726,12 +1766,15 @@ function DeveloperTab() {
 }
 
 function AboutTab() {
+  const { t } = useTranslation("settings");
   const [appVersion, setAppVersion] = useState("");
 
   useEffect(() => {
-    import("@tauri-apps/api/app").then(({ getVersion }) =>
-      getVersion().then(setAppVersion),
-    );
+    import("@tauri-apps/api/app")
+      .then(({ getVersion }) => getVersion().then(setAppVersion))
+      .catch((err) => {
+        console.error("Failed to load app version:", err);
+      });
   }, []);
 
   const openExternal = async (url: string) => {
@@ -1747,16 +1790,16 @@ function AboutTab() {
           <div>
             <h3 className="text-base font-semibold text-text-primary">Kirje</h3>
             <p className="text-sm text-text-tertiary">
-              {appVersion ? `Version ${appVersion}` : "Loading..."}
+              {appVersion ? t("about.version", { version: appVersion }) : t("about.loading")}
             </p>
           </div>
         </div>
         <p className="text-sm text-text-secondary leading-relaxed">
-          A fast, open-source desktop email client built with privacy in mind. Your emails stay on your machine — no cloud, no tracking.
+          {t("about.description")}
         </p>
       </Section>
 
-      <Section title="Links">
+      <Section title={t("about.links")}>
         <div className="space-y-1">
           <button
             onClick={() => openExternal("https://kirje.app")}
@@ -1764,7 +1807,7 @@ function AboutTab() {
           >
             <Globe size={16} className="text-text-tertiary shrink-0" />
             <div className="min-w-0 flex-1">
-              <span className="text-sm text-text-primary">Website</span>
+              <span className="text-sm text-text-primary">{t("about.website")}</span>
               <p className="text-xs text-text-tertiary">kirje.app</p>
             </div>
             <ExternalLink size={14} className="text-text-tertiary shrink-0" />
@@ -1776,7 +1819,7 @@ function AboutTab() {
           >
             <Github size={16} className="text-text-tertiary shrink-0" />
             <div className="min-w-0 flex-1">
-              <span className="text-sm text-text-primary">GitHub Repository</span>
+              <span className="text-sm text-text-primary">{t("about.githubRepository")}</span>
               <p className="text-xs text-text-tertiary">iiwish/kirje</p>
             </div>
             <ExternalLink size={14} className="text-text-tertiary shrink-0" />
@@ -1788,7 +1831,7 @@ function AboutTab() {
           >
             <Mail size={16} className="text-text-tertiary shrink-0" />
             <div className="min-w-0 flex-1">
-              <span className="text-sm text-text-primary">Contact</span>
+              <span className="text-sm text-text-primary">{t("about.contact")}</span>
               <p className="text-xs text-text-tertiary">hello@kirje.app</p>
             </div>
             <ExternalLink size={14} className="text-text-tertiary shrink-0" />
@@ -1796,14 +1839,14 @@ function AboutTab() {
         </div>
       </Section>
 
-      <Section title="License">
+      <Section title={t("about.license")}>
         <div className="px-4 py-3 bg-bg-secondary rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <Scale size={15} className="text-text-tertiary" />
-            <span className="text-sm font-medium text-text-primary">Apache License 2.0</span>
+            <span className="text-sm font-medium text-text-primary">{t("about.licenseName")}</span>
           </div>
           <p className="text-xs text-text-secondary leading-relaxed mb-3">
-            Licensed under the Apache License, Version 2.0. You may obtain a copy of the License at{" "}
+            {t("about.licenseDescription")}{" "}
             <button
               onClick={() => openExternal("https://www.apache.org/licenses/LICENSE-2.0")}
               className="text-accent hover:text-accent-hover transition-colors"
@@ -1812,7 +1855,7 @@ function AboutTab() {
             </button>
           </p>
           <p className="text-xs text-text-tertiary leading-relaxed">
-            Copyright 2026 Kirje contributors. You may use, distribute, and modify this software under the terms of the Apache 2.0 license. This software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND.
+            {t("about.copyright")}
           </p>
         </div>
       </Section>
@@ -1831,6 +1874,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 function ShortcutsTab() {
+  const { t } = useTranslation("settings");
   const keyMap = useShortcutStore((s) => s.keyMap);
   const setKey = useShortcutStore((s) => s.setKey);
   const resetKey = useShortcutStore((s) => s.resetKey);
@@ -1894,12 +1938,12 @@ function ShortcutsTab() {
 
   return (
     <>
-      <Section title="Global Shortcut">
+      <Section title={t("shortcuts.global.title")}>
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-sm text-text-secondary">Quick compose</span>
+            <span className="text-sm text-text-secondary">{t("shortcuts.global.quickCompose")}</span>
             <p className="text-xs text-text-tertiary mt-0.5">
-              Open compose window from any app
+              {t("shortcuts.global.quickComposeDescription")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1917,7 +1961,7 @@ function ShortcutsTab() {
                   : "bg-bg-tertiary text-text-secondary hover:text-text-primary border border-border-primary"
               }`}
             >
-              {recordingGlobal ? "Press keys..." : "Change"}
+              {recordingGlobal ? t("shortcuts.recording.pressKeys") : t("shortcuts.global.change")}
             </button>
           </div>
         </div>
@@ -1925,24 +1969,28 @@ function ShortcutsTab() {
 
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-text-tertiary">
-          Click a shortcut to rebind it. Press any key or key combination to set.
+          {t("shortcuts.instructions")}
         </p>
         {hasCustom && (
           <button
             onClick={resetAll}
             className="text-xs text-accent hover:text-accent-hover transition-colors shrink-0 ml-4"
           >
-            Reset all
+            {t("shortcuts.resetAll")}
           </button>
         )}
       </div>
       {SHORTCUTS.map((section) => (
-        <Section key={section.category} title={section.category}>
+        <Section
+          key={section.category}
+          title={t(`shortcuts.categories.${section.category.toLowerCase()}`, { defaultValue: section.category })}
+        >
           <div className="space-y-1">
             {section.items.map((item) => {
               const currentKey = keyMap[item.id] ?? item.keys;
               const isDefault = currentKey === defaults[item.id];
               const isRecording = recordingId === item.id;
+              const itemKey = item.id.replace(".", "_");
 
               return (
                 <div
@@ -1950,7 +1998,7 @@ function ShortcutsTab() {
                   className="flex items-center justify-between py-2 px-1"
                 >
                   <span className="text-sm text-text-secondary">
-                    {item.desc}
+                    {t(`shortcuts.items.${itemKey}`, { defaultValue: item.desc })}
                   </span>
                   <div className="flex items-center gap-2 ml-4 shrink-0">
                     <button
@@ -1965,13 +2013,13 @@ function ShortcutsTab() {
                           : "bg-bg-tertiary text-text-tertiary hover:text-text-primary border border-border-primary"
                       }`}
                     >
-                      {isRecording ? "Press key..." : currentKey}
+                      {isRecording ? t("shortcuts.recording.pressKey") : currentKey}
                     </button>
                     {!isDefault && (
                       <button
                         onClick={() => resetKey(item.id)}
                         className="text-xs text-text-tertiary hover:text-text-primary"
-                        title={`Reset to ${defaults[item.id]}`}
+                        title={t("shortcuts.resetTo", { shortcut: defaults[item.id] })}
                       >
                         ×
                       </button>
@@ -1988,6 +2036,7 @@ function ShortcutsTab() {
 }
 
 function ImapCalDavSection() {
+  const { t } = useTranslation("settings");
   const accounts = useAccountStore((s) => s.accounts);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const [account, setAccount] = useState<import("@/services/db/accounts").DbAccount | null>(null);
@@ -2005,7 +2054,7 @@ function ImapCalDavSection() {
   if (!isImap || !account) return null;
 
   return (
-    <Section title="Calendar (CalDAV)">
+    <Section title={t("caldav.title")}>
       <CalDavSettingsInline account={account} onSaved={() => {
         // Reload account
         import("@/services/db/accounts").then(({ getAccount }) => {
@@ -2017,18 +2066,20 @@ function ImapCalDavSection() {
 }
 
 function CalDavSettingsInline({ account, onSaved }: { account: import("@/services/db/accounts").DbAccount; onSaved: () => void }) {
+  const { t } = useTranslation("settings");
   const [CalDav, setCalDav] = useState<typeof import("@/components/settings/CalDavSettings").CalDavSettings | null>(null);
 
   useEffect(() => {
     import("@/components/settings/CalDavSettings").then((m) => setCalDav(() => m.CalDavSettings));
   }, []);
 
-  if (!CalDav) return <div className="text-xs text-text-tertiary">Loading...</div>;
+  if (!CalDav) return <div className="text-xs text-text-tertiary">{t("about.loading")}</div>;
 
   return <CalDav account={account} onSaved={onSaved} />;
 }
 
 function SidebarNavEditor() {
+  const { t } = useTranslation(["settings", "sidebar"]);
   const sidebarNavConfig = useUIStore((s) => s.sidebarNavConfig);
   const setSidebarNavConfig = useUIStore((s) => s.setSidebarNavConfig);
 
@@ -2072,7 +2123,7 @@ function SidebarNavEditor() {
       items.every((item, i) => item.id === ALL_NAV_ITEMS[i]?.id && item.visible));
 
   return (
-    <Section title="Sidebar">
+    <Section title={t("sidebar.title")}>
       <div className="space-y-1">
         {items.map((item, index) => {
           const nav = navLookup.get(item.id);
@@ -2090,7 +2141,7 @@ function SidebarNavEditor() {
                 onClick={() => moveItem(index, -1)}
                 disabled={index === 0}
                 className="p-0.5 rounded text-text-tertiary hover:text-text-primary disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-                title="Move up"
+                title={t("sidebar.moveUp")}
               >
                 <ChevronUp size={14} />
               </button>
@@ -2098,12 +2149,14 @@ function SidebarNavEditor() {
                 onClick={() => moveItem(index, 1)}
                 disabled={index === items.length - 1}
                 className="p-0.5 rounded text-text-tertiary hover:text-text-primary disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-                title="Move down"
+                title={t("sidebar.moveDown")}
               >
                 <ChevronDown size={14} />
               </button>
               <Icon size={16} className="shrink-0 ml-1" />
-              <span className="flex-1 truncate">{nav.label}</span>
+              <span className="flex-1 truncate">
+                {t(`sidebar:nav.${item.id}`, { defaultValue: nav.label })}
+              </span>
               <button
                 onClick={() => toggleItem(index)}
                 disabled={isInbox}
@@ -2114,7 +2167,11 @@ function SidebarNavEditor() {
                       ? "bg-accent cursor-pointer"
                       : "bg-bg-tertiary cursor-pointer"
                 }`}
-                title={isInbox ? "Inbox is always visible" : item.visible ? "Hide" : "Show"}
+                title={isInbox
+                  ? t("sidebar.alwaysVisible")
+                  : item.visible
+                    ? t("sidebar.hide")
+                    : t("sidebar.show")}
               >
                 <span
                   className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
@@ -2132,7 +2189,7 @@ function SidebarNavEditor() {
           className="flex items-center gap-1.5 text-xs text-accent hover:text-accent-hover mt-2 transition-colors"
         >
           <RotateCcw size={12} />
-          Reset to defaults
+          {t("sidebar.resetDefaults")}
         </button>
       )}
     </Section>
@@ -2171,9 +2228,37 @@ function SettingRow({
   );
 }
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export function LanguageSettingRow({
+  value,
+  onChange,
+}: {
+  value: LanguagePreference;
+  onChange: (value: LanguagePreference) => void | Promise<void>;
+}) {
+  const { t } = useTranslation("settings");
+
+  return (
+    <SettingRow label={t("language.label")}>
+      <select
+        aria-label={t("language.label")}
+        value={value}
+        onChange={(e) => {
+          void onChange(e.target.value as LanguagePreference);
+        }}
+        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
+      >
+        <option value="system">{t("language.options.system")}</option>
+        <option value="en">{t("language.options.en")}</option>
+        <option value="zh-CN">{t("language.options.zh-CN")}</option>
+      </select>
+    </SettingRow>
+  );
+}
+
+const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
 function BundleSettings() {
+  const { t } = useTranslation(["settings", "sidebar"]);
   const accounts = useAccountStore((s) => s.accounts);
   const activeAccountId = accounts.find((a) => a.isActive)?.id;
   const [rules, setRules] = useState<Record<string, { bundled: boolean; delivery: boolean; days: number[]; hour: number; minute: number }>>({});
@@ -2219,10 +2304,11 @@ function BundleSettings() {
     <div className="space-y-4">
       {(["Newsletters", "Promotions", "Social", "Updates"] as const).map((cat) => {
         const rule = rules[cat];
+        const categoryLabel = t(`sidebar:categories.${cat}`);
         return (
           <div key={cat} className="py-3 px-4 bg-bg-secondary rounded-lg space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-text-primary">{cat}</span>
+              <span className="text-sm font-medium text-text-primary">{categoryLabel}</span>
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-1.5 text-xs text-text-secondary">
                   <input
@@ -2231,7 +2317,7 @@ function BundleSettings() {
                     onChange={() => saveRule(cat, { bundled: !(rule?.bundled ?? false) })}
                     className="accent-accent"
                   />
-                  Bundle
+                  {t("aiSettings.bundles.bundle")}
                 </label>
                 <label className="flex items-center gap-1.5 text-xs text-text-secondary">
                   <input
@@ -2240,16 +2326,16 @@ function BundleSettings() {
                     onChange={() => saveRule(cat, { delivery: !(rule?.delivery ?? false) })}
                     className="accent-accent"
                   />
-                  Schedule
+                  {t("aiSettings.bundles.schedule")}
                 </label>
               </div>
             </div>
             {rule?.delivery && (
               <div className="space-y-2 pt-1">
                 <div className="flex gap-1">
-                  {DAY_NAMES.map((name, idx) => (
+                  {DAY_KEYS.map((dayKey, idx) => (
                     <button
-                      key={name}
+                      key={dayKey}
                       onClick={() => {
                         const days = rule.days.includes(idx)
                           ? rule.days.filter((d) => d !== idx)
@@ -2262,12 +2348,12 @@ function BundleSettings() {
                           : "bg-bg-tertiary text-text-tertiary border border-border-primary"
                       }`}
                     >
-                      {name}
+                      {t(`aiSettings.bundles.days.${dayKey}`)}
                     </button>
                   ))}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-text-tertiary">at</span>
+                  <span className="text-xs text-text-tertiary">{t("aiSettings.bundles.at")}</span>
                   <input
                     type="time"
                     value={`${String(rule.hour).padStart(2, "0")}:${String(rule.minute).padStart(2, "0")}`}

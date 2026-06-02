@@ -1,0 +1,103 @@
+{
+  "placeholder": "写下邮件内容...",
+  "dropFiles": "松开以添加附件",
+  "mode": {
+    "reply": "回复",
+    "replyAll": "全部回复",
+    "forward": "转发",
+    "new": "新邮件"
+  },
+  "status": {
+    "saving": "正在保存...",
+    "saved": "草稿已保存",
+    "noAccount": "无账户"
+  },
+  "actions": {
+    "collapse": "收起",
+    "expand": "展开",
+    "popOut": "在新窗口打开",
+    "discard": "丢弃",
+    "send": "发送",
+    "scheduleSend": "定时发送"
+  },
+  "fields": {
+    "to": "收件人",
+    "cc": "抄送",
+    "bcc": "密送",
+    "ccBcc": "抄送 / 密送",
+    "subjectShort": "主题",
+    "subject": "主题"
+  },
+  "address": {
+    "placeholder": "添加收件人..."
+  },
+  "toolbar": {
+    "bold": "加粗 (Ctrl+B)",
+    "italic": "斜体 (Ctrl+I)",
+    "underline": "下划线 (Ctrl+U)",
+    "strikethrough": "删除线",
+    "heading1": "一级标题",
+    "heading2": "二级标题",
+    "heading3": "三级标题",
+    "bulletList": "项目符号列表",
+    "bulletListLabel": "• 列表",
+    "orderedList": "编号列表",
+    "orderedListLabel": "1. 列表",
+    "quote": "引用",
+    "quoteLabel": "引用",
+    "codeBlock": "代码块",
+    "codeBlockLabel": "< > 代码",
+    "rule": "分割线",
+    "ruleLabel": "— 分割线",
+    "insertLink": "插入链接",
+    "linkLabel": "链接",
+    "insertImage": "插入图片",
+    "imageLabel": "图片",
+    "insert": "插入",
+    "undo": "撤销",
+    "undoLabel": "撤销",
+    "redo": "重做",
+    "redoLabel": "重做"
+  },
+  "schedule": {
+    "title": "定时发送",
+    "action": "定时发送",
+    "presets": {
+      "tomorrowMorning": "明天上午",
+      "tomorrowAfternoon": "明天下午",
+      "mondayMorning": "周一上午"
+    }
+  },
+  "ai": {
+    "title": "AI 辅助",
+    "composePlaceholder": "描述你想写什么...",
+    "replyPlaceholder": "回复说明（可选）...",
+    "generate": "生成",
+    "generateReply": "生成回复",
+    "transform": {
+      "label": "转换：",
+      "improve": "改进",
+      "shorter": "更短",
+      "formal": "正式"
+    },
+    "error": {
+      "generate": "AI 生成失败",
+      "transform": "AI 转换失败"
+    }
+  },
+  "attachments": {
+    "attachFiles": "添加附件",
+    "attach": "添加附件",
+    "total": "{{size}} 总计"
+  },
+  "signature": {
+    "none": "无签名"
+  },
+  "templates": {
+    "label": "模板"
+  },
+  "undoSend": {
+    "sending": "正在发送邮件...",
+    "undo": "撤销"
+  }
+}

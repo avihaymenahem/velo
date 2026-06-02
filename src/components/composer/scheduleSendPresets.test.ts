@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { getSchedulePresets } from "./ScheduleSendDialog";
 
 describe("ScheduleSendDialog presets", () => {
   beforeEach(() => {
@@ -20,6 +21,25 @@ describe("ScheduleSendDialog presets", () => {
     expect(tomorrowMorning.getDay()).toBe(4); // Thursday
     expect(tomorrowMorning.getHours()).toBe(9);
     expect(tomorrowMorning.getDate()).toBe(16);
+  });
+
+  it("returns localized preset detail without changing timestamps", () => {
+    const presets = getSchedulePresets({
+      tomorrowMorning: "Tomorrow morning",
+      tomorrowAfternoon: "Tomorrow afternoon",
+      mondayMorning: "Monday morning",
+    }, "zh-CN");
+
+    expect(presets.map((preset) => preset.detail)).toEqual([
+      "1月16日周四 9:00",
+      "1月16日周四 13:00",
+      "1月20日周一 9:00",
+    ]);
+    expect(presets.map((preset) => preset.timestamp)).toEqual([
+      Math.floor(new Date(2025, 0, 16, 9, 0, 0, 0).getTime() / 1000),
+      Math.floor(new Date(2025, 0, 16, 13, 0, 0, 0).getTime() / 1000),
+      Math.floor(new Date(2025, 0, 20, 9, 0, 0, 0).getTime() / 1000),
+    ]);
   });
 
   it("tomorrow afternoon preset is next day at 1pm", () => {

@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SetupClientId } from "./SetupClientId";
+import i18n from "@/i18n";
 
 vi.mock("@/services/db/settings", () => ({
   setSetting: vi.fn().mockResolvedValue(undefined),
@@ -8,6 +9,10 @@ vi.mock("@/services/db/settings", () => ({
 }));
 
 describe("SetupClientId", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
   it("disables Save button when both fields are empty", () => {
     render(<SetupClientId onComplete={() => {}} onCancel={() => {}} />);
     const saveButton = screen.getByText("Save & Continue");
@@ -66,5 +71,21 @@ describe("SetupClientId", () => {
     render(<SetupClientId onComplete={() => {}} onCancel={onCancel} />);
     fireEvent.click(screen.getByText("Cancel"));
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it("renders Google API setup instructions in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+    render(<SetupClientId onComplete={() => {}} onCancel={() => {}} />);
+
+    expect(screen.getByText("Google API 设置")).toBeInTheDocument();
+    expect(screen.getByText("连接 Gmail 账户需要 Google Cloud OAuth 客户端 ID。")).toBeInTheDocument();
+    expect(screen.getByText("创建 OAuth 2.0 凭据，类型选择 Web 应用")).toBeInTheDocument();
+    expect(screen.getByText("复制下方的客户端 ID 和客户端密钥")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("在这里粘贴客户端 ID...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("在这里粘贴客户端密钥...")).toBeInTheDocument();
+    expect(screen.getByText("Web 应用凭据必须填写客户端密钥。")).toBeInTheDocument();
+    expect(screen.queryByText("Web application 凭据必须填写客户端密钥。")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("在这里粘贴 Client ID...")).not.toBeInTheDocument();
+    expect(screen.getByText("保存并继续")).toBeDisabled();
   });
 });

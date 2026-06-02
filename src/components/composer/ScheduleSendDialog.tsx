@@ -1,11 +1,16 @@
 import { DateTimePickerDialog } from "@/components/ui/DateTimePickerDialog";
+import { useTranslation } from "react-i18next";
 
 interface ScheduleSendDialogProps {
   onSchedule: (timestamp: number) => void;
   onClose: () => void;
 }
 
-function getSchedulePresets(): { label: string; detail: string; timestamp: number }[] {
+export function getSchedulePresets(labels: {
+  tomorrowMorning: string;
+  tomorrowAfternoon: string;
+  mondayMorning: string;
+}, locale: string): { label: string; detail: string; timestamp: number }[] {
   const now = new Date();
   const today = new Date(now);
 
@@ -28,34 +33,53 @@ function getSchedulePresets(): { label: string; detail: string; timestamp: numbe
 
   return [
     {
-      label: "Tomorrow morning",
-      detail: tomorrowMorning.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " 9:00 AM",
+      label: labels.tomorrowMorning,
+      detail: formatPresetDetail(tomorrowMorning, locale),
       timestamp: Math.floor(tomorrowMorning.getTime() / 1000),
     },
     {
-      label: "Tomorrow afternoon",
-      detail: tomorrowAfternoon.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " 1:00 PM",
+      label: labels.tomorrowAfternoon,
+      detail: formatPresetDetail(tomorrowAfternoon, locale),
       timestamp: Math.floor(tomorrowAfternoon.getTime() / 1000),
     },
     {
-      label: "Monday morning",
-      detail: monday.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " 9:00 AM",
+      label: labels.mondayMorning,
+      detail: formatPresetDetail(monday, locale),
       timestamp: Math.floor(monday.getTime() / 1000),
     },
   ];
 }
 
+function formatPresetDetail(date: Date, locale: string): string {
+  const datePart = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+  const timePart = new Intl.DateTimeFormat(locale, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+
+  return `${datePart} ${timePart}`;
+}
+
 export function ScheduleSendDialog({ onSchedule, onClose }: ScheduleSendDialogProps) {
-  const presets = getSchedulePresets();
+  const { t, i18n } = useTranslation("composer");
+  const presets = getSchedulePresets({
+    tomorrowMorning: t("schedule.presets.tomorrowMorning"),
+    tomorrowAfternoon: t("schedule.presets.tomorrowAfternoon"),
+    mondayMorning: t("schedule.presets.mondayMorning"),
+  }, i18n.resolvedLanguage ?? i18n.language);
 
   return (
     <DateTimePickerDialog
       isOpen={true}
       onClose={onClose}
-      title="Schedule send"
+      title={t("schedule.title")}
       presets={presets}
       onSelect={onSchedule}
-      submitLabel="Schedule"
+      submitLabel={t("schedule.action")}
       zIndex="z-[60]"
     />
   );

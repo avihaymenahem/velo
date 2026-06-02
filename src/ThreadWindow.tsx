@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ThreadView } from "./components/email/ThreadView";
 import { Composer } from "./components/composer/Composer";
 import { UndoSendToast } from "./components/composer/UndoSendToast";
@@ -13,12 +14,15 @@ import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
 import type { Thread } from "./stores/threadStore";
 
+type ThreadWindowErrorKey = "missingParameters" | "notFound" | "loadFailed";
+
 export default function ThreadWindow() {
+  const { t } = useTranslation("common");
   const { setTheme, setFontScale, setColorTheme } = useUIStore();
   const { setAccounts } = useAccountStore();
   const [thread, setThread] = useState<Thread | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<ThreadWindowErrorKey | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -26,7 +30,7 @@ export default function ThreadWindow() {
     const accountId = params.get("account");
 
     if (!threadId || !accountId) {
-      setError("Missing thread or account parameter");
+      setErrorKey("missingParameters");
       setLoading(false);
       return;
     }
@@ -74,7 +78,7 @@ export default function ThreadWindow() {
         // Fetch thread
         const dbThread = await getThreadById(accountId!, threadId!);
         if (!dbThread) {
-          setError("Thread not found");
+          setErrorKey("notFound");
           setLoading(false);
           return;
         }
@@ -98,7 +102,7 @@ export default function ThreadWindow() {
         });
       } catch (err) {
         console.error("Failed to initialize thread window:", err);
-        setError("Failed to load thread");
+        setErrorKey("loadFailed");
       }
       setLoading(false);
     }
@@ -170,15 +174,15 @@ export default function ThreadWindow() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg-primary text-text-secondary">
-        <span className="text-sm">Loading thread...</span>
+        <span className="text-sm">{t("appLoading.thread")}</span>
       </div>
     );
   }
 
-  if (error || !thread) {
+  if (errorKey || !thread) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg-primary text-text-secondary">
-        <span className="text-sm">{error ?? "Thread not found"}</span>
+        <span className="text-sm">{t(`windowErrors.thread.${errorKey ?? "notFound"}`)}</span>
       </div>
     );
   }

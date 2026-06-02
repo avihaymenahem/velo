@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
@@ -12,6 +13,7 @@ interface CalDavSettingsProps {
 }
 
 export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
+  const { t } = useTranslation("settings");
   const [caldavUrl, setCaldavUrl] = useState(account.caldav_url ?? "");
   const [username, setUsername] = useState(account.caldav_username ?? account.email);
   const [password, setPassword] = useState(account.caldav_password ?? "");
@@ -79,21 +81,28 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
   }, [account.id, account.email, onSaved]);
 
   const isConfigured = !!account.caldav_url;
+  const testResultMessage = testResult
+    ? testResult.success
+      ? t("caldav.connectionSucceeded")
+      : testResult.message === "Connection failed"
+        ? t("caldav.connectionFailed")
+        : testResult.message
+    : "";
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-text-primary">Calendar (CalDAV)</h4>
+        <h4 className="text-sm font-medium text-text-primary">{t("caldav.title")}</h4>
         {isConfigured && (
-          <span className="text-xs text-success font-medium">Connected</span>
+          <span className="text-xs text-success font-medium">{t("caldav.connected")}</span>
         )}
       </div>
       <p className="text-xs text-text-tertiary">
-        Connect a CalDAV calendar server to enable calendar features for this IMAP account.
+        {t("caldav.description")}
       </p>
 
       <TextField
-        label="CalDAV Server URL"
+        label={t("caldav.serverUrl")}
         type="url"
         value={caldavUrl}
         onChange={(e) => setCaldavUrl(e.target.value)}
@@ -101,7 +110,7 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
       />
 
       <TextField
-        label="Username"
+        label={t("caldav.username")}
         type="text"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
@@ -109,17 +118,17 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
       />
 
       <TextField
-        label="Password / App Password"
+        label={t("caldav.password")}
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        placeholder="App-specific password"
+        placeholder={t("caldav.passwordPlaceholder")}
       />
 
       {testResult && (
         <div className={`flex items-center gap-2 text-xs ${testResult.success ? "text-success" : "text-danger"}`}>
           {testResult.success ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-          {testResult.message}
+          {testResultMessage}
         </div>
       )}
 
@@ -131,7 +140,7 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
           disabled={testing || !caldavUrl || !password}
         >
           {testing && <Loader2 size={14} className="animate-spin" />}
-          {testing ? "Testing..." : "Test Connection"}
+          {testing ? t("caldav.testing") : t("caldav.testConnection")}
         </Button>
 
         <Button
@@ -140,7 +149,7 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
           onClick={handleSave}
           disabled={saving || !caldavUrl || !password}
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? t("editors.common.saving") : t("editors.common.save")}
         </Button>
 
         {isConfigured && (
@@ -150,7 +159,7 @@ export function CalDavSettings({ account, onSaved }: CalDavSettingsProps) {
             onClick={handleRemove}
             disabled={saving}
           >
-            Remove
+            {t("caldav.remove")}
           </Button>
         )}
       </div>

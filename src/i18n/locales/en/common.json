@@ -1,0 +1,78 @@
+{
+  "actions": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save"
+  },
+  "windowControls": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "appLoading": {
+    "inbox": "Loading your inbox...",
+    "thread": "Loading thread...",
+    "composer": "Loading composer..."
+  },
+  "syncStatus": {
+    "syncing": "Syncing...",
+    "messages": "Syncing: {{current}}/{{total}} messages",
+    "labels": "Syncing labels...",
+    "threads": "Building threads... ({{current}}/{{total}})",
+    "complete": "Sync complete",
+    "failed": "Sync failed",
+    "failedWithReason": "Sync failed: {{error}}"
+  },
+  "syncErrors": {
+    "auth": "Authentication failed — check your password",
+    "timeout": "Connection timed out — check your internet or server settings",
+    "secureConnection": "Secure connection failed — check security settings",
+    "connectionRefused": "Could not reach mail server — check address and port",
+    "serverNotFound": "Server not found — check hostname"
+  },
+  "windowErrors": {
+    "thread": {
+      "missingParameters": "Missing thread or account parameter",
+      "notFound": "Thread not found",
+      "loadFailed": "Failed to load thread"
+    },
+    "composer": {
+      "loadFailed": "Failed to load composer"
+    }
+  },
+  "routeLoading": {
+    "settings": "Loading settings...",
+    "calendar": "Loading calendar...",
+    "help": "Loading help...",
+    "attachments": "Loading attachments...",
+    "tasks": "Loading tasks..."
+  },
+  "dateTime": {
+    "customDateTime": "Custom date & time"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "unexpected": "An unexpected error occurred",
+    "retry": "Try again"
+  },
+  "updateToast": {
+    "available": "Kirje v{{version}} is available",
+    "later": "Later",
+    "updateNow": "Update Now",
+    "updating": "Updating..."
+  },
+  "notifications": {
+    "actions": {
+      "reply": "Reply",
+      "archive": "Archive"
+    },
+    "noSubject": "(No subject)",
+    "newEmails": "{{count}} new emails",
+    "followUpNeeded": "Follow up needed",
+    "snoozedEmailReturned": "Snoozed email returned"
+  },
+  "tray": {
+    "unreadTooltip": "Kirje - {{count}} unread"
+  }
+}

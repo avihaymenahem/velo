@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import Lenis from 'lenis'
 import { Navbar } from './components/Navbar'
 import { Hero } from './components/Hero'
-import { WhyVelo } from './components/WhyVelo'
+import { WhyKirje } from './components/WhyKirje'
 import { ProductShowcase } from './components/ProductShowcase'
 import { Features } from './components/Features'
 import { OpenSource } from './components/OpenSource'
@@ -30,7 +30,7 @@ function App() {
       <Navbar />
       <main>
         <Hero />
-        <WhyVelo />
+        <WhyKirje />
         <ProductShowcase />
         <Features />
         <OpenSource />

@@ -1,4 +1,5 @@
 import { extractTask } from "./taskExtraction";
+import i18n from "@/i18n";
 import type { DbMessage } from "@/services/db/messages";
 
 vi.mock("./aiService", () => ({
@@ -44,6 +45,10 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+afterEach(async () => {
+  await i18n.changeLanguage("en");
+});
+
 describe("taskExtraction", () => {
   it("parses valid JSON response", async () => {
     vi.mocked(extractTaskFromThread).mockResolvedValue(
@@ -86,5 +91,14 @@ describe("taskExtraction", () => {
     );
     const result = await extractTask("t1", "acc1", [makeMessage()]);
     expect(result.title).toBe("Follow up on: Meeting follow-up");
+  });
+
+  it("localizes fallback task titles in Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+    vi.mocked(extractTaskFromThread).mockResolvedValue("not valid json");
+
+    const result = await extractTask("t1", "acc1", [makeMessage({ subject: null })]);
+
+    expect(result.title).toBe("跟进：邮件任务");
   });
 });

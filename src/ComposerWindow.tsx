@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Composer } from "./components/composer/Composer";
 import { UndoSendToast } from "./components/composer/UndoSendToast";
 import { useAccountStore } from "./stores/accountStore";
@@ -12,11 +13,14 @@ import { getThemeById, COLOR_THEMES } from "./constants/themes";
 import type { ColorThemeId } from "./constants/themes";
 import type { ComposerMode } from "./stores/composerStore";
 
+type ComposerWindowErrorKey = "loadFailed";
+
 export default function ComposerWindow() {
+  const { t } = useTranslation("common");
   const { setTheme, setFontScale, setColorTheme } = useUIStore();
   const { setAccounts } = useAccountStore();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<ComposerWindowErrorKey | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -100,7 +104,7 @@ export default function ComposerWindow() {
         useComposerStore.getState().setViewMode("fullpage");
       } catch (err) {
         console.error("Failed to initialize composer window:", err);
-        setError("Failed to load composer");
+        setErrorKey("loadFailed");
       }
       setLoading(false);
     }
@@ -172,15 +176,15 @@ export default function ComposerWindow() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg-primary text-text-secondary">
-        <span className="text-sm">Loading composer...</span>
+        <span className="text-sm">{t("appLoading.composer")}</span>
       </div>
     );
   }
 
-  if (error) {
+  if (errorKey) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg-primary text-text-secondary">
-        <span className="text-sm">{error}</span>
+        <span className="text-sm">{t(`windowErrors.composer.${errorKey}`)}</span>
       </div>
     );
   }

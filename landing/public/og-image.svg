@@ -34,12 +34,14 @@
   <circle cx="1000" cy="480" r="300" fill="url(#blob2)"/>
 
   <!-- Logo icon -->
-  <rect x="80" y="72" width="48" height="48" rx="12" fill="url(#accent)"/>
-  <path d="M96 88L104 96L112 88" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M96 88H112V104H96V88Z" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="80" y="72" width="48" height="48" rx="12" fill="#202624"/>
+  <rect x="94" y="87" width="5" height="27" rx="2" fill="#F8F9F6"/>
+  <path d="M103 89C103 88 104 87 105 87H118C119 87 120 88 119 89L111 98C109 100 108 100 105 100H105C104 100 103 99 103 98V89Z" fill="#F8F9F6"/>
+  <path d="M112 101L122 89C123 88 124 89 124 91V110C124 112 123 113 122 112L112 101Z" fill="#F8F9F6"/>
+  <path d="M103 105C103 104 104 103 105 103H105C108 103 109 104 111 106L119 113C120 114 119 115 118 115H105C104 115 103 114 103 113V105Z" fill="#F8F9F6"/>
 
   <!-- Logo text -->
-  <text x="140" y="108" font-family="Inter, -apple-system, sans-serif" font-size="32" font-weight="700" fill="#E8E8F0" letter-spacing="-0.5">Velo</text>
+  <text x="140" y="108" font-family="Inter, -apple-system, sans-serif" font-size="32" font-weight="700" fill="#E8E8F0" letter-spacing="-0.5">Kirje</text>
 
   <!-- Main headline -->
   <text x="80" y="280" font-family="Inter, -apple-system, sans-serif" font-size="72" font-weight="800" fill="#E8E8F0" letter-spacing="-2">Email at the</text>
@@ -57,7 +59,7 @@
   </text>
 
   <!-- Domain -->
-  <text x="80" y="570" font-family="Inter, -apple-system, sans-serif" font-size="18" font-weight="500" fill="#6366F1">velomail.app</text>
+  <text x="80" y="570" font-family="Inter, -apple-system, sans-serif" font-size="18" font-weight="500" fill="#6366F1">kirje.app</text>
 
   <!-- Decorative inbox mockup hint (right side) -->
   <rect x="750" y="140" width="370" height="350" rx="16" fill="#12121C" stroke="#ffffff0f" stroke-width="1"/>

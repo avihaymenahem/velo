@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import i18n from "@/i18n";
 import { ThreadCard } from "./ThreadCard";
 import type { Thread } from "@/stores/threadStore";
 
@@ -56,8 +57,9 @@ function makeThread(overrides: Partial<Thread> = {}): Thread {
 describe("ThreadCard", () => {
   const onClick = vi.fn();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    await i18n.changeLanguage("en");
   });
 
   it("renders sender name and subject", () => {
@@ -112,5 +114,19 @@ describe("ThreadCard", () => {
     );
 
     expect(screen.getByText("Waiting")).toBeInTheDocument();
+  });
+
+  it("renders work-state chips in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+
+    render(
+      <ThreadCard
+        thread={makeThread({ workState: "needs_reply" })}
+        isSelected={false}
+        onClick={onClick}
+      />,
+    );
+
+    expect(screen.getByText("需要回复")).toBeInTheDocument();
   });
 });

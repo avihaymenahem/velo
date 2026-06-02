@@ -94,6 +94,8 @@ export interface ContextualTip {
   helpTopic: string;
 }
 
+type HelpTranslate = (key: string, defaultValue: string) => string;
+
 // ---------- Valid settings tabs (for type-safe references) ----------
 
 const VALID_SETTINGS_TABS = [
@@ -1338,4 +1340,59 @@ export function getAllCards(): (HelpCard & { categoryId: string; categoryLabel: 
 /** Find a category by its ID */
 export function getCategoryById(id: string): HelpCategory | undefined {
   return HELP_CATEGORIES.find((cat) => cat.id === id);
+}
+
+export function getAllCardsFromCategories(
+  categories: HelpCategory[],
+): (HelpCard & { categoryId: string; categoryLabel: string })[] {
+  return categories.flatMap((cat) =>
+    cat.cards.map((card) => ({
+      ...card,
+      categoryId: cat.id,
+      categoryLabel: cat.label,
+    })),
+  );
+}
+
+export function getCategoryByIdFromCategories(
+  categories: HelpCategory[],
+  id: string,
+): HelpCategory | undefined {
+  return categories.find((cat) => cat.id === id);
+}
+
+export function localizeHelpCategories(
+  categories: HelpCategory[],
+  translate: HelpTranslate,
+): HelpCategory[] {
+  return categories.map((category) => ({
+    ...category,
+    label: translate(`categories.${category.id}.label`, category.label),
+    cards: category.cards.map((card) => ({
+      ...card,
+      title: translate(`cards.${card.id}.title`, card.title),
+      summary: translate(`cards.${card.id}.summary`, card.summary),
+      description: translate(`cards.${card.id}.description`, card.description),
+      tips: card.tips?.map((tip, index) => ({
+        ...tip,
+        text: translate(`cards.${card.id}.tips.${index}`, tip.text),
+      })),
+    })),
+  }));
+}
+
+export function localizeContextualTips(
+  tips: Record<string, ContextualTip>,
+  translate: HelpTranslate,
+): Record<string, ContextualTip> {
+  return Object.fromEntries(
+    Object.entries(tips).map(([id, tip]) => [
+      id,
+      {
+        ...tip,
+        title: translate(`contextual.${id}.title`, tip.title),
+        body: translate(`contextual.${id}.body`, tip.body),
+      },
+    ]),
+  );
 }

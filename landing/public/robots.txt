@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://velomail.app/sitemap.xml
+Sitemap: https://kirje.app/sitemap.xml

@@ -1,4 +1,5 @@
 import { DateTimePickerDialog } from "@/components/ui/DateTimePickerDialog";
+import { useTranslation } from "react-i18next";
 
 interface SnoozeDialogProps {
   isOpen?: boolean;
@@ -6,7 +7,12 @@ interface SnoozeDialogProps {
   onClose: () => void;
 }
 
-function getSnoozePresets(): { label: string; timestamp: number }[] {
+function getSnoozePresets(labels: {
+  laterToday: string;
+  tomorrow: string;
+  thisWeekend: string;
+  nextWeek: string;
+}): { label: string; timestamp: number }[] {
   const now = new Date();
   const today = new Date(now);
 
@@ -37,24 +43,30 @@ function getSnoozePresets(): { label: string; timestamp: number }[] {
   nextWeek.setHours(9, 0, 0, 0);
 
   return [
-    { label: "Later Today", timestamp: Math.floor(laterToday.getTime() / 1000) },
-    { label: "Tomorrow", timestamp: Math.floor(tomorrow.getTime() / 1000) },
-    { label: "This Weekend", timestamp: Math.floor(weekend.getTime() / 1000) },
-    { label: "Next Week", timestamp: Math.floor(nextWeek.getTime() / 1000) },
+    { label: labels.laterToday, timestamp: Math.floor(laterToday.getTime() / 1000) },
+    { label: labels.tomorrow, timestamp: Math.floor(tomorrow.getTime() / 1000) },
+    { label: labels.thisWeekend, timestamp: Math.floor(weekend.getTime() / 1000) },
+    { label: labels.nextWeek, timestamp: Math.floor(nextWeek.getTime() / 1000) },
   ];
 }
 
 export function SnoozeDialog({ isOpen = true, onSnooze, onClose }: SnoozeDialogProps) {
-  const presets = getSnoozePresets();
+  const { t } = useTranslation("email");
+  const presets = getSnoozePresets({
+    laterToday: t("snooze.presets.laterToday"),
+    tomorrow: t("snooze.presets.tomorrow"),
+    thisWeekend: t("snooze.presets.thisWeekend"),
+    nextWeek: t("snooze.presets.nextWeek"),
+  });
 
   return (
     <DateTimePickerDialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Snooze until..."
+      title={t("snooze.title")}
       presets={presets}
       onSelect={onSnooze}
-      submitLabel="Snooze"
+      submitLabel={t("snooze.action")}
     />
   );
 }

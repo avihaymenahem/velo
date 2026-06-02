@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { MessageItem } from "./MessageItem";
 import { ActionBar } from "./ActionBar";
 import { getMessagesForThread, type DbMessage } from "@/services/db/messages";
@@ -22,12 +23,73 @@ import { AiTaskExtractDialog } from "@/components/tasks/AiTaskExtractDialog";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { MessageSkeleton } from "@/components/ui/Skeleton";
 import { RawMessageModal } from "./RawMessageModal";
+import { buildForwardQuote, buildReplyQuote } from "@/utils/messageQuotes";
+import type { TFunction } from "i18next";
 
 interface ThreadViewProps {
   thread: Thread;
 }
 
-async function handlePopOut(thread: Thread) {
+export function buildThreadWindowTitle(
+  subject: string | null | undefined,
+  t: TFunction<"email">,
+): string {
+  return subject ?? t("common.thread");
+}
+
+export function buildThreadExportDialogOptions(
+  subject: string | null | undefined,
+  t: TFunction<"email">,
+): { defaultPath: string; filters: { name: string; extensions: string[] }[] } {
+  const baseName = subject?.trim() ? subject : t("threadView.export.defaultFileName");
+  return {
+    defaultPath: `${baseName.replace(/[^\p{L}\p{N}_-]/gu, "_")}.eml`,
+    filters: [{ name: t("threadView.export.fileType"), extensions: ["eml"] }],
+  };
+}
+
+interface BuildThreadPrintHtmlArgs {
+  subject: string | null | undefined;
+  messages: DbMessage[];
+  t: TFunction<"email">;
+  language: string;
+}
+
+export function buildThreadPrintHtml({
+  subject,
+  messages,
+  t,
+  language,
+}: BuildThreadPrintHtmlArgs): string {
+  const messagesHtml = messages.map((msg) => {
+    const date = new Date(msg.date).toLocaleString(language === "zh-CN" ? "zh-CN" : undefined);
+    const from = msg.from_name
+      ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
+      : escapeHtml(msg.from_address ?? t("common.unknown"));
+    const to = escapeHtml(msg.to_addresses ?? "");
+    const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
+    return `
+        <div style="margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e5e5e5">
+          <div style="margin-bottom:8px;color:#666;font-size:12px">
+            <strong>${t("threadView.print.from")}</strong> ${from}<br/>
+            <strong>${t("threadView.print.to")}</strong> ${to}<br/>
+            <strong>${t("threadView.print.date")}</strong> ${date}
+          </div>
+          <div>${body}</div>
+        </div>`;
+  }).join("");
+
+  const safeSubject = escapeHtml(subject ?? "");
+  const title = safeSubject || t("common.email");
+  const heading = safeSubject || t("common.noSubject");
+
+  return `<!DOCTYPE html><html><head><title>${title}</title>
+      <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:800px;margin:20px auto;color:#333;font-size:14px}
+      h1{font-size:18px;margin-bottom:8px}img{max-width:100%}</style></head>
+      <body><h1>${heading}</h1>${messagesHtml}</body></html>`;
+}
+
+async function handlePopOut(thread: Thread, titleFallback: string) {
   try {
     const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
     const windowLabel = `thread-${thread.id.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
@@ -42,7 +104,7 @@ async function handlePopOut(thread: Thread) {
 
     const win = new WebviewWindow(windowLabel, {
       url,
-      title: thread.subject ?? "Thread",
+      title: thread.subject ?? titleFallback,
       width: 800,
       height: 700,
       center: true,
@@ -58,6 +120,7 @@ async function handlePopOut(thread: Thread) {
 }
 
 export function ThreadView({ thread }: ThreadViewProps) {
+  const { t, i18n } = useTranslation("email");
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const contactSidebarVisible = useUIStore((s) => s.contactSidebarVisible);
   const toggleContactSidebar = useUIStore((s) => s.toggleContactSidebar);
@@ -138,7 +201,7 @@ export function ThreadView({ thread }: ThreadViewProps) {
       mode: "reply",
       to: replyTo ? [replyTo] : [],
       subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
+      bodyHtml: buildReplyQuote(lastMessage),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
@@ -161,7 +224,7 @@ export function ThreadView({ thread }: ThreadViewProps) {
       to: Array.from(allRecipients),
       cc: ccList,
       subject: `Re: ${lastMessage.subject ?? ""}`,
-      bodyHtml: buildQuote(lastMessage),
+      bodyHtml: buildReplyQuote(lastMessage),
       threadId: lastMessage.thread_id,
       inReplyToMessageId: lastMessage.id,
     });
@@ -192,36 +255,19 @@ export function ThreadView({ thread }: ThreadViewProps) {
     const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
     if (!doc) { document.body.removeChild(iframe); return; }
 
-    const messagesHtml = messages.map((msg) => {
-      const date = new Date(msg.date).toLocaleString();
-      const from = msg.from_name
-        ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
-        : escapeHtml(msg.from_address ?? "Unknown");
-      const to = escapeHtml(msg.to_addresses ?? "");
-      const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-      return `
-        <div style="margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e5e5e5">
-          <div style="margin-bottom:8px;color:#666;font-size:12px">
-            <strong>From:</strong> ${from}<br/>
-            <strong>To:</strong> ${to}<br/>
-            <strong>Date:</strong> ${date}
-          </div>
-          <div>${body}</div>
-        </div>`;
-    }).join("");
-
-    const safeSubject = escapeHtml(thread.subject ?? "");
     doc.open();
-    doc.write(`<!DOCTYPE html><html><head><title>${safeSubject || "Email"}</title>
-      <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:800px;margin:20px auto;color:#333;font-size:14px}
-      h1{font-size:18px;margin-bottom:8px}img{max-width:100%}</style></head>
-      <body><h1>${safeSubject || "(No subject)"}</h1>${messagesHtml}</body></html>`);
+    doc.write(buildThreadPrintHtml({
+      subject: thread.subject,
+      messages,
+      t,
+      language: i18n.language,
+    }));
     doc.close();
 
     iframe.contentWindow?.focus();
     iframe.contentWindow?.print();
     setTimeout(() => document.body.removeChild(iframe), 1000);
-  }, [messages, thread.subject]);
+  }, [i18n.language, messages, t, thread.subject]);
 
   // Message-level keyboard navigation (ArrowUp / ArrowDown)
   const [focusedMsgIdx, setFocusedMsgIdx] = useState(-1);
@@ -346,19 +392,14 @@ export function ThreadView({ thread }: ThreadViewProps) {
       });
 
       const content = emlParts.join("\r\n\r\n");
-      const defaultName = `${(thread.subject ?? "email").replace(/[^a-zA-Z0-9_-]/g, "_")}.eml`;
-
-      const filePath = await save({
-        defaultPath: defaultName,
-        filters: [{ name: "Email", extensions: ["eml"] }],
-      });
+      const filePath = await save(buildThreadExportDialogOptions(thread.subject, t));
       if (filePath) {
         await writeTextFile(filePath, content);
       }
     } catch (err) {
       console.error("Failed to export thread:", err);
     }
-  }, [messages, thread.subject]);
+  }, [messages, t, thread.subject]);
 
   if (loading) {
     return (
@@ -393,7 +434,7 @@ export function ThreadView({ thread }: ThreadViewProps) {
           onForward={handleForward}
           onPrint={handlePrint}
           onExport={handleExport}
-          onPopOut={() => handlePopOut(thread)}
+          onPopOut={() => handlePopOut(thread, t("common.thread"))}
           onToggleContactSidebar={toggleContactSidebar}
           onToggleTaskSidebar={() => useUIStore.getState().toggleTaskSidebar()}
         />
@@ -401,15 +442,15 @@ export function ThreadView({ thread }: ThreadViewProps) {
         {/* Thread subject */}
         <div className="px-6 py-3 border-b border-border-primary">
           <h1 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-            {thread.subject ?? "(No subject)"}
+            {thread.subject ?? t("common.noSubject")}
             {thread.isMuted && (
-              <span className="text-warning shrink-0" title="Muted">
+              <span className="text-warning shrink-0" title={t("threadCard.muted")}>
                 <VolumeX size={16} />
               </span>
             )}
           </h1>
           <div className="text-xs text-text-tertiary mt-1">
-            {messages.length} message{messages.length !== 1 ? "s" : ""} in this thread
+            {t("threadView.messageCount", { count: messages.length })}
           </div>
         </div>
 
@@ -513,19 +554,4 @@ export function ThreadView({ thread }: ThreadViewProps) {
       )}
     </div>
   );
-}
-
-function buildQuote(msg: DbMessage): string {
-  const date = new Date(msg.date).toLocaleString();
-  const from = msg.from_name
-    ? `${escapeHtml(msg.from_name)} &lt;${escapeHtml(msg.from_address ?? "")}&gt;`
-    : escapeHtml(msg.from_address ?? "Unknown");
-  const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-  return `<br><br><div style="border-left:2px solid #ccc;padding-left:12px;margin-left:0;color:#666">On ${date}, ${from} wrote:<br>${body}</div>`;
-}
-
-function buildForwardQuote(msg: DbMessage): string {
-  const date = new Date(msg.date).toLocaleString();
-  const body = msg.body_html ? sanitizeHtml(msg.body_html) : escapeHtml(msg.body_text ?? "");
-  return `<br><br>---------- Forwarded message ---------<br>From: ${escapeHtml(msg.from_name ?? "")} &lt;${escapeHtml(msg.from_address ?? "")}&gt;<br>Date: ${date}<br>Subject: ${escapeHtml(msg.subject ?? "")}<br>To: ${escapeHtml(msg.to_addresses ?? "")}<br><br>${body}`;
 }

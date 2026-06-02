@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { HelpCircle } from "lucide-react";
-import { CONTEXTUAL_TIPS } from "@/constants/helpContent";
+import { CONTEXTUAL_TIPS, localizeContextualTips } from "@/constants/helpContent";
 import { navigateToHelp } from "@/router/navigate";
 
 interface HelpTooltipProps {
@@ -10,7 +11,9 @@ interface HelpTooltipProps {
 }
 
 export function HelpTooltip({ contextId, size = 14 }: HelpTooltipProps) {
-  const tip = CONTEXTUAL_TIPS[contextId];
+  const { t } = useTranslation("help");
+  const tips = localizeContextualTips(CONTEXTUAL_TIPS, (key, defaultValue) => t(key, { defaultValue }));
+  const tip = tips[contextId];
   const [open, setOpen] = useState(false);
   const iconRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -47,7 +50,7 @@ export function HelpTooltip({ contextId, size = 14 }: HelpTooltipProps) {
         onMouseLeave={hide}
         onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center text-text-tertiary hover:text-text-secondary transition-colors"
-        aria-label={`Help: ${tip.title}`}
+        aria-label={t("tooltipAria", { title: tip.title })}
       >
         <HelpCircle size={size} />
       </button>
@@ -70,7 +73,7 @@ export function HelpTooltip({ contextId, size = 14 }: HelpTooltipProps) {
               onClick={handleLearnMore}
               className="mt-2 text-xs text-accent hover:text-accent-hover transition-colors"
             >
-              Learn more
+              {t("learnMore")}
             </button>
           </div>,
           document.body,

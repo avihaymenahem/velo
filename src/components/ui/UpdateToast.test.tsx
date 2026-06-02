@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import i18n from "@/i18n";
 
 const mockGetAvailableUpdate = vi.fn();
 const mockSetUpdateCallback = vi.fn();
@@ -13,7 +14,8 @@ vi.mock("@/services/updateManager", () => ({
 
 import { UpdateToast } from "./UpdateToast";
 
-beforeEach(() => {
+beforeEach(async () => {
+  await i18n.changeLanguage("en");
   mockGetAvailableUpdate.mockReset();
   mockSetUpdateCallback.mockReset();
   mockInstallUpdate.mockReset();
@@ -73,6 +75,25 @@ describe("UpdateToast", () => {
     await waitFor(() => {
       expect(screen.getByText("Updating...")).toBeTruthy();
     });
+  });
+
+  it("renders update chrome in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+    mockGetAvailableUpdate.mockReturnValue({ version: "2.0.0", body: null });
+    mockInstallUpdate.mockReturnValue(new Promise(() => {})); // never resolves
+
+    render(<UpdateToast />);
+
+    expect(screen.getByText("Kirje v2.0.0 有可用更新")).toBeTruthy();
+    expect(screen.getByText("稍后")).toBeTruthy();
+    fireEvent.click(screen.getByText("立即更新"));
+
+    await waitFor(() => {
+      expect(screen.getByText("正在更新...")).toBeTruthy();
+    });
+    expect(screen.queryByText("Kirje v2.0.0 is available")).toBeNull();
+    expect(screen.queryByText("Update Now")).toBeNull();
+    expect(screen.queryByText("Updating...")).toBeNull();
   });
 
   it("cleans up callback on unmount", () => {

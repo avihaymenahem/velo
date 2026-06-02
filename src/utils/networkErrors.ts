@@ -6,6 +6,22 @@ export interface ClassifiedError {
   message: string;
 }
 
+export interface SyncErrorMessages {
+  auth: string;
+  timeout: string;
+  secureConnection: string;
+  connectionRefused: string;
+  serverNotFound: string;
+}
+
+const DEFAULT_SYNC_ERROR_MESSAGES: SyncErrorMessages = {
+  auth: "Authentication failed \u2014 check your password",
+  timeout: "Connection timed out \u2014 check your internet or server settings",
+  secureConnection: "Secure connection failed \u2014 check security settings",
+  connectionRefused: "Could not reach mail server \u2014 check address and port",
+  serverNotFound: "Server not found \u2014 check hostname",
+};
+
 const NETWORK_PATTERNS = [
   "failed to fetch",
   "network",
@@ -84,23 +100,26 @@ export function classifyError(error: unknown): ClassifiedError {
 /**
  * Translate a raw sync error string into a user-friendly message.
  */
-export function formatSyncError(rawError: string): string {
+export function formatSyncError(
+  rawError: string,
+  messages: SyncErrorMessages = DEFAULT_SYNC_ERROR_MESSAGES,
+): string {
   const lower = rawError.toLowerCase();
 
   if (AUTH_PATTERNS.some((p) => lower.includes(p))) {
-    return "Authentication failed \u2014 check your password";
+    return messages.auth;
   }
   if (lower.includes("timed out") || lower.includes("timeout")) {
-    return "Connection timed out \u2014 check your internet or server settings";
+    return messages.timeout;
   }
   if (lower.includes("tls") || lower.includes("ssl") || lower.includes("certificate")) {
-    return "Secure connection failed \u2014 check security settings";
+    return messages.secureConnection;
   }
   if (lower.includes("econnrefused") || lower.includes("connection refused")) {
-    return "Could not reach mail server \u2014 check address and port";
+    return messages.connectionRefused;
   }
   if (lower.includes("dns") || lower.includes("enotfound") || lower.includes("server not found")) {
-    return "Server not found \u2014 check hostname";
+    return messages.serverNotFound;
   }
 
   // Fallback: truncate long technical errors

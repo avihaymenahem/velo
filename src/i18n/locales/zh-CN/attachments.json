@@ -1,0 +1,69 @@
+{
+  "title": "附件",
+  "searchPlaceholder": "搜索附件...",
+  "empty": {
+    "title": "暂无附件",
+    "description": "邮件中的附件会显示在这里",
+    "matchingTitle": "没有匹配的附件",
+    "matchingDescription": "试试调整筛选条件或搜索词"
+  },
+  "filters": {
+    "types": {
+      "all": "全部类型",
+      "images": "图片",
+      "pdfs": "PDF",
+      "documents": "文档",
+      "spreadsheets": "表格",
+      "archives": "压缩包",
+      "other": "其他"
+    },
+    "dates": {
+      "all": "任意时间",
+      "today": "今天",
+      "week": "过去一周",
+      "month": "过去一月",
+      "year": "过去一年"
+    },
+    "sizes": {
+      "all": "任意大小",
+      "small": "< 1 MB",
+      "medium": "1-10 MB",
+      "large": "> 10 MB"
+    },
+    "allSenders": "全部发件人"
+  },
+  "view": {
+    "grid": "网格视图",
+    "list": "列表视图"
+  },
+  "actions": {
+    "preview": "预览",
+    "download": "下载",
+    "jumpToEmail": "跳转到邮件",
+    "unknown": "未知",
+    "unnamed": "未命名"
+  },
+  "messageList": {
+    "count_one": "{{count}} 个附件",
+    "count_other": "{{count}} 个附件"
+  },
+  "preview": {
+    "loading": "正在加载预览...",
+    "saving": "正在保存...",
+    "error": "预览加载失败",
+    "notAvailable": "此文件类型不可预览",
+    "unknownType": "未知类型",
+    "pdfTitle": "PDF 预览",
+    "textLoading": "正在加载...",
+    "textError": "文本加载失败"
+  },
+  "inline": {
+    "documentFallback": "文档.pdf",
+    "imageFallback": "图片",
+    "loading": "正在加载..."
+  },
+  "dialog": {
+    "allFiles": "所有文件"
+  },
+  "loading": "正在加载附件..."
+}

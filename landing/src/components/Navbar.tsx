@@ -35,8 +35,8 @@ export function Navbar() {
     >
       <nav className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
         <a href="#" className="flex items-center gap-2.5 text-text-primary no-underline">
-          <img src="/logo-white.svg" alt="Velo" className="w-7 h-7 rounded-md" />
-          <span className="font-semibold text-lg tracking-tight">Velo</span>
+          <img src="/logo-white.svg" alt="Kirje" className="w-7 h-7 rounded-md" />
+          <span className="font-semibold text-lg tracking-tight">Kirje</span>
         </a>
 
         <div className="hidden md:flex items-center gap-8">
@@ -54,7 +54,7 @@ export function Navbar() {
 
         <div className="hidden md:flex items-center gap-3">
           <a
-            href="https://github.com/avihaymenahem/velo"
+            href="https://github.com/iiwish/kirje"
             target="_blank"
             rel="noopener noreferrer"
             className="btn-secondary !py-2 !px-4 !text-sm"
@@ -63,7 +63,7 @@ export function Navbar() {
             GitHub
           </a>
           <a
-            href="https://github.com/avihaymenahem/velo/releases"
+            href="https://github.com/iiwish/kirje/releases"
             target="_blank"
             rel="noopener noreferrer"
             className="btn-primary !py-2 !px-4 !text-sm"
@@ -99,11 +99,11 @@ export function Navbar() {
                 {link.label}
               </a>
             ))}
-            <a href="https://github.com/avihaymenahem/velo" target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm !py-2.5 mt-2 justify-center">
+            <a href="https://github.com/iiwish/kirje" target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm !py-2.5 mt-2 justify-center">
               <Github size={16} />
               GitHub
             </a>
-            <a href="https://github.com/avihaymenahem/velo/releases" target="_blank" rel="noopener noreferrer" className="btn-primary text-sm !py-2.5 justify-center">
+            <a href="https://github.com/iiwish/kirje/releases" target="_blank" rel="noopener noreferrer" className="btn-primary text-sm !py-2.5 justify-center">
               Download
             </a>
           </div>

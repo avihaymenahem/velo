@@ -4,6 +4,7 @@ import { RouterProvider } from "@tanstack/react-router";
 import { router } from "./router";
 import ThreadWindow from "./ThreadWindow";
 import ComposerWindow from "./ComposerWindow";
+import "./i18n";
 import "./styles/globals.css";
 
 const params = new URLSearchParams(window.location.search);

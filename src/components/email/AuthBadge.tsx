@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ShieldCheck, ShieldAlert, ShieldX, ShieldQuestion } from "lucide-react";
 import type { AuthResult } from "@/services/gmail/authParser";
 
@@ -7,6 +8,7 @@ interface AuthBadgeProps {
 }
 
 export function AuthBadge({ authResults }: AuthBadgeProps) {
+  const { t } = useTranslation("email");
   const [showTooltip, setShowTooltip] = useState(false);
 
   if (!authResults) return null;
@@ -20,10 +22,11 @@ export function AuthBadge({ authResults }: AuthBadgeProps) {
 
   const { aggregate, spf, dkim, dmarc } = parsed;
 
+  const formatResult = (result: string) => t(`authBadge.results.${result}`, { defaultValue: result });
   const tooltipLines = [
-    `SPF: ${spf.result}${spf.detail ? ` (${spf.detail})` : ""}`,
-    `DKIM: ${dkim.result}${dkim.detail ? ` (${dkim.detail})` : ""}`,
-    `DMARC: ${dmarc.result}${dmarc.detail ? ` (${dmarc.detail})` : ""}`,
+    t("authBadge.detailLine", { protocol: "SPF", result: formatResult(spf.result), detail: spf.detail ? ` (${spf.detail})` : "" }),
+    t("authBadge.detailLine", { protocol: "DKIM", result: formatResult(dkim.result), detail: dkim.detail ? ` (${dkim.detail})` : "" }),
+    t("authBadge.detailLine", { protocol: "DMARC", result: formatResult(dmarc.result), detail: dmarc.detail ? ` (${dmarc.detail})` : "" }),
   ].join("\n");
 
   const iconProps = { size: 14, className: "shrink-0" };
@@ -36,22 +39,22 @@ export function AuthBadge({ authResults }: AuthBadgeProps) {
     case "pass":
       icon = <ShieldCheck {...iconProps} />;
       colorClass = "text-success";
-      label = "Authentication passed";
+      label = t("authBadge.labels.pass");
       break;
     case "warning":
       icon = <ShieldAlert {...iconProps} />;
       colorClass = "text-warning";
-      label = "Authentication warning";
+      label = t("authBadge.labels.warning");
       break;
     case "fail":
       icon = <ShieldX {...iconProps} />;
       colorClass = "text-danger";
-      label = "Authentication failed";
+      label = t("authBadge.labels.fail");
       break;
     default:
       icon = <ShieldQuestion {...iconProps} />;
       colorClass = "text-text-tertiary";
-      label = "Authentication unknown";
+      label = t("authBadge.labels.unknown");
       break;
   }
 

@@ -1,6 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { getUnreadInboxCount } from "./db/threads";
+import { formatTrayTooltip } from "./notifications/notificationCopy";
 
 let lastCount = -1;
 
@@ -16,7 +17,7 @@ export async function updateBadgeCount(): Promise<void> {
       // badge count may not be supported on all platforms
     }
 
-    const tooltip = count > 0 ? `Kirje - ${count} unread` : "Kirje";
+    const tooltip = formatTrayTooltip(count);
     try {
       await invoke("set_tray_tooltip", { tooltip });
     } catch {

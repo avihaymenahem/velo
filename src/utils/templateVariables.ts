@@ -55,6 +55,7 @@ async function resolveRecipientName(ctx: VariableContext): Promise<string> {
 export async function interpolateVariables(
   html: string,
   ctx: VariableContext,
+  locale = "en-US",
 ): Promise<string> {
   // Only do work if there are variables to replace
   if (!html.includes("{{")) return html;
@@ -64,12 +65,12 @@ export async function interpolateVariables(
   const senderParts = splitName(ctx.senderName);
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString("en-US", {
+  const dateStr = now.toLocaleDateString(locale, {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
-  const dayStr = now.toLocaleDateString("en-US", { weekday: "long" });
+  const dayStr = now.toLocaleDateString(locale, { weekday: "long" });
 
   const replacements: Record<string, string> = {
     "{{first_name}}": first,
@@ -97,18 +98,19 @@ export async function interpolateVariables(
 export function interpolateVariablesSync(
   html: string,
   ctx: VariableContext,
+  locale = "en-US",
 ): string {
   if (!html.includes("{{")) return html;
 
   const { first, last } = splitName(ctx.recipientName);
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString("en-US", {
+  const dateStr = now.toLocaleDateString(locale, {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
-  const dayStr = now.toLocaleDateString("en-US", { weekday: "long" });
+  const dayStr = now.toLocaleDateString(locale, { weekday: "long" });
 
   const replacements: Record<string, string> = {
     "{{first_name}}": first,

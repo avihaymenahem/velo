@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AccountSwitcher } from "./AccountSwitcher";
 import { useAccountStore } from "@/stores/accountStore";
+import i18n from "@/i18n";
 
 describe("AccountSwitcher", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     useAccountStore.setState({
       accounts: [],
       activeAccountId: null,
@@ -123,5 +125,11 @@ describe("AccountSwitcher", () => {
     // Both accounts should appear in the dropdown
     expect(screen.getByText("Jane Smith")).toBeInTheDocument();
     expect(screen.getByText("Add account")).toBeInTheDocument();
+  });
+
+  it("renders add account action in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+    render(<AccountSwitcher collapsed={false} onAddAccount={() => {}} />);
+    expect(screen.getByText("添加账户")).toBeInTheDocument();
   });
 });

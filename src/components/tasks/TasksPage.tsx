@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   CheckSquare,
   Search,
@@ -31,6 +32,7 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
 };
 
 export function TasksPage() {
+  const { t } = useTranslation("tasks");
   const accounts = useAccountStore((s) => s.accounts);
   const activeAccount = accounts.find((a) => a.isActive);
   const accountId = activeAccount?.id ?? null;
@@ -114,26 +116,26 @@ export function TasksPage() {
       let key: string;
       switch (groupBy) {
         case "priority":
-          key = task.priority.charAt(0).toUpperCase() + task.priority.slice(1);
+          key = task.priority;
           break;
         case "dueDate":
-          if (!task.due_date) key = "No due date";
+          if (!task.due_date) key = t("grouping.noDueDate");
           else {
             const d = new Date(task.due_date * 1000);
             const now = new Date();
             const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const dueStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
             const diff = Math.floor((dueStart.getTime() - todayStart.getTime()) / 86400000);
-            if (diff < 0) key = "Overdue";
-            else if (diff === 0) key = "Today";
-            else if (diff === 1) key = "Tomorrow";
-            else if (diff <= 7) key = "This week";
-            else key = "Later";
+            if (diff < 0) key = t("grouping.overdue");
+            else if (diff === 0) key = t("grouping.today");
+            else if (diff === 1) key = t("grouping.tomorrow");
+            else if (diff <= 7) key = t("grouping.thisWeek");
+            else key = t("grouping.later");
           }
           break;
         case "tag": {
           const tags: string[] = (() => { try { return JSON.parse(task.tags_json); } catch { return []; } })();
-          key = tags[0] ?? "Untagged";
+          key = tags[0] ?? t("grouping.untagged");
           break;
         }
         default:
@@ -153,8 +155,11 @@ export function TasksPage() {
       });
     }
 
-    return entries.map(([label, tasks]) => ({ label, tasks }));
-  }, [filteredTasks, groupBy]);
+    return entries.map(([label, tasks]) => ({
+      label: groupBy === "priority" ? t(`priority.${label}`) : label,
+      tasks,
+    }));
+  }, [filteredTasks, groupBy, t]);
 
   const handleAddTask = useCallback(async (title: string) => {
     if (!accountId) return;
@@ -203,7 +208,7 @@ export function TasksPage() {
       <div className="flex items-center justify-between px-5 py-3 border-b border-border-primary shrink-0 bg-bg-primary/60 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <CheckSquare size={18} className="text-accent" />
-          <h1 className="text-base font-semibold text-text-primary">Tasks</h1>
+          <h1 className="text-base font-semibold text-text-primary">{t("title")}</h1>
           {filteredTasks.length > 0 && (
             <span className="text-xs text-text-tertiary bg-bg-tertiary px-2 py-0.5 rounded-full">
               {filteredTasks.length}
@@ -219,7 +224,7 @@ export function TasksPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tasks..."
+              placeholder={t("searchPlaceholder")}
               className="w-48 pl-8 pr-3 py-1.5 bg-bg-tertiary border border-border-primary rounded-lg text-xs text-text-primary outline-none focus:border-accent"
             />
           </div>
@@ -230,9 +235,9 @@ export function TasksPage() {
             onChange={(e) => setFilterStatus(e.target.value as TaskFilterStatus)}
             className="bg-bg-tertiary text-text-primary text-xs px-2.5 py-1.5 rounded-lg border border-border-primary"
           >
-            <option value="incomplete">Active</option>
-            <option value="all">All</option>
-            <option value="completed">Completed</option>
+            <option value="incomplete">{t("status.active")}</option>
+            <option value="all">{t("status.all")}</option>
+            <option value="completed">{t("status.completed")}</option>
           </select>
 
           <select
@@ -240,12 +245,12 @@ export function TasksPage() {
             onChange={(e) => setFilterPriority(e.target.value as TaskPriority | "all")}
             className="bg-bg-tertiary text-text-primary text-xs px-2.5 py-1.5 rounded-lg border border-border-primary"
           >
-            <option value="all">All priorities</option>
-            <option value="urgent">Urgent</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-            <option value="none">None</option>
+            <option value="all">{t("priority.all")}</option>
+            <option value="urgent">{t("priority.urgent")}</option>
+            <option value="high">{t("priority.high")}</option>
+            <option value="medium">{t("priority.medium")}</option>
+            <option value="low">{t("priority.low")}</option>
+            <option value="none">{t("priority.none")}</option>
           </select>
 
           {/* Group by */}
@@ -254,10 +259,10 @@ export function TasksPage() {
             onChange={(e) => setGroupBy(e.target.value as TaskGroupBy)}
             className="bg-bg-tertiary text-text-primary text-xs px-2.5 py-1.5 rounded-lg border border-border-primary"
           >
-            <option value="none">No grouping</option>
-            <option value="priority">Group by priority</option>
-            <option value="dueDate">Group by due date</option>
-            <option value="tag">Group by tag</option>
+            <option value="none">{t("grouping.none")}</option>
+            <option value="priority">{t("grouping.priority")}</option>
+            <option value="dueDate">{t("grouping.dueDate")}</option>
+            <option value="tag">{t("grouping.tag")}</option>
           </select>
         </div>
       </div>
@@ -299,9 +304,9 @@ export function TasksPage() {
         {filteredTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <CheckSquare size={48} className="text-text-tertiary/30 mb-4" />
-            <p className="text-sm text-text-secondary mb-1">No tasks</p>
+            <p className="text-sm text-text-secondary mb-1">{t("empty.title")}</p>
             <p className="text-xs text-text-tertiary">
-              {searchQuery ? "Try a different search term" : "Add a task above or press 't' on any email thread"}
+              {searchQuery ? t("empty.search") : t("empty.hint")}
             </p>
           </div>
         ) : (

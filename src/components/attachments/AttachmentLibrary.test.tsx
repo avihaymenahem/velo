@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AttachmentLibrary } from "./AttachmentLibrary";
 import type { AttachmentWithContext, AttachmentSender } from "@/services/db/attachments";
+import i18n from "@/i18n";
 
 // Mock dependencies
 vi.mock("@/stores/accountStore", () => ({
@@ -80,8 +81,13 @@ const mockSenders: AttachmentSender[] = [
 ];
 
 describe("AttachmentLibrary", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("renders empty state when no attachments", async () => {
@@ -162,5 +168,39 @@ describe("AttachmentLibrary", () => {
     render(<AttachmentLibrary />);
 
     expect(await screen.findByText("Attachments")).toBeInTheDocument();
+  });
+
+  it("renders library chrome in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+    vi.mocked(getAttachmentsForAccount).mockResolvedValue([]);
+    vi.mocked(getAttachmentSenders).mockResolvedValue([]);
+
+    render(<AttachmentLibrary />);
+
+    expect(await screen.findByText("附件")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("搜索附件...")).toBeInTheDocument();
+  });
+
+  it("renders grid relative dates in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+    const now = new Date("2026-06-02T12:00:00Z").getTime();
+    const dateNow = vi.spyOn(Date, "now").mockReturnValue(now);
+    vi.mocked(getAttachmentsForAccount).mockResolvedValue([
+      {
+        ...mockAttachments[0],
+        date: new Date("2026-06-02T11:00:00Z").getTime(),
+      },
+    ]);
+    vi.mocked(getAttachmentSenders).mockResolvedValue(mockSenders);
+
+    render(<AttachmentLibrary />);
+
+    try {
+      expect(await screen.findByText("report.pdf")).toBeInTheDocument();
+      expect(screen.getByText("1小时前")).toBeInTheDocument();
+      expect(screen.queryByText("1h ago")).not.toBeInTheDocument();
+    } finally {
+      dateNow.mockRestore();
+    }
   });
 });

@@ -1,0 +1,103 @@
+{
+  "placeholder": "Write your message...",
+  "dropFiles": "Drop files to attach",
+  "mode": {
+    "reply": "Reply",
+    "replyAll": "Reply All",
+    "forward": "Forward",
+    "new": "New Message"
+  },
+  "status": {
+    "saving": "Saving...",
+    "saved": "Draft saved",
+    "noAccount": "No account"
+  },
+  "actions": {
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "popOut": "Open in new window",
+    "discard": "Discard",
+    "send": "Send",
+    "scheduleSend": "Schedule send"
+  },
+  "fields": {
+    "to": "To",
+    "cc": "Cc",
+    "bcc": "Bcc",
+    "ccBcc": "Cc / Bcc",
+    "subjectShort": "Sub",
+    "subject": "Subject"
+  },
+  "address": {
+    "placeholder": "Add recipients..."
+  },
+  "toolbar": {
+    "bold": "Bold (Ctrl+B)",
+    "italic": "Italic (Ctrl+I)",
+    "underline": "Underline (Ctrl+U)",
+    "strikethrough": "Strikethrough",
+    "heading1": "Heading 1",
+    "heading2": "Heading 2",
+    "heading3": "Heading 3",
+    "bulletList": "Bullet list",
+    "bulletListLabel": "• List",
+    "orderedList": "Numbered list",
+    "orderedListLabel": "1. List",
+    "quote": "Quote",
+    "quoteLabel": "Quote",
+    "codeBlock": "Code block",
+    "codeBlockLabel": "< > Code",
+    "rule": "Horizontal rule",
+    "ruleLabel": "— Rule",
+    "insertLink": "Insert Link",
+    "linkLabel": "Link",
+    "insertImage": "Insert image",
+    "imageLabel": "Image",
+    "insert": "Insert",
+    "undo": "Undo",
+    "undoLabel": "Undo",
+    "redo": "Redo",
+    "redoLabel": "Redo"
+  },
+  "schedule": {
+    "title": "Schedule send",
+    "action": "Schedule",
+    "presets": {
+      "tomorrowMorning": "Tomorrow morning",
+      "tomorrowAfternoon": "Tomorrow afternoon",
+      "mondayMorning": "Monday morning"
+    }
+  },
+  "ai": {
+    "title": "AI Assist",
+    "composePlaceholder": "Describe what to write...",
+    "replyPlaceholder": "Instructions for reply (optional)...",
+    "generate": "Generate",
+    "generateReply": "Generate Reply",
+    "transform": {
+      "label": "Transform:",
+      "improve": "Improve",
+      "shorter": "Shorter",
+      "formal": "Formal"
+    },
+    "error": {
+      "generate": "AI generation failed",
+      "transform": "AI transform failed"
+    }
+  },
+  "attachments": {
+    "attachFiles": "Attach files",
+    "attach": "Attach",
+    "total": "{{size}} total"
+  },
+  "signature": {
+    "none": "No signature"
+  },
+  "templates": {
+    "label": "Templates"
+  },
+  "undoSend": {
+    "sending": "Sending email...",
+    "undo": "Undo"
+  }
+}

@@ -54,7 +54,7 @@ export function AppMockup() {
           <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
           <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
         </div>
-        <span className="text-[10px] text-zinc-500 mx-auto">Velo</span>
+        <span className="text-[10px] text-zinc-500 mx-auto">Kirje</span>
       </div>
 
       <div className="flex h-[420px] md:h-[480px]">

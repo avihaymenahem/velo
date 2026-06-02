@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
+import i18n from "@/i18n";
 
 const mockSetContent = vi.fn();
 const mockGetHTML = vi.fn(() => "<p>editor html</p>");
@@ -63,7 +64,8 @@ import { useAccountStore } from "@/stores/accountStore";
 import { SignatureEditor } from "./SignatureEditor";
 
 describe("SignatureEditor", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     vi.clearAllMocks();
     mockGetSignatures.mockResolvedValue([]);
     mockGetHTML.mockReturnValue("<p>editor html</p>");
@@ -79,6 +81,20 @@ describe("SignatureEditor", () => {
     expect(screen.getByTestId("editor-content")).toBeInTheDocument();
     expect(screen.getByTestId("editor-toolbar")).toBeInTheDocument();
     expect(screen.getByTitle("Edit HTML source")).toBeInTheDocument();
+  });
+
+  it("renders signature management chrome in Simplified Chinese", async () => {
+    await i18n.changeLanguage("zh-CN");
+
+    render(<SignatureEditor />);
+
+    fireEvent.click(screen.getByText("+ 添加签名"));
+
+    expect(screen.getByPlaceholderText("签名名称")).toBeInTheDocument();
+    expect(screen.getByText("设为默认")).toBeInTheDocument();
+    expect(screen.getByText("保存")).toBeDisabled();
+    expect(screen.getByText("取消")).toBeInTheDocument();
+    expect(screen.getByTitle("编辑 HTML 源码")).toBeInTheDocument();
   });
 
   it("switches to HTML textarea when toggle is clicked", () => {

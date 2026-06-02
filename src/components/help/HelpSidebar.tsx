@@ -1,14 +1,15 @@
-import { HELP_CATEGORIES } from "@/constants/helpContent";
+import type { HelpCategory } from "@/constants/helpContent";
 import { navigateToHelp } from "@/router/navigate";
 
 interface HelpSidebarProps {
   activeTopic: string;
+  categories: HelpCategory[];
 }
 
-export function HelpSidebar({ activeTopic }: HelpSidebarProps) {
+export function HelpSidebar({ activeTopic, categories }: HelpSidebarProps) {
   return (
     <nav className="w-48 border-r border-border-primary py-2 overflow-y-auto shrink-0 bg-bg-primary/30">
-      {HELP_CATEGORIES.map((category) => {
+      {categories.map((category) => {
         const Icon = category.icon;
         const isActive = activeTopic === category.id;
         return (

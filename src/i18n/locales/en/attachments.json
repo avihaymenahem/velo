@@ -1,0 +1,69 @@
+{
+  "title": "Attachments",
+  "searchPlaceholder": "Search attachments...",
+  "empty": {
+    "title": "No attachments yet",
+    "description": "Attachments from your emails will appear here",
+    "matchingTitle": "No matching attachments",
+    "matchingDescription": "Try adjusting your filters or search query"
+  },
+  "filters": {
+    "types": {
+      "all": "All types",
+      "images": "Images",
+      "pdfs": "PDFs",
+      "documents": "Documents",
+      "spreadsheets": "Spreadsheets",
+      "archives": "Archives",
+      "other": "Other"
+    },
+    "dates": {
+      "all": "Any time",
+      "today": "Today",
+      "week": "Past week",
+      "month": "Past month",
+      "year": "Past year"
+    },
+    "sizes": {
+      "all": "Any size",
+      "small": "< 1 MB",
+      "medium": "1-10 MB",
+      "large": "> 10 MB"
+    },
+    "allSenders": "All senders"
+  },
+  "view": {
+    "grid": "Grid view",
+    "list": "List view"
+  },
+  "actions": {
+    "preview": "Preview",
+    "download": "Download",
+    "jumpToEmail": "Jump to email",
+    "unknown": "Unknown",
+    "unnamed": "Unnamed"
+  },
+  "messageList": {
+    "count_one": "{{count}} attachment",
+    "count_other": "{{count}} attachments"
+  },
+  "preview": {
+    "loading": "Loading preview...",
+    "saving": "Saving...",
+    "error": "Failed to load preview",
+    "notAvailable": "Preview not available for this file type",
+    "unknownType": "Unknown type",
+    "pdfTitle": "PDF preview",
+    "textLoading": "Loading...",
+    "textError": "Failed to load text"
+  },
+  "inline": {
+    "documentFallback": "Document.pdf",
+    "imageFallback": "Image",
+    "loading": "Loading..."
+  },
+  "dialog": {
+    "allFiles": "All Files"
+  },
+  "loading": "Loading attachments..."
+}

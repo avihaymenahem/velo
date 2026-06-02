@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { DateTimePickerDialog } from "./DateTimePickerDialog";
+import i18n from "@/i18n";
 
 const mockPresets = [
   { label: "Tomorrow", timestamp: 1737100800 }, // some fixed timestamp
@@ -12,6 +13,10 @@ const mockPresetsWithDetail = [
 ];
 
 describe("DateTimePickerDialog", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
   it("renders title and preset labels when open", () => {
     render(
       <DateTimePickerDialog
@@ -88,6 +93,24 @@ describe("DateTimePickerDialog", () => {
     const buttons = screen.getAllByRole("button");
     // 2 presets + close button + submit button = 4
     expect(buttons.length).toBe(4);
+  });
+
+  it("formats default preset details with the current i18n language", async () => {
+    await i18n.changeLanguage("zh-CN");
+
+    render(
+      <DateTimePickerDialog
+        isOpen={true}
+        onClose={() => {}}
+        title="Test"
+        presets={[{ label: "两天后", timestamp: Math.floor(new Date(2025, 0, 17, 9, 0, 0).getTime() / 1000) }]}
+        onSelect={() => {}}
+        submitLabel="Submit"
+      />,
+    );
+
+    expect(screen.getByText("1月17日周五")).toBeInTheDocument();
+    expect(screen.queryByText("Fri, Jan 17")).not.toBeInTheDocument();
   });
 
   it("disables submit button when no custom date is set", () => {
