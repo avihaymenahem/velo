@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AccountSwitcher } from "../accounts/AccountSwitcher";
 import { LabelForm } from "../labels/LabelForm";
 import { InputDialog } from "../ui/InputDialog";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore, type SidebarNavItem } from "@/stores/uiStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLabelStore, type Label } from "@/stores/labelStore";
@@ -65,6 +65,15 @@ export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = 
   { id: "smart-folders", label: "Smart Folders", icon: FolderSearch },
   { id: "labels", label: "Labels", icon: Tag },
 ];
+
+const DEFAULT_VISIBLE_NAV_ITEM_IDS = new Set(["inbox", "sent", "drafts", "smart-folders", "labels"]);
+
+export function getDefaultSidebarNavConfig(): SidebarNavItem[] {
+  return ALL_NAV_ITEMS.map((item) => ({
+    id: item.id,
+    visible: DEFAULT_VISIBLE_NAV_ITEM_IDS.has(item.id),
+  }));
+}
 
 export const FOLLOW_UP_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "today", label: "Today", icon: Calendar },
@@ -237,7 +246,9 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
 
   const { visibleNavItems, showSmartFolders, showLabels } = useMemo(() => {
     if (!sidebarNavConfig) {
-      const navOnly = ALL_NAV_ITEMS.filter((i) => !SECTION_IDS.has(i.id));
+      const defaultConfig = getDefaultSidebarNavConfig();
+      const visibleIds = new Set(defaultConfig.filter((i) => i.visible).map((i) => i.id));
+      const navOnly = ALL_NAV_ITEMS.filter((i) => visibleIds.has(i.id) && !SECTION_IDS.has(i.id));
       return { visibleNavItems: navOnly, showSmartFolders: true, showLabels: true };
     }
     const itemMap = new Map(ALL_NAV_ITEMS.map((item) => [item.id, item]));
@@ -254,8 +265,9 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       }
     }
     // Append any new items not present in the saved config
+    const defaultConfig = new Map(getDefaultSidebarNavConfig().map((item) => [item.id, item.visible]));
     for (const item of ALL_NAV_ITEMS) {
-      if (!seen.has(item.id) && !SECTION_IDS.has(item.id)) result.push(item);
+      if (!seen.has(item.id) && !SECTION_IDS.has(item.id) && defaultConfig.get(item.id)) result.push(item);
     }
     return { visibleNavItems: result, showSmartFolders: smartFoldersVisible, showLabels: labelsVisible };
   }, [sidebarNavConfig]);
@@ -493,7 +505,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
         })}
 
         {/* Smart Folders */}
-        {showSmartFolders && (smartFolders.length > 0 || !collapsed) && (
+        {showSmartFolders && smartFolders.length > 0 && (
           <>
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">
@@ -548,7 +560,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
         )}
 
         {/* User labels */}
-        {showLabels && (labels.length > 0 || !collapsed) && (
+        {showLabels && labels.length > 0 && (
           <>
             {!collapsed && (
               <div className="flex items-center justify-between px-3 pt-4 pb-1">

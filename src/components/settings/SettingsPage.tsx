@@ -56,7 +56,7 @@ import {
   mapDbAlias,
   type SendAsAlias,
 } from "@/services/db/sendAsAliases";
-import { ALL_NAV_ITEMS } from "@/components/layout/Sidebar";
+import { ALL_NAV_ITEMS, getDefaultSidebarNavConfig } from "@/components/layout/Sidebar";
 import type { SidebarNavItem } from "@/stores/uiStore";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
@@ -2082,12 +2082,17 @@ function SidebarNavEditor() {
   const { t } = useTranslation(["settings", "sidebar"]);
   const sidebarNavConfig = useUIStore((s) => s.sidebarNavConfig);
   const setSidebarNavConfig = useUIStore((s) => s.setSidebarNavConfig);
+  const defaultSidebarNavConfig = getDefaultSidebarNavConfig();
 
   const items: SidebarNavItem[] = (() => {
-    if (!sidebarNavConfig) return ALL_NAV_ITEMS.map((i) => ({ id: i.id, visible: true }));
+    if (!sidebarNavConfig) return defaultSidebarNavConfig;
     // Append any ALL_NAV_ITEMS entries missing from saved config (e.g. newly added sections)
     const savedIds = new Set(sidebarNavConfig.map((i) => i.id));
-    const missing = ALL_NAV_ITEMS.filter((i) => !savedIds.has(i.id)).map((i) => ({ id: i.id, visible: true }));
+    const defaultVisibility = new Map(defaultSidebarNavConfig.map((i) => [i.id, i.visible]));
+    const missing = ALL_NAV_ITEMS.filter((i) => !savedIds.has(i.id)).map((i) => ({
+      id: i.id,
+      visible: defaultVisibility.get(i.id) ?? false,
+    }));
     return [...sidebarNavConfig, ...missing];
   })();
   const navLookup = new Map(ALL_NAV_ITEMS.map((n) => [n.id, n]));
@@ -2114,13 +2119,17 @@ function SidebarNavEditor() {
   };
 
   const resetToDefaults = () => {
-    setSidebarNavConfig(ALL_NAV_ITEMS.map((i) => ({ id: i.id, visible: true })));
+    setSidebarNavConfig(getDefaultSidebarNavConfig());
   };
 
   const isDefault =
     !sidebarNavConfig ||
-    (items.length === ALL_NAV_ITEMS.length &&
-      items.every((item, i) => item.id === ALL_NAV_ITEMS[i]?.id && item.visible));
+    (items.length === defaultSidebarNavConfig.length &&
+      items.every(
+        (item, i) =>
+          item.id === defaultSidebarNavConfig[i]?.id &&
+          item.visible === defaultSidebarNavConfig[i]?.visible,
+      ));
 
   return (
     <Section title={t("sidebar.title")}>

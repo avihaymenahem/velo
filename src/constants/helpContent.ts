@@ -1164,13 +1164,13 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: "Sidebar customization",
         summary: "Hide, show, and reorder sidebar navigation items.",
         description:
-          "Control which items appear in your sidebar and their order. Go to Settings > General > Sidebar to toggle visibility of any navigation item (Starred, Snoozed, Sent, Drafts, Trash, Spam, All Mail, Tasks, Calendar, Attachments) and reorder them with up/down arrows. You can also hide the Smart Folders and Labels sections entirely. Inbox is always visible and cannot be hidden. Use \"Reset to defaults\" to restore the original layout. Changes take effect immediately and persist across restarts.",
+          "Kirje keeps the default sidebar focused on Follow-up, Inbox, Sent, and Drafts. Go to Settings > General > Sidebar to enable advanced items such as Starred, Snoozed, Trash, Spam, All Mail, Tasks, Calendar, and Attachments, then reorder them with up/down arrows. Smart Folders and Labels appear when they have entries and remain enabled. Inbox is always visible and cannot be hidden. Use \"Reset to defaults\" to restore the focused layout. Changes take effect immediately and persist across restarts.",
         tips: [
           { text: "Hide items you rarely use to reduce sidebar clutter." },
           { text: "Reorder items to put your most-used folders on top." },
           { text: "Toggle off Smart Folders or Labels to hide those sections." },
           { text: "Inbox is always visible — it cannot be hidden." },
-          { text: "Click \"Reset to defaults\" to restore the original order." },
+          { text: "Click \"Reset to defaults\" to restore the focused default layout." },
         ],
         relatedSettingsTab: "general",
       },

@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import { navigateToLabel } from "@/router/navigate";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, getDefaultSidebarNavConfig } from "./Sidebar";
 
 vi.mock("@dnd-kit/core", () => ({
   useDroppable: () => ({ setNodeRef: vi.fn(), isOver: false }),
@@ -101,6 +101,33 @@ describe("Sidebar follow-up navigation", () => {
     const navText = container.querySelector("nav")?.textContent ?? "";
     expect(navText.indexOf("Follow-up")).toBeLessThan(navText.indexOf("Inbox"));
     expect(navText.indexOf("Due Soon")).toBeLessThan(navText.indexOf("Inbox"));
+  });
+
+  it("keeps the default mailbox menu focused", () => {
+    render(<Sidebar collapsed={false} onAddAccount={vi.fn()} />);
+
+    expect(screen.getByText("Inbox")).toBeInTheDocument();
+    expect(screen.getByText("Sent")).toBeInTheDocument();
+    expect(screen.getByText("Drafts")).toBeInTheDocument();
+
+    expect(screen.queryByText("Starred")).not.toBeInTheDocument();
+    expect(screen.queryByText("Snoozed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Trash")).not.toBeInTheDocument();
+    expect(screen.queryByText("Spam")).not.toBeInTheDocument();
+    expect(screen.queryByText("All Mail")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tasks")).not.toBeInTheDocument();
+    expect(screen.queryByText("Calendar")).not.toBeInTheDocument();
+    expect(screen.queryByText("Attachments")).not.toBeInTheDocument();
+    expect(screen.queryByText("Smart Folders")).not.toBeInTheDocument();
+    expect(screen.queryByText("Labels")).not.toBeInTheDocument();
+  });
+
+  it("uses a conservative default sidebar configuration", () => {
+    const visibleIds = getDefaultSidebarNavConfig()
+      .filter((item) => item.visible)
+      .map((item) => item.id);
+
+    expect(visibleIds).toEqual(["inbox", "sent", "drafts", "smart-folders", "labels"]);
   });
 
   it("navigates to follow-up views through the mail label route", () => {
