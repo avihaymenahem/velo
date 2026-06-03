@@ -20,12 +20,17 @@ export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryPr
   const [collapsed, setCollapsed] = useState(false);
   const [available, setAvailable] = useState(false);
   const checkedRef = useRef(false);
+  const loadingRef = useRef(false);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
+    requestIdRef.current += 1;
+    loadingRef.current = false;
     checkedRef.current = false;
     setAvailable(false);
     setBriefing(null);
     setError(false);
+    setLoading(false);
   }, [threadId, accountId]);
 
   useEffect(() => {
@@ -33,24 +38,29 @@ export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryPr
     if (checkedRef.current) return;
     checkedRef.current = true;
     isAiAvailable().then(setAvailable);
-  }, [messages.length]);
+  }, [messages.length, threadId, accountId]);
 
-  const loadingRef = useRef(false);
   const loadSummary = useCallback(async () => {
     if (loadingRef.current) return;
     loadingRef.current = true;
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     setLoading(true);
     setError(false);
     try {
       const result = await generateThreadBriefing(threadId, accountId, messages);
+      if (requestId !== requestIdRef.current) return;
       setBriefing(result);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       console.error("Failed to generate thread briefing:", err);
       setBriefing(null);
       setError(true);
     } finally {
-      loadingRef.current = false;
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     }
   }, [threadId, accountId, messages]);
 
@@ -64,15 +74,23 @@ export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryPr
     await deleteAiCache(accountId, threadId, "briefing");
     setBriefing(null);
     setError(false);
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    loadingRef.current = true;
     setLoading(true);
     try {
       const result = await generateThreadBriefing(threadId, accountId, messages);
+      if (requestId !== requestIdRef.current) return;
       setBriefing(result);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       console.error("Failed to refresh thread briefing:", err);
       setError(true);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     }
   }, [threadId, accountId, messages]);
 

@@ -9,6 +9,7 @@ Implemented a read-only Thread Briefing v0:
 - Upgraded the existing `ThreadSummary` surface to show structured briefing sections.
 - Added English and Simplified Chinese briefing labels and failure copy.
 - Fixed briefing availability checks when messages load after the first render.
+- Guarded against stale briefing responses overwriting the current thread after a fast thread switch.
 - Kept AI output read-only; it does not create commitments, waiting items, decisions, tasks, labels, or thread work states.
 
 ## Changed Files
@@ -31,6 +32,7 @@ Implemented a read-only Thread Briefing v0:
 - Non-JSON model output falls back to a summary-only briefing instead of crashing the UI.
 - Generation failure shows a non-blocking state and leaves the original messages visible.
 - Briefing generation now waits for at least two messages before marking AI availability as checked.
+- Slow responses from a previous thread are ignored after the user switches threads.
 
 ## Residual Risk
 

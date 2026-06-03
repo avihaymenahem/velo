@@ -48,7 +48,7 @@ npx vitest run src/components/email/ThreadSummary.test.tsx src/services/ai/aiSer
 Result:
 
 - 3 test files passed.
-- 19 tests passed.
+- 20 tests passed.
 
 ## Wider Targeted Regression
 
@@ -61,7 +61,7 @@ npx vitest run src/i18n/i18n.test.ts src/i18n/settings.test.ts src/components/em
 Result:
 
 - 5 test files passed.
-- 27 tests passed.
+- 28 tests passed.
 
 ## Type Check
 
@@ -86,4 +86,4 @@ npm run test
 Result:
 
 - 188 test files passed.
-- 1752 tests passed.
+- 1753 tests passed.
