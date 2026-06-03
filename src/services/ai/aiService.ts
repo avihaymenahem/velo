@@ -4,6 +4,7 @@ import { AiError } from "./errors";
 import type { DbMessage } from "@/services/db/messages";
 import {
   SUMMARIZE_PROMPT,
+  THREAD_BRIEFING_PROMPT,
   COMPOSE_PROMPT,
   REPLY_PROMPT,
   IMPROVE_PROMPT,
@@ -15,6 +16,14 @@ import {
   SMART_LABEL_PROMPT,
   EXTRACT_TASK_PROMPT,
 } from "./prompts";
+
+export interface ThreadBriefing {
+  summary: string;
+  latestRequest: string | null;
+  suggestedAction: string | null;
+  riskOrDueSignal: string | null;
+  source: string | null;
+}
 
 async function callAi(systemPrompt: string, userContent: string): Promise<string> {
   try {
@@ -63,6 +72,60 @@ export async function summarizeThread(
   // Cache the result
   await setAiCache(accountId, threadId, "summary", summary);
   return summary;
+}
+
+function readStringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function normalizeThreadBriefing(raw: string): ThreadBriefing {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return {
+      summary: "No clear briefing is available for this thread.",
+      latestRequest: null,
+      suggestedAction: null,
+      riskOrDueSignal: null,
+      source: null,
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    const summary = readStringOrNull(parsed["summary"]) ?? trimmed;
+    return {
+      summary,
+      latestRequest: readStringOrNull(parsed["latestRequest"]),
+      suggestedAction: readStringOrNull(parsed["suggestedAction"]),
+      riskOrDueSignal: readStringOrNull(parsed["riskOrDueSignal"]),
+      source: readStringOrNull(parsed["source"]),
+    };
+  } catch {
+    return {
+      summary: trimmed,
+      latestRequest: null,
+      suggestedAction: null,
+      riskOrDueSignal: null,
+      source: null,
+    };
+  }
+}
+
+export async function generateThreadBriefing(
+  threadId: string,
+  accountId: string,
+  messages: DbMessage[],
+): Promise<ThreadBriefing> {
+  const cached = await getAiCache(accountId, threadId, "briefing");
+  if (cached) return normalizeThreadBriefing(cached);
+
+  const subject = messages[0]?.subject ?? "No subject";
+  const formatted = messages.map(formatMessageForSummary).join("\n---\n");
+  const combined = `Subject: ${subject}\n\n${formatted}`.slice(0, 7000);
+  const briefing = normalizeThreadBriefing(await callAi(THREAD_BRIEFING_PROMPT, combined));
+
+  await setAiCache(accountId, threadId, "briefing", JSON.stringify(briefing));
+  return briefing;
 }
 
 export async function composeFromPrompt(instructions: string): Promise<string> {

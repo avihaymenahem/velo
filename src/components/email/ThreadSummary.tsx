@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Sparkles, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { isAiAvailable } from "@/services/ai/providerManager";
-import { summarizeThread } from "@/services/ai/aiService";
+import { generateThreadBriefing, type ThreadBriefing } from "@/services/ai/aiService";
 import { deleteAiCache } from "@/services/db/aiCache";
 import type { DbMessage } from "@/services/db/messages";
 import { useTranslation } from "react-i18next";
@@ -14,53 +14,83 @@ interface ThreadSummaryProps {
 
 export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryProps) {
   const { t } = useTranslation("email");
-  const [summary, setSummary] = useState<string | null>(null);
+  const [briefing, setBriefing] = useState<ThreadBriefing | null>(null);
+  const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [available, setAvailable] = useState(false);
   const checkedRef = useRef(false);
+  const loadingRef = useRef(false);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
+    requestIdRef.current += 1;
+    loadingRef.current = false;
+    checkedRef.current = false;
+    setAvailable(false);
+    setBriefing(null);
+    setError(false);
+    setLoading(false);
+  }, [threadId, accountId]);
+
+  useEffect(() => {
+    if (messages.length < 2) return;
     if (checkedRef.current) return;
     checkedRef.current = true;
-    if (messages.length < 2) return;
     isAiAvailable().then(setAvailable);
-  }, [messages.length]);
+  }, [messages.length, threadId, accountId]);
 
-  const loadingRef = useRef(false);
   const loadSummary = useCallback(async () => {
     if (loadingRef.current) return;
     loadingRef.current = true;
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     setLoading(true);
+    setError(false);
     try {
-      const result = await summarizeThread(threadId, accountId, messages);
-      setSummary(result);
+      const result = await generateThreadBriefing(threadId, accountId, messages);
+      if (requestId !== requestIdRef.current) return;
+      setBriefing(result);
     } catch (err) {
-      console.error("Failed to summarize thread:", err);
-      setSummary(null);
+      if (requestId !== requestIdRef.current) return;
+      console.error("Failed to generate thread briefing:", err);
+      setBriefing(null);
+      setError(true);
     } finally {
-      loadingRef.current = false;
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     }
   }, [threadId, accountId, messages]);
 
   // Auto-load summary when available
   useEffect(() => {
-    if (!available || messages.length < 2 || summary !== null || loadingRef.current) return;
+    if (!available || messages.length < 2 || briefing !== null || error || loadingRef.current) return;
     loadSummary();
-  }, [available, messages.length, summary, loadSummary]);
+  }, [available, messages.length, briefing, error, loadSummary]);
 
   const handleRefresh = useCallback(async () => {
-    await deleteAiCache(accountId, threadId, "summary");
-    setSummary(null);
+    await deleteAiCache(accountId, threadId, "briefing");
+    setBriefing(null);
+    setError(false);
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    loadingRef.current = true;
     setLoading(true);
     try {
-      const result = await summarizeThread(threadId, accountId, messages);
-      setSummary(result);
+      const result = await generateThreadBriefing(threadId, accountId, messages);
+      if (requestId !== requestIdRef.current) return;
+      setBriefing(result);
     } catch (err) {
-      console.error("Failed to refresh summary:", err);
+      if (requestId !== requestIdRef.current) return;
+      console.error("Failed to refresh thread briefing:", err);
+      setError(true);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     }
   }, [threadId, accountId, messages]);
 
@@ -73,15 +103,15 @@ export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryPr
         className="flex items-center gap-2 w-full text-left"
       >
         <Sparkles size={14} className="text-accent shrink-0" />
-        <span className="text-xs font-medium text-accent flex-1">{t("ai.summary.title")}</span>
-        {summary && (
+        <span className="text-xs font-medium text-accent flex-1">{t("ai.briefing.title")}</span>
+        {(briefing || error) && (
           <span
             role="button"
             tabIndex={0}
             onClick={(e) => { e.stopPropagation(); handleRefresh(); }}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); handleRefresh(); } }}
             className="p-0.5 text-text-tertiary hover:text-accent transition-colors cursor-pointer"
-            title={t("ai.summary.refresh")}
+            title={t("ai.briefing.refresh")}
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
           </span>
@@ -90,15 +120,40 @@ export function ThreadSummary({ threadId, accountId, messages }: ThreadSummaryPr
       </button>
       {!collapsed && (
         <div className="mt-2 text-sm text-text-secondary">
-          {loading && !summary && (
+          {loading && !briefing && (
             <div className="flex items-center gap-2 text-text-tertiary">
               <div className="w-3 h-3 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
-              <span className="text-xs">{t("ai.summary.generating")}</span>
+              <span className="text-xs">{t("ai.briefing.generating")}</span>
             </div>
           )}
-          {summary && <p className="text-xs leading-relaxed">{summary}</p>}
+          {error && !loading && (
+            <div className="text-xs text-text-tertiary">
+              <div className="font-medium text-text-secondary">{t("ai.briefing.unavailable")}</div>
+              <div className="mt-1">{t("ai.briefing.unavailableHint")}</div>
+            </div>
+          )}
+          {briefing && !loading && (
+            <div className="space-y-2 text-xs leading-relaxed">
+              <BriefingSection label={t("ai.briefing.sections.summary")} value={briefing.summary} />
+              <BriefingSection label={t("ai.briefing.sections.latestRequest")} value={briefing.latestRequest} />
+              <BriefingSection label={t("ai.briefing.sections.suggestedAction")} value={briefing.suggestedAction} />
+              <BriefingSection label={t("ai.briefing.sections.riskOrDueSignal")} value={briefing.riskOrDueSignal} />
+              <BriefingSection label={t("ai.briefing.sections.source")} value={briefing.source} />
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function BriefingSection({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+
+  return (
+    <div>
+      <div className="font-medium text-text-primary">{label}</div>
+      <div className="mt-0.5 text-text-secondary">{value}</div>
     </div>
   );
 }

@@ -264,6 +264,20 @@
     }
   },
   "ai": {
+    "briefing": {
+      "title": "线程简报",
+      "refresh": "刷新简报",
+      "generating": "正在生成简报...",
+      "unavailable": "暂时无法生成简报",
+      "unavailableHint": "原始邮件仍可在下方阅读。",
+      "sections": {
+        "summary": "概要",
+        "latestRequest": "最新诉求",
+        "suggestedAction": "建议下一步",
+        "riskOrDueSignal": "风险或截止信号",
+        "source": "来源"
+      }
+    },
     "summary": {
       "title": "AI 摘要",
       "refresh": "刷新摘要",

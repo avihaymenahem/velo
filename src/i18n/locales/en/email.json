@@ -264,6 +264,20 @@
     }
   },
   "ai": {
+    "briefing": {
+      "title": "Thread Briefing",
+      "refresh": "Refresh briefing",
+      "generating": "Generating briefing...",
+      "unavailable": "Briefing unavailable",
+      "unavailableHint": "The original messages are still available below.",
+      "sections": {
+        "summary": "Summary",
+        "latestRequest": "Latest request",
+        "suggestedAction": "Suggested next step",
+        "riskOrDueSignal": "Risk or due signal",
+        "source": "Source"
+      }
+    },
     "summary": {
       "title": "AI Summary",
       "refresh": "Refresh summary",
