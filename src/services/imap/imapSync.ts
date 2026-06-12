@@ -37,8 +37,12 @@ import { getPendingOpsForResource } from "../db/pendingOperations";
 // ---------------------------------------------------------------------------
 
 const BATCH_SIZE = 50;
-/** Number of messages to fetch per IPC call during initial sync. */
-const CHUNK_SIZE = 200;
+/**
+ * Number of messages to fetch per IPC call during initial sync.
+ * Each chunk downloads full message bodies in a single UID FETCH; large chunks
+ * can exceed the Rust-side fetch timeout on slow servers (e.g. CommuniGate Pro).
+ */
+const CHUNK_SIZE = 25;
 /** Number of thread groups to process per transaction in Phase 4. */
 const THREAD_BATCH_SIZE = 100;
 
@@ -441,6 +445,10 @@ export async function imapInitialSync(
     totalEstimate += folder.exists;
   }
 
+  // Enter the messages phase immediately — the first folder's SEARCH and
+  // first chunk fetch can take minutes with no other progress signal.
+  onProgress?.({ phase: "messages", current: 0, total: totalEstimate });
+
   let fetchedTotal = 0;
   let totalMessagesFound = 0;
   let storedCount = 0;
@@ -499,6 +507,17 @@ export async function imapInitialSync(
       // Phase 2b: Fetch messages in small IPC-friendly chunks
       for (let chunkStart = 0; chunkStart < uidsToFetch.length; chunkStart += CHUNK_SIZE) {
         const chunkUids = uidsToFetch.slice(chunkStart, chunkStart + CHUNK_SIZE);
+
+        // Report progress before the fetch — a chunk can take up to the
+        // Rust-side fetch timeout, and the UI should reflect the messages
+        // phase during that wait, not after it.
+        onProgress?.({
+          phase: "messages",
+          current: fetchedTotal + chunkStart,
+          total: totalEstimate,
+          folder: folder.path,
+        });
+
         let chunkResult;
         try {
           chunkResult = await imapFetchMessages(config, folder.raw_path, chunkUids);
@@ -511,10 +530,12 @@ export async function imapInitialSync(
               chunkResult = await imapFetchMessages(config, folder.raw_path, chunkUids);
             } catch (retryErr) {
               console.error(`[imapSync] Chunk retry failed in ${folder.path}:`, retryErr);
+              folderErrors.push(`${folder.path}: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`);
               continue;
             }
           } else {
             console.error(`[imapSync] Failed to fetch chunk ${chunkStart}-${chunkStart + chunkUids.length} in ${folder.path}:`, chunkErr);
+            folderErrors.push(`${folder.path}: ${chunkErr instanceof Error ? chunkErr.message : String(chunkErr)}`);
             continue;
           }
         }
@@ -636,14 +657,6 @@ export async function imapInitialSync(
 
         folderStoredCount += chunkParsed.length;
         storedCount += chunkParsed.length;
-
-        // Report progress after each chunk (not just each folder)
-        onProgress?.({
-          phase: "messages",
-          current: fetchedTotal + Math.min(chunkStart + CHUNK_SIZE, uidsToFetch.length),
-          total: totalEstimate,
-          folder: folder.path,
-        });
       }
 
       totalMessagesFound += folderFetchedCount;
