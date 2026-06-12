@@ -38,16 +38,21 @@ export function buildDynamicUpdate(
 }
 
 /**
- * Simple async mutex to prevent concurrent SQLite transactions.
- * SQLite only supports one writer at a time; overlapping BEGIN/COMMIT/ROLLBACK
- * on the same connection causes "cannot start a transaction within a transaction"
- * or "database is locked" errors.
+ * Run a write batch, serialised behind any other running batch.
+ *
+ * NOTE: this intentionally does NOT open a SQL transaction. tauri-plugin-sql
+ * runs every `execute` call on a sqlx connection pool, so BEGIN/COMMIT issued
+ * as separate statements can land on different pooled connections. When that
+ * happens, the connection that received BEGIN returns to the pool with an
+ * open write transaction and holds the SQLite write lock forever — every
+ * subsequent write in the app then stalls for the 5s busy timeout and fails.
+ * Statements run sequentially in autocommit mode instead; callers must keep
+ * batches idempotent (upserts), since a crash mid-batch leaves partial writes.
  */
 let txQueue: Promise<void> = Promise.resolve();
 
 export async function withTransaction(fn: (db: Database) => Promise<void>): Promise<void> {
-  // Queue this transaction behind any currently-running one.
-  // This serialises all transactions without blocking non-transactional reads.
+  // Queue this batch behind any currently-running one.
   const prev = txQueue;
   let resolve!: () => void;
   txQueue = new Promise<void>((r) => {
@@ -55,29 +60,16 @@ export async function withTransaction(fn: (db: Database) => Promise<void>): Prom
   });
 
   try {
-    await prev; // wait for previous transaction to finish
+    await prev; // wait for previous batch to finish
   } catch {
-    // previous transaction errored — that's fine, we can still proceed
+    // previous batch errored — that's fine, we can still proceed
   }
 
-  const database = await getDb();
   try {
-    await database.execute("BEGIN TRANSACTION", []);
-    try {
-      await fn(database);
-      await database.execute("COMMIT", []);
-    } catch (err) {
-      // SQLite may auto-rollback on certain errors — guard against
-      // "cannot rollback - no transaction is active"
-      try {
-        await database.execute("ROLLBACK", []);
-      } catch {
-        // ROLLBACK failed (already rolled back) — safe to ignore
-      }
-      throw err;
-    }
+    const database = await getDb();
+    await fn(database);
   } finally {
-    resolve(); // always unblock the next queued transaction
+    resolve(); // always unblock the next queued batch
   }
 }
 
