@@ -471,44 +471,42 @@ describe("imapInitialSync", () => {
   });
 
   it("continues to next chunk on fetch error", async () => {
-    const msg1 = createMockImapMessage({ uid: 1, message_id: "<m1@test>", date: Math.floor(Date.now() / 1000) });
-    const msg2 = createMockImapMessage({ uid: 201, message_id: "<m2@test>", date: Math.floor(Date.now() / 1000) });
+    // 26 UIDs span two chunks (CHUNK_SIZE = 25); UID 26 lands in the second chunk
+    const uids = Array.from({ length: 26 }, (_, i) => i + 1);
+    const msg26 = createMockImapMessage({ uid: 26, message_id: "<m26@test>", date: Math.floor(Date.now() / 1000) });
 
-    const mockFolder = createMockImapFolder({ path: "INBOX", raw_path: "INBOX", exists: 2 });
+    const mockFolder = createMockImapFolder({ path: "INBOX", raw_path: "INBOX", exists: uids.length });
     mockImapListFolders.mockResolvedValue([mockFolder]);
-
-    // Return UIDs in two "chunks" (we'll set CHUNK_SIZE to 200 but have UIDs 1 and 201)
     mockImapSearchFolder.mockResolvedValue({
-      uids: [1, 201],
-      folder_status: createMockImapFolderStatus({ exists: 2 }),
+      uids,
+      folder_status: createMockImapFolderStatus({ exists: uids.length }),
     });
 
-    // First chunk fetch succeeds, but because both UIDs are in the same chunk (< 200),
-    // we test error handling by making imapFetchMessages fail on first call and succeed on retry
+    // First chunk fails with a non-connection error (no retry), second succeeds
     mockImapFetchMessages
-      .mockRejectedValueOnce(new Error("fetch timeout"))
-      .mockResolvedValueOnce(createMockImapFetchResult([msg2]));
+      .mockRejectedValueOnce(new Error("PARSE failed: invalid response"))
+      .mockResolvedValueOnce(createMockImapFetchResult([msg26]));
 
-    // This won't exercise the multi-chunk path since 2 UIDs < 200 chunk size.
-    // Instead test that a search failure at folder level is handled.
-    // Reset and use a simpler approach: single chunk that fails
-    vi.clearAllMocks();
-    mockGetAccount.mockResolvedValue(createMockImapAccount({ id: "acc-1" }));
+    await imapInitialSync("acc-1");
 
-    const msgs = Array.from({ length: 2 }, (_, i) =>
-      createMockImapMessage({ uid: i + 1, message_id: `<m${i}@test>`, date: Math.floor(Date.now() / 1000) }),
+    expect(mockImapFetchMessages).toHaveBeenCalledTimes(2);
+    expect(mockImapFetchMessages).toHaveBeenLastCalledWith(expect.anything(), "INBOX", [26]);
+    expect(mockUpsertMessage).toHaveBeenCalledTimes(1);
+    expect(mockUpsertMessage.mock.calls[0]![0].id).toBe("imap-acc-1-INBOX-26");
+  });
+
+  it("throws when every chunk fails and no messages were stored", async () => {
+    const mockFolder = createMockImapFolder({ path: "INBOX", raw_path: "INBOX", exists: 1 });
+    mockImapListFolders.mockResolvedValue([mockFolder]);
+    mockImapSearchFolder.mockResolvedValue({
+      uids: [1],
+      folder_status: createMockImapFolderStatus({ exists: 1 }),
+    });
+    mockImapFetchMessages.mockRejectedValue(new Error("PARSE failed: invalid response"));
+
+    await expect(imapInitialSync("acc-1")).rejects.toThrow(
+      "All folders failed to sync: INBOX: PARSE failed: invalid response",
     );
-    setupFolderWithMessages("INBOX", msgs);
-
-    // Even if imapFetchMessages fails for one chunk, the folder-level error is caught
-    mockImapFetchMessages.mockRejectedValueOnce(new Error("chunk fetch failed"));
-
-    const syncPromise = imapInitialSync("acc-1");
-    await vi.runAllTimersAsync();
-    const result = await syncPromise;
-
-    // Sync should complete without throwing
-    expect(result.messages).toEqual([]);
   });
 
   it("circuit breaker skips remaining folders after 5 consecutive connection failures", async () => {
