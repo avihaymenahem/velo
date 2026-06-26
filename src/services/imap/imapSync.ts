@@ -39,8 +39,16 @@ import { getPendingOpsForResource } from "../db/pendingOperations";
 const BATCH_SIZE = 50;
 /** Number of messages to fetch per IPC call during initial sync. */
 const CHUNK_SIZE = 200;
+/**
+ * Number of messages persisted per DB transaction. Kept small (and decoupled
+ * from CHUNK_SIZE) so each transaction is a short burst of IPC writes, with a
+ * yieldToMain() between batches — otherwise a full 200-message chunk fires
+ * hundreds of sequential db.execute calls and freezes the UI thread (typing
+ * lag) during initial sync.
+ */
+const WRITE_BATCH_SIZE = 25;
 /** Number of thread groups to process per transaction in Phase 4. */
-const THREAD_BATCH_SIZE = 100;
+const THREAD_BATCH_SIZE = 50;
 
 // ---------------------------------------------------------------------------
 // Circuit breaker for connection storms
@@ -71,6 +79,24 @@ export function isConnectionError(err: unknown): boolean {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Yield control back to the event loop so the browser can paint and process
+ * user input between heavy bursts of DB writes during sync. Uses MessageChannel
+ * (a real macrotask, so a render frame / queued input can run) rather than
+ * setTimeout — setTimeout is intercepted by fake timers in tests, which would
+ * stall sync code that awaits this without flushing timers.
+ */
+function yieldToMain(): Promise<void> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(undefined);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -340,6 +366,7 @@ async function storeThreadsAndMessages(
         }
       }
     });
+    await yieldToMain();
   }
 
   return storedMessages;
@@ -543,10 +570,12 @@ export async function imapInitialSync(
           chunkParsed.push({ parsed, msg, threadable });
         }
 
-        // Write entire chunk to DB in a single transaction
-        if (chunkParsed.length > 0) {
+        // Write the chunk to DB in small transactions, yielding between each so
+        // the UI thread can paint / handle input during initial sync.
+        for (let w = 0; w < chunkParsed.length; w += WRITE_BATCH_SIZE) {
+          const writeBatch = chunkParsed.slice(w, w + WRITE_BATCH_SIZE);
           await withTransaction(async () => {
-            for (const { parsed, msg } of chunkParsed) {
+            for (const { parsed, msg } of writeBatch) {
               // Create placeholder thread first to satisfy FK constraint
               await upsertThread({
                 id: parsed.id,
@@ -605,6 +634,7 @@ export async function imapInitialSync(
               }
             }
           });
+          await yieldToMain();
         }
 
         // Keep only lightweight data in memory for threading
@@ -771,6 +801,7 @@ export async function imapInitialSync(
       current: Math.min(batchStart + THREAD_BATCH_SIZE, threadGroups.length),
       total: threadGroups.length,
     });
+    await yieldToMain();
   }
 
   // ---------------------------------------------------------------------------

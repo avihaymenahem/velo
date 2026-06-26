@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 
 // Mock Database before importing module under test
 const mockExecute = vi.fn();
@@ -14,109 +14,101 @@ vi.mock("@tauri-apps/plugin-sql", () => ({
 // Use dynamic import so mocks are in place
 const { withTransaction, getDb } = await import("./connection");
 
+// Pre-warm the singleton so its one-time PRAGMA init (journal_mode/busy_timeout/
+// synchronous) runs before any test installs its own spy expectations.
+beforeAll(async () => {
+  await getDb();
+});
+
 describe("withTransaction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockExecute.mockResolvedValue(undefined);
   });
 
-  it("executes BEGIN, callback, COMMIT in order", async () => {
-    const callOrder: string[] = [];
-    mockExecute.mockImplementation(async (sql: string) => {
-      callOrder.push(sql);
-    });
+  // NOTE: withTransaction no longer issues BEGIN/COMMIT — real transactions are
+  // impossible with the plugin's per-call connection pool (they made every write
+  // block ~5s on the BEGIN's dangling lock). It now just runs the callback, and
+  // write serialisation happens at the db.execute level (see below).
 
-    await withTransaction(async () => {
-      callOrder.push("callback");
+  it("runs the callback with the db handle", async () => {
+    const db = await getDb();
+    let received: unknown;
+    await withTransaction(async (txDb) => {
+      received = txDb;
     });
-
-    expect(callOrder).toEqual(["BEGIN TRANSACTION", "callback", "COMMIT"]);
+    expect(received).toBe(db);
   });
 
-  it("rolls back on callback error", async () => {
-    const callOrder: string[] = [];
-    mockExecute.mockImplementation(async (sql: string) => {
-      callOrder.push(sql);
-    });
-
+  it("propagates errors from the callback", async () => {
     await expect(
       withTransaction(async () => {
         throw new Error("callback failed");
       }),
     ).rejects.toThrow("callback failed");
+  });
+});
 
-    expect(callOrder).toEqual(["BEGIN TRANSACTION", "ROLLBACK"]);
+describe("db.execute serialisation + busy retry", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockExecute.mockResolvedValue(undefined);
   });
 
-  it("handles ROLLBACK failure gracefully (SQLite auto-rollback)", async () => {
-    mockExecute.mockImplementation(async (sql: string) => {
-      if (sql === "ROLLBACK") {
-        throw new Error("cannot rollback - no transaction is active");
-      }
+  it("serialises concurrent writes so only one runs at a time", async () => {
+    const db = await getDb();
+    let active = 0;
+    let maxConcurrent = 0;
+    mockExecute.mockImplementation(async () => {
+      active++;
+      maxConcurrent = Math.max(maxConcurrent, active);
+      await new Promise((r) => setTimeout(r, 5));
+      active--;
     });
 
-    // Should still throw the original error, not the ROLLBACK error
-    await expect(
-      withTransaction(async () => {
-        throw new Error("original error");
-      }),
-    ).rejects.toThrow("original error");
+    await Promise.all([
+      db.execute("INSERT 1"),
+      db.execute("INSERT 2"),
+      db.execute("INSERT 3"),
+    ]);
+
+    expect(maxConcurrent).toBe(1);
   });
 
-  it("serialises concurrent transactions via mutex", async () => {
-    const executionLog: string[] = [];
-
-    mockExecute.mockImplementation(async (sql: string) => {
-      executionLog.push(sql);
+  it("retries on SQLITE_BUSY (code 5) then succeeds", async () => {
+    const db = await getDb();
+    let calls = 0;
+    mockExecute.mockImplementation(async () => {
+      calls++;
+      if (calls < 3) throw new Error("error returned from database: (code: 5) database is locked");
+      return undefined;
     });
 
-    // Launch two transactions concurrently
-    const tx1 = withTransaction(async () => {
-      executionLog.push("tx1-work");
-      // Simulate async work
-      await new Promise((r) => setTimeout(r, 10));
-      executionLog.push("tx1-done");
-    });
-
-    const tx2 = withTransaction(async () => {
-      executionLog.push("tx2-work");
-    });
-
-    await Promise.all([tx1, tx2]);
-
-    // tx1 should fully complete (BEGIN, work, done, COMMIT) before tx2 starts
-    const tx1BeginIdx = executionLog.indexOf("BEGIN TRANSACTION");
-    const tx1CommitIdx = executionLog.indexOf("COMMIT");
-    const tx2BeginIdx = executionLog.lastIndexOf("BEGIN TRANSACTION");
-
-    expect(tx1BeginIdx).toBeLessThan(tx1CommitIdx);
-    expect(tx1CommitIdx).toBeLessThan(tx2BeginIdx);
+    await db.execute("INSERT x");
+    expect(calls).toBe(3);
   });
 
-  it("unblocks next transaction even if current one fails", async () => {
-    mockExecute.mockImplementation(async (sql: string) => {
-      if (sql === "ROLLBACK") {
-        // Simulate auto-rollback already happened
-        throw new Error("cannot rollback - no transaction is active");
-      }
+  it("does not retry non-lock errors", async () => {
+    const db = await getDb();
+    let calls = 0;
+    mockExecute.mockImplementation(async () => {
+      calls++;
+      throw new Error("syntax error");
     });
 
-    // First transaction fails
-    const tx1 = withTransaction(async () => {
-      throw new Error("tx1 failed");
-    }).catch(() => {
-      /* expected */
-    });
+    await expect(db.execute("INSERT x")).rejects.toThrow("syntax error");
+    expect(calls).toBe(1);
+  });
 
-    // Second transaction should still run
-    let tx2Ran = false;
-    const tx2 = withTransaction(async () => {
-      tx2Ran = true;
-    });
+  it("keeps the write queue alive after a failed write", async () => {
+    const db = await getDb();
+    mockExecute.mockRejectedValueOnce(new Error("boom"));
 
-    await Promise.all([tx1, tx2]);
+    await expect(db.execute("first")).rejects.toThrow("boom");
 
-    expect(tx2Ran).toBe(true);
+    // A subsequent write should still go through (queue not wedged).
+    mockExecute.mockResolvedValueOnce(undefined);
+    await expect(db.execute("second")).resolves.toBeUndefined();
   });
 });
 
