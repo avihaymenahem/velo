@@ -103,6 +103,15 @@ export function computeSinceDate(daysBack: number): string {
   return formatImapDate(date);
 }
 
+/**
+ * SINCE date string for `daysBack`, or null to fetch the whole folder.
+ * `daysBack <= 0` means "all time" — no date filter, so the Rust side issues
+ * `UID SEARCH ALL` instead of `UID SEARCH SINCE`.
+ */
+export function sinceDateForDaysBack(daysBack: number): string | null {
+  return daysBack > 0 ? computeSinceDate(daysBack) : null;
+}
+
 // ---------------------------------------------------------------------------
 // Progress reporting
 // ---------------------------------------------------------------------------
@@ -478,7 +487,7 @@ export async function imapInitialSync(
 
     try {
       // Phase 2a: Lightweight search — get UIDs only (no message bodies over IPC)
-      const sinceDate = computeSinceDate(daysBack);
+      const sinceDate = sinceDateForDaysBack(daysBack);
       const searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
       const uidsToFetch = searchResult.uids;
 
@@ -488,7 +497,7 @@ export async function imapInitialSync(
       if (uidsToFetch.length === 0) continue;
 
       // Date filter config
-      const cutoffDate = Math.floor(Date.now() / 1000) - daysBack * 86400;
+      const cutoffDate = daysBack > 0 ? Math.floor(Date.now() / 1000) - daysBack * 86400 : 0;
       const nowSeconds = Math.floor(Date.now() / 1000);
       let dateFallbackCount = 0;
       let folderFetchedCount = 0;
@@ -867,7 +876,7 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
 
     const folderMapping = mapFolderToLabel(folder);
     try {
-      const sinceDate = computeSinceDate(daysBack);
+      const sinceDate = sinceDateForDaysBack(daysBack);
       const searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
       consecutiveFailures = 0;
 
@@ -974,7 +983,7 @@ export async function imapDeltaSync(accountId: string, daysBack = 365): Promise<
               `(was ${savedState.uidvalidity}, now ${deltaResult.uidvalidity}). ` +
               `Doing full resync of this folder.`,
           );
-          const sinceDate = computeSinceDate(daysBack);
+          const sinceDate = sinceDateForDaysBack(daysBack);
           const searchResult = await imapSearchFolder(config, folder.raw_path, sinceDate);
           if (searchResult.uids.length === 0) continue;
 

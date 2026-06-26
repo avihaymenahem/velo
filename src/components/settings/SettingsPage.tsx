@@ -1022,10 +1022,14 @@ export function SettingsPage() {
                         <option value="90">Last 90 days</option>
                         <option value="180">Last 180 days</option>
                         <option value="365">Last 1 year</option>
+                        <option value="730">Last 2 years</option>
+                        <option value="1825">Last 5 years</option>
+                        <option value="0">All time (entire mailbox)</option>
                       </select>
                     </SettingRow>
                     <p className="text-xs text-text-tertiary">
-                      Changes apply on the next full resync.
+                      Changes apply on the next full resync. "All time" fetches your
+                      entire mailbox — this can take a while and use more disk space.
                     </p>
                   </Section>
 
