@@ -7,8 +7,11 @@ import { createOpenAIProvider, clearOpenAIProvider } from "./providers/openaiPro
 import { createGeminiProvider, clearGeminiProvider } from "./providers/geminiProvider";
 import { createOllamaProvider, clearOllamaProvider } from "./providers/ollamaProvider";
 import { createCopilotProvider, clearCopilotProvider } from "./providers/copilotProvider";
+import { createBedrockProvider, clearBedrockProvider } from "./providers/bedrockProvider";
 
-const API_KEY_SETTINGS: Record<Exclude<AiProvider, "ollama">, string> = {
+// Bedrock and Ollama use their own credential shapes (not a single API key),
+// so they are handled as special cases in getActiveProvider below.
+const API_KEY_SETTINGS: Record<Exclude<AiProvider, "ollama" | "bedrock">, string> = {
   claude: "claude_api_key",
   openai: "openai_api_key",
   gemini: "gemini_api_key",
@@ -19,7 +22,14 @@ let cachedProvider: { name: AiProvider; key: string; client: AiProviderClient } 
 
 export async function getActiveProviderName(): Promise<AiProvider> {
   const setting = await getSetting("ai_provider");
-  if (setting === "openai" || setting === "gemini" || setting === "ollama" || setting === "copilot") return setting;
+  if (
+    setting === "openai" ||
+    setting === "gemini" ||
+    setting === "ollama" ||
+    setting === "copilot" ||
+    setting === "bedrock"
+  )
+    return setting;
   return "claude";
 }
 
@@ -37,6 +47,26 @@ export async function getActiveProvider(): Promise<AiProviderClient> {
 
     const client = createOllamaProvider(serverUrl, model);
     cachedProvider = { name: "ollama", key: cacheKey, client };
+    return client;
+  }
+
+  if (providerName === "bedrock") {
+    const apiKey = await getSecureSetting("bedrock_api_key");
+    const region = (await getSetting("bedrock_region")) ?? "us-east-1";
+
+    if (!apiKey) {
+      throw new AiError("NOT_CONFIGURED", "Bedrock API key not configured");
+    }
+
+    const model = (await getSetting("bedrock_model")) ?? DEFAULT_MODELS.bedrock;
+    const cacheKey = `${apiKey}|${region}|${model}`;
+
+    if (cachedProvider && cachedProvider.name === "bedrock" && cachedProvider.key === cacheKey) {
+      return cachedProvider.client;
+    }
+
+    const client = createBedrockProvider(apiKey, region, model);
+    cachedProvider = { name: "bedrock", key: cacheKey, client };
     return client;
   }
 
@@ -85,6 +115,11 @@ export async function isAiAvailable(): Promise<boolean> {
       return !!serverUrl;
     }
 
+    if (providerName === "bedrock") {
+      const apiKey = await getSecureSetting("bedrock_api_key");
+      return !!apiKey;
+    }
+
     const keySetting = API_KEY_SETTINGS[providerName];
     const key = await getSecureSetting(keySetting);
     return !!key;
@@ -100,4 +135,5 @@ export function clearProviderClients(): void {
   clearGeminiProvider();
   clearOllamaProvider();
   clearCopilotProvider();
+  clearBedrockProvider();
 }

@@ -112,7 +112,7 @@ export function SettingsPage() {
   const [phishingDetectionEnabled, setPhishingDetectionEnabled] = useState(true);
   const [phishingSensitivity, setPhishingSensitivity] = useState<"low" | "default" | "high">("default");
   const [autostartEnabled, setAutostartEnabled] = useState(false);
-  const [aiProvider, setAiProvider] = useState<"claude" | "openai" | "gemini" | "ollama" | "copilot">("claude");
+  const [aiProvider, setAiProvider] = useState<"claude" | "openai" | "gemini" | "ollama" | "copilot" | "bedrock">("claude");
   const [claudeApiKey, setClaudeApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
@@ -123,12 +123,16 @@ export function SettingsPage() {
   const [openaiModel, setOpenaiModel] = useState("gpt-4o-mini");
   const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash-preview-05-20");
   const [copilotModel, setCopilotModel] = useState("openai/gpt-4o-mini");
+  const [bedrockApiKey, setBedrockApiKey] = useState("");
+  const [bedrockRegion, setBedrockRegion] = useState("us-east-1");
+  const [bedrockModel, setBedrockModel] = useState("us.anthropic.claude-sonnet-4-6");
   const [aiEnabled, setAiEnabled] = useState(true);
   const [aiAutoCategorize, setAiAutoCategorize] = useState(true);
   const [aiAutoSummarize, setAiAutoSummarize] = useState(true);
   const [aiKeySaved, setAiKeySaved] = useState(false);
   const [aiTesting, setAiTesting] = useState(false);
   const [aiTestResult, setAiTestResult] = useState<"success" | "fail" | null>(null);
+  const [aiTestError, setAiTestError] = useState<string | null>(null);
   const [aiAutoDraftEnabled, setAiAutoDraftEnabled] = useState(true);
   const [aiWritingStyleEnabled, setAiWritingStyleEnabled] = useState(true);
   const [styleAnalyzing, setStyleAnalyzing] = useState(false);
@@ -174,7 +178,7 @@ export function SettingsPage() {
 
       // Load AI settings
       const provider = await getSetting("ai_provider");
-      if (provider === "openai" || provider === "gemini" || provider === "ollama" || provider === "copilot") setAiProvider(provider);
+      if (provider === "openai" || provider === "gemini" || provider === "ollama" || provider === "copilot" || provider === "bedrock") setAiProvider(provider);
       const ollamaUrl = await getSetting("ollama_server_url");
       if (ollamaUrl) setOllamaServerUrl(ollamaUrl);
       const ollamaModelVal = await getSetting("ollama_model");
@@ -195,6 +199,12 @@ export function SettingsPage() {
       setCopilotApiKey(copKey ?? "");
       const copilotModelVal = await getSetting("copilot_model");
       if (copilotModelVal) setCopilotModel(copilotModelVal);
+      const bedrockKey = await getSecureSetting("bedrock_api_key");
+      setBedrockApiKey(bedrockKey ?? "");
+      const bedrockReg = await getSetting("bedrock_region");
+      if (bedrockReg) setBedrockRegion(bedrockReg);
+      const bedrockModelVal = await getSetting("bedrock_model");
+      if (bedrockModelVal) setBedrockModel(bedrockModelVal);
       const aiEn = await getSetting("ai_enabled");
       setAiEnabled(aiEn !== "false");
       const aiCat = await getSetting("ai_auto_categorize");
@@ -1047,7 +1057,7 @@ export function SettingsPage() {
                       <select
                         value={aiProvider}
                         onChange={async (e) => {
-                          const val = e.target.value as "claude" | "openai" | "gemini" | "ollama" | "copilot";
+                          const val = e.target.value as "claude" | "openai" | "gemini" | "ollama" | "copilot" | "bedrock";
                           setAiProvider(val);
                           setAiTestResult(null);
                           await setSetting("ai_provider", val);
@@ -1061,6 +1071,7 @@ export function SettingsPage() {
                         <option value="gemini">Gemini (Google)</option>
                         <option value="ollama">Local AI (Ollama / LMStudio)</option>
                         <option value="copilot">GitHub Copilot</option>
+                        <option value="bedrock">Amazon Bedrock</option>
                       </select>
                     </SettingRow>
                     <p className="text-xs text-text-tertiary">
@@ -1069,6 +1080,7 @@ export function SettingsPage() {
                       {aiProvider === "gemini" && `Uses ${PROVIDER_MODELS.gemini.find((m) => m.id === geminiModel)?.label ?? geminiModel}.`}
                       {aiProvider === "ollama" && "Connect to a local Ollama or LMStudio server. No API key required."}
                       {aiProvider === "copilot" && `Uses ${PROVIDER_MODELS.copilot.find((m) => m.id === copilotModel)?.label ?? copilotModel}. Requires a GitHub PAT with models:read permission.`}
+                      {aiProvider === "bedrock" && `Uses ${bedrockModel}. Requires a Bedrock API key with InvokeModel access to the model.`}
                     </p>
                   </Section>
 
@@ -1133,6 +1145,87 @@ export function SettingsPage() {
                             <span className="text-xs text-danger">Connection failed</span>
                           )}
                         </div>
+                      </div>
+                    </Section>
+                  ) : aiProvider === "bedrock" ? (
+                    <Section title="API Key">
+                      <div className="space-y-3">
+                        <TextField
+                          label="Bedrock API Key"
+                          size="md"
+                          type="password"
+                          value={bedrockApiKey}
+                          onChange={(e) => setBedrockApiKey(e.target.value)}
+                          placeholder="••••••••"
+                        />
+                        <TextField
+                          label="Region"
+                          size="md"
+                          value={bedrockRegion}
+                          onChange={(e) => setBedrockRegion(e.target.value)}
+                          placeholder="us-east-1"
+                        />
+                        <TextField
+                          label="Model ID"
+                          size="md"
+                          value={bedrockModel}
+                          onChange={(e) => setBedrockModel(e.target.value)}
+                          placeholder="us.anthropic.claude-sonnet-4-6"
+                        />
+                        <p className="text-xs text-text-tertiary">
+                          Use the Bedrock model ID or inference-profile ID, e.g. <code>us.anthropic.claude-sonnet-4-6</code> or <code>us.anthropic.claude-opus-4-8</code>. The <code>us.</code> profiles require a US region; match the prefix (<code>eu.</code>, <code>apac.</code>) to your region. The model must be enabled under Bedrock → Model access.
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="primary"
+                            size="md"
+                            onClick={async () => {
+                              await setSecureSetting("bedrock_api_key", bedrockApiKey.trim());
+                              await setSetting("bedrock_region", bedrockRegion.trim());
+                              await setSetting("bedrock_model", bedrockModel);
+                              const { clearProviderClients } = await import("@/services/ai/providerManager");
+                              clearProviderClients();
+                              setAiKeySaved(true);
+                              setTimeout(() => setAiKeySaved(false), 2000);
+                            }}
+                            disabled={!bedrockApiKey.trim() || !bedrockRegion.trim()}
+                          >
+                            {aiKeySaved ? "Saved!" : "Save"}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="md"
+                            onClick={async () => {
+                              setAiTesting(true);
+                              setAiTestResult(null);
+                              setAiTestError(null);
+                              try {
+                                const { testConnectionDetailed } = await import("@/services/ai/aiService");
+                                const result = await testConnectionDetailed();
+                                setAiTestResult(result.ok ? "success" : "fail");
+                                if (!result.ok && result.error) setAiTestError(result.error);
+                              } catch (err) {
+                                setAiTestResult("fail");
+                                setAiTestError(err instanceof Error ? err.message : String(err));
+                              } finally {
+                                setAiTesting(false);
+                              }
+                            }}
+                            disabled={!bedrockApiKey.trim() || !bedrockRegion.trim() || aiTesting}
+                            className="bg-bg-tertiary text-text-primary border border-border-primary"
+                          >
+                            {aiTesting ? "Testing..." : "Test Connection"}
+                          </Button>
+                          {aiTestResult === "success" && (
+                            <span className="text-xs text-success">Connected!</span>
+                          )}
+                          {aiTestResult === "fail" && (
+                            <span className="text-xs text-danger">Connection failed</span>
+                          )}
+                        </div>
+                        {aiTestResult === "fail" && aiTestError && (
+                          <p className="text-xs text-danger break-all whitespace-pre-wrap">{aiTestError}</p>
+                        )}
                       </div>
                     </Section>
                   ) : (

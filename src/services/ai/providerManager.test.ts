@@ -35,12 +35,18 @@ vi.mock("./providers/copilotProvider", () => ({
   clearCopilotProvider: vi.fn(),
 }));
 
+vi.mock("./providers/bedrockProvider", () => ({
+  createBedrockProvider: vi.fn(() => createMockAiProvider("bedrock response")),
+  clearBedrockProvider: vi.fn(),
+}));
+
 import { getSetting } from "@/services/db/settings";
 import { createClaudeProvider, clearClaudeProvider } from "./providers/claudeProvider";
 import { createOpenAIProvider } from "./providers/openaiProvider";
 import { createGeminiProvider } from "./providers/geminiProvider";
 import { createOllamaProvider } from "./providers/ollamaProvider";
 import { createCopilotProvider } from "./providers/copilotProvider";
+import { createBedrockProvider } from "./providers/bedrockProvider";
 import {
   getActiveProvider,
   getActiveProviderName,
@@ -80,6 +86,11 @@ describe("providerManager", () => {
     it("returns copilot when ai_provider is copilot", async () => {
       mockGetSetting.mockResolvedValue("copilot");
       expect(await getActiveProviderName()).toBe("copilot");
+    });
+
+    it("returns bedrock when ai_provider is bedrock", async () => {
+      mockGetSetting.mockResolvedValue("bedrock");
+      expect(await getActiveProviderName()).toBe("bedrock");
     });
 
     it("defaults to claude for unknown provider value", async () => {
@@ -191,6 +202,30 @@ describe("providerManager", () => {
       expect(createOllamaProvider).toHaveBeenCalledWith("http://localhost:11434", "llama3.2");
     });
 
+    it("creates bedrock provider with api key, default region and model", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_provider") return "bedrock";
+        if (key === "bedrock_api_key") return "bedrock_key_test";
+        return null;
+      });
+
+      await getActiveProvider();
+      expect(createBedrockProvider).toHaveBeenCalledWith(
+        "bedrock_key_test",
+        "us-east-1",
+        "us.anthropic.claude-sonnet-4-6",
+      );
+    });
+
+    it("throws NOT_CONFIGURED when bedrock api key is missing", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_provider") return "bedrock";
+        return null;
+      });
+
+      await expect(getActiveProvider()).rejects.toThrow("Bedrock API key not configured");
+    });
+
     it("throws NOT_CONFIGURED when API key is missing", async () => {
       mockGetSetting.mockImplementation(async (key: string) => {
         if (key === "ai_provider") return "openai";
@@ -294,6 +329,27 @@ describe("providerManager", () => {
       mockGetSetting.mockImplementation(async (key: string) => {
         if (key === "ai_enabled") return "true";
         if (key === "ai_provider") return "ollama";
+        return null;
+      });
+
+      expect(await isAiAvailable()).toBe(false);
+    });
+
+    it("returns true for bedrock when api key is configured", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_enabled") return "true";
+        if (key === "ai_provider") return "bedrock";
+        if (key === "bedrock_api_key") return "bedrock_key_test";
+        return null;
+      });
+
+      expect(await isAiAvailable()).toBe(true);
+    });
+
+    it("returns false for bedrock when api key is not configured", async () => {
+      mockGetSetting.mockImplementation(async (key: string) => {
+        if (key === "ai_enabled") return "true";
+        if (key === "ai_provider") return "bedrock";
         return null;
       });
 

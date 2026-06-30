@@ -243,3 +243,18 @@ export async function testConnection(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Like testConnection, but surfaces the underlying error message. Runs a minimal
+ * completion (which propagates provider errors) instead of the provider's
+ * boolean testConnection (which swallows them) so the UI can show what failed.
+ */
+export async function testConnectionDetailed(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const provider = await getActiveProvider();
+    await provider.complete({ systemPrompt: "", userContent: "Say hi", maxTokens: 10 });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
