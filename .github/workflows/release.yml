@@ -104,6 +104,37 @@ jobs:
           updaterJsonKeepUniversal: true
           args: ${{ matrix.args }}
 
+      # linuxdeploy-plugin-gtk bundles the build host's libwayland-client.so.0
+      # (Ubuntu 22.04 -> wayland 1.20). On newer distros this stale library is
+      # forced onto the host's Mesa libEGL, eglGetPlatformDisplay() fails with
+      # EGL_BAD_PARAMETER, WebKitGTK's render process aborts, and the app hangs
+      # on launch with no window. These libs are on the AppImage excludelist and
+      # must come from the host, so we strip them and repack, then replace the
+      # release asset. See scripts/patch-appimage.sh for details.
+      - name: Fix AppImage (strip host-incompatible Wayland libs)
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          INPUT_TAG: ${{ inputs.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          APPIMAGE=$(find src-tauri/target/release/bundle/appimage -maxdepth 1 -name '*.AppImage' | head -n1)
+          if [ -z "$APPIMAGE" ]; then
+            echo "No AppImage found under src-tauri/target/release/bundle/appimage; skipping."
+            exit 0
+          fi
+          bash scripts/patch-appimage.sh "$APPIMAGE"
+
+          TAG="${INPUT_TAG:-$RELEASE_TAG}"
+          if [ -n "$TAG" ]; then
+            echo "Replacing release asset on $TAG"
+            gh release upload "$TAG" "$APPIMAGE" --clobber --repo "$REPO"
+          else
+            echo "No release tag in context (local/dispatch build); AppImage patched but not re-uploaded."
+          fi
+
   build-macos:
     needs: test
     runs-on: macos-latest
