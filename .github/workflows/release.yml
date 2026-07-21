@@ -104,6 +104,39 @@ jobs:
           updaterJsonKeepUniversal: true
           args: ${{ matrix.args }}
 
+      # The AppImage bundled by linuxdeploy-plugin-gtk ships libraries/env that
+      # leak onto the host and break it on modern distros:
+      #   1. the build host's libwayland-client.so.0 forces EGL_BAD_PARAMETER in
+      #      WebKitGTK, so the app hangs on launch with no window;
+      #   2. spawned processes (the OAuth browser) inherit LD_LIBRARY_PATH and
+      #      load stale bundled libs, so xdg-open silently fails to open.
+      # patch-appimage.sh strips the excludelisted Wayland libs and installs an
+      # env-sanitizing xdg-open wrapper, then we replace the release asset.
+      # See scripts/patch-appimage.sh for details.
+      - name: Fix AppImage (Wayland libs + xdg-open wrapper)
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          INPUT_TAG: ${{ inputs.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          APPIMAGE=$(find src-tauri/target/release/bundle/appimage -maxdepth 1 -name '*.AppImage' | head -n1)
+          if [ -z "$APPIMAGE" ]; then
+            echo "No AppImage found under src-tauri/target/release/bundle/appimage; skipping."
+            exit 0
+          fi
+          bash scripts/patch-appimage.sh "$APPIMAGE"
+
+          TAG="${INPUT_TAG:-$RELEASE_TAG}"
+          if [ -n "$TAG" ]; then
+            echo "Replacing release asset on $TAG"
+            gh release upload "$TAG" "$APPIMAGE" --clobber --repo "$REPO"
+          else
+            echo "No release tag in context (local/dispatch build); AppImage patched but not re-uploaded."
+          fi
+
   build-macos:
     needs: test
     runs-on: macos-latest
