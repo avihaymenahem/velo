@@ -104,14 +104,16 @@ jobs:
           updaterJsonKeepUniversal: true
           args: ${{ matrix.args }}
 
-      # linuxdeploy-plugin-gtk bundles the build host's libwayland-client.so.0
-      # (Ubuntu 22.04 -> wayland 1.20). On newer distros this stale library is
-      # forced onto the host's Mesa libEGL, eglGetPlatformDisplay() fails with
-      # EGL_BAD_PARAMETER, WebKitGTK's render process aborts, and the app hangs
-      # on launch with no window. These libs are on the AppImage excludelist and
-      # must come from the host, so we strip them and repack, then replace the
-      # release asset. See scripts/patch-appimage.sh for details.
-      - name: Fix AppImage (strip host-incompatible Wayland libs)
+      # The AppImage bundled by linuxdeploy-plugin-gtk ships libraries/env that
+      # leak onto the host and break it on modern distros:
+      #   1. the build host's libwayland-client.so.0 forces EGL_BAD_PARAMETER in
+      #      WebKitGTK, so the app hangs on launch with no window;
+      #   2. spawned processes (the OAuth browser) inherit LD_LIBRARY_PATH and
+      #      load stale bundled libs, so xdg-open silently fails to open.
+      # patch-appimage.sh strips the excludelisted Wayland libs and installs an
+      # env-sanitizing xdg-open wrapper, then we replace the release asset.
+      # See scripts/patch-appimage.sh for details.
+      - name: Fix AppImage (Wayland libs + xdg-open wrapper)
         if: matrix.platform == 'ubuntu-22.04'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
