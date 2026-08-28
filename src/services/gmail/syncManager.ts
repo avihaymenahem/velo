@@ -10,7 +10,7 @@ import { ensureFreshToken } from "../oauth/oauthTokenManager";
 import { hasCalendarSupport, getCalendarProvider } from "../calendar/providerFactory";
 import { getVisibleCalendars, upsertCalendar, updateCalendarSyncToken } from "../db/calendars";
 import { upsertCalendarEvent, deleteEventByRemoteId } from "../db/calendarEvents";
-import { mineContactsForAccount } from "../contacts/contactMining";
+import { mineContactsForAllAccounts } from "../contacts/contactMining";
 
 const SYNC_INTERVAL_MS = 60_000; // 60 seconds — delta syncs are lightweight (single API call when idle)
 
@@ -35,6 +35,11 @@ export type SyncStatusCallback = (
 ) => void;
 
 let statusCallback: SyncStatusCallback | null = null;
+
+/** True while a sync pass is running (used by background tasks to yield). */
+export function isSyncInProgress(): boolean {
+  return syncPromise !== null;
+}
 
 export function onSyncStatus(cb: SyncStatusCallback): () => void {
   statusCallback = cb;
@@ -244,12 +249,6 @@ async function syncAccountInternal(accountId: string): Promise<void> {
     syncCalendarForAccount(accountId).catch((err) => {
       console.warn(`[syncManager] Calendar sync error for ${accountId}:`, err);
     });
-
-    // Mine newly synced messages into contacts for recipient autocomplete
-    // (non-blocking — incremental via per-account watermark)
-    mineContactsForAccount(accountId).catch((err) => {
-      console.warn(`[syncManager] Contact mining error for ${accountId}:`, err);
-    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err ?? "Unknown error");
     console.error(`[syncManager] Sync failed for account ${accountId}:`, message);
@@ -280,6 +279,13 @@ async function runSync(accountIds: string[]): Promise<void> {
       const queued = pendingAccountIds;
       pendingAccountIds = null;
       await runSync(queued);
+    } else {
+      // Mine newly synced messages into contacts for recipient autocomplete.
+      // Runs only once no sync is in flight and yields if another one starts,
+      // so mining never competes with sync for the write lock.
+      mineContactsForAllAccounts({ shouldYield: () => syncPromise !== null }).catch((err) => {
+        console.warn("[syncManager] Contact mining error:", err);
+      });
     }
   })();
 

@@ -16,7 +16,7 @@ const WATERMARK_KEY_PREFIX = "contacts_mined_rowid:";
  */
 const MINING_WINDOW = 20_000;
 
-/** Multi-row upsert chunk size: 4 params per row, safely under SQLite's 999 limit. */
+/** Multi-row upsert chunk size: 5 params per row, safely under SQLite's 999 limit. */
 const UPSERT_CHUNK_SIZE = 100;
 
 interface MinedContact {
@@ -24,6 +24,15 @@ interface MinedContact {
   name: string | null;
   count: number;
   lastDate: number;
+}
+
+export interface MiningOptions {
+  /**
+   * Checked before each window; when it returns true, mining stops early
+   * (already-completed windows keep their watermark, so the next run resumes).
+   * Used to yield to an in-flight sync instead of competing for the write lock.
+   */
+  shouldYield?: () => boolean;
 }
 
 /**
@@ -38,7 +47,11 @@ interface MinedContact {
  *
  * Returns the number of source messages scanned.
  */
-export async function mineContactsForAccount(accountId: string): Promise<number> {
+export async function mineContactsForAccount(
+  accountId: string,
+  opts?: MiningOptions,
+): Promise<number> {
+  if (opts?.shouldYield?.()) return 0;
   const db = await getDb();
   const watermarkKey = `${WATERMARK_KEY_PREFIX}${accountId}`;
   let since = parseInt((await getSetting(watermarkKey)) ?? "0", 10) || 0;
@@ -56,6 +69,7 @@ export async function mineContactsForAccount(accountId: string): Promise<number>
   const selfEmails = await getSelfEmails(accountId);
 
   while (since < maxRowid) {
+    if (opts?.shouldYield?.()) break;
     const windowEnd = Math.min(since + MINING_WINDOW, maxRowid);
 
     // Pass B read happens outside the transaction; only writes go inside.
@@ -77,12 +91,13 @@ export async function mineContactsForAccount(accountId: string): Promise<number>
 }
 
 /** Mine contacts for every account. Intended to be fire-and-forget. */
-export async function mineContactsForAllAccounts(): Promise<void> {
+export async function mineContactsForAllAccounts(opts?: MiningOptions): Promise<void> {
   const accounts = await getAllAccounts();
   for (const account of accounts) {
     if (account.provider === "caldav") continue;
+    if (opts?.shouldYield?.()) return;
     try {
-      await mineContactsForAccount(account.id);
+      await mineContactsForAccount(account.id, opts);
     } catch (err) {
       console.warn(`[contactMining] Mining failed for account ${account.id}:`, err);
     }
@@ -214,8 +229,8 @@ async function upsertMinedContacts(tx: Database, contacts: MinedContact[]): Prom
     const chunk = contacts.slice(i, i + UPSERT_CHUNK_SIZE);
     const values = chunk
       .map((_, idx) => {
-        const base = idx * 4;
-        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, unixepoch(), unixepoch())`;
+        const base = idx * 5;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, unixepoch(), unixepoch())`;
       })
       .join(", ");
     const params = chunk.flatMap((c) => [
@@ -223,23 +238,17 @@ async function upsertMinedContacts(tx: Database, contacts: MinedContact[]): Prom
       c.email,
       c.name,
       c.count,
+      c.lastDate,
     ]);
     await tx.execute(
-      `INSERT INTO contacts (id, email, display_name, frequency, created_at, updated_at)
+      `INSERT INTO contacts (id, email, display_name, frequency, last_contacted_at, created_at, updated_at)
        VALUES ${values}
        ON CONFLICT(email) DO UPDATE SET
-         display_name = COALESCE(contacts.display_name, excluded.display_name),
-         frequency    = contacts.frequency + excluded.frequency,
-         updated_at   = unixepoch()`,
+         display_name      = COALESCE(contacts.display_name, excluded.display_name),
+         frequency         = contacts.frequency + excluded.frequency,
+         last_contacted_at = max(COALESCE(contacts.last_contacted_at, 0), excluded.last_contacted_at),
+         updated_at        = unixepoch()`,
       params,
-    );
-  }
-  // Bump last_contacted_at separately — the VALUES upsert can't express a
-  // per-row max() against the existing column without another param per row.
-  for (const c of contacts) {
-    await tx.execute(
-      `UPDATE contacts SET last_contacted_at = max(COALESCE(last_contacted_at, 0), $1) WHERE email = $2`,
-      [c.lastDate, c.email],
     );
   }
 }

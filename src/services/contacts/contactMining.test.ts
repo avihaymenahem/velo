@@ -109,13 +109,33 @@ describe("contactMining", () => {
       .mocked(mockDb.execute)
       .mock.calls.find(([sql]) => String(sql).includes("VALUES") && String(sql).includes("ON CONFLICT(email)"));
     expect(insertCall).toBeDefined();
-    const [, params] = insertCall as unknown as [string, unknown[]];
+    const [insertSql, params] = insertCall as unknown as [string, unknown[]];
     // john (count 2, name from parse) and kate present; noreply + self excluded
     expect(params).toContain("john@example.com");
     expect(params).toContain("kate@example.com");
     expect(params).toContain("Doe, John");
     expect(params).not.toContain("noreply@example.com");
     expect(params).not.toContain("me@example.com");
+    // last_contacted_at rides in the same statement — no per-row UPDATE loop
+    expect(insertSql).toContain("excluded.last_contacted_at");
+    expect(params).toContain(2000);
+  });
+
+  it("yields to sync between windows and keeps completed watermarks", async () => {
+    // 30k rows pending -> two windows, but shouldYield turns true after the first
+    const shouldYield = vi.fn()
+      .mockReturnValueOnce(false) // initial check
+      .mockReturnValueOnce(false) // window 1
+      .mockReturnValueOnce(true); // window 2 -> stop
+    mockDb.select
+      .mockResolvedValueOnce([{ max_rowid: 30000, cnt: 30000 }] as never)
+      .mockResolvedValueOnce([] as never); // window 1 sent-mail query
+
+    await mineContactsForAccount("acct-1", { shouldYield });
+
+    expect(withTransaction).toHaveBeenCalledTimes(1);
+    expect(setSetting).toHaveBeenCalledTimes(1);
+    expect(setSetting).toHaveBeenCalledWith("contacts_mined_rowid:acct-1", "20000");
   });
 
   it("does not advance the watermark when a window's writes fail", async () => {

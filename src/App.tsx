@@ -19,6 +19,7 @@ import {
   syncAccount,
   triggerSync,
   onSyncStatus,
+  isSyncInProgress,
 } from "./services/gmail/syncManager";
 import { initializeClients } from "./services/gmail/tokenManager";
 import { mineContactsForAllAccounts } from "./services/contacts/contactMining";
@@ -329,8 +330,9 @@ export default function App() {
         }
 
         // Mine contacts from already-synced mail for recipient autocomplete
-        // (fire-and-forget — incremental via per-account watermark)
-        mineContactsForAllAccounts().catch((err) => {
+        // (fire-and-forget — incremental via per-account watermark; yields to
+        // sync and is re-run by the sync manager when each sync pass finishes)
+        mineContactsForAllAccounts({ shouldYield: isSyncInProgress }).catch((err) => {
           console.warn("[contacts] Contact mining failed:", err);
         });
 
