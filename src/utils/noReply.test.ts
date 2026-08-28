@@ -1,4 +1,4 @@
-import { isNoReplyAddress } from "./noReply";
+import { isNoReplyAddress, isUnmailableAddress } from "./noReply";
 
 describe("isNoReplyAddress", () => {
   it("returns true for common no-reply patterns", () => {
@@ -27,5 +27,28 @@ describe("isNoReplyAddress", () => {
     expect(isNoReplyAddress(null)).toBe(false);
     expect(isNoReplyAddress(undefined)).toBe(false);
     expect(isNoReplyAddress("")).toBe(false);
+  });
+});
+
+describe("isUnmailableAddress", () => {
+  it("prefix-matches automated senders with suffixes", () => {
+    expect(isUnmailableAddress("no-reply-abc123@example.com")).toBe(true);
+    expect(isUnmailableAddress("noreply+tag@example.com")).toBe(true);
+    expect(isUnmailableAddress("bounce+xyz@mailer.example.com")).toBe(true);
+    expect(isUnmailableAddress("bounces-42@list.example.com")).toBe(true);
+    expect(isUnmailableAddress("postmaster@example.com")).toBe(true);
+    expect(isUnmailableAddress("mailer-daemon@gmail.com")).toBe(true);
+  });
+
+  it("returns false for regular addresses", () => {
+    expect(isUnmailableAddress("john@example.com")).toBe(false);
+    expect(isUnmailableAddress("replyall@example.com")).toBe(false);
+    expect(isUnmailableAddress("hello@noreply.com")).toBe(false);
+  });
+
+  it("returns false for null/undefined/empty", () => {
+    expect(isUnmailableAddress(null)).toBe(false);
+    expect(isUnmailableAddress(undefined)).toBe(false);
+    expect(isUnmailableAddress("")).toBe(false);
   });
 });

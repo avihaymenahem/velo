@@ -19,8 +19,10 @@ import {
   syncAccount,
   triggerSync,
   onSyncStatus,
+  isSyncInProgress,
 } from "./services/gmail/syncManager";
 import { initializeClients } from "./services/gmail/tokenManager";
+import { mineContactsForAllAccounts } from "./services/contacts/contactMining";
 import {
   startSnoozeChecker,
   stopSnoozeChecker,
@@ -326,6 +328,13 @@ export default function App() {
         if (activeIds.length > 0) {
           startBackgroundSync(activeIds);
         }
+
+        // Mine contacts from already-synced mail for recipient autocomplete
+        // (fire-and-forget — incremental via per-account watermark; yields to
+        // sync and is re-run by the sync manager when each sync pass finishes)
+        mineContactsForAllAccounts({ shouldYield: isSyncInProgress }).catch((err) => {
+          console.warn("[contacts] Contact mining failed:", err);
+        });
 
         // Start snooze, scheduled send, follow-up, bundle, and queue checkers
         startSnoozeChecker();
