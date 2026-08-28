@@ -51,6 +51,7 @@ import {
   spamThread,
   moveThread,
   executeEmailAction,
+  manuallyUnreadThreadIds,
 } from "./emailActions";
 import { navigateToThread, getSelectedThreadId } from "@/router/navigate";
 import { createMockEmailProvider, createMockUIStoreState, createMockThreadStoreState } from "@/test/mocks";
@@ -98,6 +99,14 @@ describe("emailActions", () => {
       expect(result.success).toBe(true);
       expect(mockUpdateThread).toHaveBeenCalledWith("t1", { isRead: true });
       expect(mockProvider.markRead).toHaveBeenCalledWith("t1", ["m1"], true);
+    });
+
+    it("tracks manually-unread thread ids across markRead calls", async () => {
+      await markThreadRead("acct-1", "t1", [], false);
+      expect(manuallyUnreadThreadIds.has("t1")).toBe(true);
+
+      await markThreadRead("acct-1", "t1", [], true);
+      expect(manuallyUnreadThreadIds.has("t1")).toBe(false);
     });
 
     it("reports spam via provider", async () => {

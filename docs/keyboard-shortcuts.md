@@ -31,6 +31,7 @@ Velo is designed to be used entirely from the keyboard. All shortcuts are custom
 | `f` | Forward |
 | `e` | Archive |
 | `s` | Star / unstar |
+| `n` | Mark as read / unread |
 | `p` | Pin / unpin |
 | `m` | Mute / unmute thread |
 | `#` | Trash (permanent delete if already in trash) |

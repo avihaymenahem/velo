@@ -7,7 +7,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useThreadStore, type Thread } from "@/stores/threadStore";
 import { useComposerStore } from "@/stores/composerStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
-import { markThreadRead } from "@/services/emailActions";
+import { markThreadRead, manuallyUnreadThreadIds } from "@/services/emailActions";
 import { getSetting } from "@/services/db/settings";
 import { getAllowlistedSenders } from "@/services/db/imageAllowlist";
 import { VolumeX } from "lucide-react";
@@ -109,6 +109,8 @@ export function ThreadView({ thread }: ThreadViewProps) {
   useEffect(() => {
     if (!activeAccountId || thread.isRead || markedReadRef.current === thread.id) return;
     if (markAsReadBehavior === "manual") return;
+    // Don't undo an explicit "mark unread" on the open thread.
+    if (manuallyUnreadThreadIds.has(thread.id)) return;
 
     const markRead = () => {
       markedReadRef.current = thread.id;

@@ -5,6 +5,7 @@ import { useComposerStore } from "@/stores/composerStore";
 import { useThreadStore } from "@/stores/threadStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { getGmailClient } from "@/services/gmail/tokenManager";
+import { markThreadRead } from "@/services/emailActions";
 import { getTemplatesForAccount, type DbTemplate } from "@/services/db/templates";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { navigateToLabel, navigateBack, getSelectedThreadId } from "@/router/navigate";
@@ -52,6 +53,19 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     // Actions
     { id: "compose", label: "Compose New Email", shortcut: "c", category: "Actions", action: () => { openComposer(); onClose(); } },
     { id: "deselect", label: "Close Thread", shortcut: "Esc", category: "Actions", action: () => { navigateBack(); onClose(); } },
+    { id: "toggle-read", label: "Mark as Read / Unread", shortcut: "n", category: "Actions", action: async () => {
+      onClose();
+      const selectedId = getSelectedThreadId();
+      const accountId = useAccountStore.getState().activeAccountId;
+      if (!selectedId || !accountId) return;
+      const thread = useThreadStore.getState().threads.find((t) => t.id === selectedId);
+      if (!thread) return;
+      try {
+        await markThreadRead(accountId, selectedId, [], !thread.isRead);
+      } catch (err) {
+        console.error("Toggle read action failed:", err);
+      }
+    } },
     { id: "spam", label: activeLabel === "spam" ? "Not Spam" : "Report Spam", shortcut: "!", category: "Actions", action: async () => {
       onClose();
       const selectedId = getSelectedThreadId();

@@ -6,7 +6,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { navigateToLabel, navigateToThread, navigateBack, getActiveLabel, getSelectedThreadId } from "@/router/navigate";
-import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread } from "@/services/emailActions";
+import { archiveThread, trashThread, permanentDeleteThread, starThread, spamThread, markThreadRead } from "@/services/emailActions";
 import { deleteThread as deleteThreadFromDb, pinThread as pinThreadDb, unpinThread as unpinThreadDb, muteThread as muteThreadDb, unmuteThread as unmuteThreadDb } from "@/services/db/threads";
 import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
 import { getGmailClient } from "@/services/gmail/tokenManager";
@@ -58,6 +58,10 @@ function buildReverseMap(keyMap: Record<string, string>): {
       twoKeySequences.set(secondKey, id);
     } else if (keys.includes("+") && (keys.includes("Ctrl") || keys.includes("Cmd"))) {
       ctrlCombos.set(id, keys);
+    } else if (keys.startsWith("Shift+") && keys.length === 7) {
+      // Shift-modified characters are matched via e.key (the produced character,
+      // e.g. "U"), so normalize "Shift+u" / "Shift+U" bindings to the uppercase char.
+      singleKey.set(keys[6]!.toUpperCase(), id);
     } else {
       singleKey.set(keys, id);
     }
@@ -358,6 +362,23 @@ async function executeAction(actionId: string): Promise<void> {
           await starThread(activeAccountId, selectedId, [], !thread.isStarred);
         }
       }
+      break;
+    }
+    case "action.toggleRead": {
+      if (!activeAccountId) break;
+      const multiReadIds = useThreadStore.getState().selectedThreadIds;
+      const readIds = multiReadIds.size > 0 ? [...multiReadIds] : selectedId ? [selectedId] : [];
+      const targets = readIds
+        .map((id) => threads.find((t) => t.id === id))
+        .filter((t): t is NonNullable<typeof t> => Boolean(t));
+      if (targets.length === 0) break;
+      // Uniform toggle: if any target is unread, mark all read; otherwise mark all unread.
+      const nextRead = targets.some((t) => !t.isRead);
+      await Promise.all(
+        targets
+          .filter((t) => t.isRead !== nextRead)
+          .map((t) => markThreadRead(activeAccountId, t.id, [], nextRead)),
+      );
       break;
     }
     case "action.spam": {
