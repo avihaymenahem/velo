@@ -21,6 +21,7 @@ import {
   onSyncStatus,
 } from "./services/gmail/syncManager";
 import { initializeClients } from "./services/gmail/tokenManager";
+import { mineContactsForAllAccounts } from "./services/contacts/contactMining";
 import {
   startSnoozeChecker,
   stopSnoozeChecker,
@@ -326,6 +327,12 @@ export default function App() {
         if (activeIds.length > 0) {
           startBackgroundSync(activeIds);
         }
+
+        // Mine contacts from already-synced mail for recipient autocomplete
+        // (fire-and-forget — incremental via per-account watermark)
+        mineContactsForAllAccounts().catch((err) => {
+          console.warn("[contacts] Contact mining failed:", err);
+        });
 
         // Start snooze, scheduled send, follow-up, bundle, and queue checkers
         startSnoozeChecker();

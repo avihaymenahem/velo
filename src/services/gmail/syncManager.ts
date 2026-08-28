@@ -10,6 +10,7 @@ import { ensureFreshToken } from "../oauth/oauthTokenManager";
 import { hasCalendarSupport, getCalendarProvider } from "../calendar/providerFactory";
 import { getVisibleCalendars, upsertCalendar, updateCalendarSyncToken } from "../db/calendars";
 import { upsertCalendarEvent, deleteEventByRemoteId } from "../db/calendarEvents";
+import { mineContactsForAccount } from "../contacts/contactMining";
 
 const SYNC_INTERVAL_MS = 60_000; // 60 seconds — delta syncs are lightweight (single API call when idle)
 
@@ -242,6 +243,12 @@ async function syncAccountInternal(accountId: string): Promise<void> {
     // Sync calendar alongside email (non-blocking — calendar errors don't affect email sync)
     syncCalendarForAccount(accountId).catch((err) => {
       console.warn(`[syncManager] Calendar sync error for ${accountId}:`, err);
+    });
+
+    // Mine newly synced messages into contacts for recipient autocomplete
+    // (non-blocking — incremental via per-account watermark)
+    mineContactsForAccount(accountId).catch((err) => {
+      console.warn(`[syncManager] Contact mining error for ${accountId}:`, err);
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err ?? "Unknown error");
