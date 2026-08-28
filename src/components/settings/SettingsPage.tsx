@@ -1875,10 +1875,14 @@ function ShortcutsTab() {
     const parts: string[] = [];
     if (e.ctrlKey || e.metaKey) parts.push("Ctrl");
     if (e.altKey) parts.push("Alt");
-    if (e.shiftKey) parts.push("Shift");
 
     const key = e.key;
     if (key === "Control" || key === "Meta" || key === "Shift" || key === "Alt") return;
+
+    // Shift-only single-character bindings are stored as the produced character
+    // (e.g. "U", "#", "!") because dispatch matches on e.key — a "Shift+" prefix
+    // would never fire. Keep Shift in the prefix only alongside Ctrl/Alt.
+    if (e.shiftKey && (parts.length > 0 || key.length > 1)) parts.push("Shift");
 
     if (parts.length > 0) {
       parts.push(key.length === 1 ? key.toUpperCase() : key);

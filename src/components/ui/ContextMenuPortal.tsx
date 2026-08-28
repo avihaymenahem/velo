@@ -321,10 +321,16 @@ function ThreadMenu({
   };
 
   const handleToggleRead = async () => {
-    for (const id of targetIds) {
-      const t = threads.find((th) => th.id === id);
-      if (!t) continue;
-      await markThreadRead(activeAccountId, id, [], !t.isRead);
+    const targets = targetIds
+      .map((id) => threads.find((th) => th.id === id))
+      .filter((t): t is NonNullable<typeof t> => Boolean(t));
+    if (targets.length === 0) return;
+    // Uniform toggle across the selection: any unread -> mark all read, else all unread.
+    const nextRead = targets.some((t) => !t.isRead);
+    for (const t of targets) {
+      if (t.isRead !== nextRead) {
+        await markThreadRead(activeAccountId, t.id, [], nextRead);
+      }
     }
   };
 
@@ -477,6 +483,7 @@ function ThreadMenu({
       id: "toggle-read",
       label: isRead ? "Mark as Unread" : "Mark as Read",
       icon: isRead ? Mail : MailOpen,
+      shortcut: "n",
       action: handleToggleRead,
     },
     {
