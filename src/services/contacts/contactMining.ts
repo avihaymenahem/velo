@@ -1,4 +1,5 @@
 import { getDb, withTransaction } from "@/services/db/connection";
+import type Database from "@tauri-apps/plugin-sql";
 import { getSetting, setSetting } from "@/services/db/settings";
 import { getAllAccounts } from "@/services/db/accounts";
 import { getAliasesForAccount } from "@/services/db/sendAsAliases";
@@ -7,6 +8,13 @@ import { isUnmailableAddress, UNMAILABLE_PREFIXES } from "@/utils/noReply";
 import { normalizeEmail } from "@/utils/emailUtils";
 
 const WATERMARK_KEY_PREFIX = "contacts_mined_rowid:";
+
+/**
+ * Rowids processed per transaction. Mining runs concurrently with sync, so
+ * each window's writes must be short — a single full-mailbox scan holds the
+ * write lock long enough for sync's writes to fail with SQLITE_BUSY.
+ */
+const MINING_WINDOW = 20_000;
 
 /** Multi-row upsert chunk size: 4 params per row, safely under SQLite's 999 limit. */
 const UPSERT_CHUNK_SIZE = 100;
@@ -23,21 +31,23 @@ interface MinedContact {
  *
  * Incremental via a per-account rowid watermark (rowid is monotonic on insert,
  * so back-dated messages pulled in by a folder backfill are still picked up —
- * a date watermark would skip them). Runs in the background off the render
- * path; safe to re-run at any time.
+ * a date watermark would skip them). Work is windowed by rowid range with each
+ * window's writes inside withTransaction, serializing against the app's other
+ * transactions and keeping write locks short; the watermark advances per
+ * window, so an interrupted run resumes where it left off.
  *
  * Returns the number of source messages scanned.
  */
 export async function mineContactsForAccount(accountId: string): Promise<number> {
   const db = await getDb();
   const watermarkKey = `${WATERMARK_KEY_PREFIX}${accountId}`;
-  const sinceRowid = parseInt((await getSetting(watermarkKey)) ?? "0", 10) || 0;
+  let since = parseInt((await getSetting(watermarkKey)) ?? "0", 10) || 0;
 
   // Capture the upper bound before mining so rows inserted by a concurrent
   // sync are never skipped — they'll be picked up by the next run.
   const maxRows = await db.select<Array<{ max_rowid: number | null; cnt: number }>>(
     "SELECT MAX(rowid) AS max_rowid, COUNT(*) AS cnt FROM messages WHERE account_id = $1 AND rowid > $2",
-    [accountId, sinceRowid],
+    [accountId, since],
   );
   const maxRowid = maxRows[0]?.max_rowid;
   const scanned = maxRows[0]?.cnt ?? 0;
@@ -45,13 +55,24 @@ export async function mineContactsForAccount(accountId: string): Promise<number>
 
   const selfEmails = await getSelfEmails(accountId);
 
-  await mineSenders(accountId, sinceRowid, maxRowid, selfEmails);
-  await mineSentRecipients(accountId, sinceRowid, maxRowid, selfEmails);
+  while (since < maxRowid) {
+    const windowEnd = Math.min(since + MINING_WINDOW, maxRowid);
 
-  // Only advance the watermark once both passes succeed. If this write fails,
-  // the next run re-mines the same window and double-counts frequency there —
-  // harmless (frequency only affects suggestion ordering).
-  await setSetting(watermarkKey, String(maxRowid));
+    // Pass B read happens outside the transaction; only writes go inside.
+    const mined = await collectSentRecipients(accountId, since, windowEnd, selfEmails);
+
+    await withTransaction(async (tx) => {
+      await mineSenders(tx, accountId, since, windowEnd, selfEmails);
+      await upsertMinedContacts(tx, mined);
+    });
+
+    // Advance the watermark after each successful window. If a write fails,
+    // the next run re-mines only the failed window and double-counts
+    // frequency there — harmless (frequency only affects suggestion ordering).
+    await setSetting(watermarkKey, String(windowEnd));
+    since = windowEnd;
+  }
+
   return scanned;
 }
 
@@ -86,16 +107,16 @@ async function getSelfEmails(accountId: string): Promise<Set<string>> {
 }
 
 /**
- * Pass A: aggregate senders of received mail in a single SQL statement.
+ * Pass A: aggregate senders of received mail in a single SQL statement
+ * over one rowid window.
  */
 async function mineSenders(
+  tx: Database,
   accountId: string,
   sinceRowid: number,
   maxRowid: number,
   selfEmails: Set<string>,
 ): Promise<void> {
-  const db = await getDb();
-
   // Build the unmailable-prefix exclusion from the shared pattern list so
   // SQL and JS filtering stay in sync (single source of truth in noReply.ts).
   const prefixClauses = UNMAILABLE_PREFIXES.map(
@@ -112,7 +133,7 @@ async function mineSenders(
   // Bare from_name alongside a single MAX(date) aggregate is defined behavior
   // in SQLite: bare columns come from the row that produced the extremum,
   // i.e. the display name of the most recent message from that sender.
-  await db.execute(
+  await tx.execute(
     `INSERT INTO contacts (id, email, display_name, frequency, last_contacted_at, created_at, updated_at)
      SELECT
        lower(hex(randomblob(16))),
@@ -141,17 +162,18 @@ async function mineSenders(
 }
 
 /**
- * Pass B: mine To/Cc recipients of mail the user sent (highest-value contacts).
- * Headers are raw RFC-5322 address lists, so parsing happens in JS.
+ * Pass B (read half): parse To/Cc recipients of mail the user sent within one
+ * rowid window (highest-value contacts). Headers are raw RFC-5322 address
+ * lists, so parsing happens in JS.
  */
-async function mineSentRecipients(
+async function collectSentRecipients(
   accountId: string,
   sinceRowid: number,
   maxRowid: number,
   selfEmails: Set<string>,
-): Promise<void> {
+): Promise<MinedContact[]> {
+  if (selfEmails.size === 0) return [];
   const db = await getDb();
-  if (selfEmails.size === 0) return;
 
   const selfList = [...selfEmails];
   const selfPlaceholders = selfList.map((_, i) => `$${i + 4}`).join(", ");
@@ -162,7 +184,6 @@ async function mineSentRecipients(
        AND lower(trim(from_address)) IN (${selfPlaceholders})`,
     [accountId, sinceRowid, maxRowid, ...selfList],
   );
-  if (rows.length === 0) return;
 
   const mined = new Map<string, MinedContact>();
   for (const row of rows) {
@@ -182,41 +203,43 @@ async function mineSentRecipients(
       }
     }
   }
-  if (mined.size === 0) return;
+  return [...mined.values()];
+}
 
-  const contacts = [...mined.values()];
-  await withTransaction(async (tx) => {
-    for (let i = 0; i < contacts.length; i += UPSERT_CHUNK_SIZE) {
-      const chunk = contacts.slice(i, i + UPSERT_CHUNK_SIZE);
-      const values = chunk
-        .map((_, idx) => {
-          const base = idx * 4;
-          return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, unixepoch(), unixepoch())`;
-        })
-        .join(", ");
-      const params = chunk.flatMap((c) => [
-        crypto.randomUUID(),
-        c.email,
-        c.name,
-        c.count,
-      ]);
-      await tx.execute(
-        `INSERT INTO contacts (id, email, display_name, frequency, created_at, updated_at)
-         VALUES ${values}
-         ON CONFLICT(email) DO UPDATE SET
-           display_name = COALESCE(contacts.display_name, excluded.display_name),
-           frequency    = contacts.frequency + excluded.frequency,
-           updated_at   = unixepoch()`,
-        params,
-      );
-    }
-    // Bump last_contacted_at separately — the VALUES upsert can't express a
-    // per-row max() against the existing column without another param per row.
-    for (const c of contacts) {
-      await tx.execute(
-        `UPDATE contacts SET last_contacted_at = max(COALESCE(last_contacted_at, 0), $1) WHERE email = $2`,
-        [c.lastDate, c.email],
-      );
-    }
-  });
+/** Pass B (write half): chunked multi-row upsert of mined recipients. */
+async function upsertMinedContacts(tx: Database, contacts: MinedContact[]): Promise<void> {
+  if (contacts.length === 0) return;
+
+  for (let i = 0; i < contacts.length; i += UPSERT_CHUNK_SIZE) {
+    const chunk = contacts.slice(i, i + UPSERT_CHUNK_SIZE);
+    const values = chunk
+      .map((_, idx) => {
+        const base = idx * 4;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, unixepoch(), unixepoch())`;
+      })
+      .join(", ");
+    const params = chunk.flatMap((c) => [
+      crypto.randomUUID(),
+      c.email,
+      c.name,
+      c.count,
+    ]);
+    await tx.execute(
+      `INSERT INTO contacts (id, email, display_name, frequency, created_at, updated_at)
+       VALUES ${values}
+       ON CONFLICT(email) DO UPDATE SET
+         display_name = COALESCE(contacts.display_name, excluded.display_name),
+         frequency    = contacts.frequency + excluded.frequency,
+         updated_at   = unixepoch()`,
+      params,
+    );
+  }
+  // Bump last_contacted_at separately — the VALUES upsert can't express a
+  // per-row max() against the existing column without another param per row.
+  for (const c of contacts) {
+    await tx.execute(
+      `UPDATE contacts SET last_contacted_at = max(COALESCE(last_contacted_at, 0), $1) WHERE email = $2`,
+      [c.lastDate, c.email],
+    );
+  }
 }

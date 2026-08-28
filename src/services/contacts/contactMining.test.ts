@@ -118,7 +118,7 @@ describe("contactMining", () => {
     expect(params).not.toContain("me@example.com");
   });
 
-  it("does not advance the watermark when pass B fails", async () => {
+  it("does not advance the watermark when a window's writes fail", async () => {
     mockDb.select
       .mockResolvedValueOnce([{ max_rowid: 10, cnt: 1 }] as never)
       .mockResolvedValueOnce([
@@ -128,6 +128,29 @@ describe("contactMining", () => {
 
     await expect(mineContactsForAccount("acct-1")).rejects.toThrow("db locked");
     expect(setSetting).not.toHaveBeenCalled();
+  });
+
+  it("processes large backlogs in rowid windows with one transaction each", async () => {
+    // 30k rows pending -> two windows: (0, 20000], (20000, 30000]
+    mockDb.select
+      .mockResolvedValueOnce([{ max_rowid: 30000, cnt: 30000 }] as never)
+      .mockResolvedValueOnce([] as never) // window 1 sent-mail query
+      .mockResolvedValueOnce([] as never); // window 2 sent-mail query
+
+    await mineContactsForAccount("acct-1");
+
+    expect(withTransaction).toHaveBeenCalledTimes(2);
+    // Watermark advances after each window, making an interrupted run resumable
+    expect(setSetting).toHaveBeenNthCalledWith(1, "contacts_mined_rowid:acct-1", "20000");
+    expect(setSetting).toHaveBeenNthCalledWith(2, "contacts_mined_rowid:acct-1", "30000");
+    // Pass A is bounded to each window
+    const passACalls = vi
+      .mocked(mockDb.execute)
+      .mock.calls.filter(([sql]) => String(sql).includes("GROUP BY"));
+    expect(passACalls.map(([, params]) => (params as unknown[]).slice(1, 3))).toEqual([
+      [0, 20000],
+      [20000, 30000],
+    ]);
   });
 
   it("mineContactsForAllAccounts skips caldav accounts and swallows per-account errors", async () => {
