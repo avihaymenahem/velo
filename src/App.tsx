@@ -21,6 +21,7 @@ import {
   onSyncStatus,
 } from "./services/gmail/syncManager";
 import { initializeClients } from "./services/gmail/tokenManager";
+import { importGoogleContactsForAllAccounts } from "./services/contacts/googleContactsImport";
 import {
   startSnoozeChecker,
   stopSnoozeChecker,
@@ -326,6 +327,12 @@ export default function App() {
         if (activeIds.length > 0) {
           startBackgroundSync(activeIds);
         }
+
+        // Import Google address books into contacts for recipient autocomplete
+        // (fire-and-forget; self-throttled to once a day per account)
+        importGoogleContactsForAllAccounts().catch((err) => {
+          console.warn("[contacts] Google contacts import failed:", err);
+        });
 
         // Start snooze, scheduled send, follow-up, bundle, and queue checkers
         startSnoozeChecker();
